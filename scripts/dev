@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -e
+
+echo "== Calculator Dev Mode (auto-restart) =="
+
+
+# entr check
+# -----------------------------
+if ! command -v entr >/dev/null 2>&1; then
+  echo "entr not installed, installing..."
+
+  if command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y entr
+  elif command -v apt >/dev/null 2>&1; then
+    sudo apt install -y entr
+  else
+    echo "No supported package manager found. Install entr manually."
+    exit 1
+  fi
+else
+  echo "entr ready to use"
+fi
+
+# venv check
+# -----------------------------
+if [ ! -d "venv" ]; then
+  echo "Creating venv..."
+  python -m venv venv
+fi
+
+# venv
+# -----------------------------
+source venv/bin/activate
+
+# dependencies
+# -----------------------------
+if [ -f "requirements.txt" ]; then
+  echo "Installing/updating Python dependencies from requirements.txt..."
+  pip install -r requirements.txt
+else
+  echo "requirements.txt not found, skipping dependency install"
+fi
+
+# native core
+# -----------------------------
+if [ ! -f "calc_native.cpython-313-x86_64-linux-gnu.so" ]; then
+  python native/setup.py build_ext --inplace
+fi
+
+
+echo "Auto-restart enabled"
+
+# Hot reload
+# -----------------------------
+find src -name "*.py" -o -name "main.py" | entr -r python main.py

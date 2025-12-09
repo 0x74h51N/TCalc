@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel", "pybind11>=2.6.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "TCalc"
+version = "0.1.0"
+description = "Advanced calculator with expression parsing"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Tahsin Önemli", email = "tahsin.onemli90@gmail.com"}
+]
+keywords = ["calculator", "parser", "shunting-yard", "rpn", "gui"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10+",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+dependencies = [
+    "PySide6>=6.0.0",
+    "pybind11>=2.6.0",
+]
+
+
+[project.scripts]
+calculator = "src.main:main"
+
+[tool.setuptools]
+packages = ["src", "src.core", "src.ui", "src.ui.controller", "src.ui.display", "src.ui.keypad", "src.ui.manubar", "src.ui.manubar.menus"]
+include-package-data = true
+
+
