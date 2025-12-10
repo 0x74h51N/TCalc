@@ -13,5 +13,7 @@ PYBIND11_MODULE(calc_native, m) {
         .def("add", &Calculator::add)
         .def("sub", &Calculator::sub)
         .def("mul", &Calculator::mul)
-        .def("div", &Calculator::div);
+        .def("div", &Calculator::div)
+        .def("pow", &Calculator::pow)
+        .def("sqrt", &Calculator::sqrt);
 }

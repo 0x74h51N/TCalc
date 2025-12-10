@@ -25,24 +25,24 @@ Initially focused on basic arithmetic for QT learning, the project is designed t
 
 ## Build & Run
 
+Native build:
+
+```bash
+python native/setup.py build_ext --inplace
+```
+
 Dev mode (auto-restart on changes):
 
 ```bash
 make dev
 ```
 
-Production build:
+**Production build:**
 
 Install requirements:
 
 ```bash
 pip install -e .
-```
-
-Native build:
-
-```bash
-python native/setup.py build_ext --inplace
 ```
 
 run:

@@ -3,8 +3,16 @@ from __future__ import annotations
 from PySide6.QtWidgets import QApplication
 
 STYLE_SHEET = """
-QLabel#displayExpression {
+QLineEdit#displayExpression {
+    border: none;
+    background-color: transparent;
     color: #b6b8c9;
+    selection-background-color: #3a3d47;
+    selection-color: #ffffff;
+}
+QLineEdit#displayExpression:focus {
+    border: none;
+    background-color: transparent;
 }
 QLabel#displayResult {
     color: #f6f7fb;
