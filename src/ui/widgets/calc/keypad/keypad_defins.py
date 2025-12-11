@@ -1,4 +1,4 @@
-from ...core.ops import Operation
+from .....core import Operation
 
 
 DIGIT_POSITIONS = {

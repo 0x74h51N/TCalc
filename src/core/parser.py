@@ -4,7 +4,7 @@ import re
 from typing import Iterable, List
 
 from .engine import Calculator, CalculatorError
-from .ops import Operation, build_operator_table, build_operation_map
+from . import Operation, build_operator_table, build_operation_map
 
 ADD_SYM = Operation.ADD.symbol
 SUB_SYM = Operation.SUB.symbol
@@ -100,7 +100,9 @@ def _normalize_tokens(tokens: List[str]) -> List[str]:
     for tok in tokens:
         if tok in plus_minus_set and normalized and normalized[-1] in plus_minus_set:
             if normalized[-1] == SUB_SYM:
-                continue  # Skip consecutive + after -
+                if tok == SUB_SYM:
+                    normalized[-1]=ADD_SYM
+                continue
             else:
                 normalized[-1] = tok
         else:

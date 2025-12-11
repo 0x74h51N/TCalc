@@ -11,7 +11,10 @@ from PySide6.QtWidgets import (
     QLineEdit
 )
 from PySide6.QtGui import QFont
-from PySide6.QtGui import QColor
+
+from ..config import display_config
+from .style import apply_display_style, apply_expression_style, apply_result_style, apply_divider_style
+
 
 class Display(QWidget):
     expression_changed = Signal(str)
@@ -21,20 +24,23 @@ class Display(QWidget):
         self.setObjectName("displayWidget")
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(6)
+        layout.setContentsMargins(
+            display_config["margin"],
+            display_config["margin"],
+            display_config["margin"],
+            display_config["margin"]
+        )
+        layout.setSpacing(display_config["spacing"])
 
-
-        palette = self.palette()
-        palette.setColor(self.backgroundRole(), QColor("#1E1E1E"))
-        self.setAutoFillBackground(True)
-        self.setPalette(palette)
+        # Apply background styling
+        apply_display_style(self)
         
         #Exp display
         self.expression_label = QLineEdit("", self)
-        self.expression_label.setObjectName("displayExpression")
+        apply_expression_style(self.expression_label)
+        
         small_font = QFont()
-        small_font.setPointSize(11)
+        small_font.setPointSize(display_config["expression_font_size"])
 
         self.expression_label.setFont(small_font)
         self.expression_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -45,17 +51,17 @@ class Display(QWidget):
         layout.addWidget(self.expression_label)
 
         line = QFrame(self)
-        line.setObjectName("displayDivider")
+        apply_divider_style(line)
         line.setFrameShape(QFrame.HLine)
         line.setFrameShadow(QFrame.Sunken)
         layout.addWidget(line)
 
         #Res display
         self.result_label = QLabel("0", self)
-        self.result_label.setObjectName("displayResult")
+        apply_result_style(self.result_label)
 
         result_font = QFont()
-        result_font.setPointSize(18)
+        result_font.setPointSize(display_config["result_font_size"])
         result_font.setBold(True)
 
         self.result_label.setFont(result_font)

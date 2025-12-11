@@ -1,0 +1,50 @@
+# Root config - app-wide settings and theme
+
+[theme.colors]
+# Primary colors
+primary = "#4a4f5a"
+primary_hover = "#3e434d"
+primary_text = "#ffffff"
+
+# Secondary colors
+secondary = "#3f4450"
+secondary_hover = "#2a2c33"
+secondary_text = "#f0f2ff"
+
+# Accent colors
+accent = "#343842"
+accent_hover = "#3f4450"
+accent_text = "#f3d199"
+
+# Action colors
+action = "#2f353d"
+action_hover = "#252a31"
+action_text = "#a6c7ff"
+
+# Background colors
+background_dark = "#1E1E1E"
+background_medium = "#2a2c33"
+background_light = "#3f4450"
+
+# Text colors
+text_primary = "#f6f7fb"
+text_secondary = "#b6b8c9"
+text_muted = "#808290"
+
+# Border colors
+border_default = "#111111"
+border_light = "#444957"
+border_focus = "#5a606d"
+
+# Selection colors
+selection_background = "#3a3d47"
+selection_text = "#ffffff"
+
+[theme.spacing]
+radius_small = 4
+radius_medium = 8
+radius_large = 12
+
+[theme.fonts]
+family_default = "System"
+family_monospace = "Monospace"

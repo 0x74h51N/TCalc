@@ -11,7 +11,9 @@ from PySide6.QtWidgets import (
 )
 
 from .keypad_defins import NORMAL_MODE_KEYS
-from ...core.ops import Operation
+from .....core import Operation
+from ..config import keypad_config
+from .style import apply_button_style
 
 
 KeyHandler = Callable[[str, Operation], None]
@@ -25,20 +27,25 @@ class Keypad(QWidget):
         
 
         hbox = QHBoxLayout(self)
-        hbox.setContentsMargins(10, 30, 10, 10)
-        hbox.setSpacing(18)
+        hbox.setContentsMargins(
+            keypad_config["side_margin"],
+            keypad_config["top_margin"],
+            keypad_config["side_margin"],
+            keypad_config["bottom_margin"]
+        )
+        hbox.setSpacing(keypad_config["hbox_spacing"])
 
         left_grid = QGridLayout()
         right_grid = QGridLayout()
 
         for grid in (left_grid, right_grid):
             grid.setContentsMargins(0, 0, 0, 0)
-            grid.setHorizontalSpacing(6)
-            grid.setVerticalSpacing(6)
+            grid.setHorizontalSpacing(keypad_config["grid_spacing"])
+            grid.setVerticalSpacing(keypad_config["grid_spacing"])
         
 
-        hbox.addLayout(left_grid, 8)
-        hbox.addLayout(right_grid, 2)
+        hbox.addLayout(left_grid, keypad_config["left_grid_stretch"])
+        hbox.addLayout(right_grid, keypad_config["right_grid_stretch"])
 
         for role, keys in NORMAL_MODE_KEYS.items():
             for key_def in keys:
@@ -51,13 +58,12 @@ class Keypad(QWidget):
                 colspan = key_def.get("colspan", 1)
 
                 button = QPushButton(key_def["label"], self)
-                button.setObjectName("keypadButton")
-                button.setProperty("keypadRole", role)
                 button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-                button.style().unpolish(button)
-                button.style().polish(button)
+                
+                # Apply styling
+                apply_button_style(button, role)
 
-                if col > 3:
+                if col > keypad_config["column_split"]:
                     right_grid.addWidget(button, row, 0, rowspan, colspan)
                 else:
                     left_grid.addWidget(button, row, col, rowspan, colspan)

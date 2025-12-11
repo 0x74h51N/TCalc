@@ -1,0 +1,11 @@
+# UI Window Layout Configuration
+
+[window]
+# Minimum dimensions (pixels)
+min_height = 370
+calc_min_width = 280
+history_min_width = 300
+
+# Layout stretch ratios
+calc_stretch = 3
+history_stretch = 1

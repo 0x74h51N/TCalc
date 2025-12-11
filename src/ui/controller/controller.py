@@ -2,16 +2,17 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional
 
-from src.core import Calculator, Operation, CalculatorError
-from src.core.ops import get_symbols_with_aliases
-from ..display.display import Display
-from .utils import format_result
+from ...core import Calculator, Operation, CalculatorError, get_symbols_with_aliases, evaluate_tokens, tokenize_string
+from ..widgets import CalcWidget, History
+from .utils import format_result, clean_for_expression
 
 
 class CalculatorController:
-    def __init__(self, calculator: Calculator, display: Display) -> None:
+    def __init__(self, calculator: Calculator, display: CalcWidget.Display, history: History, edit_ops) -> None:
         self._calculator = calculator
         self._display = display
+        self._history = history
+        self._edit_ops = edit_ops
 
         self._display.expression_changed.connect(self._on_expression_input)
 
@@ -20,6 +21,7 @@ class CalculatorController:
         self._just_solved = False
         self._error_text: Optional[str] = None
         
+
         self._handlers: Dict[Operation, Callable[[str], None]] = {
             Operation.DIGIT: self._handle_digit,
             Operation.DOT: lambda _: self._handle_dot(),
@@ -46,7 +48,6 @@ class CalculatorController:
             lambda op: getattr(op, "arity", None) == "unary"
         )
 
-        from src.core.parser import evaluate_tokens, tokenize_string
         self._evaluate_tokens = evaluate_tokens
         self._tokenize_string = tokenize_string
         
@@ -90,8 +91,15 @@ class CalculatorController:
             self._error_text = str(exc)
             return
         
-        formatted = format_result(value)
-        self._expression = formatted
+        formatted_display = format_result(value)
+        formatted_expr = clean_for_expression(formatted_display)
+        
+        self._expression = formatted_expr
+        self._history.update_history(f"{''.join(tokens)}={formatted_display}")
+        
+        # Reset undo/redo navigation
+        self._edit_ops.reset_navigation()
+
         self._just_solved = True
 
     def _handle_clear(self) -> None:
@@ -101,6 +109,7 @@ class CalculatorController:
     def _handle_all_clear(self) -> None:
         self._expression = ""
         self._just_solved = False
+        self._history.clear_history()
 
     def _handle_negate(self) -> None:
         if not self._expression:
@@ -134,7 +143,7 @@ class CalculatorController:
             return
         
         # No number found
-        self._expression = Operation.SUB.symbol + self._expression
+        self._expression = Operation.SUB.symbol + self._expression if Operation.SUB.symbol not in self._expression else ""
 
 
     # -- Helpers ----------------------------------------------------------

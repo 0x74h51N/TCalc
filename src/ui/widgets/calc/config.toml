@@ -1,0 +1,20 @@
+[display]
+margin = 10
+spacing = 6
+
+# Font sizes
+expression_font_size = 11
+result_font_size = 18
+
+[keypad]
+top_margin = 30
+side_margin = 10
+bottom_margin = 10
+grid_spacing = 6
+hbox_spacing = 18
+
+# Grid stretch ratios
+left_grid_stretch = 8
+right_grid_stretch = 2
+
+column_split = 3

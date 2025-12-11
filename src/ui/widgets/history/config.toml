@@ -1,0 +1,7 @@
+[layout]
+margin = 10
+spacing = 6
+
+[style]
+item_padding = 4
+font_size = 8

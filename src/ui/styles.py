@@ -2,63 +2,70 @@ from __future__ import annotations
 
 from PySide6.QtWidgets import QApplication
 
-STYLE_SHEET = """
-QLineEdit#displayExpression {
+from ..theme import get_theme
+
+
+def _build_stylesheet() -> str:
+    theme = get_theme()
+    c = theme.colors
+    s = theme.spacing
+
+    return f"""
+QLineEdit#displayExpression {{
     border: none;
     background-color: transparent;
-    color: #b6b8c9;
-    selection-background-color: #3a3d47;
-    selection-color: #ffffff;
-}
-QLineEdit#displayExpression:focus {
+    color: {c['text_secondary']};
+    selection-background-color: {c['selection_background']};
+    selection-color: {c['selection_text']};
+}}
+QLineEdit#displayExpression:focus {{
     border: none;
     background-color: transparent;
-}
-QLabel#displayResult {
-    color: #f6f7fb;
-}
-QFrame#displayDivider {
-    background-color: #2d2f3c;
+}}
+QLabel#displayResult {{
+    color: {c['text_primary']};
+}}
+QFrame#displayDivider {{
     min-height: 1px;
     max-height: 1px;
-}
-QPushButton[keypadRole] {
-    background-color: #2e313b;
-    color: #f0f2ff;
-    border: 1px solid #2f3138;
-    border-radius: 12px;
+}}
+QPushButton[keypadRole] {{
+    background-color: {c['secondary']};
+    color: {c['secondary_text']};
+    border: 1px solid {c['border_default']};
+    border-radius: {s['radius_medium']}px;
     padding: 10px;
     font-size: 15px;
-}
-QPushButton[keypadRole]:pressed {
-    background-color: #2a2c33;
-}
-QPushButton[keypadRole="operator"] {
-    background-color: #343842;
-    color: #f3d199;
-    border-color: #444957;
-}
-QPushButton[keypadRole="operator"]:pressed {
-    background-color: #3f4450;
-}
-QPushButton[keypadRole="action"] {
-    background-color: #2f353d;
-    color: #a6c7ff;
-    border-color: #3a404b;
-}
-QPushButton[keypadRole="equals"] {
-    background-color: #4a4f5a;
-    color: #ffffff;
-    border-color: #5a606d;
-}
-QPushButton[keypadRole="equals"]:pressed {
-    background-color: #3e434d;
-}
+}}
+QPushButton[keypadRole]:pressed {{
+    background-color: {c['secondary_hover']};
+}}
+QPushButton[keypadRole="operator"] {{
+    background-color: {c['accent']};
+    color: {c['accent_text']};
+    border-color: {c['border_light']};
+}}
+QPushButton[keypadRole="operator"]:pressed {{
+    background-color: {c['accent_hover']};
+}}
+QPushButton[keypadRole="action"] {{
+    background-color: {c['action']};
+    color: {c['action_text']};
+    border-color: {c['border_light']};
+}}
+QPushButton[keypadRole="equals"] {{
+    background-color: {c['primary']};
+    color: {c['primary_text']};
+    border-color: {c['border_focus']};
+}}
+QPushButton[keypadRole="equals"]:pressed {{
+    background-color: {c['primary_hover']};
+}}
 """
 
 
 def apply_styles(app: QApplication) -> None:
-    """Apply the global stylesheet for the calculator UI."""
     base = app.styleSheet()
-    sheet = STYLE_SHEET if not base else f"{base}\n{STYLE_SHEET}"
-    app.setStyleSheet(sheet)
+    sheet = _build_stylesheet()
+    combined = sheet if not base else f"{base}\n{sheet}"
+    app.setStyleSheet(combined)
