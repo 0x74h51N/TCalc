@@ -33,6 +33,16 @@ QMenu::item:selected {{
     border: 1px solid {c['border_focus']};
 }}
 
+QMenu::item:disabled {{
+    color: {c['text_secondary']};
+}}
+
+QMenu::item:checked {{
+    background: {c['selection_background']};
+    color: {c['selection_text']};
+    border: 1px solid {c['border_focus']};
+}}
+
 QMenu::icon {{
     padding-left: {s['icon_padding_left']}px;
     padding-right: {s['icon_padding_right']}px;

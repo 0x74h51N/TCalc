@@ -24,6 +24,7 @@ class Operation(Enum):
     EQUALS = ("equals", "=")
     CLEAR = ("clear", "C")
     ALL_CLEAR = ("all_clear", "AC")
+    BACKSPACE = ("backspace", "⌫")
     NEGATE = ("negate", "u-", 3, "right", "unary")
     SQRT = ("sqrt", "√", 4, "right", "unary", ["sqrt"])
 

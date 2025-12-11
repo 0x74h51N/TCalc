@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtWidgets import QApplication
 
@@ -17,56 +17,49 @@ class EditOperations:
         self.clipboard = QApplication.clipboard()
         self.app_state = get_app_state()
 
-    def copy(self) -> None:
-        if not hasattr(self.window, 'calc_widget'):
-            return
-        
-        display = self.window.calc_widget.display
-        result_text = display.result_label.text()
+    @property
+    def _display(self):
+        return self.window.calc_widget.display if hasattr(self.window, 'calc_widget') else None
 
-        cleaned_text = clean_for_expression(result_text) # clean the comas
-        self.clipboard.setText(cleaned_text)
+    @property
+    def _history_list(self):
+        return self.window.history.list if hasattr(self.window, 'history') else None
+
+    def _get_history_expression(self, index: int) -> Optional[str]:
+        item = self._history_list.item(index)
+        return item.text().split("=")[0].strip() if item else None
+
+    def _set_expression(self, expression: str) -> None:
+        self._display.update_expr(expression)
+
+    def copy(self) -> None:
+        if not self._display:
+            return
+        cleaned = clean_for_expression(self._display.result_label.text())
+        self.clipboard.setText(cleaned)
 
     def cut(self) -> None:
-        if not hasattr(self.window, 'calc_widget'):
-            return
-        
-        display = self.window.calc_widget.display
-        result_text = display.result_label.text()
-
-        cleaned_text = clean_for_expression(result_text) # clean the comas
-        self.clipboard.setText(cleaned_text)
-        display.update_res("")
+        self.copy()
+        if self._display:
+            self._display.update_res("")
 
     def paste(self) -> None:
-        if not hasattr(self.window, 'calc_widget'):
+        if not self._display:
             return
-        
-        display = self.window.calc_widget.display
-        expression_input = display.expression_label
-        
-        clipboard_text = self.clipboard.text()
-
-        cleaned_text = clean_for_expression(clipboard_text) # clean the comas again
-        
-        expression_input.insert(cleaned_text)
-        
-        expression_input.setFocus()
+        cleaned = clean_for_expression(self.clipboard.text())
+        self._display.expression_label.insert(cleaned)
+        self._display.expression_label.setFocus()
 
     def undo(self) -> None:
-        #Navigate backwards in history and restore expression
-        if not hasattr(self.window, 'calc_widget') or not hasattr(self.window, 'history'):
+        if not self._display or not self._history_list:
             return
         
-        display = self.window.calc_widget.display
-        history_list = self.window.history.list
-        history_count = history_list.count()
-        
+        history_count = self._history_list.count()
         if history_count == 0:
             return
         
         if self.app_state.history_index == -1:
-            self.app_state.redo_memory = display.expression_label.text()
+            self.app_state.redo_memory = self._display.expression_label.text()
             self.app_state.history_index = history_count - 1
         else:
             self.app_state.history_index -= 1
@@ -74,41 +67,23 @@ class EditOperations:
                 self.app_state.history_index = 0
                 return
         
-        # Get history item adn extract expression
-        history_item = history_list.item(self.app_state.history_index)
-        if history_item:
-            full_text = history_item.text()
-            expression = full_text.split("=")[0].strip()
-            display.update_expr(expression)
-            display.expression_label.setFocus()
+        expression = self._get_history_expression(self.app_state.history_index)
+        if expression:
+            self._set_expression(expression)
 
     def redo(self) -> None:
-        if not hasattr(self.window, 'calc_widget') or not hasattr(self.window, 'history'):
-            return
-        
-        display = self.window.calc_widget.display
-        history_list = self.window.history.list
-        history_count = history_list.count()
-        
-        if self.app_state.history_index == -1:
+        if not self._display or not self._history_list or self.app_state.history_index == -1:
             return
         
         self.app_state.history_index += 1
         
-        # No history then restore saved expression
-        if self.app_state.history_index >= history_count:
-            display.update_expr(self.app_state.redo_memory)
-            self.app_state.history_index = -1
-            self.app_state.redo_memory = ""
+        if self.app_state.history_index >= self._history_list.count():
+            self._set_expression(self.app_state.redo_memory)
+            self.reset_navigation()
         else:
-            # Get history item and extract expression
-            history_item = history_list.item(self.app_state.history_index)
-            if history_item:
-                full_text = history_item.text()
-                expression = full_text.split("=")[0].strip()
-                display.update_expr(expression)
-        
-        display.expression_label.setFocus()
+            expression = self._get_history_expression(self.app_state.history_index)
+            if expression:
+                self._set_expression(expression)
     
     def reset_navigation(self) -> None:
         self.app_state.history_index = -1

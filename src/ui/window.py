@@ -10,6 +10,7 @@ from .controller.controller import CalculatorController
 from .controller.edit_operations import EditOperations
 from .widgets import CalcWidget, History
 from .config import window, get_history_width_from_total
+from .keyboard import KeyboardHandler
 from src.app_state import get_app_state
 
 class MainWindow(QMainWindow):
@@ -38,10 +39,6 @@ class MainWindow(QMainWindow):
         )
         m_layout.addWidget(self.calc_widget, window["calc_stretch"])
 
-        line = QFrame(self)
-        line.setFrameShape(QFrame.VLine)
-        line.setFrameShadow(QFrame.Sunken)
-        line.setLineWidth(1)
 
         self.menubar = Menubar(self)
         
@@ -78,6 +75,17 @@ class MainWindow(QMainWindow):
         
         # Connect keypad to controller
         self.calc_widget.keypad._on_key_pressed = self.controller.handle_key
+        
+        # Keyboard handler for global shortcuts
+        self._keyboard_handler = KeyboardHandler(
+            self.calc_widget.display.expression_label,
+            self.calc_widget.keypad
+        )
+
+    def keyPressEvent(self, event):
+        if self._keyboard_handler.handle_key_press(event):
+            return
+        super().keyPressEvent(event)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

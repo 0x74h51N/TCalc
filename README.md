@@ -51,15 +51,34 @@ run:
 python main.py
 ```
 
-## TODO
+## v1 TODO
 
-- [ ] History panel
-- [ ] Keyboard shortcuts
-- [ ] Edit menu (undo, redo, cut, copy, paste)
+- [x] History panel
+- [ ] Keyboard shortcuts in app level w/button animate
+- [x] Edit menu (undo, redo, cut, copy, paste)
 - [ ] Science mode
+  - [ ] MS, MC, MR, M+
+  - [ ] Trigonometry operations
+  - [ ] deg, rad, grad
+  - [ ] Logarithm, exponent, factorial, reciprocal, modulo
+  - [ ] Maybe derivative, integral, and limit
+  - [ ] Maybe² vector operations: length, dot, cross
+  - [ ] Maybe³ matrix operations: multiplication, inverse, determinant
+- [ ] Statistic mode
+  - [ ] Data store and statistic operations: mean, standart deviation, median etc.
 - [ ] Constant menu
 - [ ] Help menu
+  - [ ] Find Action
+  - [ ] About etc.
 - [ ] Settings/Config menu
+  - [ ] Programable constant buttons
+  - [ ] Configure TCalc
+    - [ ] General conf
+    - [ ] Fonts
+    - [ ] Themes
+    - [ ] Constants
+  - [ ] Configure keyboard shortcuts
+- [ ] Improve styles and layout design
 
 ## Credits
 

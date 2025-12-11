@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from .keypad_defins import NORMAL_MODE_KEYS
 from .....core import Operation
 from ..config import keypad_config
-from .style import apply_button_style
+from .style import apply_button_style, apply_keypad_style
 
 
 KeyHandler = Callable[[str, Operation], None]
@@ -24,7 +24,9 @@ class Keypad(QWidget):
         super().__init__(parent)
 
         self._on_key_pressed: KeyHandler = on_key_pressed
+        self._buttons: Dict[str, QPushButton] = {}  # label -> button mapping
         
+        apply_keypad_style(self)
 
         hbox = QHBoxLayout(self)
         hbox.setContentsMargins(
@@ -71,6 +73,13 @@ class Keypad(QWidget):
                 button.clicked.connect(
                     lambda _=False, kd=key_def: self._handle_button_clicked(kd)
                 )
+                
+                # Store button reference
+                self._buttons[key_def["label"]] = button
+
+    def get_button(self, label: str) -> Optional[QPushButton]:
+        """Get button by label."""
+        return self._buttons.get(label)
 
     def _handle_button_clicked(self, key_def: Dict[str, Any]) -> None:
         label: str = key_def["label"]

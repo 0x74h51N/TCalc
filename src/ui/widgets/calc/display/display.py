@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QFont
 
 from ..config import display_config
-from .style import apply_display_style, apply_expression_style, apply_result_style, apply_divider_style
+from .style import apply_display_style
 
 
 class Display(QWidget):
@@ -37,7 +37,7 @@ class Display(QWidget):
         
         #Exp display
         self.expression_label = QLineEdit("", self)
-        apply_expression_style(self.expression_label)
+        self.expression_label.setObjectName("displayExpression")
         
         small_font = QFont()
         small_font.setPointSize(display_config["expression_font_size"])
@@ -51,14 +51,14 @@ class Display(QWidget):
         layout.addWidget(self.expression_label)
 
         line = QFrame(self)
-        apply_divider_style(line)
+        line.setObjectName("displayDivider")
         line.setFrameShape(QFrame.HLine)
         line.setFrameShadow(QFrame.Sunken)
         layout.addWidget(line)
 
         #Res display
         self.result_label = QLabel("0", self)
-        apply_result_style(self.result_label)
+        self.result_label.setObjectName("displayResult")
 
         result_font = QFont()
         result_font.setPointSize(display_config["result_font_size"])

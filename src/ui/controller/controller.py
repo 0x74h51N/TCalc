@@ -35,6 +35,7 @@ class CalculatorController:
             Operation.EQUALS: lambda _: self._handle_equals(),
             Operation.CLEAR: lambda _: self._handle_clear(),
             Operation.ALL_CLEAR: lambda _: self._handle_all_clear(),
+            Operation.BACKSPACE: lambda _: self._handle_backspace(),
             Operation.NEGATE: lambda _: self._handle_negate(),
         }
 
@@ -110,6 +111,11 @@ class CalculatorController:
         self._expression = ""
         self._just_solved = False
         self._history.clear_history()
+
+    def _handle_backspace(self) -> None:
+        if self._expression:
+            self._expression = self._expression[:-1]
+        self._just_solved = False
 
     def _handle_negate(self) -> None:
         if not self._expression:
