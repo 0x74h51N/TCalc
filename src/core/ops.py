@@ -4,7 +4,8 @@ from enum import Enum
 
 
 class Operation(Enum):
-    # format: (value, symbol, precedence=None, associativity=None, arity=None, aliases=[])
+    """Calculator operations with label, symbol, precedence, associativity, and arity."""
+    
     DIGIT = ("digit", "digit")
 
     # binary operators
@@ -28,6 +29,24 @@ class Operation(Enum):
     NEGATE = ("negate", "u-", 3, "right", "unary")
     SQRT = ("sqrt", "√", 4, "right", "unary", ["sqrt"])
 
+    # Trigonometric functions (unary)
+    SIN = ("sin", "sin", 4, "right", "unary")
+    COS = ("cos", "cos", 4, "right", "unary")
+    TAN = ("tan", "tan", 4, "right", "unary")
+    HYP = ("hyp", "hyp") 
+
+    # Function operations (unary)
+    INV = ("inv", "1/", 4, "right", "unary")
+    FACT = ("fact", "!", 4, "left", "postfix")
+    LOG = ("log", "log", 4, "right", "unary", ["log10"])
+    LN = ("ln", "ln", 4, "right", "unary") 
+    MOD = ("mod", "mod", 2, "left", "binary")
+
+    # Power operations
+    SQR = ("sqr", "²", 4, "left", "postfix")
+    EXP10 = ("exp10", "E", 3, "right", "binary")
+    IMAG = ("imag", "i")
+
 
     def __new__(cls, value, symbol, prec=None, assoc=None, arity=None, aliases=None):
         obj = object.__new__(cls)
@@ -41,7 +60,7 @@ class Operation(Enum):
 
 
 def get_symbols_with_aliases(filter_fn=None) -> set[str]:
-    #Get all operation symbols including aliases, optionally filtered
+    """Get all operation symbols including aliases, optionally filtered."""
     symbols = set()
     for op in Operation:
         if filter_fn and not filter_fn(op):
@@ -53,7 +72,7 @@ def get_symbols_with_aliases(filter_fn=None) -> set[str]:
 
 
 def build_operator_table(filter_fn=None) -> dict[str, tuple[int, str]]:
-    #Build operator precedence/associativity table including aliases
+    """Build operator precedence/associativity table including aliases."""
     table = {}
     for op in Operation:
         if filter_fn and not filter_fn(op):
@@ -67,7 +86,7 @@ def build_operator_table(filter_fn=None) -> dict[str, tuple[int, str]]:
 
 
 def build_operation_map(filter_fn=None) -> dict[str, Operation]:
-    #Build operation lookup map including aliases
+    """Build operation lookup map including aliases."""
     op_map = {}
     for op in Operation:
         if filter_fn and not filter_fn(op):

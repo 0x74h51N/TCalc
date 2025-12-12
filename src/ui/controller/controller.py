@@ -3,11 +3,14 @@ from __future__ import annotations
 from typing import Callable, Dict, List, Optional
 
 from ...core import Calculator, Operation, CalculatorError, get_symbols_with_aliases, evaluate_tokens, tokenize_string
+from ...core.utils import is_number_token
 from ..widgets import CalcWidget, History
 from .utils import format_result, clean_for_expression
 
 
 class CalculatorController:
+    """Main controller handling calculator input, expression state and display updates."""
+    
     def __init__(self, calculator: Calculator, display: CalcWidget.Display, history: History, edit_ops) -> None:
         self._calculator = calculator
         self._display = display
@@ -21,23 +24,8 @@ class CalculatorController:
         self._just_solved = False
         self._error_text: Optional[str] = None
         
-
-        self._handlers: Dict[Operation, Callable[[str], None]] = {
-            Operation.DIGIT: self._handle_digit,
-            Operation.DOT: lambda _: self._handle_dot(),
-            Operation.ADD: self._set_operator,
-            Operation.SUB: self._set_operator,
-            Operation.MUL: self._set_operator,
-            Operation.DIV: self._set_operator,
-            Operation.PERCENT: self._set_operator,
-            Operation.OPEN_PAREN: self._set_operator,
-            Operation.CLOSE_PAREN: self._set_operator,
-            Operation.EQUALS: lambda _: self._handle_equals(),
-            Operation.CLEAR: lambda _: self._handle_clear(),
-            Operation.ALL_CLEAR: lambda _: self._handle_all_clear(),
-            Operation.BACKSPACE: lambda _: self._handle_backspace(),
-            Operation.NEGATE: lambda _: self._handle_negate(),
-        }
+        # Build handlers dictionary
+        self._handlers: Dict[Operation, Callable[[str], None]] = self._build_handlers()
 
         # Get all operator symbols including aliases
         self._operator_symbol_values = get_symbols_with_aliases(
@@ -49,14 +37,25 @@ class CalculatorController:
             lambda op: getattr(op, "arity", None) == "unary"
         )
 
+        # Get postfix operator symbols
+        self._postfix_operator_symbols = get_symbols_with_aliases(
+            lambda op: getattr(op, "arity", None) == "postfix"
+        )
+
         self._evaluate_tokens = evaluate_tokens
         self._tokenize_string = tokenize_string
         
         self._compute_and_update()
 
-    def handle_key(self, label: str, operation: Operation) -> None:
+    def handle_key(self, label: str, operation) -> None:
+        """Dispatch button press to appropriate handler."""
+        if not isinstance(operation, Operation):
+            self._handle_digit(label)
+            self._compute_and_update()
+            return
         handler = self._handlers.get(operation)
         if handler is None:
+            print(f"[CONTROLLER] Handler bulunamadı: {operation} (label: {label})")
             return
         handler(label)
         self._compute_and_update()
@@ -64,6 +63,7 @@ class CalculatorController:
     # -- Handlers ---------------------------------------------------------
 
     def _handle_digit(self, label: str) -> None:
+        """Append digit to expression, reset if just solved."""
         if self._just_solved:
             self._expression = label
             self._just_solved = False
@@ -82,6 +82,7 @@ class CalculatorController:
         self._just_solved = False
 
     def _handle_equals(self) -> None:
+        """Evaluate expression, update history and show result."""
         tokens = self._tokenize_expression()
         if not tokens or not self._can_compute_preview(tokens):
             return
@@ -110,7 +111,6 @@ class CalculatorController:
     def _handle_all_clear(self) -> None:
         self._expression = ""
         self._just_solved = False
-        self._history.clear_history()
 
     def _handle_backspace(self) -> None:
         if self._expression:
@@ -118,6 +118,7 @@ class CalculatorController:
         self._just_solved = False
 
     def _handle_negate(self) -> None:
+        """Toggle sign of the last number in expression."""
         if not self._expression:
             self._expression = Operation.SUB.symbol
             return
@@ -151,6 +152,31 @@ class CalculatorController:
         # No number found
         self._expression = Operation.SUB.symbol + self._expression if Operation.SUB.symbol not in self._expression else ""
 
+    def _build_handlers(self) -> Dict[Operation, Callable[[str], None]]:
+        """Auto-generate operation handlers based on Operation attributes"""
+        handlers: Dict[Operation, Callable[[str], None]] = {}
+        
+        # Special handlers
+        special_handlers = {
+            Operation.DIGIT: self._handle_digit,
+            Operation.DOT: lambda _: self._handle_dot(),
+            Operation.EQUALS: lambda _: self._handle_equals(),
+            Operation.CLEAR: lambda _: self._handle_clear(),
+            Operation.ALL_CLEAR: lambda _: self._handle_all_clear(),
+            Operation.BACKSPACE: lambda _: self._handle_backspace(),
+            Operation.NEGATE: lambda _: self._handle_negate(),
+        }
+        handlers.update(special_handlers)
+        
+        # Auto-generate for operators (binary, postfix, parens)
+        for op in Operation:
+            if op in handlers:
+                continue
+            arity = getattr(op, "arity", None)
+            if arity in ("binary", "postfix", "unary") or op in (Operation.OPEN_PAREN, Operation.CLOSE_PAREN):
+                handlers[op] = self._set_operator
+        
+        return handlers
 
     # -- Helpers ----------------------------------------------------------
 
@@ -158,24 +184,42 @@ class CalculatorController:
         return self._tokenize_string(self._expression)
 
     def _can_compute_preview(self, tokens: List[str]) -> bool:
+        """Check if tokens form a valid expression for preview calculation."""
         if len(tokens) < 2:
             return False
-        
-        # Unary operators handling
+
+        # Prevent preview if last token is unary op and next is open paren (e.g. sqrt()
+        if len(tokens) >= 2 and tokens[-2] in self._unary_operator_symbols  and tokens[-1] == Operation.OPEN_PAREN.symbol:
+            return False
+
+        # Unary/postfix + number handling: only allow preview if one is a number and the other is unary/postfix
         if len(tokens) == 2:
-            return tokens[0] in self._unary_operator_symbols
-        
-   
+            t0, t1 = tokens[0], tokens[1]
+            is_t0_unary = t0 in self._unary_operator_symbols
+            is_t1_unary = t1 in self._unary_operator_symbols
+            is_t0_postfix = t0 in self._postfix_operator_symbols
+            is_t1_postfix = t1 in self._postfix_operator_symbols
+            is_t0_number = is_number_token(t0)
+            is_t1_number = is_number_token(t1)
+
+            # Disallow cases like '√-' (unary + minus)
+            if (is_t0_unary and t1 == Operation.SUB.symbol) or (is_t1_unary and t0 == Operation.SUB.symbol):
+                return False
+            # Allow only if one is number and the other is unary or postfix
+            if (is_t0_number and (is_t1_unary or is_t1_postfix)) or ((is_t0_unary or is_t0_postfix) and is_t1_number):
+                return True
+            return False
+
         # If last token is operator and has res, show res
         last_is_operator = tokens[-1] in self._operator_symbol_values and tokens[-1] != Operation.PERCENT.symbol
         if last_is_operator:
             return self._result != ""
-        
+
         # Check last token is valid
         return tokens[-1] not in self._operator_symbol_values or tokens[-1] == Operation.PERCENT.symbol
 
     def _compute_preview(self, tokens: List[str]) -> str:
-        #Evaluate tokens and return formatted result
+        """Evaluate tokens and return formatted result"""
 
         if not self._can_compute_preview(tokens):
             return ""
@@ -201,12 +245,13 @@ class CalculatorController:
             return str(exc)
 
     def _on_expression_input(self, text: str) -> None:
-        #Handle keyboard input
+        """Handle keyboard input"""
         self._expression = text
         self._just_solved = False
         self._compute_and_update()
 
     def _compute_and_update(self) -> None:
+        """Recalculate preview and update display."""
         if self._error_text is not None:
             self._display.update_res(self._error_text)
             self._error_text = None

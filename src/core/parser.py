@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 import re
 from typing import Iterable, List
 
@@ -17,6 +18,7 @@ NEGATE_SYM = Operation.NEGATE.symbol
 
 
 class ParseError(CalculatorError):
+    """Exception raised for expression parsing errors."""
     pass
 
 
@@ -42,6 +44,7 @@ def _is_number_token(tok: str) -> bool:
     
 
 def tokenize_string(expression: str) -> List[str]:
+    """Tokenize a mathematical expression into a list of tokens."""
     if not expression:
         return []
 
@@ -87,7 +90,6 @@ def tokenize_string(expression: str) -> List[str]:
             # Fallback: consume single character to avoid infinite loop
             tokens.append(expression[i])
             i += 1
-
     return tokens
 
 def _normalize_tokens(tokens: List[str]) -> List[str]:
@@ -133,40 +135,52 @@ def shunting_yard(tokens: Iterable[str]) -> List[str]:
 
     prev_token = None
 
-    for tok in normalized:
+
+    i = 0
+    n = len(normalized)
+    while i < n:
+        tok = normalized[i]
         if tok == "":
+            i += 1
+            continue
+
+        # Special case: unary func + unary minus + number (e.g. √-5)
+        if tok in _UNARY_CALLS and i+2 < n and normalized[i+1] == SUB_SYM and _is_number_token(normalized[i+2]):
+            output.append(normalized[i+2])  # number
+            output.append(NEGATE_SYM)       # unary minus
+            output.append(tok)              # unary func
+            i += 3
+            prev_token = "unary_op"
             continue
 
         if _is_number_token(tok):
             output.append(tok)
             prev_token = "number"
+            i += 1
             continue
 
         if tok == OPEN_PAREN_SYM:
             operator_stack.append(tok)
-            prev_token = CLOSE_PAREN_SYM
+            prev_token = OPEN_PAREN_SYM
+            i += 1
             continue
 
         if tok == CLOSE_PAREN_SYM:
-
             while operator_stack and operator_stack[-1] != OPEN_PAREN_SYM:
                 output.append(operator_stack.pop())
-
             if operator_stack and operator_stack[-1] == OPEN_PAREN_SYM:
                 operator_stack.pop()
-
             prev_token = CLOSE_PAREN_SYM
+            i += 1
             continue
 
         # operator
         # determine unary minus (after unary ops, at start, after binary ops, or after open paren)
         if tok == SUB_SYM:
             if prev_token is None or prev_token in (OPEN_PAREN_SYM, "op", "unary_op"):
-                op = NEGATE_SYM 
-
+                op = NEGATE_SYM
             else:
                 op = "-"
-
         else:
             op = tok
 
@@ -198,6 +212,7 @@ def shunting_yard(tokens: Iterable[str]) -> List[str]:
 
         else:
             prev_token = "op"
+        i += 1
 
     while operator_stack:
         top = operator_stack.pop()
@@ -211,7 +226,7 @@ def shunting_yard(tokens: Iterable[str]) -> List[str]:
 
 
 def evaluate_rpn(rpn_tokens: Iterable[str], calculator: Calculator) -> float:
-
+    """Evaluate a list of RPN tokens and return the result."""
     operand_stack: List[float] = []
 
     for tok in rpn_tokens:
@@ -230,9 +245,23 @@ def evaluate_rpn(rpn_tokens: Iterable[str], calculator: Calculator) -> float:
             operand_stack.append(-val)
             continue
         
+
+        # Handle x² as pow(val, 2)
+        if tok == Operation.SQR.symbol:
+            if not operand_stack:
+                print(f"[PARSER ERROR] SQR requires operand, stack empty")
+                raise ParseError("Malformed Expression")
+            val = operand_stack.pop()
+            try:
+                res = calculator.pow(val, 2)
+            except CalculatorError:
+                raise
+            operand_stack.append(res)
+            continue
+
         # Handle unary operators generically
         if tok in _UNARY_CALLS:
-
+            
             if not operand_stack:
                 print(f"[PARSER ERROR] Unary operator {tok} requires operand, stack empty")
                 raise ParseError("Malformed Expression")
@@ -240,14 +269,20 @@ def evaluate_rpn(rpn_tokens: Iterable[str], calculator: Calculator) -> float:
             val = operand_stack.pop()
             
             op_member = _UNARY_CALLS[tok]
+            
             method_name = op_member.value
+            
             func = getattr(calculator, method_name, None)
 
             if func is None:
                 raise ParseError(f"Calculator missing operation: {method_name}")
-            
             try:
-                res = func(val)
+                if method_name in ("sin", "cos", "tan"):
+                    from ..app_state import get_app_state
+                    angle_unit = get_app_state().angle_unit
+                    res = func(val, angle_unit)
+                else:
+                    res = func(val)
             except CalculatorError:
                 raise
             operand_stack.append(res)
@@ -304,6 +339,6 @@ def evaluate_rpn(rpn_tokens: Iterable[str], calculator: Calculator) -> float:
 
 
 def evaluate_tokens(tokens: Iterable[str], calculator: Calculator) -> float:
-
+    """Parse and evaluate tokens, returning the result."""
     rpn = shunting_yard(tokens)
     return evaluate_rpn(rpn, calculator)

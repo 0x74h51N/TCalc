@@ -23,7 +23,7 @@ ext_modules = [
             str(ROOT / "calculator.cpp"),
         ],
         include_dirs=[str(ROOT)],
-        cxx_std=17,
+        cxx_std=20,
     )
 ]
 

@@ -53,17 +53,21 @@ python main.py
 
 ## v1 TODO
 
-- [x] History panel
+- [ ] History panel
+  - [x] Add history panel with open/close shortcut
+  - [ ] Make max history item count configurable in general settings
+  - [ ] Allow disabling history persistence (local storage) via settings
 - [ ] Keyboard shortcuts in app level w/button animate
 - [x] Edit menu (undo, redo, cut, copy, paste)
 - [ ] Science mode
   - [ ] MS, MC, MR, M+
-  - [ ] Trigonometry operations
-  - [ ] deg, rad, grad
+  - [x] Trigonometry operations
+  - [x] deg, rad, grad
   - [ ] Logarithm, exponent, factorial, reciprocal, modulo
-  - [ ] Maybe derivative, integral, and limit
-  - [ ] Maybe² vector operations: length, dot, cross
-  - [ ] Maybe³ matrix operations: multiplication, inverse, determinant
+  - [ ] Shift-modified operations (Γ, intDiv, inverse trigonometry, binomial coefficients etc.)
+  - [ ] (Maybe) derivative, integral, and limit
+  - [ ] (Maybe²) vector operations: length, dot, cross
+  - [ ] (Maybe³) matrix operations: multiplication, inverse, determinant
 - [ ] Statistic mode
   - [ ] Data store and statistic operations: mean, standart deviation, median etc.
 - [ ] Constant menu

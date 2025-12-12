@@ -7,7 +7,19 @@ from PySide6.QtWidgets import QMenuBar, QMainWindow
 from ....app_state import get_app_state, CalculatorMode
 
 
+def _get_icon(theme_name: str) -> QIcon:
+    icon = QIcon.fromTheme(theme_name)
+    return icon if not icon.isNull() else QIcon()
+
+
 class SettingsMenu:
+
+    # mode, icon, label, enabled
+    _MODE_CONFIG = [
+        (CalculatorMode.SIMPLE, "accessories-calculator", "Simple Mode", True),
+        (CalculatorMode.SCIENCE, "applications-science", "Science Mode (Coming Soon)", True),
+        (CalculatorMode.STATISTIC, "office-chart-bar", "Statistic Mode (Coming Soon)", False),
+    ]
 
     def __init__(self, menu: QMenuBar, window: QMainWindow):
         self.app_state = get_app_state()
@@ -15,53 +27,22 @@ class SettingsMenu:
         
         settings_menu = menu.addMenu("Settings")
         
-        def get_icon(theme_name: str) -> QIcon:
-            icon = QIcon.fromTheme(theme_name)
-            return icon if not icon.isNull() else QIcon()
-        
-        # Modes
-        self.simple_action = QAction(
-            get_icon("accessories-calculator"),
-            "Simple Mode",
-            window,
-            checkable=True
-        )
-        self.science_action = QAction(
-            get_icon("applications-science"),
-            "Science Mode (Coming Soon)",
-            window,
-            checkable=True
-        )
-        self.science_action.setEnabled(False)
-        self.statistic_action = QAction(
-            get_icon("office-chart-bar"),
-            "Statistic Mode (Coming Soon)",
-            window,
-            checkable=True
-        )
-        self.statistic_action.setEnabled(False)
+        # Mode actions
+        self._mode_actions: dict[CalculatorMode, QAction] = {}
+        for mode, icon, label, enabled in self._MODE_CONFIG:
+            action = QAction(_get_icon(icon), label, window, checkable=True)
+            action.setEnabled(enabled)
+            action.triggered.connect(lambda checked, m=mode: self._set_mode(m))
+            settings_menu.addAction(action)
+            self._mode_actions[mode] = action
         
         self._update_mode_selection()
-        
-        self.simple_action.triggered.connect(
-            lambda: self._set_mode(CalculatorMode.SIMPLE)
-        )
-        self.science_action.triggered.connect(
-            lambda: self._set_mode(CalculatorMode.SCIENCE)
-        )
-        self.statistic_action.triggered.connect(
-            lambda: self._set_mode(CalculatorMode.STATISTIC)
-        )
-        
-        settings_menu.addAction(self.simple_action)
-        settings_menu.addAction(self.science_action)
-        settings_menu.addAction(self.statistic_action)
         
         settings_menu.addSeparator()
         
         # Visibility toggles
         self.history_action = QAction(
-            get_icon("view-history"),
+            _get_icon("view-history"),
             "Show History",
             window,
             checkable=True
@@ -73,7 +54,7 @@ class SettingsMenu:
         settings_menu.addAction(self.history_action)
         
         self.constants_action = QAction(
-            get_icon("format-text-symbol"),
+            _get_icon("format-text-symbol"),
             "Constant Buttons (Coming Soon)",
             window,
             checkable=True
@@ -87,33 +68,30 @@ class SettingsMenu:
         
         # Configuration actions
         keyboard_action = QAction(
-            get_icon("input-keyboard"),
+            _get_icon("input-keyboard"),
             "Configure Keyboard Shortcuts... (Coming Soon)",
             window
         )
         keyboard_action.setEnabled(False)
         settings_menu.addAction(keyboard_action)
-        #TODO: Keyboard shortcuts dialog
 
         config_action = QAction(
-            get_icon("configure"),
-            "Configure KCalc... (Coming Soon)",
+            _get_icon("configure"),
+            "Configure TCalc... (Coming Soon)",
             window
         )
         config_action.setEnabled(False)
         settings_menu.addAction(config_action)
-        #TODO: TCalc config dialog
-
 
     def _set_mode(self, mode: CalculatorMode) -> None:
         self.app_state.mode = mode
         self._update_mode_selection()
+        if hasattr(self.window, 'update_layout'):
+            self.window.update_layout()
 
     def _update_mode_selection(self) -> None:
-        current_mode = self.app_state.mode
-        self.simple_action.setChecked(current_mode == CalculatorMode.SIMPLE)
-        self.science_action.setChecked(current_mode == CalculatorMode.SCIENCE)
-        self.statistic_action.setChecked(current_mode == CalculatorMode.STATISTIC)
+        for mode, action in self._mode_actions.items():
+            action.setChecked(mode == self.app_state.mode)
 
     def _toggle_history(self, checked: bool) -> None:
         self.app_state.show_history = checked

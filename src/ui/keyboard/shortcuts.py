@@ -5,42 +5,52 @@ from PySide6.QtCore import Qt
 from ...core import Operation
 
 
-KEY_MAP: dict[int, tuple[str, Operation]] = {
-    # Digits
-    Qt.Key_0: ("0", Operation.DIGIT),
-    Qt.Key_1: ("1", Operation.DIGIT),
-    Qt.Key_2: ("2", Operation.DIGIT),
-    Qt.Key_3: ("3", Operation.DIGIT),
-    Qt.Key_4: ("4", Operation.DIGIT),
-    Qt.Key_5: ("5", Operation.DIGIT),
-    Qt.Key_6: ("6", Operation.DIGIT),
-    Qt.Key_7: ("7", Operation.DIGIT),
-    Qt.Key_8: ("8", Operation.DIGIT),
-    Qt.Key_9: ("9", Operation.DIGIT),
-    
-    # Decimal
-    Qt.Key_Period: (".", Operation.DOT),
-    Qt.Key_Comma: (".", Operation.DOT),
-    
+
+_KEY_TO_OPERATION: list[tuple[int, Operation]] = [
     # Operators
-    Qt.Key_Plus: (Operation.ADD.symbol, Operation.ADD),
-    Qt.Key_Minus: (Operation.SUB.symbol, Operation.SUB),
-    Qt.Key_Asterisk: (Operation.MUL.symbol, Operation.MUL),
-    Qt.Key_Slash: (Operation.DIV.symbol, Operation.DIV),
-    Qt.Key_Percent: (Operation.PERCENT.symbol, Operation.PERCENT),
+    (Qt.Key_Plus, Operation.ADD),
+    (Qt.Key_Minus, Operation.SUB),
+    (Qt.Key_Asterisk, Operation.MUL),
+    (Qt.Key_Slash, Operation.DIV),
+    (Qt.Key_Percent, Operation.PERCENT),
+    (Qt.Key_AsciiCircum, Operation.POW),
     
     # Parentheses
-    Qt.Key_ParenLeft: (Operation.OPEN_PAREN.symbol, Operation.OPEN_PAREN),
-    Qt.Key_ParenRight: (Operation.CLOSE_PAREN.symbol, Operation.CLOSE_PAREN),
+    (Qt.Key_ParenLeft, Operation.OPEN_PAREN),
+    (Qt.Key_ParenRight, Operation.CLOSE_PAREN),
     
     # Actions
-    Qt.Key_Return: (Operation.EQUALS.symbol, Operation.EQUALS),
-    Qt.Key_Enter: (Operation.EQUALS.symbol, Operation.EQUALS),
-    Qt.Key_Equal: (Operation.EQUALS.symbol, Operation.EQUALS),
-    Qt.Key_Backspace: (Operation.BACKSPACE.symbol, Operation.BACKSPACE),
-    Qt.Key_Delete: (Operation.CLEAR.symbol, Operation.CLEAR),
-    Qt.Key_Escape: (Operation.ALL_CLEAR.symbol, Operation.ALL_CLEAR),
+    (Qt.Key_Return, Operation.EQUALS),
+    (Qt.Key_Enter, Operation.EQUALS),
+    (Qt.Key_Equal, Operation.EQUALS),
+    (Qt.Key_Backspace, Operation.BACKSPACE),
+    (Qt.Key_Delete, Operation.CLEAR),
+    (Qt.Key_Escape, Operation.ALL_CLEAR),
+]
+
+_SPECIAL_LABEL_KEYS: dict[int, tuple[str, Operation]] = {
+    Qt.Key_Period: (".", Operation.DOT),
+    Qt.Key_Comma: (".", Operation.DOT),
 }
+
+
+def _build_key_map() -> dict[int, tuple[str, Operation]]:
+    key_map: dict[int, tuple[str, Operation]] = {}
+    
+    for i in range(10):
+        key_map[getattr(Qt, f"Key_{i}")] = (str(i), Operation.DIGIT)
+    
+    # Auto-generate from Operation.symbol
+    for qt_key, op in _KEY_TO_OPERATION:
+        key_map[qt_key] = (op.symbol, op)
+    
+    # Special label overrides
+    key_map.update(_SPECIAL_LABEL_KEYS)
+    
+    return key_map
+
+
+KEY_MAP: dict[int, tuple[str, Operation]] = _build_key_map()
 
 
 def get_operation_for_key(key: int) -> tuple[str, Operation] | None:

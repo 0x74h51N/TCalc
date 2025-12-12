@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Iterable, Optional, Sequence
+from typing import Optional, Sequence
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from .window import MainWindow
@@ -10,6 +11,8 @@ from .styles import apply_styles
 
 def run_app(argv: Optional[Sequence[str]] = None) -> int:
     app = QApplication(list(argv) if argv is not None else [])
+    app.setApplicationName("TCalc")
+    app.setWindowIcon(QIcon.fromTheme("accessories-calculator"))
     apply_styles(app)
 
     window = MainWindow()

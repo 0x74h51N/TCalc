@@ -8,6 +8,8 @@ from typing import Any, Dict
 
 
 class Theme:
+    """Central theme configuration loaded from config.toml."""
+    
     def __init__(self):
         self._config = self._load_config()
         self.colors = self._config["theme"]["colors"]

@@ -6,8 +6,7 @@ from PySide6.QtCore import QSize
 
 from ..core import Calculator
 from .manubar.menu import Menubar
-from .controller.controller import CalculatorController
-from .controller.edit_operations import EditOperations
+from .controller import CalculatorController, EditOperations
 from .widgets import CalcWidget, History
 from .config import window, get_history_width_from_total
 from .keyboard import KeyboardHandler
@@ -63,8 +62,8 @@ class MainWindow(QMainWindow):
         m_layout.addWidget(self.divider)
         m_layout.addWidget(self.history, window["history_stretch"])
         
-        # Adjust window to content size
-        self.adjustSize()
+        # Adjust window to content size based on current mode
+        self.update_layout()
         self._update_history_size()
        
         # Edit operations
@@ -79,7 +78,8 @@ class MainWindow(QMainWindow):
         # Keyboard handler for global shortcuts
         self._keyboard_handler = KeyboardHandler(
             self.calc_widget.display.expression_label,
-            self.calc_widget.keypad
+            self.calc_widget.keypad,
+            self.controller
         )
 
     def keyPressEvent(self, event):
@@ -103,11 +103,19 @@ class MainWindow(QMainWindow):
         self.history.setVisible(app_state.show_history)
         self.divider.setVisible(app_state.show_history)
         
-        # Adjust minimum width based on visibility
+        # Update keypad for science mode
+        self.calc_widget.keypad.update_mode()
+        
+        # Adjust minimum width based on visibility and mode
+        from ..app_state import CalculatorMode
+        calc_width = window["calc_min_width"]
+        if app_state.mode == CalculatorMode.SCIENCE:
+            calc_width += window.get("science_panel_width", 120)
+        
         if app_state.show_history:
-            min_width = window["calc_min_width"] + window["history_min_width"]
+            min_width = calc_width + window["history_min_width"]
         else:
-            min_width = window["calc_min_width"]
+            min_width = calc_width
         
         self.setMinimumWidth(min_width)
         self.adjustSize()

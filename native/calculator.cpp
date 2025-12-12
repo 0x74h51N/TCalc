@@ -1,18 +1,16 @@
 #include "calculator.hpp"
+
 #include <cmath>
+#include <complex>
+#include <numbers>
 
+// -----------------
+// Real ops
+// -----------------
 
-double Calculator::add(double a, double b) const {
-    return a + b;
-}
-
-double Calculator::sub(double a, double b) const {
-    return a - b;
-}
-
-double Calculator::mul(double a, double b) const {
-    return a * b;
-}
+double Calculator::add(double a, double b) const { return a + b; }
+double Calculator::sub(double a, double b) const { return a - b; }
+double Calculator::mul(double a, double b) const { return a * b; }
 
 double Calculator::div(double a, double b) const {
     if (b == 0.0) {
@@ -22,7 +20,6 @@ double Calculator::div(double a, double b) const {
 }
 
 double Calculator::pow(double a, double b) const {
-    // Int check
     if (std::floor(b) == b) {
         long long exp = static_cast<long long>(b);
 
@@ -35,8 +32,7 @@ double Calculator::pow(double a, double b) const {
         }
 
         while (exp > 0) {
-            if (exp & 1)
-                result *= base;
+            if (exp & 1) result *= base;
             base *= base;
             exp >>= 1;
         }
@@ -52,4 +48,81 @@ double Calculator::sqrt(double a) const {
         throw CalculatorError("Math error");
     }
     return std::sqrt(a);
+}
+
+// -----------------
+// Complex ops
+// -----------------
+
+Calculator::Complex Calculator::add(Complex a, Complex b) const { return a + b; }
+Calculator::Complex Calculator::sub(Complex a, Complex b) const { return a - b; }
+Calculator::Complex Calculator::mul(Complex a, Complex b) const { return a * b; }
+
+Calculator::Complex Calculator::div(Complex a, Complex b) const {
+    if (b.real() == 0.0 && b.imag() == 0.0) {
+        throw CalculatorError("Math error");
+    }
+    return a / b;
+}
+
+Calculator::Complex Calculator::pow(Complex a, Complex b) const {
+    return std::pow(a, b);
+}
+
+Calculator::Complex Calculator::sqrt(Complex a) const {
+    return std::sqrt(a);
+}
+
+
+static inline double to_radians(double x, Calculator::AngleUnit unit) {
+    const double pi = std::numbers::pi_v<double>;
+
+    switch (unit) {
+        case Calculator::AngleUnit::DEG:
+            return x * (pi / 180.0);
+        case Calculator::AngleUnit::GRAD:
+            return x * (pi / 200.0);
+        case Calculator::AngleUnit::RAD:
+        default:
+            return x;
+    }
+}
+// Real trig
+double Calculator::sin(double a, AngleUnit unit) const {
+    return std::sin(to_radians(a, unit));
+}
+
+double Calculator::cos(double a, AngleUnit unit) const {
+    return std::cos(to_radians(a, unit));
+}
+
+double Calculator::tan(double a, AngleUnit unit) const {
+    return std::tan(to_radians(a, unit));
+}
+
+// Complex trig
+static inline Calculator::Complex to_radians(Calculator::Complex x, Calculator::AngleUnit unit) {
+    const double pi = std::numbers::pi_v<double>;
+
+    switch (unit) {
+        case Calculator::AngleUnit::DEG:
+            return x * (pi / 180.0);
+        case Calculator::AngleUnit::GRAD:
+            return x * (pi / 200.0);
+        case Calculator::AngleUnit::RAD:
+        default:
+            return x;
+    }
+}
+
+Calculator::Complex Calculator::sin(Complex a, AngleUnit unit) const {
+    return std::sin(to_radians(a, unit));
+}
+
+Calculator::Complex Calculator::cos(Complex a, AngleUnit unit) const {
+    return std::cos(to_radians(a, unit));
+}
+
+Calculator::Complex Calculator::tan(Complex a, AngleUnit unit) const {
+    return std::tan(to_radians(a, unit));
 }
