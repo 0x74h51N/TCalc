@@ -49,6 +49,7 @@ class EditMenu:
             window
         )
         cut_action.setShortcut("Ctrl+X")
+        cut_action.setShortcutContext(Qt.ApplicationShortcut)
         cut_action.triggered.connect(lambda: self.edit_ops.cut())
         edit_menu.addAction(cut_action)
 
@@ -59,6 +60,7 @@ class EditMenu:
             window
         )
         copy_action.setShortcut("Ctrl+C")
+        copy_action.setShortcutContext(Qt.ApplicationShortcut)
         copy_action.triggered.connect(lambda: self.edit_ops.copy())
         edit_menu.addAction(copy_action)
         
@@ -69,5 +71,6 @@ class EditMenu:
             window
         )
         paste_action.setShortcut("Ctrl+V")
+        paste_action.setShortcutContext(Qt.ApplicationShortcut)
         paste_action.triggered.connect(lambda: self.edit_ops.paste())
         edit_menu.addAction(paste_action)

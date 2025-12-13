@@ -13,3 +13,5 @@ build/
 calc_native*.so
 
 .vscode
+
+*.egg-info/

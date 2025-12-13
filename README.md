@@ -13,22 +13,50 @@ Initially focused on basic arithmetic for QT learning, the project is designed t
 
 ## Requirements
 
-- Python ≥3.10
+- Python >= 3.10
 - PySide6
 - pybind11
 
-## Dev Requirements
+## Development Requirements
 
+### Cross-platform (required)
+- Python >= 3.10
+- pip
+- setuptools
+- wheel
+
+### Windows (native build)
+- Microsoft Visual C++ Build Tools (MSVC)
+  - Install "Desktop development with C++"
+
+### Linux (native build)
 - g++
-- python3.13-devel
-- entr
+- Python development headers  
+  - Debian/Ubuntu: `python3-dev`
+  - Fedora: `python3-devel`
 
-## Build & Run
+### Optional (Linux dev tooling)
+- entr (for auto-reload dev mode)
 
-Native build:
+## Installation
+
+```bash
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+python -m pip install -e .
+```
+
+**Native Extension Build**
+
+Build the C++ extension in-place:
 
 ```bash
 python native/setup.py build_ext --inplace
+```
+run:
+
+```bash
+python main.py
 ```
 
 Dev mode (auto-restart on changes):
@@ -37,22 +65,12 @@ Dev mode (auto-restart on changes):
 make dev
 ```
 
-**Production build:**
 
-Install requirements:
+## v1 Plan
 
-```bash
-pip install -e .
-```
+Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 
-run:
-
-```bash
-python main.py
-```
-
-## v1 TODO
-
+### v1 Roadmap
 - [ ] History panel
   - [x] Add history panel with open/close shortcut
   - [ ] Make max history item count configurable in general settings
@@ -83,6 +101,11 @@ python main.py
     - [ ] Constants
   - [ ] Configure keyboard shortcuts
 - [ ] Improve styles and layout design
+
+### v1 Releases
+- Windows
+- Linux
+- macOS
 
 ## Credits
 

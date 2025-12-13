@@ -30,7 +30,20 @@ dependencies = [
 calculator = "src.main:main"
 
 [tool.setuptools]
-packages = ["src", "src.core", "src.ui", "src.ui.controller", "src.ui.display", "src.ui.keypad", "src.ui.manubar", "src.ui.manubar.menus"]
+packages = [
+"src",
+"src.core",
+"src.ui",
+"src.ui.controller",
+"src.ui.keyboard",
+"src.ui.manubar",
+"src.ui.manubar.menus",
+"src.ui.widgets",
+"src.ui.widgets.calc",
+"src.ui.widgets.calc.display",
+"src.ui.widgets.calc.keypad",
+"src.ui.widgets.history",
+]
 include-package-data = true
 
 

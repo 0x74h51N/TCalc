@@ -52,4 +52,4 @@ echo "Auto-restart enabled"
 
 # Hot reload
 # -----------------------------
-find src -name "*.py" -o -name "main.py" | entr -r python main.py
+find src -name "*.py" | entr -r python src/main.py
