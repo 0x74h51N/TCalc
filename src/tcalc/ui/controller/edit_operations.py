@@ -19,11 +19,11 @@ class EditOperations:
 
     @property
     def _display(self):
-        return self.window.calc_widget.display if hasattr(self.window, 'calc_widget') else None
+        return self.window.calc_widget.display
 
     @property
     def _history_list(self):
-        return self.window.history.list if hasattr(self.window, 'history') else None
+        return self.window.history.list
 
     def _get_history_expression(self, index: int) -> Optional[str]:
         item = self._history_list.item(index)
@@ -33,27 +33,19 @@ class EditOperations:
         self._display.update_expr(expression)
 
     def copy(self) -> None:
-        if not self._display:
-            return
         cleaned = clean_for_expression(self._display.result_label.text())
         self.clipboard.setText(cleaned)
 
     def cut(self) -> None:
         self.copy()
-        if self._display:
-            self._display.update_res("")
+        self._display.update_res("")
 
     def paste(self) -> None:
-        if not self._display:
-            return
         cleaned = clean_for_expression(self.clipboard.text())
         self._display.expression_label.insert(cleaned)
         self._display.expression_label.setFocus()
 
     def undo(self) -> None:
-        if not self._display or not self._history_list:
-            return
-        
         history_count = self._history_list.count()
         if history_count == 0:
             return
@@ -72,7 +64,7 @@ class EditOperations:
             self._set_expression(expression)
 
     def redo(self) -> None:
-        if not self._display or not self._history_list or self.app_state.history_index == -1:
+        if self.app_state.history_index == -1:
             return
         
         self.app_state.history_index += 1

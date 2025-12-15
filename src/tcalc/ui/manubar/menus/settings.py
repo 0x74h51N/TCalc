@@ -86,8 +86,7 @@ class SettingsMenu:
     def _set_mode(self, mode: CalculatorMode) -> None:
         self.app_state.mode = mode
         self._update_mode_selection()
-        if hasattr(self.window, 'update_layout'):
-            self.window.update_layout()
+        self.window.update_layout()
 
     def _update_mode_selection(self) -> None:
         for mode, action in self._mode_actions.items():
@@ -95,8 +94,7 @@ class SettingsMenu:
 
     def _toggle_history(self, checked: bool) -> None:
         self.app_state.show_history = checked
-        if hasattr(self.window, 'update_layout'):
-            self.window.update_layout()
+        self.window.update_layout()
 
     def _toggle_constants(self, checked: bool) -> None:
         self.app_state.show_constant_buttons = checked

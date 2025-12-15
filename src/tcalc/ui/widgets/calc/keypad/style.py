@@ -17,7 +17,6 @@ QPushButton[keypadRole] {{
     border: 1px solid {c['border_default']};
     border-radius: {s['radius_small']}px;
     padding: 10px;
-    font-size: 13px;
 }}
 QPushButton[keypadRole]:hover {{
     border: 1px solid {c['accent_text']};

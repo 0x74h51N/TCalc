@@ -6,6 +6,8 @@ from typing import Iterable, List
 
 from .engine import Calculator, CalculatorError
 from . import Operation, build_operator_table, build_operation_map
+from .utils import is_number_token, parse_number_token
+
 
 ADD_SYM = Operation.ADD.symbol
 SUB_SYM = Operation.SUB.symbol
@@ -35,13 +37,6 @@ _OPERATOR_SYMBOLS = sorted(
 _NUMBER_PATTERN = re.compile(r"(?:\d+\.\d*|\d+|\.\d+)(?:[eE][+-]?\d+)?")
 
 
-def _is_number_token(tok: str) -> bool:
-    try:
-        float(tok)
-        return True
-    except Exception:
-        return False
-    
 
 def tokenize_string(expression: str) -> List[str]:
     """Tokenize a mathematical expression into a list of tokens."""
@@ -71,7 +66,7 @@ def tokenize_string(expression: str) -> List[str]:
         if expression[i].isdigit() or expression[i] == '.':
             match = _NUMBER_PATTERN.match(expression, i)
             if match:
-                tokens.append(match.group(0))
+                tokens.append(parse_number_token(match.group(0)))
                 i = match.end()
                 continue
         
@@ -111,8 +106,8 @@ def _normalize_tokens(tokens: List[str]) -> List[str]:
             # Insert implicit multip
             if normalized:
                 last = normalized[-1]
-                if (_is_number_token(last) or last == CLOSE_PAREN_SYM or last == PERCENT_SYM) and \
-                   (_is_number_token(tok) or tok == OPEN_PAREN_SYM or tok == NEGATE_SYM):
+                if (is_number_token(last) or last == CLOSE_PAREN_SYM or last == PERCENT_SYM) and \
+                   (is_number_token(tok) or tok == OPEN_PAREN_SYM or tok == NEGATE_SYM):
                     normalized.append(MUL_SYM)
             normalized.append(tok)
     
@@ -145,7 +140,7 @@ def shunting_yard(tokens: Iterable[str]) -> List[str]:
             continue
 
         # Special case: unary func + unary minus + number (e.g. √-5)
-        if tok in _UNARY_CALLS and i+2 < n and normalized[i+1] == SUB_SYM and _is_number_token(normalized[i+2]):
+        if tok in _UNARY_CALLS and i+2 < n and normalized[i+1] == SUB_SYM and is_number_token(normalized[i+2]):
             output.append(normalized[i+2])  # number
             output.append(NEGATE_SYM)       # unary minus
             output.append(tok)              # unary func
@@ -153,7 +148,7 @@ def shunting_yard(tokens: Iterable[str]) -> List[str]:
             prev_token = "unary_op"
             continue
 
-        if _is_number_token(tok):
+        if is_number_token(tok):
             output.append(tok)
             prev_token = "number"
             i += 1
@@ -227,11 +222,11 @@ def shunting_yard(tokens: Iterable[str]) -> List[str]:
 
 def evaluate_rpn(rpn_tokens: Iterable[str], calculator: Calculator) -> float:
     """Evaluate a list of RPN tokens and return the result."""
-    operand_stack: List[float] = []
+    operand_stack: List[int | float] = []
 
     for tok in rpn_tokens:
-        if _is_number_token(tok):
-            operand_stack.append(float(tok))
+        if is_number_token(tok):
+            operand_stack.append(tok)
             continue
 
         # Special handling for negate

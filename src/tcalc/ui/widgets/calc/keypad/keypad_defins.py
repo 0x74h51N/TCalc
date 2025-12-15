@@ -52,14 +52,15 @@ MATH_OPERATOR_KEYS = [
     {"label": Operation.MUL.symbol,  "operation": Operation.MUL, "row": 0, "col": 2, "tooltip": "multiply"},
     {"label": Operation.DIV.symbol,  "operation": Operation.DIV, "row": 0, "col": 1, "tooltip": "divide"},
     {"label": Operation.PERCENT.symbol,  "operation": Operation.PERCENT, "row": 0, "col": 0, "tooltip": "percent"},
-    {"label": Operation.OPEN_PAREN.symbol,  "operation": Operation.OPEN_PAREN, "row": 2, "col": 4, "tooltip": "open paren"},
-    {"label": Operation.CLOSE_PAREN.symbol,  "operation": Operation.CLOSE_PAREN, "row": 3, "col": 4, "tooltip": "close paren"},
+    {"label": Operation.OPEN_PAREN.symbol,  "operation": Operation.OPEN_PAREN, "row": 3, "col": 4, "tooltip": "open paren"},
+    {"label": Operation.CLOSE_PAREN.symbol,  "operation": Operation.CLOSE_PAREN, "row": 4, "col": 4, "tooltip": "close paren"},
 ]
 
 ACTION_KEYS = [
-    {"label": Operation.CLEAR.symbol,   "operation": Operation.CLEAR, "row": 0, "col": 4, "tooltip": "clear"},
-    {"label": Operation.ALL_CLEAR.symbol,  "operation": Operation.ALL_CLEAR, "row": 1, "col": 4, "tooltip": "clear all"},
-    {"label": NEGATE_LABEL, "operation": Operation.NEGATE, "row": 4, "col": 4, "tooltip": "negate"},
+    {"label": Operation.BACKSPACE.symbol,   "operation": Operation.BACKSPACE, "row": 0, "col": 4, "tooltip": "backspace"},
+    {"label": Operation.CLEAR.symbol,   "operation": Operation.CLEAR, "row": 1, "col": 4, "tooltip": "clear"},
+    {"label": Operation.ALL_CLEAR.symbol,  "operation": Operation.ALL_CLEAR, "row": 2, "col": 4, "tooltip": "clear all"},
+    {"label": NEGATE_LABEL, "operation": Operation.NEGATE, "row": 5, "col": 4, "tooltip": "negate"},
     {"label": Operation.EQUALS.symbol,   "operation": Operation.EQUALS, "row": 3, "col": 3, "rowspan": 2, "tooltip": "equals"},
 ]
 

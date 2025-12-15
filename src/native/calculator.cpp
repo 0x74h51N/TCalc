@@ -3,6 +3,7 @@
 #include <cmath>
 #include <complex>
 #include <numbers>
+#include <limits>
 
 // -----------------
 // Real ops
@@ -19,27 +20,36 @@ double Calculator::div(double a, double b) const {
     return a / b;
 }
 
-double Calculator::pow(double a, double b) const {
-    if (std::floor(b) == b) {
-        long long exp = static_cast<long long>(b);
+double Calculator::pow(double a, long long b) const {
 
-        double result = 1.0;
-        double base = a;
-
-        if (exp < 0) {
-            exp = -exp;
-            base = 1.0 / base;
-        }
-
-        while (exp > 0) {
-            if (exp & 1) result *= base;
-            base *= base;
-            exp >>= 1;
-        }
-
-        return result;
+    if (b == std::numeric_limits<long long>::min()) {
+        throw CalculatorError("Math error");
     }
 
+    if (b < 0 && a == 0.0) {
+        throw CalculatorError("Math error");
+    }
+
+    long long exp = b;
+    double result = 1.0;
+    double base = a;
+
+    if (exp < 0) {
+        exp = -exp;
+        base = 1.0 / base;
+    }
+
+    while (exp > 0) {
+        if (exp & 1) result *= base;
+        base *= base;
+        exp >>= 1;
+    }
+
+    return result;
+}
+
+double Calculator::pow(double a, double b) const {
+    
     return std::pow(a, b);
 }
 
@@ -73,21 +83,28 @@ Calculator::Complex Calculator::sqrt(Complex a) const {
     return std::sqrt(a);
 }
 
+// -----------------
+// Trig ops
+// -----------------
 
-static inline double to_radians(double x, Calculator::AngleUnit unit) {
+// Radians helper
+static inline double radians_factor(Calculator::AngleUnit unit) {
     const double pi = std::numbers::pi_v<double>;
-
     switch (unit) {
-        case Calculator::AngleUnit::DEG:
-            return x * (pi / 180.0);
-        case Calculator::AngleUnit::GRAD:
-            return x * (pi / 200.0);
+        case Calculator::AngleUnit::DEG:  return pi / 180.0;
+        case Calculator::AngleUnit::GRAD: return pi / 200.0;
         case Calculator::AngleUnit::RAD:
-        default:
-            return x;
+        default: return 1.0;
     }
 }
+template <typename T>
+static inline T to_radians(T x, Calculator::AngleUnit unit) {
+    return x * radians_factor(unit);
+}
+
+
 // Real trig
+// -----------------
 double Calculator::sin(double a, AngleUnit unit) const {
     return std::sin(to_radians(a, unit));
 }
@@ -100,21 +117,9 @@ double Calculator::tan(double a, AngleUnit unit) const {
     return std::tan(to_radians(a, unit));
 }
 
+
 // Complex trig
-static inline Calculator::Complex to_radians(Calculator::Complex x, Calculator::AngleUnit unit) {
-    const double pi = std::numbers::pi_v<double>;
-
-    switch (unit) {
-        case Calculator::AngleUnit::DEG:
-            return x * (pi / 180.0);
-        case Calculator::AngleUnit::GRAD:
-            return x * (pi / 200.0);
-        case Calculator::AngleUnit::RAD:
-        default:
-            return x;
-    }
-}
-
+// -----------------
 Calculator::Complex Calculator::sin(Complex a, AngleUnit unit) const {
     return std::sin(to_radians(a, unit));
 }

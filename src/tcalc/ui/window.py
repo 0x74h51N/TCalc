@@ -10,7 +10,7 @@ from .controller import CalculatorController, EditOperations
 from .widgets import CalcWidget, History
 from .config import window, get_history_width_from_total
 from .keyboard import KeyboardHandler
-from ..app_state import get_app_state
+from ..app_state import get_app_state, CalculatorMode
 
 class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget = None) -> None:
@@ -29,7 +29,6 @@ class MainWindow(QMainWindow):
 
         # Calc widget (display + keypad)
         self.calc_widget = CalcWidget(
-            on_key_pressed=lambda label, op: None, 
             parent=central
         )
         self.calc_widget.setMinimumSize(
@@ -61,26 +60,32 @@ class MainWindow(QMainWindow):
         # Add to layout
         m_layout.addWidget(self.divider)
         m_layout.addWidget(self.history, window["history_stretch"])
-        
-        # Adjust window to content size based on current mode
-        self.update_layout()
-        self._update_history_size()
        
         # Edit operations
         self.edit_ops = EditOperations(self)
 
         # Controller binding
-        self.controller = CalculatorController(self.calculator, self.calc_widget.display, self.history, self.edit_ops)
+        self.controller = CalculatorController(
+            self.calculator, 
+            self.calc_widget.display, 
+            self.history, 
+            self.edit_ops,
+            )
         
-        # Connect keypad to controller
-        self.calc_widget.keypad._on_key_pressed = self.controller.handle_key
-        
+        self.calc_widget.keypad.key_pressed.connect(self.controller.handle_key)
+        self.calc_widget.keypad.angle_changed.connect(self.controller.set_angle_unit)
+
         # Keyboard handler for global shortcuts
         self._keyboard_handler = KeyboardHandler(
             self.calc_widget.display.expression_label,
             self.calc_widget.keypad,
             self.controller
         )
+
+        # Sync initial keypad state and size constraints
+        self.update_layout()
+        self._update_history_size()
+
 
     def keyPressEvent(self, event):
         if self._keyboard_handler.handle_key_press(event):
@@ -102,12 +107,17 @@ class MainWindow(QMainWindow):
         app_state = get_app_state()
         self.history.setVisible(app_state.show_history)
         self.divider.setVisible(app_state.show_history)
-        
-        # Update keypad for science mode
-        self.calc_widget.keypad.update_mode()
+
+        is_science = app_state.mode == CalculatorMode.SCIENCE
+        keypad = self.calc_widget.keypad
+        keypad._science_widget.setVisible(is_science)
+        keypad._angle_widget.setVisible(is_science)
+
+        btn = keypad._angle_buttons.get(app_state.angle_unit)
+        if btn:
+            btn.setChecked(True)
         
         # Adjust minimum width based on visibility and mode
-        from ..app_state import CalculatorMode
         calc_width = window["calc_min_width"]
         if app_state.mode == CalculatorMode.SCIENCE:
             calc_width += window.get("science_panel_width", 120)

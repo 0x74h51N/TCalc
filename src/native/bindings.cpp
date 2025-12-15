@@ -35,6 +35,7 @@ PYBIND11_MODULE(calc_native, m) {
         .def("div", py::overload_cast<double, double>(&C::div, py::const_))
         .def("div", py::overload_cast<Z, Z>(&C::div, py::const_))
 
+        .def("pow", py::overload_cast<double, long long>(&C::pow, py::const_))
         .def("pow", py::overload_cast<double, double>(&C::pow, py::const_))
         .def("pow", py::overload_cast<Z, Z>(&C::pow, py::const_))
 

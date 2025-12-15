@@ -20,6 +20,7 @@ public:
     double sub(double a, double b) const;
     double mul(double a, double b) const;
     double div(double a, double b) const;
+    double pow(double a, long long b) const;
     double pow(double a, double b) const;
     double sqrt(double a) const;
 

@@ -26,7 +26,7 @@ dependencies = [
 ]
 
 [project.scripts]
-calculator = "tcalc.main:main"
+calculator = "tcalc.__main__:main"
 
 [tool.setuptools]
 include-package-data = true

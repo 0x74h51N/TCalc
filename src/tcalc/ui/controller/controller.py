@@ -2,20 +2,22 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional
 
+from ...app_state import AngleUnit, get_app_state
+
 from ...core import Calculator, Operation, CalculatorError, get_symbols_with_aliases, evaluate_tokens, tokenize_string
 from ...core.utils import is_number_token
-from ..widgets import CalcWidget, History
 from .utils import format_result, clean_for_expression
 
 
 class CalculatorController:
     """Main controller handling calculator input, expression state and display updates."""
     
-    def __init__(self, calculator: Calculator, display: CalcWidget.Display, history: History, edit_ops) -> None:
+    def __init__(self, calculator, display, history, edit_ops) -> None:
         self._calculator = calculator
         self._display = display
         self._history = history
         self._edit_ops = edit_ops
+        self._app_state = get_app_state()
 
         self._display.expression_changed.connect(self._on_expression_input)
 
@@ -44,7 +46,7 @@ class CalculatorController:
 
         self._evaluate_tokens = evaluate_tokens
         self._tokenize_string = tokenize_string
-        
+
         self._compute_and_update()
 
     def handle_key(self, label: str, operation) -> None:
@@ -55,7 +57,7 @@ class CalculatorController:
             return
         handler = self._handlers.get(operation)
         if handler is None:
-            print(f"[CONTROLLER] Handler bulunamadı: {operation} (label: {label})")
+            print(f"[CONTROLLER] Handler not found: {operation} (label: {label})")
             return
         handler(label)
         self._compute_and_update()
@@ -96,8 +98,9 @@ class CalculatorController:
         formatted_display = format_result(value)
         formatted_expr = clean_for_expression(formatted_display)
         
+        expr = self._expression
+        self._history.update_history(f"{expr}={formatted_expr}")
         self._expression = formatted_expr
-        self._history.update_history(f"{''.join(tokens)}={formatted_display}")
         
         # Reset undo/redo navigation
         self._edit_ops.reset_navigation()
@@ -177,6 +180,12 @@ class CalculatorController:
                 handlers[op] = self._set_operator
         
         return handlers
+
+    # Mode handlers
+    def set_angle_unit(self, unit: AngleUnit) -> None:
+        self._app_state.angle_unit = unit
+        self._compute_and_update()
+
 
     # -- Helpers ----------------------------------------------------------
 
