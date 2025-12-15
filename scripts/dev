@@ -36,7 +36,8 @@ source venv/bin/activate
 # -----------------------------
 if [ -f "requirements.txt" ]; then
   echo "Installing/updating Python dependencies from requirements.txt..."
-  pip install -r requirements.txt
+  python -m pip install -U pip setuptools wheel
+  python -m pip install -e .
 else
   echo "requirements.txt not found, skipping dependency install"
 fi
@@ -44,7 +45,7 @@ fi
 # native core
 # -----------------------------
 if [ ! -f "calc_native.cpython-313-x86_64-linux-gnu.so" ]; then
-  python native/setup.py build_ext --inplace
+  python src/native/setup.py build_ext --inplace
 fi
 
 
@@ -52,4 +53,4 @@ echo "Auto-restart enabled"
 
 # Hot reload
 # -----------------------------
-find src -name "*.py" | entr -r python src/main.py
+find src -name "*.py" | entr -r python -m tcalc

@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/0x74h51n/Repos/calculator/src/main.py", line 6, in <module>
+    from .ui.app import run_app
+  File "/home/0x74h51n/Repos/calculator/src/ui/app.py", line 5, in <module>
+    from PySide6.QtGui import QIcon
+ModuleNotFoundError: No module named 'PySide6'

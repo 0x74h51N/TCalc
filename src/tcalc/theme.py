@@ -18,7 +18,7 @@ class Theme:
 
     @staticmethod
     def _load_config() -> Dict[str, Any]:
-        config_path = Path(__file__).parent.parent / "config.toml"
+        config_path = Path(__file__).parent / "config.toml"
         with open(config_path, "rb") as f:
             return tomllib.load(f)
 

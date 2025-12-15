@@ -10,7 +10,7 @@ from .controller import CalculatorController, EditOperations
 from .widgets import CalcWidget, History
 from .config import window, get_history_width_from_total
 from .keyboard import KeyboardHandler
-from src.app_state import get_app_state
+from ..app_state import get_app_state
 
 class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget = None) -> None:

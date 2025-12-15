@@ -8,42 +8,29 @@ version = "0.2.0"
 description = "Advanced calculator with expression parsing"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = { text = "MIT" }
 authors = [
-    {name = "Tahsin Önemli", email = "tahsin.onemli90@gmail.com"}
+  { name = "Tahsin Önemli", email = "tahsin.onemli90@gmail.com" }
 ]
 keywords = ["calculator", "parser", "shunting-yard", "rpn", "gui"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.10+",
-    "Topic :: Scientific/Engineering :: Mathematics",
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.10+",
+  "Topic :: Scientific/Engineering :: Mathematics",
 ]
 
 dependencies = [
-    "PySide6>=6.0.0",
-    "pybind11>=2.6.0",
+  "PySide6>=6.0.0",
+  "pybind11>=2.6.0",
 ]
-
 
 [project.scripts]
-calculator = "src.main:main"
+calculator = "tcalc.main:main"
 
 [tool.setuptools]
-packages = [
-"src",
-"src.core",
-"src.ui",
-"src.ui.controller",
-"src.ui.keyboard",
-"src.ui.manubar",
-"src.ui.manubar.menus",
-"src.ui.widgets",
-"src.ui.widgets.calc",
-"src.ui.widgets.calc.display",
-"src.ui.widgets.calc.keypad",
-"src.ui.widgets.history",
-]
 include-package-data = true
 
-
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["tcalc*"]
