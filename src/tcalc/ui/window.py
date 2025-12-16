@@ -11,6 +11,7 @@ from .widgets import CalcWidget, History
 from .config import window, get_history_width_from_total
 from .keyboard import KeyboardHandler
 from ..app_state import get_app_state, CalculatorMode
+from .controller.utils import format_result
 
 class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget = None) -> None:
@@ -70,10 +71,12 @@ class MainWindow(QMainWindow):
             self.calc_widget.display, 
             self.history, 
             self.edit_ops,
+            self.calc_widget.topbar,
             )
         
         self.calc_widget.keypad.key_pressed.connect(self.controller.handle_key)
-        self.calc_widget.keypad.angle_changed.connect(self.controller.set_angle_unit)
+        self.calc_widget.topbar.key_pressed.connect(self.controller.handle_key)
+        self.calc_widget.topbar.angle_changed.connect(self.controller.set_angle_unit)
 
         # Keyboard handler for global shortcuts
         self._keyboard_handler = KeyboardHandler(
@@ -110,12 +113,23 @@ class MainWindow(QMainWindow):
 
         is_science = app_state.mode == CalculatorMode.SCIENCE
         keypad = self.calc_widget.keypad
+        topbar = self.calc_widget.topbar
         keypad._science_widget.setVisible(is_science)
-        keypad._angle_widget.setVisible(is_science)
+        topbar._angle_widget.setVisible(is_science)
+        keypad._buttons["Shift"].setVisible(app_state.mode != CalculatorMode.SIMPLE)
 
-        btn = keypad._angle_buttons.get(app_state.angle_unit)
+        btn = topbar._angle_buttons.get(app_state.angle_unit)
         if btn:
             btn.setChecked(True)
+
+        hyp_btn = keypad.get_button("Hyp")
+        if hyp_btn:
+            hyp_btn.setChecked(bool(app_state.hyp))
+
+        keypad._buttons["Shift"].setChecked(bool(app_state.shifted))
+
+        topbar.set_memory_available(app_state.memory is not None)
+        self.history.set_memory("" if app_state.memory is None else format_result(app_state.memory))
         
         # Adjust minimum width based on visibility and mode
         calc_width = window["calc_min_width"]

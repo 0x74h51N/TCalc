@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QFont
 
 from ..config import display_config
+from ...utils import apply_scaled_fonts
 from .style import apply_display_style
 
 
@@ -68,11 +69,26 @@ class Display(QWidget):
         self.result_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         layout.addWidget(self.result_label)
 
+        self._update_fonts()
+        QTimer.singleShot(0, self._update_fonts)
+
     def update_res(self, result_text: str) -> None:
         self.result_label.setText(result_text)
 
     def update_expr(self, expression_text: str) -> None:
         self.expression_label.setText(expression_text.strip())
+
+    def _update_fonts(self) -> None:
+        apply_scaled_fonts(
+            [
+                (self, (self.expression_label,), display_config["expression_font_size"], 18, 14),
+                (self, (self.result_label,), display_config["result_font_size"], 34, 8),
+            ]
+        )
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._update_fonts()
 
     def _on_expression_changed(self, text: str) -> None:
         self.expression_changed.emit(text)

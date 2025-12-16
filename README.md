@@ -77,7 +77,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [ ] Export as text
 - [ ] Keyboard shortcuts in app level w/button animate
 - [x] Edit menu (undo, redo, cut, copy, paste)
-- [ ] Memory for all modes MS, MC, MR, M+ Buttons
+- [x] Memory for all modes MS, MC, MR, M+ Buttons
 
 - [ ] Input / Parser / Eval
 

@@ -24,7 +24,6 @@ class Operation(Enum):
 
     EQUALS = ("equals", "=")
     CLEAR = ("clear", "C")
-    ALL_CLEAR = ("all_clear", "AC")
     BACKSPACE = ("backspace", "⌫")
     NEGATE = ("negate", "u-", 3, "right", "unary")
     SQRT = ("sqrt", "√", 4, "right", "unary", ["sqrt"])
@@ -34,6 +33,9 @@ class Operation(Enum):
     COS = ("cos", "cos", 4, "right", "unary")
     TAN = ("tan", "tan", 4, "right", "unary")
     HYP = ("hyp", "hyp") 
+    SINH = ("sinh", "sinh", 4, "right", "unary")
+    COSH = ("cosh", "cosh", 4, "right", "unary")
+    TANH = ("tanh", "tanh", 4, "right", "unary")
 
     # Function operations (unary)
     INV = ("inv", "1/", 4, "right", "unary")

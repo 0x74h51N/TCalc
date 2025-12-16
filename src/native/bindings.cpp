@@ -49,5 +49,14 @@ PYBIND11_MODULE(calc_native, m) {
         .def("cos", py::overload_cast<Z, U>(&C::cos, py::const_), py::arg("a"), py::arg("unit"))
 
         .def("tan", py::overload_cast<double, U>(&C::tan, py::const_), py::arg("a"), py::arg("unit"))
-        .def("tan", py::overload_cast<Z, U>(&C::tan, py::const_), py::arg("a"), py::arg("unit"));
+        .def("tan", py::overload_cast<Z, U>(&C::tan, py::const_), py::arg("a"), py::arg("unit"))
+
+        .def("sinh", py::overload_cast<double>(&C::sinh, py::const_), py::arg("a"))
+        .def("sinh", py::overload_cast<Z>(&C::sinh, py::const_), py::arg("a"))
+
+        .def("cosh", py::overload_cast<double>(&C::cosh, py::const_), py::arg("a"))
+        .def("cosh", py::overload_cast<Z>(&C::cosh, py::const_), py::arg("a"))
+
+        .def("tanh", py::overload_cast<double>(&C::tanh, py::const_), py::arg("a"))
+        .def("tanh", py::overload_cast<Z>(&C::tanh, py::const_), py::arg("a"));
 }

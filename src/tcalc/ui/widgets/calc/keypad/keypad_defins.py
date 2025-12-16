@@ -52,21 +52,25 @@ MATH_OPERATOR_KEYS = [
     {"label": Operation.MUL.symbol,  "operation": Operation.MUL, "row": 0, "col": 2, "tooltip": "multiply"},
     {"label": Operation.DIV.symbol,  "operation": Operation.DIV, "row": 0, "col": 1, "tooltip": "divide"},
     {"label": Operation.PERCENT.symbol,  "operation": Operation.PERCENT, "row": 0, "col": 0, "tooltip": "percent"},
-    {"label": Operation.OPEN_PAREN.symbol,  "operation": Operation.OPEN_PAREN, "row": 3, "col": 4, "tooltip": "open paren"},
-    {"label": Operation.CLOSE_PAREN.symbol,  "operation": Operation.CLOSE_PAREN, "row": 4, "col": 4, "tooltip": "close paren"},
-]
-
-ACTION_KEYS = [
-    {"label": Operation.BACKSPACE.symbol,   "operation": Operation.BACKSPACE, "row": 0, "col": 4, "tooltip": "backspace"},
-    {"label": Operation.CLEAR.symbol,   "operation": Operation.CLEAR, "row": 1, "col": 4, "tooltip": "clear"},
-    {"label": Operation.ALL_CLEAR.symbol,  "operation": Operation.ALL_CLEAR, "row": 2, "col": 4, "tooltip": "clear all"},
-    {"label": NEGATE_LABEL, "operation": Operation.NEGATE, "row": 5, "col": 4, "tooltip": "negate"},
     {"label": Operation.EQUALS.symbol,   "operation": Operation.EQUALS, "row": 3, "col": 3, "rowspan": 2, "tooltip": "equals"},
 ]
 
+PARANTHES_KEYS = [
+        {"label": Operation.OPEN_PAREN.symbol,  "operation": Operation.OPEN_PAREN, "row": 3, "col": 0, "tooltip": "open paren"},
+        {"label": Operation.CLOSE_PAREN.symbol,  "operation": Operation.CLOSE_PAREN, "row": 4, "col": 0, "tooltip": "close paren"},
+    ]
+
+ACTION_KEYS = [
+        {"label": "Shift",   "operation": "shift", "checkable": True,  "row": 0, "col": 0, "tooltip": "Second Functions"},
+        {"label": Operation.BACKSPACE.symbol,   "operation": Operation.BACKSPACE, "row": 1, "col": 0, "tooltip": "backspace"},
+        {"label": Operation.CLEAR.symbol,   "operation": Operation.CLEAR, "row": 2, "col": 0, "tooltip": "clear"},
+        {"label": NEGATE_LABEL, "operation": Operation.NEGATE, "row": 5, "col": 0, "tooltip": "negate"},
+    ]
+
+
 # Science mode keys (left panel, 2 columns x 7 rows) - grouped by role
 TRIG_KEYS = [
-    {"label": Operation.HYP.symbol.capitalize(), "operation": Operation.HYP, "row": 0, "col": 0, "tooltip": "hyperbolic"},
+    {"label": Operation.HYP.symbol.capitalize(), "operation": Operation.HYP, "checkable": True, "row": 0, "col": 0, "tooltip": "hyperbolic"},
     {"label": Operation.SIN.symbol, "operation": Operation.SIN, "row": 1, "col": 0, "tooltip": "sine"},
     {"label": Operation.COS.symbol, "operation": Operation.COS, "row": 2, "col": 0, "tooltip": "cosine"},
     {"label": Operation.TAN.symbol, "operation": Operation.TAN, "row": 3, "col": 0, "tooltip": "tangent"},
@@ -88,15 +92,20 @@ POWER_KEYS = [
     {"label": EXP10_LABEL, "operation": Operation.EXP10, "row": 6, "col": 1, "tooltip": "exp 10"},
 ]
 
-SCIENCE_MODE_KEYS = {
-    "trig": TRIG_KEYS,
-    "function": FUNCTION_KEYS,
-    "power": POWER_KEYS,
-}
-
+# Key Groups
 
 NORMAL_MODE_KEYS = {
     "digit": NUMBER_KEYS,
     "operator": MATH_OPERATOR_KEYS,
-    "action": ACTION_KEYS,
+}
+
+SIDEBAR_KEYS = {
+    "operator": PARANTHES_KEYS,
+    "action": ACTION_KEYS
+}
+
+SCIENCE_MODE_KEYS = {
+    "trig": TRIG_KEYS,
+    "function": FUNCTION_KEYS,
+    "power": POWER_KEYS,
 }

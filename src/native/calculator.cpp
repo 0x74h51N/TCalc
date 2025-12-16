@@ -131,3 +131,15 @@ Calculator::Complex Calculator::cos(Complex a, AngleUnit unit) const {
 Calculator::Complex Calculator::tan(Complex a, AngleUnit unit) const {
     return std::tan(to_radians(a, unit));
 }
+
+// -----------------
+// Hyperbolic ops
+// -----------------
+
+double Calculator::sinh(double a) const { return std::sinh(a); }
+double Calculator::cosh(double a) const { return std::cosh(a); }
+double Calculator::tanh(double a) const { return std::tanh(a); }
+
+Calculator::Complex Calculator::sinh(Complex a) const { return std::sinh(a); }
+Calculator::Complex Calculator::cosh(Complex a) const { return std::cosh(a); }
+Calculator::Complex Calculator::tanh(Complex a) const { return std::tanh(a); }

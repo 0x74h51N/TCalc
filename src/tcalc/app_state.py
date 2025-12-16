@@ -32,11 +32,19 @@ class AppState:
         
         # Undo/redo state (not persisted)
         self.history_index: int = -1
-        self.redo_memory: str = ""
+        self.redo_cached_exprs: str = ""
         
         # Angle unit for trig functions (not persisted)
         self.angle_unit = AngleUnit.DEG
 
+        # Hyperbolic toggle (not persisted)
+        self.hyp = False
+
+        # Memory slot (not persisted)
+        self.memory: float|complex|None = None
+
+        # Shifted (not persisted)
+        self.shifted = False
 
     @property
     def mode(self) -> CalculatorMode:
@@ -64,6 +72,7 @@ class AppState:
     def show_constant_buttons(self, value: bool) -> None:
         self._show_constant_buttons = value
         self._settings.setValue("show_constant_buttons", value)
+        
 
 
 # Global singleton instance

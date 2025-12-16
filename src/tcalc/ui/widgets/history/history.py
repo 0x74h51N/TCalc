@@ -8,11 +8,13 @@ from PySide6.QtWidgets import (
     QFrame,
     QPushButton,
     QSizePolicy,
+    QLabel,
 )
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QIcon
 
 from ....theme import get_theme
+from ..utils import apply_scaled_fonts
 from .style import apply_history_style
 from .config import layout_config
 from .utils import wrap_expression
@@ -42,6 +44,28 @@ class History(QWidget):
         self.setAutoFillBackground(True)
         self.setPalette(palette)
 
+        self._memory_bar = QWidget(self)
+        memory_layout = QHBoxLayout(self._memory_bar)
+        memory_layout.setContentsMargins(0, 0, 0, 0)
+        memory_layout.setSpacing(layout_config["spacing"])
+
+        self._memory_label = QLabel("Mem:", self._memory_bar)
+        self._memory_value = QLabel("", self._memory_bar)
+        self._memory_value.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+        memory_layout.addWidget(self._memory_label, 0)
+        memory_layout.addWidget(self._memory_value, 1)
+
+        self._memory_divider = QFrame(self)
+        self._memory_divider.setFrameShape(QFrame.HLine)
+        self._memory_divider.setFrameShadow(QFrame.Sunken)
+
+        self._memory_bar.setVisible(False)
+        self._memory_divider.setVisible(False)
+
+        self.layout.addWidget(self._memory_bar)
+        self.layout.addWidget(self._memory_divider)
+
         self.list = QListWidget()
         apply_history_style(self.list)
         self.layout.addWidget(self.list)
@@ -65,6 +89,18 @@ class History(QWidget):
         
         # Load history from file
         self._load_from_storage()
+
+        self._update_fonts()
+        QTimer.singleShot(0, self._update_fonts)
+
+    def set_memory(self, text: str) -> None:
+        if text:
+            self._memory_value.setText(text)
+            self._memory_bar.setVisible(True)
+            self._memory_divider.setVisible(True)
+        else:
+            self._memory_bar.setVisible(False)
+            self._memory_divider.setVisible(False)
 
     def _load_from_storage(self) -> None:
         """Load history from persistent storage."""
@@ -98,5 +134,22 @@ class History(QWidget):
         self.list.clear()
         self._history_items.clear()
         clear_history_file()
+
+    def _update_fonts(self) -> None:
+        apply_scaled_fonts(
+            [
+                (self.list.viewport(), (self.list,), style["font_size"], 18, 30),
+                (self, (self._memory_label, self._memory_value), style["font_size"], 18, 30),
+                (self, (self.clear_button,), 9, 12, 30),
+            ]
+        )
+
+        self.list.clear()
+        for item in self._history_items:
+            self._add_item_to_list(item)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._update_fonts()
 
    

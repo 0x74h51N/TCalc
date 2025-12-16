@@ -25,7 +25,6 @@ _KEY_TO_OPERATION: list[tuple[int, Operation]] = [
     (Qt.Key_Equal, Operation.EQUALS),
     (Qt.Key_Backspace, Operation.BACKSPACE),
     (Qt.Key_Delete, Operation.CLEAR),
-    (Qt.Key_Escape, Operation.ALL_CLEAR),
 ]
 
 _SPECIAL_LABEL_KEYS: dict[int, tuple[str, Operation]] = {

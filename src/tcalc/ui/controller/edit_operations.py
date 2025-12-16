@@ -51,7 +51,7 @@ class EditOperations:
             return
         
         if self.app_state.history_index == -1:
-            self.app_state.redo_memory = self._display.expression_label.text()
+            self.app_state.redo_cached_exprs = self._display.expression_label.text()
             self.app_state.history_index = history_count - 1
         else:
             self.app_state.history_index -= 1
@@ -70,7 +70,7 @@ class EditOperations:
         self.app_state.history_index += 1
         
         if self.app_state.history_index >= self._history_list.count():
-            self._set_expression(self.app_state.redo_memory)
+            self._set_expression(self.app_state.redo_cached_exprs)
             self.reset_navigation()
         else:
             expression = self._get_history_expression(self.app_state.history_index)
@@ -79,4 +79,4 @@ class EditOperations:
     
     def reset_navigation(self) -> None:
         self.app_state.history_index = -1
-        self.app_state.redo_memory = ""
+        self.app_state.redo_cached_exprs = ""

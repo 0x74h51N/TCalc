@@ -4,7 +4,7 @@ from typing import Callable, Dict, List, Optional
 
 from ...app_state import AngleUnit, get_app_state
 
-from ...core import Calculator, Operation, CalculatorError, get_symbols_with_aliases, evaluate_tokens, tokenize_string
+from ...core import  Operation, CalculatorError, get_symbols_with_aliases, evaluate_tokens, tokenize_string
 from ...core.utils import is_number_token
 from .utils import format_result, clean_for_expression
 
@@ -12,11 +12,12 @@ from .utils import format_result, clean_for_expression
 class CalculatorController:
     """Main controller handling calculator input, expression state and display updates."""
     
-    def __init__(self, calculator, display, history, edit_ops) -> None:
+    def __init__(self, calculator, display, history, edit_ops, topbar) -> None:
         self._calculator = calculator
         self._display = display
         self._history = history
         self._edit_ops = edit_ops
+        self._topbar = topbar
         self._app_state = get_app_state()
 
         self._display.expression_changed.connect(self._on_expression_input)
@@ -47,14 +48,35 @@ class CalculatorController:
         self._evaluate_tokens = evaluate_tokens
         self._tokenize_string = tokenize_string
 
+        self._history.set_memory("")
         self._compute_and_update()
 
     def handle_key(self, label: str, operation) -> None:
         """Dispatch button press to appropriate handler."""
+        
+        if operation == "shift":
+            self._app_state.shifted = not self._app_state.shifted
+            self._compute_and_update()
+            return
+        
+        if isinstance(operation, str) and operation in {"MC", "MR", "MS", "M+", "M-"}:
+            self._handle_memory(operation)
+            self._compute_and_update()
+            return
+        
         if not isinstance(operation, Operation):
             self._handle_digit(label)
             self._compute_and_update()
             return
+
+        if self._app_state.hyp and operation in (Operation.SIN, Operation.COS, Operation.TAN):
+            operation = {
+                Operation.SIN: Operation.SINH,
+                Operation.COS: Operation.COSH,
+                Operation.TAN: Operation.TANH,
+            }[operation]
+            label = operation.symbol
+
         handler = self._handlers.get(operation)
         if handler is None:
             print(f"[CONTROLLER] Handler not found: {operation} (label: {label})")
@@ -111,10 +133,6 @@ class CalculatorController:
         self._expression = ""
         self._just_solved = False
 
-    def _handle_all_clear(self) -> None:
-        self._expression = ""
-        self._just_solved = False
-
     def _handle_backspace(self) -> None:
         if self._expression:
             self._expression = self._expression[:-1]
@@ -155,19 +173,65 @@ class CalculatorController:
         # No number found
         self._expression = Operation.SUB.symbol + self._expression if Operation.SUB.symbol not in self._expression else ""
 
+    def _handle_memory(self, op: str) -> None:
+        def current_value():
+            tokens = self._tokenize_expression()
+            if not tokens or not self._can_compute_preview(tokens):
+                return None
+            try:
+                return self._evaluate_tokens(tokens, self._calculator)
+            except CalculatorError:
+                return None
+
+        def recall():
+            if self._app_state.memory is None:
+                return
+            token = clean_for_expression(format_result(self._app_state.memory))
+            if self._just_solved:
+                self._expression = token
+                self._just_solved = False
+            else:
+                self._expression += token
+
+        def store(value):
+            if value is None:
+                return
+            self._app_state.memory = value
+
+        def add(value):
+            if value is None:
+                return
+            self._app_state.memory = value if self._app_state.memory is None else self._calculator.add(self._app_state.memory, value)
+
+        def sub(value):
+            if value is None:
+                return
+            self._app_state.memory = value if self._app_state.memory is None else self._calculator.sub(self._app_state.memory, value)
+
+        actions = {
+            "MC": lambda: setattr(self._app_state, "memory", None),
+            "MR": recall,
+            "MS": lambda: store(current_value()),
+            "M+": lambda: add(current_value()),
+            "M-": lambda: sub(current_value()),
+        }
+        actions[op]()
+        self._topbar.set_memory_available(self._app_state.memory is not None)
+        self._history.set_memory("" if self._app_state.memory is None else format_result(self._app_state.memory))
+
     def _build_handlers(self) -> Dict[Operation, Callable[[str], None]]:
         """Auto-generate operation handlers based on Operation attributes"""
         handlers: Dict[Operation, Callable[[str], None]] = {}
-        
+
         # Special handlers
         special_handlers = {
             Operation.DIGIT: self._handle_digit,
             Operation.DOT: lambda _: self._handle_dot(),
             Operation.EQUALS: lambda _: self._handle_equals(),
             Operation.CLEAR: lambda _: self._handle_clear(),
-            Operation.ALL_CLEAR: lambda _: self._handle_all_clear(),
             Operation.BACKSPACE: lambda _: self._handle_backspace(),
             Operation.NEGATE: lambda _: self._handle_negate(),
+            Operation.HYP: lambda _: self._toggle_hyp(),
         }
         handlers.update(special_handlers)
         
@@ -180,6 +244,9 @@ class CalculatorController:
                 handlers[op] = self._set_operator
         
         return handlers
+
+    def _toggle_hyp(self) -> None:
+        self._app_state.hyp = not self._app_state.hyp
 
     # Mode handlers
     def set_angle_unit(self, unit: AngleUnit) -> None:

@@ -40,6 +40,15 @@ public:
     Complex sin(Complex a, AngleUnit unit) const;
     Complex cos(Complex a, AngleUnit unit) const;
     Complex tan(Complex a, AngleUnit unit) const;
+
+    // Hyperbolic ops
+    double sinh(double a) const;
+    double cosh(double a) const;
+    double tanh(double a) const;
+
+    Complex sinh(Complex a) const;
+    Complex cosh(Complex a) const;
+    Complex tanh(Complex a) const;
 };
 
 class CalculatorError : public std::runtime_error {

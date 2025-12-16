@@ -7,15 +7,15 @@ expression_font_size = 11
 result_font_size = 18
 
 [keypad]
-top_margin = 6
+top_margin = 10
 side_margin = 10
 bottom_margin = 10
-grid_spacing = 6
+grid_spacing = 2
 hbox_spacing = 18
 
 # Grid stretch ratios
-left_grid_stretch = 8
-right_grid_stretch = 2
+normal_mode_keys_stretch = 8
+right_side_grid_stretch = 2
 science_grid_stretch = 4
 
 column_split = 3

@@ -2,9 +2,9 @@
 
 [window]
 # Minimum dimensions (pixels)
-min_height = 370
+min_height = 390
 calc_min_width = 280
-history_min_width = 300
+history_min_width = 320
 science_panel_width = 120
 
 # Layout stretch ratios
