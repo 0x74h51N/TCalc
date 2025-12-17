@@ -12,8 +12,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QIcon
-
-from ....theme import get_theme
+from tcalc.app_state import CalculatorMode
+from tcalc.theme import get_theme
 from ..utils import apply_scaled_fonts
 from .style import apply_history_style
 from .config import layout_config
@@ -24,10 +24,11 @@ from .storage import load_history, save_history, clear_history_file
 class History(QWidget):
     """History panel with persistent storage."""
     
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: Optional[QWidget] = None, mode: CalculatorMode = CalculatorMode.SIMPLE):
         super().__init__(parent)
         self.setObjectName("historyWidget")
         self._history_items: list[str] = []
+        self._mode = mode
 
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(
@@ -87,8 +88,7 @@ class History(QWidget):
         
         self.layout.addLayout(button_container)
         
-        # Load history from file
-        self._load_from_storage()
+        self.reload_from_storage(mode)
 
         self._update_fonts()
         QTimer.singleShot(0, self._update_fonts)
@@ -102,10 +102,10 @@ class History(QWidget):
             self._memory_bar.setVisible(False)
             self._memory_divider.setVisible(False)
 
-    def _load_from_storage(self) -> None:
-        """Load history from persistent storage."""
-        self._history_items = load_history()
-
+    def reload_from_storage(self, mode: CalculatorMode) -> None:
+        self._mode = mode
+        self._history_items = load_history(mode)
+        self.list.clear()
         for item in self._history_items:
             self._add_item_to_list(item)
 
@@ -127,13 +127,13 @@ class History(QWidget):
         self.list.scrollToBottom()
         
         # Save to persistent storage
-        save_history(self._history_items)
+        save_history(self._history_items, self._mode)
 
     def clear_history(self) -> None:
         """Clear history from UI and storage."""
         self.list.clear()
         self._history_items.clear()
-        clear_history_file()
+        clear_history_file(self._mode)
 
     def _update_fonts(self) -> None:
         apply_scaled_fonts(

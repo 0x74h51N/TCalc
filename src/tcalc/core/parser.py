@@ -28,6 +28,7 @@ class ParseError(CalculatorError):
 _OPERATORS = build_operator_table(lambda op: op.precedence is not None)
 _OP_CALLS = build_operation_map(lambda op: op.arity == "binary")
 _UNARY_CALLS = build_operation_map(lambda op: op.arity == "unary")
+_POSTFIX_CALLS = build_operation_map(lambda op: op.arity == "postfix")
 _OPERATOR_SYMBOLS = sorted(
     set(_OPERATORS.keys()) | {OPEN_PAREN_SYM, CLOSE_PAREN_SYM},
     key=len,
@@ -93,7 +94,7 @@ def _normalize_tokens(tokens: List[str]) -> List[str]:
 
     normalized: List[str] = []
     plus_minus_set = {ADD_SYM, SUB_SYM}
-    
+
     for tok in tokens:
         if tok in plus_minus_set and normalized and normalized[-1] in plus_minus_set:
             if normalized[-1] == SUB_SYM:
@@ -103,14 +104,19 @@ def _normalize_tokens(tokens: List[str]) -> List[str]:
             else:
                 normalized[-1] = tok
         else:
-            # Insert implicit multip
             if normalized:
                 last = normalized[-1]
-                if (is_number_token(last) or last == CLOSE_PAREN_SYM or last == PERCENT_SYM) and \
-                   (is_number_token(tok) or tok == OPEN_PAREN_SYM or tok == NEGATE_SYM):
+                last_ends_operand = is_number_token(last) or last == CLOSE_PAREN_SYM or last in _POSTFIX_CALLS
+                tok_starts_operand = (
+                    is_number_token(tok)
+                    or tok == OPEN_PAREN_SYM
+                    or tok == NEGATE_SYM
+                    or tok in _UNARY_CALLS
+                )
+                if last_ends_operand and tok_starts_operand:
                     normalized.append(MUL_SYM)
             normalized.append(tok)
-    
+
     return normalized
 
 #
@@ -254,6 +260,20 @@ def evaluate_rpn(rpn_tokens: Iterable[str], calculator: Calculator) -> float:
             operand_stack.append(res)
             continue
 
+        # Handle x⁻¹ as pow(val, -1)
+        if tok == Operation.RECIP.symbol:
+            if not operand_stack:
+                print(f"[PARSER ERROR] RECIP requires operand, stack empty")
+                raise ParseError("Malformed Expression")
+            val = operand_stack.pop()
+            try:
+                exp = complex(-1.0, 0.0) if isinstance(val, complex) else -1
+                res = calculator.pow(val, exp)
+            except CalculatorError:
+                raise
+            operand_stack.append(res)
+            continue
+
         # Handle unary operators generically
         if tok in _UNARY_CALLS:
             
@@ -272,10 +292,16 @@ def evaluate_rpn(rpn_tokens: Iterable[str], calculator: Calculator) -> float:
             if func is None:
                 raise ParseError(f"Calculator missing operation: {method_name}")
             try:
-                if method_name in ("sin", "cos", "tan"):
-                    from ..app_state import get_app_state
-                    angle_unit = get_app_state().angle_unit
-                    res = func(val, angle_unit)
+                if op_member in (
+                    Operation.SIN,
+                    Operation.COS,
+                    Operation.TAN,
+                    Operation.ASIN,
+                    Operation.ACOS,
+                    Operation.ATAN,
+                ):
+                    from tcalc.app_state import get_app_state
+                    res = func(val, get_app_state().angle_unit)
                 else:
                     res = func(val)
             except CalculatorError:

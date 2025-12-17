@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional
 
-from ...app_state import AngleUnit, get_app_state
+from tcalc.app_state import AngleUnit, get_app_state
 
 from ...core import  Operation, CalculatorError, get_symbols_with_aliases, evaluate_tokens, tokenize_string
 from ...core.utils import is_number_token
 from .utils import format_result, clean_for_expression
+from ..widgets.calc.topbar.defins import MEMORY_KEYS, MemoryKey
 
 
 class CalculatorController:
@@ -26,6 +27,8 @@ class CalculatorController:
         self._result: str = ""
         self._just_solved = False
         self._error_text: Optional[str] = None
+
+        self._memory_ops = {str(k["operation"]) for k in MEMORY_KEYS}
         
         # Build handlers dictionary
         self._handlers: Dict[Operation, Callable[[str], None]] = self._build_handlers()
@@ -59,7 +62,7 @@ class CalculatorController:
             self._compute_and_update()
             return
         
-        if isinstance(operation, str) and operation in {"MC", "MR", "MS", "M+", "M-"}:
+        if isinstance(operation, str) and operation in self._memory_ops:
             self._handle_memory(operation)
             self._compute_and_update()
             return
@@ -69,11 +72,21 @@ class CalculatorController:
             self._compute_and_update()
             return
 
-        if self._app_state.hyp and operation in (Operation.SIN, Operation.COS, Operation.TAN):
+        if self._app_state.hyp and operation in (
+            Operation.SIN,
+            Operation.COS,
+            Operation.TAN,
+            Operation.ASIN,
+            Operation.ACOS,
+            Operation.ATAN,
+        ):
             operation = {
                 Operation.SIN: Operation.SINH,
                 Operation.COS: Operation.COSH,
                 Operation.TAN: Operation.TANH,
+                Operation.ASIN: Operation.ASINH,
+                Operation.ACOS: Operation.ACOSH,
+                Operation.ATAN: Operation.ATANH,
             }[operation]
             label = operation.symbol
 
@@ -102,7 +115,10 @@ class CalculatorController:
             self._expression += "."
 
     def _set_operator(self, label: str) -> None:
-        self._expression += label
+        if label in self._unary_operator_symbols:
+            self._expression += f"{label}{Operation.OPEN_PAREN.symbol}"
+        else:
+            self._expression += label
         self._just_solved = False
 
     def _handle_equals(self) -> None:
@@ -203,18 +219,13 @@ class CalculatorController:
                 return
             self._app_state.memory = value if self._app_state.memory is None else self._calculator.add(self._app_state.memory, value)
 
-        def sub(value):
-            if value is None:
-                return
-            self._app_state.memory = value if self._app_state.memory is None else self._calculator.sub(self._app_state.memory, value)
-
-        actions = {
-            "MC": lambda: setattr(self._app_state, "memory", None),
-            "MR": recall,
-            "MS": lambda: store(current_value()),
-            "M+": lambda: add(current_value()),
-            "M-": lambda: sub(current_value()),
+        key_actions = {
+            MemoryKey.MC: lambda: setattr(self._app_state, "memory", None),
+            MemoryKey.MR: recall,
+            MemoryKey.MS: lambda: store(current_value()),
+            MemoryKey.M_PLUS: lambda: add(current_value()),
         }
+        actions = {k.value: fn for k, fn in key_actions.items() if k.value in self._memory_ops}
         actions[op]()
         self._topbar.set_memory_available(self._app_state.memory is not None)
         self._history.set_memory("" if self._app_state.memory is None else format_result(self._app_state.memory))
@@ -318,7 +329,11 @@ class CalculatorController:
             self._result = formatted
             return formatted
         except CalculatorError as exc:
-            return str(exc)
+            msg = str(exc)
+            # If expression has not finish don't show syntax errors until press equal
+            if msg in {"Malformed Expression", "Syntax Error"} or msg.startswith("Calculator missing operation:"):
+                return ""
+            return msg
 
     def _on_expression_input(self, text: str) -> None:
         """Handle keyboard input"""

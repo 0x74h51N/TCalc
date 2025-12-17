@@ -10,7 +10,7 @@ from .controller import CalculatorController, EditOperations
 from .widgets import CalcWidget, History
 from .config import window, get_history_width_from_total
 from .keyboard import KeyboardHandler
-from ..app_state import get_app_state, CalculatorMode
+from tcalc.app_state import get_app_state, CalculatorMode
 from .controller.utils import format_result
 
 class MainWindow(QMainWindow):
@@ -51,7 +51,7 @@ class MainWindow(QMainWindow):
         self.divider.setLineWidth(1)
         self.divider.setVisible(app_state.show_history)
 
-        self.history = History(parent=central)
+        self.history = History(parent=central, mode=app_state.mode)
         self.history.setMinimumSize(
             window["history_min_width"],
             window["min_height"]

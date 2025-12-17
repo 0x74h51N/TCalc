@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List
 
 from PySide6.QtCore import QStandardPaths
-
+from tcalc.app_state import CalculatorMode
 
 MAX_HISTORY_ITEMS = 100
 
@@ -18,14 +18,9 @@ def _get_data_dir() -> Path:
     return data_dir
 
 
-def _get_history_file() -> Path:
-    """Get history file path."""
-    return _get_data_dir() / "history.json"
-
-
-def load_history() -> List[str]:
+def load_history(mode: CalculatorMode) -> List[str]:
     """Load history from JSON file."""
-    history_file = _get_history_file()
+    history_file = _get_data_dir()/f"history_{mode.value}.json"
     
     if not history_file.exists():
         return []
@@ -38,9 +33,9 @@ def load_history() -> List[str]:
         return []
 
 
-def save_history(history: List[str]) -> None:
+def save_history(history: List[str], mode: CalculatorMode) -> None:
     """Save history to JSON file."""
-    history_file = _get_history_file()
+    history_file = _get_data_dir()/f"history_{mode.value}.json"
     
     # Limit history size
     if len(history) > MAX_HISTORY_ITEMS:
@@ -50,12 +45,13 @@ def save_history(history: List[str]) -> None:
         with open(history_file, "w", encoding="utf-8") as f:
             json.dump({"history": history}, f, ensure_ascii=False, indent=2)
     except IOError:
-        pass  # Silently fail if can't write
+        print("History storage write error: ", IOError)
+        pass
 
 
-def clear_history_file() -> None:
+def clear_history_file(mode: CalculatorMode) -> None:
     """Clear history file."""
-    history_file = _get_history_file()
+    history_file = _get_data_dir()/f"history_{mode.value}.json"
     
     try:
         with open(history_file, "w", encoding="utf-8") as f:

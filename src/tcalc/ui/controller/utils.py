@@ -7,12 +7,12 @@ def format_result(value) -> str:
     def fmt_real(x: float) -> str:
         abs_val = abs(x)
         if abs_val >= 1e10 or (0 < abs_val < 1e-6):
-            return f"{x:.6e}"
+            return f"{x:.16e}"
 
         if x.is_integer():
             return f"{int(x):,}"
 
-        result = f"{x:.10g}"
+        result = f"{x:.16g}"
 
         if '.' in result:
             int_part, dec_part = result.split('.', 1)
@@ -66,4 +66,3 @@ def format_result(value) -> str:
 def clean_for_expression(formatted: str) -> str:
     """Remove formatting (commas) from a display string for expression use."""
     return formatted.replace(",", "")
-

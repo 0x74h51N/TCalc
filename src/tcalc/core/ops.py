@@ -36,18 +36,33 @@ class Operation(Enum):
     SINH = ("sinh", "sinh", 4, "right", "unary")
     COSH = ("cosh", "cosh", 4, "right", "unary")
     TANH = ("tanh", "tanh", 4, "right", "unary")
+    ASIN = ("asin", "asin", 4, "right", "unary")
+    ACOS = ("acos", "acos", 4, "right", "unary")
+    ATAN = ("atan", "atan", 4, "right", "unary")
+    ASINH = ("asinh", "asinh", 4, "right", "unary")
+    ACOSH = ("acosh", "acosh", 4, "right", "unary")
+    ATANH = ("atanh", "atanh", 4, "right", "unary")
 
-    # Function operations (unary)
-    INV = ("inv", "1/", 4, "right", "unary")
+	# Function operations (unary)
+    RECIP = ("recip", "⁻¹", 4, "left", "postfix")
     FACT = ("fact", "!", 4, "left", "postfix")
     LOG = ("log", "log", 4, "right", "unary", ["log10"])
     LN = ("ln", "ln", 4, "right", "unary") 
     MOD = ("mod", "mod", 2, "left", "binary")
-
+    POW10 = ("pow10", "10^", 4, "right", "unary")
+    EXP = ("exp", "e^", 4, "right", "unary")
+    INTDIV = ("intdiv", "IntDiv", 2, "left", "binary", ["//"])
+    NCHOOSE = ("nchoose", "nCm", 4, "right", "binary")
+    GAMMA = ("gamma", "Γ", 4, "right", "unary")
+    CBRT = ("cbrt", "³√", 4, "right", "unary")
+	
     # Power operations
     SQR = ("sqr", "²", 4, "left", "postfix")
+    CUBE = ("cube", "³", 4, "left", "postfix")
     EXP10 = ("exp10", "E", 3, "right", "binary")
+    ROOT = ("root", "x¹/ʸ", 3, "right", "binary")
     IMAG = ("imag", "i")
+    POLAR = ("polar", "∠", 4, "right", "unary")
 
 
     def __new__(cls, value, symbol, prec=None, assoc=None, arity=None, aliases=None):

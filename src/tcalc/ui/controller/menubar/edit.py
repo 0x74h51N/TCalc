@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, Optional
 
 from PySide6.QtWidgets import QApplication
 
-from ...app_state import get_app_state
-from .utils import clean_for_expression
+from tcalc.app_state import get_app_state
+from ..utils import clean_for_expression
 
 if TYPE_CHECKING:
-    from ..window import MainWindow
+    from ...window import MainWindow
 
 
 class EditOperations:
@@ -33,10 +33,20 @@ class EditOperations:
         self._display.update_expr(expression)
 
     def copy(self) -> None:
+        expr = self._display.expression_label
+
+        if expr.hasFocus() and expr.hasSelectedText():
+            expr.copy()
+            return
         cleaned = clean_for_expression(self._display.result_label.text())
         self.clipboard.setText(cleaned)
 
     def cut(self) -> None:
+        expr = self._display.expression_label
+        
+        if expr.hasFocus() and expr.hasSelectedText():
+            expr.cut()
+            return
         self.copy()
         self._display.update_res("")
 

@@ -2,14 +2,33 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QEvent, QTimer
+from PySide6.QtCore import QEvent, QObject, QTimer
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QLineEdit
 
-from .shortcuts import get_operation_for_key
+from .keymap import get_operation_for_key
 
 if TYPE_CHECKING:
-    from ..controller import CalculatorController
-    from ..widgets.calc.keypad.keypad import Keypad
+    from tcalc.ui.controller import CalculatorController
+    from tcalc.ui.widgets.calc.keypad.keypad import Keypad
+
+
+class _ShortcutOverrideFilter(QObject):
+    def __init__(self, target: QLineEdit):
+        super().__init__(target)
+        self._target = target
+
+    def eventFilter(self, obj, event) -> bool:
+        if obj is self._target and event.type() == QEvent.ShortcutOverride:
+            if (
+                event.matches(QKeySequence.Undo)
+                or event.matches(QKeySequence.Redo)
+                or event.matches(QKeySequence.Cut)
+                or event.matches(QKeySequence.Copy)
+            ):
+                event.ignore()
+                return True
+        return False
 
 
 class KeyboardHandler:
@@ -18,13 +37,10 @@ class KeyboardHandler:
         self._expression_input = expression_input
         self._keypad = keypad
         self._controller = controller
+        self._shortcut_override_filter = _ShortcutOverrideFilter(self._expression_input)
+        self._expression_input.installEventFilter(self._shortcut_override_filter)
     
     def handle_key_press(self, event: QEvent) -> bool:
-
-        # If expression input has focus, let it handle the input
-        if self._expression_input.hasFocus():
-            return False
-        
         
         result = get_operation_for_key(event.key())
         if result:

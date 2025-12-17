@@ -1,56 +1,20 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from collections.abc import Callable
 
-from ...core import Operation
+from tcalc.app_state import CalculatorMode
+from tcalc.ui.controller.menubar import EditOperations, FileOperations, SettingsOperations
 
 
+ShortcutId = Callable[..., object] | CalculatorMode
 
-_KEY_TO_OPERATION: list[tuple[int, Operation]] = [
-    # Operators
-    (Qt.Key_Plus, Operation.ADD),
-    (Qt.Key_Minus, Operation.SUB),
-    (Qt.Key_Asterisk, Operation.MUL),
-    (Qt.Key_Slash, Operation.DIV),
-    (Qt.Key_Percent, Operation.PERCENT),
-    (Qt.Key_AsciiCircum, Operation.POW),
-    
-    # Parentheses
-    (Qt.Key_ParenLeft, Operation.OPEN_PAREN),
-    (Qt.Key_ParenRight, Operation.CLOSE_PAREN),
-    
-    # Actions
-    (Qt.Key_Return, Operation.EQUALS),
-    (Qt.Key_Enter, Operation.EQUALS),
-    (Qt.Key_Equal, Operation.EQUALS),
-    (Qt.Key_Backspace, Operation.BACKSPACE),
-    (Qt.Key_Delete, Operation.CLEAR),
-]
 
-_SPECIAL_LABEL_KEYS: dict[int, tuple[str, Operation]] = {
-    Qt.Key_Period: (".", Operation.DOT),
-    Qt.Key_Comma: (".", Operation.DOT),
+DEFAULT_ACTION_SHORTCUTS: dict[ShortcutId, str] = {
+    FileOperations.quit: "Ctrl+Q",
+    EditOperations.undo: "Ctrl+Z",
+    EditOperations.redo: "Ctrl+Shift+Z",
+    EditOperations.cut: "Ctrl+X",
+    EditOperations.copy: "Ctrl+C",
+    EditOperations.paste: "Ctrl+V",
+    SettingsOperations.toggle_history: "Ctrl+H",
 }
-
-
-def _build_key_map() -> dict[int, tuple[str, Operation]]:
-    key_map: dict[int, tuple[str, Operation]] = {}
-    
-    for i in range(10):
-        key_map[getattr(Qt, f"Key_{i}")] = (str(i), Operation.DIGIT)
-    
-    # Auto-generate from Operation.symbol
-    for qt_key, op in _KEY_TO_OPERATION:
-        key_map[qt_key] = (op.symbol, op)
-    
-    # Special label overrides
-    key_map.update(_SPECIAL_LABEL_KEYS)
-    
-    return key_map
-
-
-KEY_MAP: dict[int, tuple[str, Operation]] = _build_key_map()
-
-
-def get_operation_for_key(key: int) -> tuple[str, Operation] | None:
-    return KEY_MAP.get(key)

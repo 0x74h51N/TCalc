@@ -5,11 +5,13 @@ from .menus.file import FileMenu
 from .menus.edit import EditMenu
 from .menus.settings import SettingsMenu
 from .style import apply_menu_styles
+from ..keyboard import ShortcutManager
 
 class Menubar:
     def __init__(self, window: QMainWindow) -> None:
         self.window = window
         self.settings_menu: SettingsMenu | None = None
+        self.shortcuts = ShortcutManager()
         self._create_menubar()
 
     def _create_menubar(self) -> None:
@@ -17,7 +19,7 @@ class Menubar:
 
         apply_menu_styles(menubar)
 
-        FileMenu(menubar, self.window)
-        EditMenu(menubar, self.window)
-        self.settings_menu = SettingsMenu(menubar, self.window)
+        FileMenu(menubar, self.window, self.shortcuts)
+        EditMenu(menubar, self.window, self.shortcuts)
+        self.settings_menu = SettingsMenu(menubar, self.window, self.shortcuts)
         help_menu = menubar.addMenu("Help")

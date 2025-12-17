@@ -1,6 +1,16 @@
 from __future__ import annotations
 
-from .....app_state import AngleUnit
+from enum import Enum
+
+from tcalc.app_state import AngleUnit
+
+
+class MemoryKey(str, Enum):
+    MC = "MC"
+    MR = "MR"
+    MS = "MS"
+    M_PLUS = "M+"
+    M_MINUS = "M-"
 
 
 ANGLE_KEYS = [
@@ -13,12 +23,12 @@ ANGLE_L_KEYS = {"angle": ANGLE_KEYS}
 
 
 MEMORY_KEYS = [
-    {"label": "MC", "operation": "MC", "enabled": False, "row": 0, "col": 0, "tooltip": "memory clear"},
-    {"label": "MR", "operation": "MR", "enabled": False, "row": 0, "col": 1, "tooltip": "memory recall"},
-    {"label": "MS", "operation": "MS", "row": 0, "col": 2, "tooltip": "memory store"},
-    {"label": "M+", "operation": "M+", "row": 0, "col": 3, "tooltip": "memory add"},
+    {"label": MemoryKey.MC.value, "operation": MemoryKey.MC.value, "enabled": False, "row": 0, "col": 0, "tooltip": "memory clear"},
+    {"label": MemoryKey.MR.value, "operation": MemoryKey.MR.value, "enabled": False, "row": 0, "col": 1, "tooltip": "memory recall"},
+    {"label": MemoryKey.MS.value, "operation": MemoryKey.MS.value, "row": 0, "col": 2, "tooltip": "memory store"},
+    {"label": MemoryKey.M_PLUS.value, "operation": MemoryKey.M_PLUS.value, "row": 0, "col": 3, "tooltip": "memory add"},
 ]
 
 MEMORY_L_KEYS = {"memory": MEMORY_KEYS}
 
-__all__ = ["ANGLE_L_KEYS", "MEMORY_L_KEYS"]
+__all__ = ["ANGLE_L_KEYS", "MEMORY_L_KEYS", "MemoryKey", "MEMORY_KEYS"]

@@ -71,12 +71,15 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 
 - [ ] History panel
   - [x] Add history panel with open/close shortcut
-  - [ ] Make seperate history for calc modes
+  - [x] Make separate history for calc modes
   - [ ] Make max history item count configurable in general settings
   - [ ] Allow disabling history persistence (local storage) via settings
-  - [ ] Export as text
-- [ ] Keyboard shortcuts in app level w/button animate
-- [x] Edit menu (undo, redo, cut, copy, paste)
+  - [ ] Export as text file
+- [ ] Keyboard shortcuts
+
+  - [x] Basic shortcuts and handlers (cut, copy, undo, redo, quit etc.)
+  - [ ] Configurable shortcuts, bind/apply via a configuration window
+
 - [x] Memory for all modes MS, MC, MR, M+ Buttons
 
 - [ ] Input / Parser / Eval
@@ -87,33 +90,68 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [x] Error mapping spec (engine -> UI)
   - [ ] Test edge cases
 
-- [ ] Science mode
-  - [x] Trigonometry operations
-  - [x] deg, rad, grad
-  - [ ] Logarithm, exponent, factorial, reciprocal, modulo
-  - [ ] Shift-modified operations (Gamma, intDiv, inverse trigonometry, binomial coefficients etc.)
-- [ ] Statistic mode
-  - [ ] Data store and statistic operations: mean, standart deviation, median etc.
-- [ ] Constant menu
-  - [ ] All math or physic constants on menu
-  - [ ] All constants side panel window
-- [ ] Help menu
-  - [ ] Find Action
-  - [ ] User manual
-  - [ ] About, vers, licance etc.
-- [ ] Settings/Config menu
-  - [ ] Programable constant buttons
-  - [ ] Configure TCalc
-    - [ ] General conf
-      - [ ] Max number of digits, precision
-    - [ ] Fonts
-    - [ ] Themes
-    - [ ] Constants
-  - [ ] Configure keyboard shortcuts
+- [ ] Calc Modes
+
+  - [x] Mode state, layout update, binding and side effects
+  - [x] Simple Mode
+
+  - [ ] Science mode
+
+    - [x] UI / Controls
+      - [x] Science keypad panel
+      - [x] Angle unit radios (Deg/Rad/Grad) - state/binding
+      - [x] Shift toggles and shift keys
+    - [x] Trigonometry
+      - [x] sin/cos/tan (angle-aware)
+      - [x] Hyp toggle and hyperbolic keys (sinh/cosh/tanh)
+      - [x] inverse trig via Shift (asin/acos/atan or asinh/acosh/atanh)
+    - [ ] Functions - log10/ln, 1/x, x!, mod
+    - [ ] Power / Complex - sqrt, x², xʸ, exp10, i, complex domain rules
+    - [ ] Native + parser parity
+      - [ ] Implement ops in native + pybind
+    - [ ] Edge cases + error messages
+
+  - [ ] Statistic mode
+    - [ ] Data store
+      - [ ] Add/remove/clear data points
+      - [ ] Optional dataset persistence toggle (def false)
+    - [ ] Data panel UI
+      - [ ] Place to the right of History with a vertical separator (History panel expands)
+      - [ ] Show dataset list + summary (n, Σx, Σx²)
+      - [ ] Show dataset change log (added/removed/cleared)
+    - [ ] Keypad integration (left panel)
+      - [ ] Statistic operations as buttons (mean, median, min, max)
+      - [ ] variance + standard deviation (sample vs population)
+      - [ ] Shift toggles secondary operations (Σx, Σx², etc.)
+    - [ ] Native + parser parity
+      - [ ] Implement ops in native + pybind
+      - [ ] Ensure parser maps symbols/aliases correctly
+    - [ ] Edge cases + error messages
+
+- [ ] Menubar
+
+  - [x] File menu
+  - [x] Edit menu (undo, redo, cut, copy, paste), binding/apply
+  - [ ] Constant menu
+    - [ ] All math or physic constants on menu
+    - [ ] All constants side panel window
+  - [ ] Help menu
+    - [ ] Find Action
+    - [ ] User manual
+    - [ ] About, vers, licance etc.
+  - [ ] Settings/Config menu
+    - [ ] Programable constant buttons
+    - [ ] Configure TCalc
+      - [ ] General conf
+        - [ ] Max number of digits, precision
+      - [ ] Fonts
+      - [ ] Themes
+      - [ ] Constants
+    - [ ] Configure keyboard shortcuts
+
 - [ ] Improve styles and layout design
 
-- [ ] UX / Accessibility
-
+  - [ ] UX / Accessibility
   - [ ] Tab order + focus behavior
   - [ ] High-DPI/font scaling sanity pass
   - [ ] Basic tooltips for all keys

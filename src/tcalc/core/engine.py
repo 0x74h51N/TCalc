@@ -2,7 +2,20 @@ from __future__ import annotations
 
 from calc_native import Calculator as NativeCalculator, CalculatorError as NativeCalculatorError
 
-from ..app_state import get_app_state, CalculatorMode
+from tcalc.app_state import get_app_state, CalculatorMode
+
+from .ops import Operation
+
+
+_COMPLEX_PROMOTION_RULES = {
+    Operation.SQRT.value: lambda x: x < 0.0,
+    Operation.ASIN.value: lambda x: abs(x) > 1.0,
+    Operation.ACOS.value: lambda x: abs(x) > 1.0,
+    Operation.ACOSH.value: lambda x: x < 1.0,
+    Operation.ATANH.value: lambda x: abs(x) >= 1.0,
+    Operation.LN.value: lambda x: x <= 0.0,
+    Operation.LOG.value: lambda x: x <= 0.0,
+}
 
 
 class CalculatorError(Exception):
@@ -32,14 +45,17 @@ class Calculator:
             allowed = self._complex_allowed()
 
             if not allowed:
-                if any(isinstance(a, complex) for a in args) or any(isinstance(v, complex) for v in kwargs.values()):
+                if any(isinstance(a, complex) for a in args) or any(
+                    isinstance(v, complex) for v in kwargs.values()
+                ):
                     raise CalculatorError("Math error")
 
-            if allowed and name == "sqrt":
-                if len(args) >= 1:
-                    x = args[0]
-                    if isinstance(x, (int, float)) and x < 0:
-                        args = (complex(float(x), 0.0),) + args[1:]
+            if allowed and len(args) >= 1 and isinstance(args[0], (int, float)):
+                rule = _COMPLEX_PROMOTION_RULES.get(name)
+                if rule is not None:
+                    x = float(args[0])
+                    if rule(x):
+                        args = (complex(x, 0.0),) + args[1:]
 
             try:
                 return attr(*args, **kwargs)

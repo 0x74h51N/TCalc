@@ -4,11 +4,26 @@ from .....core import Operation
 # Custom labels for buttons (where symbol differs from display)
 NEGATE_LABEL = "+/-"
 SQRT_LABEL = "√x"
-INV_LABEL = "1/x"
+RECIP_LABEL = "1/x"
 FACT_LABEL = "x!"
 SQR_LABEL = "x²"
 POW_LABEL = "xʸ"
 EXP10_LABEL = "x·10ʸ"
+
+SHIFTED_KEYS = {
+    Operation.SIN: {"label": Operation.ASIN.symbol, "operation": Operation.ASIN, "tooltip": "inverse sine"},
+    Operation.COS: {"label": Operation.ACOS.symbol, "operation": Operation.ACOS, "tooltip": "inverse cosine"},
+    Operation.TAN: {"label": Operation.ATAN.symbol, "operation": Operation.ATAN, "tooltip": "inverse tangent"},
+    Operation.LOG: {"label": "10ˣ", "operation": Operation.POW10, "tooltip": "10 power"},
+    Operation.LN: {"label": "eˣ", "operation": Operation.EXP, "tooltip": "e power"},
+    Operation.MOD: {"label": Operation.INTDIV.symbol, "operation": Operation.INTDIV, "tooltip": "integer division"},
+    Operation.RECIP: {"label": Operation.NCHOOSE.symbol, "operation": Operation.NCHOOSE, "tooltip": "n choose m"},
+    Operation.FACT: {"label": Operation.GAMMA.symbol, "operation": Operation.GAMMA, "tooltip": "gamma"},
+    Operation.SQR: {"label": "x³", "operation": Operation.CUBE, "tooltip": "cube"},
+    Operation.POW: {"label": Operation.ROOT.symbol, "operation": Operation.ROOT, "tooltip": "root"},
+    Operation.IMAG: {"label": Operation.POLAR.symbol, "operation": Operation.POLAR, "tooltip": "polar complex"},
+    Operation.SQRT: {"label": "³√x", "operation": Operation.CBRT, "tooltip": "cube root"},
+}
 
 
 DIGIT_POSITIONS = {
@@ -71,24 +86,24 @@ ACTION_KEYS = [
 # Science mode keys (left panel, 2 columns x 7 rows) - grouped by role
 TRIG_KEYS = [
     {"label": Operation.HYP.symbol.capitalize(), "operation": Operation.HYP, "checkable": True, "row": 0, "col": 0, "tooltip": "hyperbolic"},
-    {"label": Operation.SIN.symbol, "operation": Operation.SIN, "row": 1, "col": 0, "tooltip": "sine"},
-    {"label": Operation.COS.symbol, "operation": Operation.COS, "row": 2, "col": 0, "tooltip": "cosine"},
-    {"label": Operation.TAN.symbol, "operation": Operation.TAN, "row": 3, "col": 0, "tooltip": "tangent"},
+    {"label": Operation.SIN.symbol, "operation": Operation.SIN, "row": 1, "col": 0, "tooltip": "sine", "shifted": SHIFTED_KEYS[Operation.SIN]},
+    {"label": Operation.COS.symbol, "operation": Operation.COS, "row": 2, "col": 0, "tooltip": "cosine", "shifted": SHIFTED_KEYS[Operation.COS]},
+    {"label": Operation.TAN.symbol, "operation": Operation.TAN, "row": 3, "col": 0, "tooltip": "tangent", "shifted": SHIFTED_KEYS[Operation.TAN]},
 ]
 
 FUNCTION_KEYS = [
-    {"label": Operation.MOD.symbol, "operation": Operation.MOD, "row": 0, "col": 1, "tooltip": "modulo"},
-    {"label": INV_LABEL, "operation": Operation.INV, "row": 1, "col": 1, "tooltip": "inverse"},
-    {"label": FACT_LABEL, "operation": Operation.FACT, "row": 2, "col": 1, "tooltip": "factorial"},
-    {"label": Operation.LOG.symbol, "operation": Operation.LOG, "row": 4, "col": 0, "tooltip": "logarithm to base 10"},
-    {"label": Operation.LN.symbol, "operation": Operation.LN, "row": 5, "col": 0, "tooltip": "natural log"},
+    {"label": Operation.MOD.symbol, "operation": Operation.MOD, "row": 0, "col": 1, "tooltip": "modulo", "shifted": SHIFTED_KEYS[Operation.MOD]},
+    {"label": RECIP_LABEL, "operation": Operation.RECIP, "row": 1, "col": 1, "tooltip": "reciprocal", "shifted": SHIFTED_KEYS[Operation.RECIP]},
+    {"label": FACT_LABEL, "operation": Operation.FACT, "row": 2, "col": 1, "tooltip": "factorial", "shifted": SHIFTED_KEYS[Operation.FACT]},
+    {"label": Operation.LOG.symbol, "operation": Operation.LOG, "row": 4, "col": 0, "tooltip": "logarithm to base 10", "shifted": SHIFTED_KEYS[Operation.LOG]},
+    {"label": Operation.LN.symbol, "operation": Operation.LN, "row": 5, "col": 0, "tooltip": "natural log", "shifted": SHIFTED_KEYS[Operation.LN]},
 ]
 
 POWER_KEYS = [
-    {"label": SQR_LABEL, "operation": Operation.SQR, "row": 3, "col": 1, "tooltip": "square"},
-    {"label": SQRT_LABEL, "operation": Operation.SQRT, "row": 4, "col": 1, "tooltip": "square root"},
-    {"label": POW_LABEL, "operation": Operation.POW, "row": 5, "col": 1, "tooltip": "power"},
-    {"label": Operation.IMAG.symbol, "operation": Operation.IMAG, "row": 6, "col": 0, "tooltip": "imaginary"},
+    {"label": SQR_LABEL, "operation": Operation.SQR, "row": 3, "col": 1, "tooltip": "square", "shifted": SHIFTED_KEYS[Operation.SQR]},
+    {"label": SQRT_LABEL, "operation": Operation.SQRT, "row": 4, "col": 1, "tooltip": "square root", "shifted": SHIFTED_KEYS[Operation.SQRT]},
+    {"label": POW_LABEL, "operation": Operation.POW, "row": 5, "col": 1, "tooltip": "power", "shifted": SHIFTED_KEYS[Operation.POW]},
+    {"label": Operation.IMAG.symbol, "operation": Operation.IMAG, "row": 6, "col": 0, "tooltip": "imaginary", "shifted": SHIFTED_KEYS[Operation.IMAG]},
     {"label": EXP10_LABEL, "operation": Operation.EXP10, "row": 6, "col": 1, "tooltip": "exp 10"},
 ]
 

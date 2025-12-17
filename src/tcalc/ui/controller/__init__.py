@@ -1,6 +1,6 @@
 from __future__ import annotations
 
 from .controller import CalculatorController
-from .edit_operations import EditOperations
+from .menubar import EditOperations, SettingsOperations
 
-__all__ = ["CalculatorController", "EditOperations"]
+__all__ = ["CalculatorController", "EditOperations", "SettingsOperations"]

@@ -5,11 +5,11 @@ from typing import Any, Dict, Optional
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget, QPushButton, QAbstractButton, QHBoxLayout, QSizePolicy, QButtonGroup
 
-from .....app_state import AngleUnit
+from tcalc.app_state import AngleUnit
 from ..config import keypad_config
 from ..style import apply_button_style
 from ..utils import add_keys_to_grid, create_button, handle_button_clicked, make_grid
-from .defins import ANGLE_L_KEYS, MEMORY_L_KEYS
+from .defins import ANGLE_L_KEYS, MEMORY_L_KEYS, MemoryKey
 from .style import apply_topbar_style
 
 
@@ -80,6 +80,7 @@ class TopBar(QWidget):
         return self._buttons.get(label)
 
     def set_memory_available(self, available: bool) -> None:
-        for label in ("MC", "MR"):
-            btn = self._buttons.get(label)
-            btn.setEnabled(available)
+        for key in (MemoryKey.MC, MemoryKey.MR):
+            btn = self._buttons.get(key.value)
+            if btn is not None:
+                btn.setEnabled(available)

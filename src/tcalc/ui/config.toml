@@ -3,7 +3,7 @@
 [window]
 # Minimum dimensions (pixels)
 min_height = 390
-calc_min_width = 280
+calc_min_width = 310
 history_min_width = 320
 science_panel_width = 120
 
