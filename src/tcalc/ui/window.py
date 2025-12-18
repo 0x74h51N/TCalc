@@ -25,8 +25,9 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         m_layout = QHBoxLayout(central)
-        m_layout.setContentsMargins(0, 0, 0, 0)
-        m_layout.setSpacing(0)
+        margins = int(window["layout_margins"])
+        m_layout.setContentsMargins(margins, margins, margins, margins)
+        m_layout.setSpacing(int(window["layout_spacing"]))
 
         # Calc widget (display + keypad)
         self.calc_widget = CalcWidget(
@@ -48,7 +49,7 @@ class MainWindow(QMainWindow):
         self.divider = QFrame(self)
         self.divider.setFrameShape(QFrame.VLine)
         self.divider.setFrameShadow(QFrame.Sunken)
-        self.divider.setLineWidth(1)
+        self.divider.setLineWidth(int(window["divider_line_width"]))
         self.divider.setVisible(app_state.show_history)
 
         self.history = History(parent=central, mode=app_state.mode)
@@ -128,13 +129,18 @@ class MainWindow(QMainWindow):
 
         keypad._buttons["Shift"].setChecked(bool(app_state.shifted))
 
+        for label in ("π", "e"):
+            btn = keypad.get_button(label)
+            if btn is not None:
+                btn.setVisible(bool(app_state.show_constant_buttons))
+
         topbar.set_memory_available(app_state.memory is not None)
         self.history.set_memory("" if app_state.memory is None else format_result(app_state.memory))
         
         # Adjust minimum width based on visibility and mode
         calc_width = window["calc_min_width"]
         if app_state.mode == CalculatorMode.SCIENCE:
-            calc_width += window.get("science_panel_width", 120)
+            calc_width += window["science_panel_width"]
         
         if app_state.show_history:
             min_width = calc_width + window["history_min_width"]
@@ -150,7 +156,7 @@ class MainWindow(QMainWindow):
         if central:
             size = central.sizeHint()
         else:
-            size = QSize(600, 300)
+            size = QSize(int(window["size_hint_width"]), int(window["size_hint_height"]))
         
         # Add menubar height if exists
         if self.menuBar():

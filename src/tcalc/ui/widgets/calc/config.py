@@ -11,3 +11,7 @@ def _load_config():
 config = _load_config()
 display_config = config["display"]
 keypad_config = config["keypad"]
+layout_config = config["layout"]
+style_config = config["style"]
+topbar_config = config["topbar"]
+font_scale_config = config["font_scale"]

@@ -2,11 +2,23 @@
 
 [window]
 # Minimum dimensions (pixels)
-min_height = 390
-calc_min_width = 310
+min_height = 410
+calc_min_width = 330
 history_min_width = 320
 science_panel_width = 120
+
+# Main window layout
+layout_margins = 0
+layout_spacing = 0
+divider_line_width = 1
+
+# sizeHint fallback when no central widget sizeHint
+size_hint_width = 600
+size_hint_height = 300
 
 # Layout stretch ratios
 calc_stretch = 3
 history_stretch = 1
+
+[style]
+tooltip_padding = 2

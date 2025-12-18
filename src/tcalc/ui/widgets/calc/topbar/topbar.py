@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget, QPushButton, QAbstractButton, QHBoxLayout, QSizePolicy, QButtonGroup
 
 from tcalc.app_state import AngleUnit
-from ..config import keypad_config
+from ..config import keypad_config, topbar_config
 from ..style import apply_button_style
-from ..utils import add_keys_to_grid, create_button, handle_button_clicked, make_grid
+from ..utils import KeyDef, add_keys_to_grid, create_button, handle_button_clicked, make_grid
 from .defins import ANGLE_L_KEYS, MEMORY_L_KEYS, MemoryKey
 from .style import apply_topbar_style
 
@@ -20,8 +20,8 @@ class TopBar(QWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
-        self._buttons: Dict[str, QPushButton] = {}
-        self._angle_buttons: Dict[AngleUnit, QAbstractButton] = {}
+        self._buttons: dict[str, QPushButton] = {}
+        self._angle_buttons: dict[AngleUnit, QAbstractButton] = {}
 
         apply_topbar_style(self)
 
@@ -30,7 +30,7 @@ class TopBar(QWidget):
             keypad_config["side_margin"],
             keypad_config["top_margin"],
             keypad_config["side_margin"],
-            int(keypad_config["bottom_margin"] / 2),
+            int(keypad_config["bottom_margin"] * float(topbar_config["bottom_margin_factor"])),
         )
         layout.setSpacing(keypad_config["grid_spacing"])
 
@@ -45,7 +45,7 @@ class TopBar(QWidget):
         add_keys_to_grid(ANGLE_L_KEYS, angle_grid, self._add_key)
         layout.addWidget(self._angle_widget)
 
-        layout.addStretch(1)
+        layout.addStretch(int(topbar_config["spacer_stretch"]))
 
         self._memory_widget = QWidget(self)
         self._memory_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -53,7 +53,7 @@ class TopBar(QWidget):
         add_keys_to_grid(MEMORY_L_KEYS, memory_grid, self._add_key)
         layout.addWidget(self._memory_widget)
 
-    def _add_key(self, key_def: Dict[str, Any], role: str, grid) -> None:
+    def _add_key(self, key_def: KeyDef, role: str, grid) -> None:
         is_radio = bool(key_def.get("radio"))
         button = create_button(key_def, role, grid.parentWidget() or self)
         button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)

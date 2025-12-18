@@ -10,6 +10,7 @@ def _load_config():
 
 _config = _load_config()
 window = _config["window"]
+style = _config["style"]
 
 
 def get_history_width_from_total(total_width: int) -> int:

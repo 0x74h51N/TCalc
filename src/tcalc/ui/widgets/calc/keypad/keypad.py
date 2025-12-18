@@ -1,17 +1,25 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
 from PySide6.QtCore import Signal, QTimer
-from PySide6.QtWidgets import QWidget, QPushButton, QHBoxLayout, QVBoxLayout, QSizePolicy
+from PySide6.QtWidgets import (
+    QAbstractButton,
+    QButtonGroup,
+    QWidget,
+    QPushButton,
+    QHBoxLayout,
+    QVBoxLayout,
+    QSizePolicy,
+)
 
 from tcalc.core import Operation
 from .keypad_defins import NORMAL_MODE_KEYS, SIDEBAR_KEYS, SCIENCE_MODE_KEYS
 from tcalc.app_state import CalculatorMode, get_app_state
-from ..config import keypad_config
+from ..config import font_scale_config, keypad_config
 from ...utils import apply_scaled_fonts
 from ..style import apply_button_style
-from ..utils import add_keys_to_grid, create_button, handle_button_clicked, make_grid
+from ..utils import KeyDef, add_keys_to_grid, create_button, handle_button_clicked, make_grid
 from .style import apply_keypad_style
 
 
@@ -24,9 +32,14 @@ class Keypad(QWidget):
     ):
         super().__init__(parent)
 
-        self._buttons: Dict[str, QPushButton] = {}
+        self._buttons: dict[str, QPushButton] = {}
         self._shiftable_buttons: list[QPushButton] = []
-        self._op_buttons: Dict[Operation, QPushButton] = {}
+        self._op_buttons: dict[Operation, QPushButton] = {}
+        self._button_group = QButtonGroup(self)
+        self._button_group.setExclusive(False)
+        self._button_group.buttonClicked.connect(self._on_button_clicked)
+        self._base_key_def_by_button: dict[QAbstractButton, KeyDef] = {}
+        self._key_def_by_button: dict[QAbstractButton, KeyDef] = {}
 
         apply_keypad_style(self)
 
@@ -43,13 +56,13 @@ class Keypad(QWidget):
         # Keypad body: science panel + normal keypad + right sidebar
         self._hbox = QHBoxLayout()
         self._hbox.setSpacing(keypad_config["hbox_spacing"])
-        self._main_layout.addLayout(self._hbox, 1)
+        self._main_layout.addLayout(self._hbox, keypad_config["hbox_stretch"])
 
         # Science keys
         self._science_widget = QWidget(self)
         self._science_grid = make_grid(keypad_config["grid_spacing"], self._science_widget)
         add_keys_to_grid(SCIENCE_MODE_KEYS, self._science_grid, self._add_key)
-        self._hbox.addWidget(self._science_widget, keypad_config.get("science_grid_stretch", 3))
+        self._hbox.addWidget(self._science_widget, keypad_config["science_grid_stretch"])
 
         # Main keys
         self._normal_grid = make_grid(keypad_config["grid_spacing"])
@@ -59,9 +72,15 @@ class Keypad(QWidget):
         self._hbox.addLayout(self._sidebar_grid, keypad_config["right_side_grid_stretch"])
 
         add_keys_to_grid(NORMAL_MODE_KEYS, self._normal_grid, self._add_key)
+        
         # Sidebar keys
         add_keys_to_grid(SIDEBAR_KEYS, self._sidebar_grid, self._add_key)
         self._buttons["Shift"].setVisible(get_app_state().mode != CalculatorMode.SIMPLE)
+        show_constants = get_app_state().show_constant_buttons
+        for label in ("π", "e"):
+            btn = self._buttons.get(label)
+            if btn is not None:
+                btn.setVisible(show_constants)
 
         self._update_button_fonts()
         QTimer.singleShot(0, self._update_button_fonts)
@@ -75,13 +94,20 @@ class Keypad(QWidget):
         if hyp_btn is not None:
             hyp_btn.toggled.connect(lambda _checked: QTimer.singleShot(0, self._sync_trig_buttons))
             hyp_btn.setChecked(get_app_state().hyp)
-    def _add_key(self, key_def: Dict[str, Any], role: str, grid) -> None:
+
+    def _on_button_clicked(self, button: QAbstractButton) -> None:
+        key_def = self._key_def_by_button.get(button)
+        if not isinstance(key_def, dict):
+            return
+        handle_button_clicked(self.key_pressed, key_def)
+
+    def _add_key(self, key_def: KeyDef, role: str, grid) -> None:
         button = create_button(key_def, role, grid.parentWidget() or self)
         button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         apply_button_style(button, role)
-        button.setProperty("base_key_def", key_def)
-        button.setProperty("key_def", key_def)
-        button.clicked.connect(lambda _=False, b=button: handle_button_clicked(self.key_pressed, b.property("key_def")))
+        self._button_group.addButton(button)
+        self._base_key_def_by_button[button] = key_def
+        self._key_def_by_button[button] = key_def
         self._buttons[str(key_def["label"])] = button
         if isinstance(key_def.get("operation"), Operation):
             self._op_buttons[key_def["operation"]] = button
@@ -100,10 +126,10 @@ class Keypad(QWidget):
     def _sync_shift_state(self) -> None:
         shifted = get_app_state().shifted
         for button in self._shiftable_buttons:
-            base = button.property("base_key_def")
-            shifted_def = base.get("shifted") if isinstance(base, dict) else None
+            base = self._base_key_def_by_button.get(button, {})
+            shifted_def = base.get("shifted")
             active = {**base, **shifted_def} if shifted and isinstance(shifted_def, dict) else base
-            button.setProperty("key_def", active)
+            self._key_def_by_button[button] = active
             button.setText(str(active.get("label", "")))
             tooltip = active.get("tooltip")
             button.setToolTip(str(tooltip).capitalize() if tooltip else "")
@@ -141,7 +167,18 @@ class Keypad(QWidget):
     #
     def _update_button_fonts(self) -> None:
         sample = self._buttons.get("7")
-        apply_scaled_fonts([(sample, self._buttons.values(), 9, 20, 5)])
+        scale = font_scale_config["keypad_buttons"]
+        apply_scaled_fonts(
+            [
+                (
+                    sample,
+                    self._buttons.values(),
+                    int(scale["min_pt"]),
+                    int(scale["max_pt"]),
+                    int(scale["divisor"]),
+                )
+            ]
+        )
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

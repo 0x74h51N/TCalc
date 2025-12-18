@@ -4,11 +4,13 @@ from PySide6.QtWidgets import QWidget
 from PySide6.QtGui import QColor
 
 from .....theme import get_theme
+from ..config import display_config
 
 
 def _build_display_stylesheet() -> str:
     theme = get_theme()
     c = theme.colors
+    divider_h = int(display_config["divider_height"])
 
     return f"""
 QLineEdit#displayExpression {{
@@ -26,8 +28,8 @@ QLabel#displayResult {{
     color: {c['text_primary']};
 }}
 QFrame#displayDivider {{
-    min-height: 1px;
-    max-height: 1px;
+    min-height: {divider_h}px;
+    max-height: {divider_h}px;
 }}
 """
 

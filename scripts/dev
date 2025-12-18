@@ -44,9 +44,8 @@ fi
 
 # native core
 # -----------------------------
-if [ ! -f "calc_native.cpython-313-x86_64-linux-gnu.so" ]; then
-  python src/native/setup.py build_ext --inplace
-fi
+python src/native/setup.py build_ext --inplace
+
 
 
 echo "Auto-restart enabled"

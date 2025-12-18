@@ -2,8 +2,13 @@
 
 ## Requirements
 
-- python3.13-devel
 - g++
+- Boost headers (for Multiprecision)
+  - Debian/Ubuntu: libboost-dev
+  - Fedora: boost-devel
+- Python development headers
+  - Debian/Ubuntu: python3-dev
+  - Fedora: python3-devel
 
 ## Build
 

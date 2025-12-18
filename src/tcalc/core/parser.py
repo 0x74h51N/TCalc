@@ -7,6 +7,12 @@ from typing import Iterable, List
 from .engine import Calculator, CalculatorError
 from . import Operation, build_operator_table, build_operation_map
 from .utils import is_number_token, parse_number_token
+from .constants import CONSTANTS
+
+try:
+    import calc_native  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    calc_native = None
 
 
 ADD_SYM = Operation.ADD.symbol
@@ -39,12 +45,12 @@ _NUMBER_PATTERN = re.compile(r"(?:\d+\.\d*|\d+|\.\d+)(?:[eE][+-]?\d+)?")
 
 
 
-def tokenize_string(expression: str) -> List[str]:
+def tokenize_string(expression: str) -> List[object]:
     """Tokenize a mathematical expression into a list of tokens."""
     if not expression:
         return []
 
-    tokens = []
+    tokens: List[object] = []
     i = 0
     length = len(expression)
     
@@ -64,11 +70,18 @@ def tokenize_string(expression: str) -> List[str]:
             i += len(symbol)
             continue
 
-        if expression[i].isdigit() or expression[i] == '.':
+        if expression[i].isdigit() or expression[i] == ".":
             match = _NUMBER_PATTERN.match(expression, i)
             if match:
-                tokens.append(parse_number_token(match.group(0)))
-                i = match.end()
+                number_token = parse_number_token(match.group(0))
+                j = match.end()
+                if j < length and expression[j] in {"i", "I"}:
+                    coef = float(str(number_token)) if calc_native is not None and isinstance(number_token, getattr(calc_native, "BigReal", ())) else float(number_token)
+                    tokens.append(complex(0.0, coef))
+                    i = j + 1
+                else:
+                    tokens.append(number_token)
+                    i = j
                 continue
         
         start = i
@@ -81,22 +94,26 @@ def tokenize_string(expression: str) -> List[str]:
                 break
             i += 1
         if start != i:
-            tokens.append(expression[start:i])
+            ident = expression[start:i]
+            constant = CONSTANTS.get(ident)
+            if constant is None:
+                constant = CONSTANTS.get(ident.lower())
+            tokens.append(constant if constant is not None else ident)
         else:
             # Fallback: consume single character to avoid infinite loop
             tokens.append(expression[i])
             i += 1
     return tokens
 
-def _normalize_tokens(tokens: List[str]) -> List[str]:
+def _normalize_tokens(tokens: List[object]) -> List[object]:
     # Collapse consecutive +/- into a single operator
     # Insert implicit multip
 
-    normalized: List[str] = []
+    normalized: List[object] = []
     plus_minus_set = {ADD_SYM, SUB_SYM}
 
     for tok in tokens:
-        if tok in plus_minus_set and normalized and normalized[-1] in plus_minus_set:
+        if isinstance(tok, str) and tok in plus_minus_set and normalized and isinstance(normalized[-1], str) and normalized[-1] in plus_minus_set:
             if normalized[-1] == SUB_SYM:
                 if tok == SUB_SYM:
                     normalized[-1]=ADD_SYM
@@ -106,12 +123,12 @@ def _normalize_tokens(tokens: List[str]) -> List[str]:
         else:
             if normalized:
                 last = normalized[-1]
-                last_ends_operand = is_number_token(last) or last == CLOSE_PAREN_SYM or last in _POSTFIX_CALLS
+                last_ends_operand = is_number_token(last) or last == CLOSE_PAREN_SYM or (isinstance(last, str) and last in _POSTFIX_CALLS)
                 tok_starts_operand = (
                     is_number_token(tok)
                     or tok == OPEN_PAREN_SYM
                     or tok == NEGATE_SYM
-                    or tok in _UNARY_CALLS
+                    or (isinstance(tok, str) and tok in _UNARY_CALLS)
                 )
                 if last_ends_operand and tok_starts_operand:
                     normalized.append(MUL_SYM)
@@ -125,13 +142,13 @@ def _normalize_tokens(tokens: List[str]) -> List[str]:
 #
 # Ref: https://www.sunshine2k.de/articles/coding/shuntingyardalgorithm/shunting_yard_algorithm.html
 #
-def shunting_yard(tokens: Iterable[str]) -> List[str]:
+def shunting_yard(tokens: Iterable[object]) -> List[object]:
 
     token_list = list(tokens)
 
     normalized = _normalize_tokens(token_list)
     
-    output: List[str] = []
+    output: List[object] = []
     operator_stack: List[str] = []
 
     prev_token = None
@@ -146,7 +163,13 @@ def shunting_yard(tokens: Iterable[str]) -> List[str]:
             continue
 
         # Special case: unary func + unary minus + number (e.g. √-5)
-        if tok in _UNARY_CALLS and i+2 < n and normalized[i+1] == SUB_SYM and is_number_token(normalized[i+2]):
+        if (
+            isinstance(tok, str)
+            and tok in _UNARY_CALLS
+            and i + 2 < n
+            and normalized[i + 1] == SUB_SYM
+            and is_number_token(normalized[i + 2])
+        ):
             output.append(normalized[i+2])  # number
             output.append(NEGATE_SYM)       # unary minus
             output.append(tok)              # unary func
@@ -207,10 +230,11 @@ def shunting_yard(tokens: Iterable[str]) -> List[str]:
 
         operator_stack.append(op)
         
-        # Track if this is a unary operator
-        if op in _UNARY_CALLS or op == NEGATE_SYM:
+        # Track if this operator starts/ends an operand, for unary-minus disambiguation
+        if op in _POSTFIX_CALLS:
+            prev_token = "number"
+        elif op in _UNARY_CALLS or op == NEGATE_SYM:
             prev_token = "unary_op"
-
         else:
             prev_token = "op"
         i += 1
@@ -226,71 +250,39 @@ def shunting_yard(tokens: Iterable[str]) -> List[str]:
     return output
 
 
-def evaluate_rpn(rpn_tokens: Iterable[str], calculator: Calculator) -> float:
+def _pop_operand(operand_stack: List[object], tok: str) -> object:
+    if not operand_stack:
+        print(f"[PARSER ERROR] Operator {tok} requires operand, stack empty")
+        raise ParseError("Malformed Expression")
+    return operand_stack.pop()
+
+
+def evaluate_rpn(rpn_tokens: Iterable[object], calculator: Calculator) -> object:
     """Evaluate a list of RPN tokens and return the result."""
-    operand_stack: List[int | float] = []
+    operand_stack: List[object] = []
 
     for tok in rpn_tokens:
         if is_number_token(tok):
             operand_stack.append(tok)
             continue
 
-        # Special handling for negate
-        if tok == NEGATE_SYM:
+        if tok in _POSTFIX_CALLS:
+            val = _pop_operand(operand_stack, tok)
+            op_member = _POSTFIX_CALLS[tok]
 
-            if not operand_stack:
-                print(f"[PARSER ERROR] NEGATE requires operand, stack empty")
-                raise ParseError("Malformed Expression")
-            
-            val = operand_stack.pop()
-            operand_stack.append(-val)
-            continue
-        
+            func = getattr(calculator, op_member.value, None)
+            if func is None:
+                raise ParseError(f"Calculator missing operation: {op_member.value}")
 
-        # Handle x² as pow(val, 2)
-        if tok == Operation.SQR.symbol:
-            if not operand_stack:
-                print(f"[PARSER ERROR] SQR requires operand, stack empty")
-                raise ParseError("Malformed Expression")
-            val = operand_stack.pop()
-            try:
-                res = calculator.pow(val, 2)
-            except CalculatorError:
-                raise
-            operand_stack.append(res)
-            continue
-
-        # Handle x⁻¹ as pow(val, -1)
-        if tok == Operation.RECIP.symbol:
-            if not operand_stack:
-                print(f"[PARSER ERROR] RECIP requires operand, stack empty")
-                raise ParseError("Malformed Expression")
-            val = operand_stack.pop()
-            try:
-                exp = complex(-1.0, 0.0) if isinstance(val, complex) else -1
-                res = calculator.pow(val, exp)
-            except CalculatorError:
-                raise
+            res = func(val)
             operand_stack.append(res)
             continue
 
         # Handle unary operators generically
         if tok in _UNARY_CALLS:
-            
-            if not operand_stack:
-                print(f"[PARSER ERROR] Unary operator {tok} requires operand, stack empty")
-                raise ParseError("Malformed Expression")
-            
-            val = operand_stack.pop()
-            
+            val = _pop_operand(operand_stack, tok)
             op_member = _UNARY_CALLS[tok]
-            
-            method_name = op_member.value
-            
-            func = getattr(calculator, method_name, None)
 
-            if func is None:
-                raise ParseError(f"Calculator missing operation: {method_name}")
             try:
                 if op_member in (
                     Operation.SIN,
@@ -299,24 +291,24 @@ def evaluate_rpn(rpn_tokens: Iterable[str], calculator: Calculator) -> float:
                     Operation.ASIN,
                     Operation.ACOS,
                     Operation.ATAN,
+                    Operation.POLAR,
                 ):
                     from tcalc.app_state import get_app_state
+                    
+                    func = getattr(calculator, op_member.value, None)
+
+                    if func is None:
+                        raise ParseError(f"Calculator missing operation: {op_member.value}")
+                    
                     res = func(val, get_app_state().angle_unit)
                 else:
+                    func = getattr(calculator, op_member.value, None)
+                    if func is None:
+                        raise ParseError(f"Calculator missing operation: {op_member.value}")
                     res = func(val)
             except CalculatorError:
                 raise
             operand_stack.append(res)
-            continue
-
-        if tok == PERCENT_SYM:
-
-            if not operand_stack:
-                print(f"[PARSER ERROR] PERCENT requires operand, stack empty")
-                raise ParseError("Malformed Expression")
-            
-            val = operand_stack.pop()
-            operand_stack.append(calculator.div(val, 100.0))
             continue
 
         if tok in _OP_CALLS:
@@ -327,7 +319,6 @@ def evaluate_rpn(rpn_tokens: Iterable[str], calculator: Calculator) -> float:
             
             b = operand_stack.pop()
             a = operand_stack.pop()
-            
 
             op_member = _OP_CALLS[tok]
             method_name = op_member.value
@@ -359,7 +350,7 @@ def evaluate_rpn(rpn_tokens: Iterable[str], calculator: Calculator) -> float:
     return operand_stack[0]
 
 
-def evaluate_tokens(tokens: Iterable[str], calculator: Calculator) -> float:
+def evaluate_tokens(tokens: Iterable[object], calculator: Calculator) -> object:
     """Parse and evaluate tokens, returning the result."""
     rpn = shunting_yard(tokens)
     return evaluate_rpn(rpn, calculator)

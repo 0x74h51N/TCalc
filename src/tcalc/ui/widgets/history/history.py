@@ -19,6 +19,7 @@ from .style import apply_history_style
 from .config import layout_config
 from .utils import wrap_expression
 from .config import style
+from .config import font_scale
 from .storage import load_history, save_history, clear_history_file
 
 class History(QWidget):
@@ -77,14 +78,14 @@ class History(QWidget):
         self.layout.addWidget(self.divider)
 
         button_container = QHBoxLayout()
-        button_container.addStretch(1)
+        button_container.addStretch(int(layout_config["button_spacer_stretch"]))
         
         self.clear_button = QPushButton("Clear History", self)
         self.clear_button.setIcon(QIcon.fromTheme("edit-clear-history"))
         self.clear_button.setToolTip("Clears all history permanently from local storage")
         self.clear_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.clear_button.clicked.connect(self.clear_history)
-        button_container.addWidget(self.clear_button, 1) 
+        button_container.addWidget(self.clear_button, int(layout_config["clear_button_stretch"])) 
         
         self.layout.addLayout(button_container)
         
@@ -112,7 +113,7 @@ class History(QWidget):
     def _add_item_to_list(self, expression: str) -> None:
         """Add item to list widget with proper formatting."""
         fm = self.list.fontMetrics()
-        max_width = self.list.viewport().width() - 3 * style["item_padding"]
+        max_width = self.list.viewport().width() - int(style["wrap_padding_factor"]) * style["item_padding"]
         wrapped = wrap_expression(expression, fm, max_width)
         
         self.list.addItem(wrapped)
@@ -136,11 +137,31 @@ class History(QWidget):
         clear_history_file(self._mode)
 
     def _update_fonts(self) -> None:
+        list_scale = font_scale["list"]
+        clear_scale = font_scale["clear_button"]
         apply_scaled_fonts(
             [
-                (self.list.viewport(), (self.list,), style["font_size"], 18, 30),
-                (self, (self._memory_label, self._memory_value), style["font_size"], 18, 30),
-                (self, (self.clear_button,), 9, 12, 30),
+                (
+                    self.list.viewport(),
+                    (self.list,),
+                    style["font_size"],
+                    int(list_scale["max_pt"]),
+                    int(list_scale["divisor"]),
+                ),
+                (
+                    self,
+                    (self._memory_label, self._memory_value),
+                    style["font_size"],
+                    int(list_scale["max_pt"]),
+                    int(list_scale["divisor"]),
+                ),
+                (
+                    self,
+                    (self.clear_button,),
+                    int(clear_scale["min_pt"]),
+                    int(clear_scale["max_pt"]),
+                    int(clear_scale["divisor"]),
+                ),
             ]
         )
 

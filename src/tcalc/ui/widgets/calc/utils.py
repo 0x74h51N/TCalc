@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
+from typing import Callable, Optional
 
 from PySide6.QtCore import SignalInstance
 from PySide6.QtWidgets import QAbstractButton, QGridLayout, QPushButton, QRadioButton, QWidget
 
 from ....core import Operation
+
+KeyDef = dict[str, object]
 
 
 def make_grid(spacing: int, parent: Optional[QWidget] = None) -> QGridLayout:
@@ -17,16 +19,16 @@ def make_grid(spacing: int, parent: Optional[QWidget] = None) -> QGridLayout:
 
 
 def add_keys_to_grid(
-    roles_to_keys: Dict[str, list[Dict[str, Any]]],
+    roles_to_keys: dict[str, list[KeyDef]],
     grid: QGridLayout,
-    add_key: Callable[[Dict[str, Any], str, QGridLayout], None],
+    add_key: Callable[[KeyDef, str, QGridLayout], None],
 ) -> None:
     for role, keys in roles_to_keys.items():
         for key_def in keys:
             add_key(key_def, role, grid)
 
 
-def create_button(key_def: Dict[str, Any], role: str, parent: QWidget) -> QAbstractButton:
+def create_button(key_def: KeyDef, role: str, parent: QWidget) -> QAbstractButton:
     is_radio = bool(key_def.get("radio"))
     label = str(key_def["label"])
     button: QAbstractButton = QRadioButton(label, parent) if is_radio else QPushButton(label, parent)
@@ -44,7 +46,7 @@ def create_button(key_def: Dict[str, Any], role: str, parent: QWidget) -> QAbstr
     return button
 
 
-def handle_button_clicked(key_pressed: SignalInstance, key_def: Dict[str, Any]) -> None:
+def handle_button_clicked(key_pressed: SignalInstance, key_def: KeyDef) -> None:
     operation = key_def["operation"]
     value = operation.symbol if isinstance(operation, Operation) else str(operation)
     key_pressed.emit(value, operation)

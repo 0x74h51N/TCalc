@@ -6,6 +6,7 @@ from .ops import (
     build_operation_map,
 )
 from .parser import evaluate_tokens, tokenize_string
+from .constants import CONSTANTS
 
 __all__ = [
     "Calculator",
@@ -16,5 +17,5 @@ __all__ = [
     "build_operation_map",
     "evaluate_tokens",
     "tokenize_string",
+    "CONSTANTS",
 ]
-

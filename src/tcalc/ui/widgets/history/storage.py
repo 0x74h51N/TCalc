@@ -7,7 +7,7 @@ from typing import List
 from PySide6.QtCore import QStandardPaths
 from tcalc.app_state import CalculatorMode
 
-MAX_HISTORY_ITEMS = 100
+from .config import storage_config
 
 
 def _get_data_dir() -> Path:
@@ -38,8 +38,9 @@ def save_history(history: List[str], mode: CalculatorMode) -> None:
     history_file = _get_data_dir()/f"history_{mode.value}.json"
     
     # Limit history size
-    if len(history) > MAX_HISTORY_ITEMS:
-        history = history[-MAX_HISTORY_ITEMS:]
+    max_items = int(storage_config["max_items"])
+    if len(history) > max_items:
+        history = history[-max_items:]
     
     try:
         with open(history_file, "w", encoding="utf-8") as f:

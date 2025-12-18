@@ -1,7 +1,22 @@
 [layout]
 margin = 10
 spacing = 6
+button_spacer_stretch = 1
+clear_button_stretch = 1
 
 [style]
 item_padding = 4
 font_size = 10
+wrap_padding_factor = 3
+
+[font_scale.list]
+max_pt = 18
+divisor = 30
+
+[font_scale.clear_button]
+min_pt = 9
+max_pt = 12
+divisor = 30
+
+[storage]
+max_items = 100

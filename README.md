@@ -26,6 +26,9 @@ Originally started as a minimal calculator, TCalc is designed with a modular arc
 ### Linux
 
 - g++
+- Boost headers (for Multiprecision)
+  - Debian/Ubuntu: libboost-dev
+  - Fedora: boost-devel
 - Python development headers
   - Debian/Ubuntu: python3-dev
   - Fedora: python3-devel
@@ -105,10 +108,9 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
       - [x] sin/cos/tan (angle-aware)
       - [x] Hyp toggle and hyperbolic keys (sinh/cosh/tanh)
       - [x] inverse trig via Shift (asin/acos/atan or asinh/acosh/atanh)
-    - [ ] Functions - log10/ln, 1/x, x!, mod
-    - [ ] Power / Complex - sqrt, x², xʸ, exp10, i, complex domain rules
-    - [ ] Native + parser parity
-      - [ ] Implement ops in native + pybind
+    - [x] Functions - log10/ln, 1/x, x!, mod, permutation/choose
+    - [x] Power / Complex - sqrt, x², xʸ, exp10, i, complex domain rules
+    - [x] Parser parity - Implement ops in native + pybind
     - [ ] Edge cases + error messages
 
   - [ ] Statistic mode

@@ -4,8 +4,8 @@ from typing import Callable, Dict, List, Optional
 
 from tcalc.app_state import AngleUnit, get_app_state
 
-from ...core import  Operation, CalculatorError, get_symbols_with_aliases, evaluate_tokens, tokenize_string
-from ...core.utils import is_number_token
+from tcalc.core import  Operation, CalculatorError, get_symbols_with_aliases, evaluate_tokens, tokenize_string,CONSTANTS
+from tcalc.core.utils import is_number_token
 from .utils import format_result, clean_for_expression
 from ..widgets.calc.topbar.defins import MEMORY_KEYS, MemoryKey
 
@@ -114,11 +114,13 @@ class CalculatorController:
         elif "." not in self._expression:
             self._expression += "."
 
-    def _set_operator(self, label: str) -> None:
-        if label in self._unary_operator_symbols:
-            self._expression += f"{label}{Operation.OPEN_PAREN.symbol}"
+    def _set_operator(self, _label: str, operation: Operation) -> None:
+        symbol = operation.symbol
+        arity = getattr(operation, "arity", None)
+        if arity == "unary":
+            self._expression += f"{symbol}{Operation.OPEN_PAREN.symbol}"
         else:
-            self._expression += label
+            self._expression += symbol
         self._just_solved = False
 
     def _handle_equals(self) -> None:
@@ -183,7 +185,7 @@ class CalculatorController:
             else:
                 tokens.insert(i, Operation.SUB.symbol)
             
-            self._expression = "".join(tokens)
+            self._expression = "".join(str(t) for t in tokens)
             return
         
         # No number found
@@ -243,6 +245,7 @@ class CalculatorController:
             Operation.BACKSPACE: lambda _: self._handle_backspace(),
             Operation.NEGATE: lambda _: self._handle_negate(),
             Operation.HYP: lambda _: self._toggle_hyp(),
+            Operation.IMAG: lambda _: self._handle_digit(Operation.IMAG.symbol),
         }
         handlers.update(special_handlers)
         
@@ -252,7 +255,7 @@ class CalculatorController:
                 continue
             arity = getattr(op, "arity", None)
             if arity in ("binary", "postfix", "unary") or op in (Operation.OPEN_PAREN, Operation.CLOSE_PAREN):
-                handlers[op] = self._set_operator
+                handlers[op] = lambda label, operation=op: self._set_operator(label, operation)
         
         return handlers
 
@@ -267,13 +270,16 @@ class CalculatorController:
 
     # -- Helpers ----------------------------------------------------------
 
-    def _tokenize_expression(self) -> List[str]:
+    def _tokenize_expression(self) -> List[object]:
         return self._tokenize_string(self._expression)
 
-    def _can_compute_preview(self, tokens: List[str]) -> bool:
+    def _can_compute_preview(self, tokens: List[object]) -> bool:
         """Check if tokens form a valid expression for preview calculation."""
-        if len(tokens) < 2:
+        if not tokens:
             return False
+        
+        if len(tokens) == 1:
+            return is_number_token(tokens[0])
 
         # Prevent preview if last token is unary op and next is open paren (e.g. sqrt()
         if len(tokens) >= 2 and tokens[-2] in self._unary_operator_symbols  and tokens[-1] == Operation.OPEN_PAREN.symbol:
@@ -305,7 +311,7 @@ class CalculatorController:
         # Check last token is valid
         return tokens[-1] not in self._operator_symbol_values or tokens[-1] == Operation.PERCENT.symbol
 
-    def _compute_preview(self, tokens: List[str]) -> str:
+    def _compute_preview(self, tokens: List[object]) -> str:
         """Evaluate tokens and return formatted result"""
 
         if not self._can_compute_preview(tokens):

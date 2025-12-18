@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QFrame
 from .display.display import Display
 from .topbar import TopBar
 from .keypad.keypad import Keypad
+from .config import layout_config
 
 
 class CalcWidget(QWidget):
@@ -23,7 +24,7 @@ class CalcWidget(QWidget):
         
         # Display
         self.display = Display(parent=self)
-        layout.addWidget(self.display, 3)
+        layout.addWidget(self.display, layout_config["display_stretch"])
 
         # Top bar (angle + memory)
         self.topbar = TopBar(parent=self)
@@ -38,7 +39,7 @@ class CalcWidget(QWidget):
         line = QFrame(self)
         line.setFrameShape(QFrame.HLine)
         line.setFrameShadow(QFrame.Sunken)
-        line.setLineWidth(1)
+        line.setLineWidth(layout_config["divider_line_width"])
         layout.addWidget(line)
         # Keypad
-        layout.addWidget(self.keypad, 7)
+        layout.addWidget(self.keypad, layout_config["keypad_stretch"])

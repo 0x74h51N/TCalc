@@ -13,3 +13,5 @@ def _load_config():
 _config = _load_config()
 layout_config = _config["layout"]
 style = _config["style"]
+font_scale = _config["font_scale"]
+storage_config = _config["storage"]

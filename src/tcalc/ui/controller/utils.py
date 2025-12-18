@@ -4,6 +4,14 @@ from __future__ import annotations
 def format_result(value) -> str:
     """Format a numeric result (float or complex) for display."""
 
+    try:
+        import calc_native  # type: ignore
+    except ModuleNotFoundError:  # pragma: no cover
+        calc_native = None
+
+    if calc_native is not None and isinstance(value, getattr(calc_native, "BigReal", ())):
+        return str(value)
+
     def fmt_real(x: float) -> str:
         abs_val = abs(x)
         if abs_val >= 1e10 or (0 < abs_val < 1e-6):
@@ -13,6 +21,8 @@ def format_result(value) -> str:
             return f"{int(x):,}"
 
         result = f"{x:.16g}"
+        if "999999999999" in result:
+            result = f"{x:.15g}"
 
         if '.' in result:
             int_part, dec_part = result.split('.', 1)

@@ -8,11 +8,13 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QLabel,
     QFrame,
-    QLineEdit
+    QLineEdit,
+    QSizePolicy,
 )
 from PySide6.QtGui import QFont
 
 from ..config import display_config
+from ..config import font_scale_config
 from ...utils import apply_scaled_fonts
 from .style import apply_display_style
 
@@ -39,6 +41,7 @@ class Display(QWidget):
         #Exp display
         self.expression_label = QLineEdit("", self)
         self.expression_label.setObjectName("displayExpression")
+        self.expression_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         
         small_font = QFont()
         small_font.setPointSize(display_config["expression_font_size"])
@@ -79,12 +82,31 @@ class Display(QWidget):
         self.expression_label.setText(expression_text.strip())
 
     def _update_fonts(self) -> None:
+        expression_scale = font_scale_config["display_expression"]
+        result_scale = font_scale_config["display_result"]
         apply_scaled_fonts(
             [
-                (self, (self.expression_label,), display_config["expression_font_size"], 18, 14),
-                (self, (self.result_label,), display_config["result_font_size"], 34, 8),
+                (
+                    self,
+                    (self.expression_label,),
+                    display_config["expression_font_size"],
+                    int(expression_scale["max_pt"]),
+                    int(expression_scale["divisor"]),
+                ),
+                (
+                    self,
+                    (self.result_label,),
+                    display_config["result_font_size"],
+                    int(result_scale["max_pt"]),
+                    int(result_scale["divisor"]),
+                ),
             ]
         )
+        fm = self.expression_label.fontMetrics()
+        height_factor = float(display_config["expression_height_factor"])
+        min_height = int(display_config["expression_min_height"])
+        expression_height = max(min_height, int(fm.height() * height_factor))
+        self.expression_label.setFixedHeight(expression_height)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

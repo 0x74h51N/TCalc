@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QWidget
 
 from .....theme import get_theme
+from ..config import style_config, topbar_config
 from ..style import build_calc_base_stylesheet, rgba
 
 
@@ -11,12 +12,18 @@ def _build_topbar_stylesheet() -> str:
     c = theme.colors
     s = theme.spacing
 
-    memory_bg = rgba(c["accent"], 0.2)
-    memory_bg_hover = rgba(c["accent"], 0.28)
-    memory_bg_pressed = rgba(c["accent"], 0.38)
+    memory_bg = rgba(c["accent"], float(topbar_config["memory_background_alpha"]))
+    memory_bg_hover = rgba(c["accent"], float(topbar_config["memory_background_hover_alpha"]))
+    memory_bg_pressed = rgba(c["accent"], float(topbar_config["memory_background_pressed_alpha"]))
 
-    angle_bg_checked = rgba(c["accent"], 0.25)
-    angle_bg_hover = rgba(c["secondary_hover"], 0.35)
+    angle_bg_checked = rgba(c["accent"], float(topbar_config["angle_background_checked_alpha"]))
+    angle_bg_hover = rgba(c["secondary_hover"], float(topbar_config["angle_background_hover_alpha"]))
+    angle_pad_y = int(topbar_config["angle_button_padding_y"])
+    angle_pad_x = int(topbar_config["angle_button_padding_x"])
+    angle_spacing = int(topbar_config["angle_spacing_px"])
+    angle_indicator = int(topbar_config["angle_indicator_size_px"])
+    compact_pad_y = int(style_config["compact_button_padding_y"])
+    compact_pad_x = int(style_config["compact_button_padding_x"])
 
     return build_calc_base_stylesheet() + f"""
 QPushButton[keypadRole="memory"] {{
@@ -35,12 +42,12 @@ QRadioButton[keypadRole="angle"] {{
     background-color: transparent;
     color: {c['text_secondary']};
     border-radius: {s['radius_small']}px;
-    padding: 4px 10px;
-    spacing: 0px;
+    padding: {angle_pad_y}px {angle_pad_x}px;
+    spacing: {angle_spacing}px;
 }}
 QRadioButton[keypadRole="angle"]::indicator {{
-    width: 0px;
-    height: 0px;
+    width: {angle_indicator}px;
+    height: {angle_indicator}px;
 }}
 QRadioButton[keypadRole="angle"]:hover {{
     background-color: {angle_bg_hover};
@@ -51,11 +58,10 @@ QRadioButton[keypadRole="angle"]:checked {{
 }}
 
 QPushButton[keypadRole="memory"] {{
-    padding: 4px 8px;
+    padding: {compact_pad_y}px {compact_pad_x}px;
 }}
 """
 
 
 def apply_topbar_style(widget: QWidget) -> None:
     widget.setStyleSheet(_build_topbar_stylesheet())
-

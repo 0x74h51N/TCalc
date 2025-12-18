@@ -3,12 +3,15 @@ from __future__ import annotations
 from PySide6.QtWidgets import QWidget
 
 from .....theme import get_theme
+from ..config import style_config
 from ..style import apply_calc_style
 
 
 def _build_keypad_stylesheet() -> str:
     theme = get_theme()
     c = theme.colors
+    compact_pad_y = int(style_config["compact_button_padding_y"])
+    compact_pad_x = int(style_config["compact_button_padding_x"])
 
     return f"""
 QPushButton[keypadRole="operator"] {{
@@ -82,7 +85,7 @@ QPushButton[keypadRole="power"]:pressed, QPushButton[keypadRole="power"][pressed
 QPushButton[keypadRole="trig"],
 QPushButton[keypadRole="function"],
 QPushButton[keypadRole="power"] {{
-    padding: 4px 8px;
+    padding: {compact_pad_y}px {compact_pad_x}px;
 }}
 """
  

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import tomllib
 from pathlib import Path
-from typing import Any, Dict
 
 
 class Theme:
@@ -17,7 +16,7 @@ class Theme:
         self.fonts = self._config["theme"]["fonts"]
 
     @staticmethod
-    def _load_config() -> Dict[str, Any]:
+    def _load_config() -> dict[str, object]:
         config_path = Path(__file__).parent / "config.toml"
         with open(config_path, "rb") as f:
             return tomllib.load(f)

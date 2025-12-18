@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QPushButton, QWidget
 
 from ....theme import get_theme
+from .config import style_config
 
 
 def rgba(hex_color: str, alpha: float) -> str:
@@ -18,15 +19,16 @@ def build_calc_base_stylesheet() -> str:
     c = theme.colors
     s = theme.spacing
 
-    disabled_bg = rgba(c["secondary_hover"], 0.1)
-    disabled_text = rgba(c["accent_text"], 0.3)
+    disabled_bg = rgba(c["secondary_hover"], float(style_config["disabled_background_alpha"]))
+    disabled_text = rgba(c["accent_text"], float(style_config["disabled_text_alpha"]))
+    button_padding = int(style_config["button_padding"])
 
     return f"""
 QPushButton[keypadRole] {{
     background-color: {c['secondary']};
     color: {c['secondary_text']};
     border-radius: {s['radius_small']}px;
-    padding: 10px;
+    padding: {button_padding}px;
 }}
 QPushButton[keypadRole]:hover {{
     border: 1px solid {c['accent_text']};
@@ -55,4 +57,3 @@ def apply_button_style(button: QPushButton, role: str) -> None:
 
 def apply_calc_style(widget: QWidget, extra: str) -> None:
     widget.setStyleSheet(build_calc_base_stylesheet() + extra)
-
