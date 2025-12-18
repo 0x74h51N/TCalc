@@ -1,20 +1,21 @@
 from __future__ import annotations
 
-
-from PySide6.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QFrame
 from PySide6.QtCore import QSize
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QMainWindow, QWidget
+
+from tcalc.app_state import CalculatorMode, get_app_state
 
 from ..core import Calculator
-from .manubar.menu import Menubar
+from .config import get_history_width_from_total, window
 from .controller import CalculatorController, EditOperations
-from .widgets import CalcWidget, History
-from .config import window, get_history_width_from_total
-from .keyboard import KeyboardHandler
-from tcalc.app_state import get_app_state, CalculatorMode
 from .controller.utils import format_result
+from .keyboard import KeyboardHandler
+from .manubar.menu import Menubar
+from .widgets import CalcWidget, History
+
 
 class MainWindow(QMainWindow):
-    def __init__(self, parent: QWidget = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         app_state = get_app_state()
 
@@ -30,66 +31,55 @@ class MainWindow(QMainWindow):
         m_layout.setSpacing(int(window["layout_spacing"]))
 
         # Calc widget (display + keypad)
-        self.calc_widget = CalcWidget(
-            parent=central
-        )
-        self.calc_widget.setMinimumSize(
-            window["calc_min_width"],
-            window["min_height"]
-        )
+        self.calc_widget = CalcWidget(parent=central)
+        self.calc_widget.setMinimumSize(window["calc_min_width"], window["min_height"])
         m_layout.addWidget(self.calc_widget, window["calc_stretch"])
 
-
         self.menubar = Menubar(self)
-        
+
         # Connect settings menu to visibility changes
         settings_menu = self.menubar.settings_menu
-        settings_menu.window = self  # Pass window reference for UI updates
+        if settings_menu is not None:
+            settings_menu.window = self  # Pass window reference for UI updates
 
         self.divider = QFrame(self)
-        self.divider.setFrameShape(QFrame.VLine)
-        self.divider.setFrameShadow(QFrame.Sunken)
+        self.divider.setFrameShape(QFrame.Shape.VLine)
+        self.divider.setFrameShadow(QFrame.Shadow.Sunken)
         self.divider.setLineWidth(int(window["divider_line_width"]))
         self.divider.setVisible(app_state.show_history)
 
         self.history = History(parent=central, mode=app_state.mode)
-        self.history.setMinimumSize(
-            window["history_min_width"],
-            window["min_height"]
-        )
+        self.history.setMinimumSize(window["history_min_width"], window["min_height"])
         self.history.setVisible(app_state.show_history)
 
         # Add to layout
         m_layout.addWidget(self.divider)
         m_layout.addWidget(self.history, window["history_stretch"])
-       
+
         # Edit operations
         self.edit_ops = EditOperations(self)
 
         # Controller binding
         self.controller = CalculatorController(
-            self.calculator, 
-            self.calc_widget.display, 
-            self.history, 
+            self.calculator,
+            self.calc_widget.display,
+            self.history,
             self.edit_ops,
             self.calc_widget.topbar,
-            )
-        
+        )
+
         self.calc_widget.keypad.key_pressed.connect(self.controller.handle_key)
         self.calc_widget.topbar.key_pressed.connect(self.controller.handle_key)
         self.calc_widget.topbar.angle_changed.connect(self.controller.set_angle_unit)
 
         # Keyboard handler for global shortcuts
         self._keyboard_handler = KeyboardHandler(
-            self.calc_widget.display.expression_label,
-            self.calc_widget.keypad,
-            self.controller
+            self.calc_widget.display.expression_label, self.calc_widget.keypad, self.controller
         )
 
         # Sync initial keypad state and size constraints
         self.update_layout()
         self._update_history_size()
-
 
     def keyPressEvent(self, event):
         if self._keyboard_handler.handle_key_press(event):
@@ -136,17 +126,17 @@ class MainWindow(QMainWindow):
 
         topbar.set_memory_available(app_state.memory is not None)
         self.history.set_memory("" if app_state.memory is None else format_result(app_state.memory))
-        
+
         # Adjust minimum width based on visibility and mode
         calc_width = window["calc_min_width"]
         if app_state.mode == CalculatorMode.SCIENCE:
             calc_width += window["science_panel_width"]
-        
+
         if app_state.show_history:
             min_width = calc_width + window["history_min_width"]
         else:
             min_width = calc_width
-        
+
         self.setMinimumWidth(min_width)
         self.adjustSize()
         self.resize(self.minimumSizeHint())
@@ -157,11 +147,9 @@ class MainWindow(QMainWindow):
             size = central.sizeHint()
         else:
             size = QSize(int(window["size_hint_width"]), int(window["size_hint_height"]))
-        
+
         # Add menubar height if exists
         if self.menuBar():
             size.setHeight(size.height() + self.menuBar().height())
-        
-        return size
 
-        
+        return size

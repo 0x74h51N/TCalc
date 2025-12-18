@@ -3,17 +3,52 @@ from __future__ import annotations
 from tcalc.app_state import CalculatorMode
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, SettingsOperations
 
-
 FILE_MENU_ACTIONS = [
-    {"id": FileOperations.quit, "icon": "application-exit", "text": "Quit", "checkable": False, "enabled": True},
+    {
+        "id": FileOperations.quit,
+        "icon": "application-exit",
+        "text": "Quit",
+        "checkable": False,
+        "enabled": True,
+    },
 ]
 
 EDIT_MENU_ACTIONS = [
-    {"id": EditOperations.undo, "icon": "edit-undo", "text": "Undo", "checkable": False, "enabled": True},
-    {"id": EditOperations.redo, "icon": "edit-redo", "text": "Redo", "checkable": False, "enabled": True},
-    {"id": EditOperations.cut, "icon": "edit-cut", "text": "Cut", "checkable": False, "enabled": True},
-    {"id": EditOperations.copy, "icon": "edit-copy", "text": "Copy", "checkable": False, "enabled": True},
-    {"id": EditOperations.paste, "icon": "edit-paste", "text": "Paste", "checkable": False, "enabled": True},
+    {
+        "id": EditOperations.undo,
+        "icon": "edit-undo",
+        "text": "Undo",
+        "checkable": False,
+        "enabled": True,
+    },
+    {
+        "id": EditOperations.redo,
+        "icon": "edit-redo",
+        "text": "Redo",
+        "checkable": False,
+        "enabled": True,
+    },
+    {
+        "id": EditOperations.cut,
+        "icon": "edit-cut",
+        "text": "Cut",
+        "checkable": False,
+        "enabled": True,
+    },
+    {
+        "id": EditOperations.copy,
+        "icon": "edit-copy",
+        "text": "Copy",
+        "checkable": False,
+        "enabled": True,
+    },
+    {
+        "id": EditOperations.paste,
+        "icon": "edit-paste",
+        "text": "Paste",
+        "checkable": False,
+        "enabled": True,
+    },
 ]
 
 SETTINGS_TOGGLE_ACTIONS = [
@@ -34,7 +69,13 @@ SETTINGS_TOGGLE_ACTIONS = [
 ]
 
 MODE_ACTIONS = [
-    {"id": CalculatorMode.SIMPLE, "icon": "accessories-calculator", "text": "Simple Mode", "checkable": True, "enabled": True},
+    {
+        "id": CalculatorMode.SIMPLE,
+        "icon": "accessories-calculator",
+        "text": "Simple Mode",
+        "checkable": True,
+        "enabled": True,
+    },
     {
         "id": CalculatorMode.SCIENCE,
         "icon": "applications-science",

@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List
 
 from PySide6.QtCore import QStandardPaths
+
 from tcalc.app_state import CalculatorMode
 
 from .config import storage_config
@@ -12,7 +13,7 @@ from .config import storage_config
 
 def _get_data_dir() -> Path:
     """Get platform-specific app data directory."""
-    path = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
+    path = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation)
     data_dir = Path(path)
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir
@@ -20,11 +21,11 @@ def _get_data_dir() -> Path:
 
 def load_history(mode: CalculatorMode) -> List[str]:
     """Load history from JSON file."""
-    history_file = _get_data_dir()/f"history_{mode.value}.json"
-    
+    history_file = _get_data_dir() / f"history_{mode.value}.json"
+
     if not history_file.exists():
         return []
-    
+
     try:
         with open(history_file, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -35,13 +36,13 @@ def load_history(mode: CalculatorMode) -> List[str]:
 
 def save_history(history: List[str], mode: CalculatorMode) -> None:
     """Save history to JSON file."""
-    history_file = _get_data_dir()/f"history_{mode.value}.json"
-    
+    history_file = _get_data_dir() / f"history_{mode.value}.json"
+
     # Limit history size
     max_items = int(storage_config["max_items"])
     if len(history) > max_items:
         history = history[-max_items:]
-    
+
     try:
         with open(history_file, "w", encoding="utf-8") as f:
             json.dump({"history": history}, f, ensure_ascii=False, indent=2)
@@ -52,8 +53,8 @@ def save_history(history: List[str], mode: CalculatorMode) -> None:
 
 def clear_history_file(mode: CalculatorMode) -> None:
     """Clear history file."""
-    history_file = _get_data_dir()/f"history_{mode.value}.json"
-    
+    history_file = _get_data_dir() / f"history_{mode.value}.json"
+
     try:
         with open(history_file, "w", encoding="utf-8") as f:
             json.dump({"history": []}, f)

@@ -34,13 +34,9 @@ source venv/bin/activate
 
 # dependencies
 # -----------------------------
-if [ -f "requirements.txt" ]; then
-  echo "Installing/updating Python dependencies from requirements.txt..."
-  python -m pip install -U pip setuptools wheel
-  python -m pip install -e .
-else
-  echo "requirements.txt not found, skipping dependency install"
-fi
+echo "Installing/updating Python deps (+ dev extras)..."
+python -m pip install -U pip setuptools wheel
+python -m pip install -e ".[dev]"
 
 # native core
 # -----------------------------

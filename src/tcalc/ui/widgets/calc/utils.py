@@ -5,7 +5,7 @@ from typing import Callable, Optional
 from PySide6.QtCore import SignalInstance
 from PySide6.QtWidgets import QAbstractButton, QGridLayout, QPushButton, QRadioButton, QWidget
 
-from ....core import Operation
+from tcalc.core import Operation
 
 KeyDef = dict[str, object]
 
@@ -31,7 +31,9 @@ def add_keys_to_grid(
 def create_button(key_def: KeyDef, role: str, parent: QWidget) -> QAbstractButton:
     is_radio = bool(key_def.get("radio"))
     label = str(key_def["label"])
-    button: QAbstractButton = QRadioButton(label, parent) if is_radio else QPushButton(label, parent)
+    button: QAbstractButton = (
+        QRadioButton(label, parent) if is_radio else QPushButton(label, parent)
+    )
 
     tooltip = key_def.get("tooltip")
     if tooltip:

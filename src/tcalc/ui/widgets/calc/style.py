@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QPushButton, QWidget
+from PySide6.QtWidgets import QAbstractButton, QWidget
 
 from ....theme import get_theme
 from .config import style_config
@@ -25,16 +25,16 @@ def build_calc_base_stylesheet() -> str:
 
     return f"""
 QPushButton[keypadRole] {{
-    background-color: {c['secondary']};
-    color: {c['secondary_text']};
-    border-radius: {s['radius_small']}px;
+    background-color: {c["secondary"]};
+    color: {c["secondary_text"]};
+    border-radius: {s["radius_small"]}px;
     padding: {button_padding}px;
 }}
 QPushButton[keypadRole]:hover {{
-    border: 1px solid {c['accent_text']};
+    border: 1px solid {c["accent_text"]};
 }}
 QPushButton[keypadRole]:pressed, QPushButton[keypadRole][pressed="true"] {{
-    background-color: {c['secondary_hover']};
+    background-color: {c["secondary_hover"]};
 }}
 QPushButton[keypadRole]:disabled {{
     background-color: {disabled_bg};
@@ -43,12 +43,12 @@ QPushButton[keypadRole]:disabled {{
 }}
 
 QPushButton[keypadRole]:checked {{
-    background-color: {c['action_hover']};
+    background-color: {c["action_hover"]};
 }}
 """
 
 
-def apply_button_style(button: QPushButton, role: str) -> None:
+def apply_button_style(button: QAbstractButton, role: str) -> None:
     button.setObjectName("keypadButton")
     button.setProperty("keypadRole", role)
     button.style().unpolish(button)

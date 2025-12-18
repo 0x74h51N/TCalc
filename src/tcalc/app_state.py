@@ -1,16 +1,17 @@
-
 from __future__ import annotations
-import calc_native
+
 from enum import Enum
+
+import calc_native
 from PySide6.QtCore import QSettings
 
 
 class CalculatorMode(Enum):
     """Calculator operation modes."""
+
     SIMPLE = "simple"
     SCIENCE = "science"
     STATISTIC = "statistic"
-
 
 
 AngleUnit = calc_native.AngleUnit
@@ -18,22 +19,26 @@ AngleUnit = calc_native.AngleUnit
 
 class AppState:
     """Global application state container (singleton) with persistent settings."""
-    
+
     def __init__(self):
         self._settings = QSettings("TCalc", "TCalc")
-        
+
         # Load from settings or use defaults
         mode_str = self._settings.value("mode", CalculatorMode.SIMPLE.value)
-        self._mode = CalculatorMode(mode_str) if isinstance(mode_str, str) else CalculatorMode.SIMPLE
-        
+        self._mode = (
+            CalculatorMode(mode_str) if isinstance(mode_str, str) else CalculatorMode.SIMPLE
+        )
+
         self._show_history = self._settings.value("show_history", False, type=bool)
-        
-        self._show_constant_buttons = self._settings.value("show_constant_buttons", False, type=bool)
-        
+
+        self._show_constant_buttons = self._settings.value(
+            "show_constant_buttons", False, type=bool
+        )
+
         # Undo/redo state (not persisted)
         self.history_index: int = -1
         self.redo_cached_exprs: str = ""
-        
+
         # Angle unit for trig functions (not persisted)
         self.angle_unit = AngleUnit.DEG
 
@@ -41,7 +46,7 @@ class AppState:
         self.hyp = False
 
         # Memory slot (not persisted)
-        self.memory: float|complex|None = None
+        self.memory: float | complex | None = None
 
         # Shifted (not persisted)
         self.shifted = False
@@ -72,7 +77,6 @@ class AppState:
     def show_constant_buttons(self, value: bool) -> None:
         self._show_constant_buttons = value
         self._settings.setValue("show_constant_buttons", value)
-        
 
 
 # Global singleton instance

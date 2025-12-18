@@ -7,4 +7,3 @@ class FileOperations:
 
     def quit(self) -> None:
         self._window.close()
-

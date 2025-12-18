@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-
 from dataclasses import dataclass
-from typing import Callable, Literal
 from enum import Enum
+from typing import Callable, Literal
 
 from .utils import is_int_like
 
@@ -35,8 +34,8 @@ def _cx_root(x: float, y: float) -> bool:
     return x < 0.0 and ((not is_int_like(y)) or (int(round(y)) % 2 == 0))
 
 
-
 PromoArity = Literal[1, 2]
+
 
 @dataclass(frozen=True, slots=True)
 class OpSpec:
@@ -48,7 +47,6 @@ class OpSpec:
     big: bool = False
     cx: Callable[..., bool] | None = None
     cx_arity: PromoArity | None = None
-
 
 
 class Operation(str, Enum):
@@ -146,26 +144,22 @@ class Operation(str, Enum):
 
 OP_SPECS: dict[Operation, OpSpec] = {
     Operation.DIGIT: OpSpec(sym="digit"),
-
     Operation.ADD: OpSpec(sym="+", prec=1, assoc="left", arity="binary", big=True),
     Operation.SUB: OpSpec(sym="-", prec=1, assoc="left", arity="binary", big=True),
     Operation.MUL: OpSpec(sym="x", prec=2, assoc="left", arity="binary", als=("*",), big=True),
     Operation.DIV: OpSpec(sym="÷", prec=2, assoc="left", arity="binary", als=("/",), big=True),
     Operation.POW: OpSpec(sym="^", prec=3, assoc="right", arity="binary", big=True),
-
     Operation.PERCENT: OpSpec(sym="%", prec=4, assoc="left", arity="postfix"),
-
     Operation.DOT: OpSpec(sym="."),
     Operation.OPEN_PAREN: OpSpec(sym="("),
     Operation.CLOSE_PAREN: OpSpec(sym=")"),
-
     Operation.EQUALS: OpSpec(sym="="),
     Operation.CLEAR: OpSpec(sym="C"),
     Operation.BACKSPACE: OpSpec(sym="⌫"),
-
     Operation.NEGATE: OpSpec(sym="u-", prec=3, assoc="right", arity="unary"),
-    Operation.SQRT: OpSpec(sym="√", prec=4, assoc="right", arity="unary", als=("sqrt",), big=True, cx=_cx_sqrt),
-
+    Operation.SQRT: OpSpec(
+        sym="√", prec=4, assoc="right", arity="unary", als=("sqrt",), big=True, cx=_cx_sqrt
+    ),
     Operation.SIN: OpSpec(sym="sin", prec=4, assoc="right", arity="unary"),
     Operation.COS: OpSpec(sym="cos", prec=4, assoc="right", arity="unary"),
     Operation.TAN: OpSpec(sym="tan", prec=4, assoc="right", arity="unary"),
@@ -179,20 +173,22 @@ OP_SPECS: dict[Operation, OpSpec] = {
     Operation.ASINH: OpSpec(sym="asinh", prec=4, assoc="right", arity="unary"),
     Operation.ACOSH: OpSpec(sym="acosh", prec=4, assoc="right", arity="unary", cx=_cx_acosh),
     Operation.ATANH: OpSpec(sym="atanh", prec=4, assoc="right", arity="unary", cx=_cx_atanh),
-
     Operation.RECIP: OpSpec(sym="⁻¹", prec=4, assoc="left", arity="postfix"),
     Operation.FACT: OpSpec(sym="!", prec=4, assoc="left", arity="postfix", als=("factorial",)),
-    Operation.LOG: OpSpec(sym="log", prec=4, assoc="right", arity="unary", als=("log10",), big=True, cx=_cx_log_ln),
+    Operation.LOG: OpSpec(
+        sym="log", prec=4, assoc="right", arity="unary", als=("log10",), big=True, cx=_cx_log_ln
+    ),
     Operation.LN: OpSpec(sym="ln", prec=4, assoc="right", arity="unary", big=True, cx=_cx_log_ln),
     Operation.MOD: OpSpec(sym="mod", prec=2, assoc="left", arity="binary", big=True),
     Operation.POW10: OpSpec(sym="⏨", prec=4, assoc="right", arity="unary"),
     Operation.EXP: OpSpec(sym="exp", prec=4, assoc="right", arity="unary", big=True),
-    Operation.INTDIV: OpSpec(sym="div", prec=2, assoc="left", arity="binary", als=("//",), big=True),
+    Operation.INTDIV: OpSpec(
+        sym="div", prec=2, assoc="left", arity="binary", als=("//",), big=True
+    ),
     Operation.CHOOSE: OpSpec(sym="nCm", prec=4, assoc="right", arity="binary"),
-    Operation.PERMUTE: OpSpec(sym="nPm", prec=4, assoc="right",arity="binary"),
+    Operation.PERMUTE: OpSpec(sym="nPm", prec=4, assoc="right", arity="binary"),
     Operation.GAMMA: OpSpec(sym="Γ", prec=4, assoc="right", arity="unary"),
     Operation.CBRT: OpSpec(sym="³√", prec=4, assoc="right", arity="unary"),
-
     Operation.SQR: OpSpec(sym="²", prec=4, assoc="left", arity="postfix"),
     Operation.CUBE: OpSpec(sym="³", prec=4, assoc="left", arity="postfix"),
     Operation.EXP10: OpSpec(sym="⏨", prec=3, assoc="right", arity="binary"),
@@ -200,6 +196,8 @@ OP_SPECS: dict[Operation, OpSpec] = {
     Operation.IMAG: OpSpec(sym="i"),
     Operation.POLAR: OpSpec(sym="∠", prec=4, assoc="right", arity="unary", als=("polar",)),
 }
+
+
 def get_symbols_with_aliases(filter_fn=None) -> set[str]:
     symbols: set[str] = set()
     for op in Operation:

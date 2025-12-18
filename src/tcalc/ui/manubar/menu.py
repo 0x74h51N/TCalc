@@ -1,14 +1,19 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QMainWindow
-from .menus.file import FileMenu
+from typing import TYPE_CHECKING
+
+from ..keyboard import ShortcutManager
 from .menus.edit import EditMenu
+from .menus.file import FileMenu
 from .menus.settings import SettingsMenu
 from .style import apply_menu_styles
-from ..keyboard import ShortcutManager
+
+if TYPE_CHECKING:
+    from ..window import MainWindow
+
 
 class Menubar:
-    def __init__(self, window: QMainWindow) -> None:
+    def __init__(self, window: MainWindow) -> None:
         self.window = window
         self.settings_menu: SettingsMenu | None = None
         self.shortcuts = ShortcutManager()
@@ -22,4 +27,4 @@ class Menubar:
         FileMenu(menubar, self.window, self.shortcuts)
         EditMenu(menubar, self.window, self.shortcuts)
         self.settings_menu = SettingsMenu(menubar, self.window, self.shortcuts)
-        help_menu = menubar.addMenu("Help")
+        menubar.addMenu("Help")

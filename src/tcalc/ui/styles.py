@@ -13,10 +13,10 @@ def _build_stylesheet() -> str:
     tooltip_padding = int(ui_style["tooltip_padding"])
     return f"""
 QToolTip {{
-    background-color: {c['background_dark']};
-    border: 1px solid {c['border_light']};
-    border-radius: {s['radius_small']}px;
-    color: {c['text_secondary']};
+    background-color: {c["background_dark"]};
+    border: 1px solid {c["border_light"]};
+    border-radius: {s["radius_small"]}px;
+    color: {c["text_secondary"]};
     padding: {tooltip_padding}px;
 }}
 """

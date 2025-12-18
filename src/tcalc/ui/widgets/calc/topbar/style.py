@@ -17,7 +17,9 @@ def _build_topbar_stylesheet() -> str:
     memory_bg_pressed = rgba(c["accent"], float(topbar_config["memory_background_pressed_alpha"]))
 
     angle_bg_checked = rgba(c["accent"], float(topbar_config["angle_background_checked_alpha"]))
-    angle_bg_hover = rgba(c["secondary_hover"], float(topbar_config["angle_background_hover_alpha"]))
+    angle_bg_hover = rgba(
+        c["secondary_hover"], float(topbar_config["angle_background_hover_alpha"])
+    )
     angle_pad_y = int(topbar_config["angle_button_padding_y"])
     angle_pad_x = int(topbar_config["angle_button_padding_x"])
     angle_spacing = int(topbar_config["angle_spacing_px"])
@@ -25,10 +27,12 @@ def _build_topbar_stylesheet() -> str:
     compact_pad_y = int(style_config["compact_button_padding_y"])
     compact_pad_x = int(style_config["compact_button_padding_x"])
 
-    return build_calc_base_stylesheet() + f"""
+    return (
+        build_calc_base_stylesheet()
+        + f"""
 QPushButton[keypadRole="memory"] {{
     background-color: {memory_bg};
-    color: {c['accent_text']};
+    color: {c["accent_text"]};
     border: none;
 }}
 QPushButton[keypadRole="memory"]:hover {{
@@ -40,8 +44,8 @@ QPushButton[keypadRole="memory"]:pressed, QPushButton[keypadRole="memory"][press
 
 QRadioButton[keypadRole="angle"] {{
     background-color: transparent;
-    color: {c['text_secondary']};
-    border-radius: {s['radius_small']}px;
+    color: {c["text_secondary"]};
+    border-radius: {s["radius_small"]}px;
     padding: {angle_pad_y}px {angle_pad_x}px;
     spacing: {angle_spacing}px;
 }}
@@ -54,13 +58,14 @@ QRadioButton[keypadRole="angle"]:hover {{
 }}
 QRadioButton[keypadRole="angle"]:checked {{
     background-color: {angle_bg_checked};
-    color: {c['accent_text']};
+    color: {c["accent_text"]};
 }}
 
 QPushButton[keypadRole="memory"] {{
     padding: {compact_pad_y}px {compact_pad_x}px;
 }}
 """
+    )
 
 
 def apply_topbar_style(widget: QWidget) -> None:

@@ -1,11 +1,19 @@
 from __future__ import annotations
 
-from PySide6.QtGui import QAction, QIcon
-from PySide6.QtWidgets import QMenuBar, QMainWindow
+from typing import TYPE_CHECKING, Callable, cast
 
-from tcalc.app_state import get_app_state, CalculatorMode
+from PySide6.QtGui import QAction, QIcon
+from PySide6.QtWidgets import QMenuBar
+
+from tcalc.app_state import CalculatorMode, get_app_state
 from tcalc.ui.controller.menubar import SettingsOperations
+from tcalc.ui.keyboard.shortcuts import ShortcutId
+
 from ..defins import MODE_ACTIONS, SETTINGS_TOGGLE_ACTIONS
+
+if TYPE_CHECKING:
+    from ...keyboard import ShortcutManager
+    from ...window import MainWindow
 
 
 def _get_icon(theme_name: str) -> QIcon:
@@ -14,19 +22,24 @@ def _get_icon(theme_name: str) -> QIcon:
 
 
 class SettingsMenu:
-    def __init__(self, menu: QMenuBar, window: QMainWindow, shortcuts):
+    def __init__(self, menu: QMenuBar, window: MainWindow, shortcuts: ShortcutManager):
         self.app_state = get_app_state()
         self.window = window
         self.ops = SettingsOperations(window)
-        
+
         settings_menu = menu.addMenu("Settings")
 
         # Mode actions
         self._mode_actions: dict[CalculatorMode, QAction] = {}
         for spec in MODE_ACTIONS:
-            mode = spec["id"]
-            action = QAction(_get_icon(spec["icon"]), spec["text"], window, checkable=spec["checkable"])
-            action.setEnabled(spec["enabled"])
+            mode = spec.get("id")
+            if not isinstance(mode, CalculatorMode):
+                continue
+            icon = _get_icon(str(spec["icon"]))
+            text = str(spec["text"])
+            action = QAction(icon, text, window)
+            action.setCheckable(bool(spec["checkable"]))
+            action.setEnabled(bool(spec["enabled"]))
             action.triggered.connect(lambda checked, m=mode: self._set_mode(m))
             settings_menu.addAction(action)
             self._mode_actions[mode] = action
@@ -37,34 +50,39 @@ class SettingsMenu:
         settings_menu.addSeparator()
 
         # Visibility toggles
-        toggle_checked = {
-            SettingsOperations.toggle_history: self.app_state.show_history,
-            SettingsOperations.toggle_constants: self.app_state.show_constant_buttons,
-        }
         for spec in SETTINGS_TOGGLE_ACTIONS:
-            action = QAction(_get_icon(spec["icon"]), spec["text"], window, checkable=spec["checkable"])
-            action.setEnabled(spec["enabled"])
-            action.setChecked(toggle_checked[spec["id"]])
-            shortcuts.bind_action(spec["id"], action)
-            action.triggered.connect(lambda checked, fn=spec["id"]: fn(self.ops, checked))
+            toggle_fn = spec.get("id")
+            if not callable(toggle_fn):
+                continue
+
+            icon = _get_icon(str(spec["icon"]))
+            text = str(spec["text"])
+            action = QAction(icon, text, window)
+            action.setCheckable(bool(spec["checkable"]))
+            action.setEnabled(bool(spec["enabled"]))
+
+            toggle_callable = cast(Callable[[SettingsOperations, bool], None], toggle_fn)
+            if toggle_fn is SettingsOperations.toggle_history:
+                action.setChecked(bool(self.app_state.show_history))
+            elif toggle_fn is SettingsOperations.toggle_constants:
+                action.setChecked(bool(self.app_state.show_constant_buttons))
+            else:
+                action.setChecked(False)
+
+            shortcuts.bind_action(cast(ShortcutId, toggle_fn), action)
+            action.triggered.connect(lambda checked, fn=toggle_callable: fn(self.ops, checked))
             settings_menu.addAction(action)
 
         settings_menu.addSeparator()
 
         # Configuration actions
         keyboard_action = QAction(
-            _get_icon("input-keyboard"),
-            "Configure Keyboard Shortcuts... (Coming Soon)",
-            window
+            _get_icon("input-keyboard"), "Configure Keyboard Shortcuts... (Coming Soon)", window
         )
         keyboard_action.setEnabled(False)
         settings_menu.addAction(keyboard_action)
 
-        config_action = QAction(
-            _get_icon("configure"),
-            "Configure TCalc... (Coming Soon)",
-            window
-        )
+        config_action = QAction(_get_icon("configure"), "Configure TCalc... (Coming Soon)", window)
         config_action.setEnabled(False)
         settings_menu.addAction(config_action)
 

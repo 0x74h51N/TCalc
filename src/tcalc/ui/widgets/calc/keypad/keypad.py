@@ -2,24 +2,25 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Signal, QTimer
+from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import (
     QAbstractButton,
     QButtonGroup,
-    QWidget,
-    QPushButton,
     QHBoxLayout,
-    QVBoxLayout,
+    QPushButton,
     QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
 
-from tcalc.core import Operation
-from .keypad_defins import NORMAL_MODE_KEYS, SIDEBAR_KEYS, SCIENCE_MODE_KEYS
 from tcalc.app_state import CalculatorMode, get_app_state
-from ..config import font_scale_config, keypad_config
+from tcalc.core import Operation
+
 from ...utils import apply_scaled_fonts
+from ..config import font_scale_config, keypad_config
 from ..style import apply_button_style
 from ..utils import KeyDef, add_keys_to_grid, create_button, handle_button_clicked, make_grid
+from .keypad_defins import NORMAL_MODE_KEYS, SCIENCE_MODE_KEYS, SIDEBAR_KEYS
 from .style import apply_keypad_style
 
 
@@ -72,7 +73,7 @@ class Keypad(QWidget):
         self._hbox.addLayout(self._sidebar_grid, keypad_config["right_side_grid_stretch"])
 
         add_keys_to_grid(NORMAL_MODE_KEYS, self._normal_grid, self._add_key)
-        
+
         # Sidebar keys
         add_keys_to_grid(SIDEBAR_KEYS, self._sidebar_grid, self._add_key)
         self._buttons["Shift"].setVisible(get_app_state().mode != CalculatorMode.SIMPLE)
@@ -103,14 +104,16 @@ class Keypad(QWidget):
 
     def _add_key(self, key_def: KeyDef, role: str, grid) -> None:
         button = create_button(key_def, role, grid.parentWidget() or self)
-        button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        assert isinstance(button, QPushButton)
+        button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         apply_button_style(button, role)
         self._button_group.addButton(button)
         self._base_key_def_by_button[button] = key_def
         self._key_def_by_button[button] = key_def
         self._buttons[str(key_def["label"])] = button
-        if isinstance(key_def.get("operation"), Operation):
-            self._op_buttons[key_def["operation"]] = button
+        op = key_def.get("operation")
+        if isinstance(op, Operation):
+            self._op_buttons[op] = button
 
         if key_def.get("shifted"):
             self._shiftable_buttons.append(button)
@@ -161,12 +164,13 @@ class Keypad(QWidget):
     def get_button(self, label: str) -> Optional[QPushButton]:
         return self._buttons.get(label)
 
-
     #
     # -- Font scaling ----------------------------------------------------
     #
     def _update_button_fonts(self) -> None:
         sample = self._buttons.get("7")
+        if sample is None:
+            return
         scale = font_scale_config["keypad_buttons"]
         apply_scaled_fonts(
             [

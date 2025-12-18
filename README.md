@@ -45,8 +45,10 @@ Create and use a virtual environment:
 python -m venv venv
 source venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
-python -m pip install -e .
+python -m pip install -e ".[dev]"
 ```
+
+Dev tooling (`ruff`, `mypy`) is installed via the `dev` extra.
 
 **Build native extension in-place**
 
@@ -64,6 +66,15 @@ Dev mode (auto-restart on changes):
 
 ```bash
 make dev
+```
+
+Dev tools - lint/type-check
+
+```bash
+make lint       # find issues
+make lint-fix   # auto-fix what ruff can
+make typecheck  # mypy
+make check      # lint + typecheck
 ```
 
 ## Release Plans

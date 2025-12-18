@@ -4,7 +4,6 @@ from typing import Iterable, Sequence
 
 from PySide6.QtWidgets import QWidget
 
-
 FontScaleGroup = tuple[QWidget, Iterable[QWidget], int, int, int]
 
 

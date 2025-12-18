@@ -3,9 +3,17 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QWidget, QPushButton, QAbstractButton, QHBoxLayout, QSizePolicy, QButtonGroup
+from PySide6.QtWidgets import (
+    QAbstractButton,
+    QButtonGroup,
+    QHBoxLayout,
+    QPushButton,
+    QSizePolicy,
+    QWidget,
+)
 
 from tcalc.app_state import AngleUnit
+
 from ..config import keypad_config, topbar_config
 from ..style import apply_button_style
 from ..utils import KeyDef, add_keys_to_grid, create_button, handle_button_clicked, make_grid
@@ -35,7 +43,7 @@ class TopBar(QWidget):
         layout.setSpacing(keypad_config["grid_spacing"])
 
         self._angle_widget = QWidget(self)
-        self._angle_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self._angle_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         size_policy = self._angle_widget.sizePolicy()
         size_policy.setRetainSizeWhenHidden(False)
         self._angle_widget.setSizePolicy(size_policy)
@@ -48,7 +56,7 @@ class TopBar(QWidget):
         layout.addStretch(int(topbar_config["spacer_stretch"]))
 
         self._memory_widget = QWidget(self)
-        self._memory_widget.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self._memory_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         memory_grid = make_grid(keypad_config["grid_spacing"], self._memory_widget)
         add_keys_to_grid(MEMORY_L_KEYS, memory_grid, self._add_key)
         layout.addWidget(self._memory_widget)
@@ -56,16 +64,23 @@ class TopBar(QWidget):
     def _add_key(self, key_def: KeyDef, role: str, grid) -> None:
         is_radio = bool(key_def.get("radio"))
         button = create_button(key_def, role, grid.parentWidget() or self)
-        button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
         if is_radio:
-            unit = key_def["unit"]
+            unit = key_def.get("unit")
+            if not isinstance(unit, AngleUnit):
+                return
             self._angle_group.addButton(button)
             self._angle_buttons[unit] = button
-            button.toggled.connect(lambda checked, u=unit: checked and self.angle_changed.emit(u))
+            button.toggled.connect(
+                lambda checked, u=unit: self.angle_changed.emit(u) if checked else None
+            )
         else:
+            assert isinstance(button, QPushButton)
             apply_button_style(button, role)
-            button.clicked.connect(lambda _=False, kd=key_def: handle_button_clicked(self.key_pressed, kd))
+            button.clicked.connect(
+                lambda _=False, kd=key_def: handle_button_clicked(self.key_pressed, kd)
+            )
             self._buttons[str(key_def["label"])] = button
 
         grid.addWidget(

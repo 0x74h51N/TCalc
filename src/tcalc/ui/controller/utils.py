@@ -24,8 +24,8 @@ def format_result(value) -> str:
         if "999999999999" in result:
             result = f"{x:.15g}"
 
-        if '.' in result:
-            int_part, dec_part = result.split('.', 1)
+        if "." in result:
+            int_part, dec_part = result.split(".", 1)
             if abs(float(int_part)) >= 1000:
                 return f"{int(int_part):,}.{dec_part}"
 
@@ -70,7 +70,6 @@ def format_result(value) -> str:
         return f"{value:,}"
 
     return fmt_real(float(value))
-
 
 
 def clean_for_expression(formatted: str) -> str:

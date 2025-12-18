@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QEvent, QObject, QTimer
-from PySide6.QtGui import QKeySequence
+from PySide6.QtGui import QKeyEvent, QKeySequence
 from PySide6.QtWidgets import QLineEdit
 
 from .keymap import get_operation_for_key
@@ -18,13 +18,13 @@ class _ShortcutOverrideFilter(QObject):
         super().__init__(target)
         self._target = target
 
-    def eventFilter(self, obj, event) -> bool:
-        if obj is self._target and event.type() == QEvent.ShortcutOverride:
-            if (
-                event.matches(QKeySequence.Undo)
-                or event.matches(QKeySequence.Redo)
-                or event.matches(QKeySequence.Cut)
-                or event.matches(QKeySequence.Copy)
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        if obj is self._target and event.type() == QEvent.Type.ShortcutOverride:
+            if isinstance(event, QKeyEvent) and (
+                event.matches(QKeySequence.StandardKey.Undo)
+                or event.matches(QKeySequence.StandardKey.Redo)
+                or event.matches(QKeySequence.StandardKey.Cut)
+                or event.matches(QKeySequence.StandardKey.Copy)
             ):
                 event.ignore()
                 return True
@@ -32,16 +32,16 @@ class _ShortcutOverrideFilter(QObject):
 
 
 class KeyboardHandler:
-    
-    def __init__(self, expression_input: QLineEdit, keypad: Keypad, controller: CalculatorController):
+    def __init__(
+        self, expression_input: QLineEdit, keypad: Keypad, controller: CalculatorController
+    ):
         self._expression_input = expression_input
         self._keypad = keypad
         self._controller = controller
         self._shortcut_override_filter = _ShortcutOverrideFilter(self._expression_input)
         self._expression_input.installEventFilter(self._shortcut_override_filter)
-    
-    def handle_key_press(self, event: QEvent) -> bool:
-        
+
+    def handle_key_press(self, event: QKeyEvent) -> bool:
         result = get_operation_for_key(event.key())
         if result:
             label, operation = result
@@ -52,14 +52,16 @@ class KeyboardHandler:
                 button.style().unpolish(button)
                 button.style().polish(button)
                 button.click()
+
                 # Remove pressed property after delay
                 def reset():
                     button.setProperty("pressed", False)
                     button.style().unpolish(button)
                     button.style().polish(button)
+
                 QTimer.singleShot(100, reset)
             elif operation in self._controller._handlers:
                 self._controller.handle_key(label, operation)
             return True
-        
+
         return False

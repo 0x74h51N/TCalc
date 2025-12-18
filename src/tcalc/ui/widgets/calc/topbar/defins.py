@@ -23,10 +23,36 @@ ANGLE_L_KEYS = {"angle": ANGLE_KEYS}
 
 
 MEMORY_KEYS = [
-    {"label": MemoryKey.MC.value, "operation": MemoryKey.MC.value, "enabled": False, "row": 0, "col": 0, "tooltip": "memory clear"},
-    {"label": MemoryKey.MR.value, "operation": MemoryKey.MR.value, "enabled": False, "row": 0, "col": 1, "tooltip": "memory recall"},
-    {"label": MemoryKey.MS.value, "operation": MemoryKey.MS.value, "row": 0, "col": 2, "tooltip": "memory store"},
-    {"label": MemoryKey.M_PLUS.value, "operation": MemoryKey.M_PLUS.value, "row": 0, "col": 3, "tooltip": "memory add"},
+    {
+        "label": MemoryKey.MC.value,
+        "operation": MemoryKey.MC.value,
+        "enabled": False,
+        "row": 0,
+        "col": 0,
+        "tooltip": "memory clear",
+    },
+    {
+        "label": MemoryKey.MR.value,
+        "operation": MemoryKey.MR.value,
+        "enabled": False,
+        "row": 0,
+        "col": 1,
+        "tooltip": "memory recall",
+    },
+    {
+        "label": MemoryKey.MS.value,
+        "operation": MemoryKey.MS.value,
+        "row": 0,
+        "col": 2,
+        "tooltip": "memory store",
+    },
+    {
+        "label": MemoryKey.M_PLUS.value,
+        "operation": MemoryKey.M_PLUS.value,
+        "row": 0,
+        "col": 3,
+        "tooltip": "memory add",
+    },
 ]
 
 MEMORY_L_KEYS = {"memory": MEMORY_KEYS}

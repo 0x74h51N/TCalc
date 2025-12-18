@@ -5,8 +5,8 @@ from typing import Optional, Sequence
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
-from .window import MainWindow
 from .styles import apply_styles
+from .window import MainWindow
 
 
 def run_app(argv: Optional[Sequence[str]] = None) -> int:

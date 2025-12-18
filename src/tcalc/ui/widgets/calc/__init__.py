@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QFrame
+from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget
 
-from .display.display import Display
-from .topbar import TopBar
-from .keypad.keypad import Keypad
 from .config import layout_config
+from .display.display import Display
+from .keypad.keypad import Keypad
+from .topbar import TopBar
 
 
 class CalcWidget(QWidget):
@@ -21,7 +21,7 @@ class CalcWidget(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        
+
         # Display
         self.display = Display(parent=self)
         layout.addWidget(self.display, layout_config["display_stretch"])
@@ -34,11 +34,11 @@ class CalcWidget(QWidget):
 
         # Keypad
         self.keypad = Keypad(parent=self)
-        
+
         # Horizontal line
         line = QFrame(self)
-        line.setFrameShape(QFrame.HLine)
-        line.setFrameShadow(QFrame.Sunken)
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
         line.setLineWidth(layout_config["divider_line_width"])
         layout.addWidget(line)
         # Keypad

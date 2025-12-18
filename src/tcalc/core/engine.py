@@ -1,28 +1,33 @@
 from __future__ import annotations
 
-from calc_native import Calculator as NativeCalculator, CalculatorError as NativeCalculatorError
+from calc_native import Calculator as NativeCalculator
+from calc_native import CalculatorError as NativeCalculatorError
 
 try:
     from calc_native import BigReal as NativeBigReal
-except ImportError as exc:  # pragma: no cover
+except ImportError:  # pragma: no cover
     import logging
 
-    logging.getLogger(__name__).exception("Failed to import calc_native.BigReal; native module is required.")
+    logging.getLogger(__name__).exception(
+        "Failed to import calc_native.BigReal; native module is required."
+    )
     raise
 
-from tcalc.app_state import get_app_state, CalculatorMode
+from tcalc.app_state import CalculatorMode, get_app_state
+
 from .constants import E
 from .ops import Operation
 
 
 class CalculatorError(Exception):
     """Exception raised for calculator operation errors."""
+
     pass
 
 
 class Calculator:
     """Python wrapper for the native C++ calculator engine."""
-    
+
     def __init__(self) -> None:
         self._native = NativeCalculator()
 
@@ -47,17 +52,17 @@ class Calculator:
     def _coerce_args(self, name: str, args: tuple[object, ...]) -> tuple[object, ...]:
         # Complex has top priority (native complex ops are double-based)
         if any(isinstance(a, complex) for a in args):
-            coerced = []
+            coerced_complex: list[object] = []
             for a in args:
                 if isinstance(a, complex):
-                    coerced.append(a)
+                    coerced_complex.append(a)
                 elif self._is_big(a):
-                    coerced.append(complex(self._big_to_float(a), 0.0))
+                    coerced_complex.append(complex(self._big_to_float(a), 0.0))
                 elif isinstance(a, (int, float)):
-                    coerced.append(complex(float(a), 0.0))
+                    coerced_complex.append(complex(float(a), 0.0))
                 else:
-                    coerced.append(a)
-            return tuple(coerced)
+                    coerced_complex.append(a)
+            return tuple(coerced_complex)
 
         try:
             op = Operation(name)
@@ -79,20 +84,20 @@ class Calculator:
         # If any operand is BigReal, keep in BigReal for supported ops; otherwise downcast.
         if any(self._is_big(a) for a in args):
             if supports_big:
-                coerced = []
+                coerced_big: list[object] = []
                 for a in args:
                     if isinstance(a, (int, float)) or self._is_big(a):
-                        coerced.append(self._to_big(a))
+                        coerced_big.append(self._to_big(a))
                     else:
-                        coerced.append(a)
-                return tuple(coerced)
-            coerced = []
+                        coerced_big.append(a)
+                return tuple(coerced_big)
+            coerced_downcast: list[object] = []
             for a in args:
                 if self._is_big(a):
-                    coerced.append(self._big_to_float(a))
+                    coerced_downcast.append(self._big_to_float(a))
                 else:
-                    coerced.append(a)
-            return tuple(coerced)
+                    coerced_downcast.append(a)
+            return tuple(coerced_downcast)
 
         return args
 
@@ -145,10 +150,18 @@ class Calculator:
                     op = None
                 rule = None if op is None else op.spec.cx
                 if rule is not None:
-                    x = float(args[0]) if isinstance(args[0], (int, float)) else self._big_to_float(args[0])
+                    x = (
+                        float(args[0])
+                        if isinstance(args[0], (int, float))
+                        else self._big_to_float(args[0])
+                    )
 
                     if name == Operation.ROOT.value and len(args) >= 2:
-                        y = float(args[1]) if not self._is_big(args[1]) else self._big_to_float(args[1])
+                        y = (
+                            float(args[1])
+                            if not self._is_big(args[1])
+                            else self._big_to_float(args[1])
+                        )
                         needs_complex = rule(x, y)
                     else:
                         needs_complex = rule(x)

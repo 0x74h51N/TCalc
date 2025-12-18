@@ -2,20 +2,19 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal, QTimer
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QWidget,
-    QVBoxLayout,
-    QLabel,
     QFrame,
+    QLabel,
     QLineEdit,
     QSizePolicy,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtGui import QFont
 
-from ..config import display_config
-from ..config import font_scale_config
 from ...utils import apply_scaled_fonts
+from ..config import display_config, font_scale_config
 from .style import apply_display_style
 
 
@@ -31,36 +30,38 @@ class Display(QWidget):
             display_config["margin"],
             display_config["margin"],
             display_config["margin"],
-            display_config["margin"]
+            display_config["margin"],
         )
         layout.setSpacing(display_config["spacing"])
 
         # Apply background styling
         apply_display_style(self)
-        
-        #Exp display
+
+        # Exp display
         self.expression_label = QLineEdit("", self)
         self.expression_label.setObjectName("displayExpression")
-        self.expression_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        
+        self.expression_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
         small_font = QFont()
         small_font.setPointSize(display_config["expression_font_size"])
 
         self.expression_label.setFont(small_font)
-        self.expression_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        
-        #Keyboard signal
+        self.expression_label.setAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        )
+
+        # Keyboard signal
         self.expression_label.textChanged.connect(self._on_expression_changed)
 
         layout.addWidget(self.expression_label)
 
         line = QFrame(self)
         line.setObjectName("displayDivider")
-        line.setFrameShape(QFrame.HLine)
-        line.setFrameShadow(QFrame.Sunken)
+        line.setFrameShape(QFrame.Shape.HLine)
+        line.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(line)
 
-        #Res display
+        # Res display
         self.result_label = QLabel("0", self)
         self.result_label.setObjectName("displayResult")
 
@@ -69,7 +70,7 @@ class Display(QWidget):
         result_font.setBold(True)
 
         self.result_label.setFont(result_font)
-        self.result_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self.result_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(self.result_label)
 
         self._update_fonts()

@@ -5,7 +5,6 @@ from collections.abc import Callable
 from tcalc.app_state import CalculatorMode
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, SettingsOperations
 
-
 ShortcutId = Callable[..., object] | CalculatorMode
 
 

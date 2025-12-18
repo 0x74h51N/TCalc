@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Optional
 from PySide6.QtWidgets import QApplication
 
 from tcalc.app_state import get_app_state
+
 from ..utils import clean_for_expression
 
 if TYPE_CHECKING:
@@ -43,7 +44,7 @@ class EditOperations:
 
     def cut(self) -> None:
         expr = self._display.expression_label
-        
+
         if expr.hasFocus() and expr.hasSelectedText():
             expr.cut()
             return
@@ -59,7 +60,7 @@ class EditOperations:
         history_count = self._history_list.count()
         if history_count == 0:
             return
-        
+
         if self.app_state.history_index == -1:
             self.app_state.redo_cached_exprs = self._display.expression_label.text()
             self.app_state.history_index = history_count - 1
@@ -68,7 +69,7 @@ class EditOperations:
             if self.app_state.history_index < 0:
                 self.app_state.history_index = 0
                 return
-        
+
         expression = self._get_history_expression(self.app_state.history_index)
         if expression:
             self._set_expression(expression)
@@ -76,9 +77,9 @@ class EditOperations:
     def redo(self) -> None:
         if self.app_state.history_index == -1:
             return
-        
+
         self.app_state.history_index += 1
-        
+
         if self.app_state.history_index >= self._history_list.count():
             self._set_expression(self.app_state.redo_cached_exprs)
             self.reset_navigation()
@@ -86,7 +87,7 @@ class EditOperations:
             expression = self._get_history_expression(self.app_state.history_index)
             if expression:
                 self._set_expression(expression)
-    
+
     def reset_navigation(self) -> None:
         self.app_state.history_index = -1
         self.app_state.redo_cached_exprs = ""

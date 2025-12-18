@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QWidget
 from PySide6.QtGui import QColor
+from PySide6.QtWidgets import QWidget
 
 from .....theme import get_theme
 from ..config import display_config
@@ -16,16 +16,16 @@ def _build_display_stylesheet() -> str:
 QLineEdit#displayExpression {{
     border: none;
     background-color: transparent;
-    color: {c['text_secondary']};
-    selection-background-color: {c['selection_background']};
-    selection-color: {c['selection_text']};
+    color: {c["text_secondary"]};
+    selection-background-color: {c["selection_background"]};
+    selection-color: {c["selection_text"]};
 }}
 QLineEdit#displayExpression:focus {{
     border: none;
     background-color: transparent;
 }}
 QLabel#displayResult {{
-    color: {c['text_primary']};
+    color: {c["text_primary"]};
 }}
 QFrame#displayDivider {{
     min-height: {divider_h}px;

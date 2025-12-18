@@ -2,13 +2,14 @@
 # Central theme configuration
 from __future__ import annotations
 
-import tomllib
 from pathlib import Path
+
+import tomllib
 
 
 class Theme:
     """Central theme configuration loaded from config.toml."""
-    
+
     def __init__(self):
         self._config = self._load_config()
         self.colors = self._config["theme"]["colors"]
