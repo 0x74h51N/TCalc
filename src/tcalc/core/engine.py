@@ -143,18 +143,22 @@ class Calculator:
                 ):
                     raise CalculatorError("Math error")
 
-            if allowed and len(args) >= 1 and isinstance(args[0], (int, float, NativeBigReal)):
+            # Only attempt complex domain-promotion for float/int inputs.
+            # BigReal values can be far outside float range; converting them to float
+            # for domain checks can underflow to 0.0 and incorrectly force complex ops.
+            if (
+                allowed
+                and len(args) >= 1
+                and isinstance(args[0], (int, float))
+                and not any(self._is_big(a) for a in args)
+            ):
                 try:
                     op = Operation(name)
                 except ValueError:
                     op = None
                 rule = None if op is None else op.spec.cx
                 if rule is not None:
-                    x = (
-                        float(args[0])
-                        if isinstance(args[0], (int, float))
-                        else self._big_to_float(args[0])
-                    )
+                    x = float(args[0])
 
                     if name == Operation.ROOT.value and len(args) >= 2:
                         y = (
