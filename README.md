@@ -16,10 +16,13 @@ Originally started as a minimal calculator, TCalc is designed with a modular arc
 - Python >= 3.10
 - Qt bindings: PySide6
 - C++ toolchain
+- CMake + Ninja (for native build/test)
 
 ### Linux
 
 - g++
+- cmake
+- ninja
 - Boost headers (for Multiprecision)
   - Debian/Ubuntu: libboost-dev
   - Fedora: boost-devel
@@ -27,9 +30,20 @@ Originally started as a minimal calculator, TCalc is designed with a modular arc
   - Debian/Ubuntu: python3-dev
   - Fedora: python3-devel
 
+### macOS
+
+- Xcode Command Line Tools (clang++)
+- cmake (Homebrew)
+- ninja (Homebrew)
+- Boost headers (Homebrew)
+
 ### Optional (Linux dev tooling)
 
 - entr (auto-restart dev mode)
+
+### Optional (macOS dev tooling)
+
+- entr (Homebrew)
 
 ## Development setup
 
@@ -47,7 +61,13 @@ Dev tooling (`ruff`, `mypy`) is installed via the `dev` extra.
 **Build native extension in-place**
 
 ```bash
-python src/native/setup.py build_ext --inplace
+make native-build NATIVE_BUILD_TYPE=Release
+```
+
+**Run native tests**
+
+```bash
+make native-test
 ```
 
 **Run app**

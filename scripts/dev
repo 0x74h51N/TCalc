@@ -13,6 +13,8 @@ if ! command -v entr >/dev/null 2>&1; then
     sudo dnf install -y entr
   elif command -v apt >/dev/null 2>&1; then
     sudo apt install -y entr
+  elif command -v brew >/dev/null 2>&1; then
+    brew install entr
   else
     echo "No supported package manager found. Install entr manually."
     exit 1
@@ -38,9 +40,9 @@ echo "Installing/updating Python deps (+ dev extras)..."
 python -m pip install -U pip setuptools wheel
 python -m pip install -e ".[dev]"
 
-# native core
+# native build + tests (CMake + Ninja)
 # -----------------------------
-python src/native/setup.py build_ext --inplace
+make native NATIVE_TEST_ARGS=""
 
 
 

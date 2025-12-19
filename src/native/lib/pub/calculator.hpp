@@ -1,11 +1,8 @@
 #pragma once
 
 #include <complex>
-#include <stdexcept>
-
-#include <boost/multiprecision/cpp_dec_float.hpp>
-
-using BigReal = boost::multiprecision::cpp_dec_float_50;
+#include "errors.hpp"
+#include "types.hpp"
 
 class Calculator {
 public:
@@ -22,12 +19,12 @@ public:
 	// Real ops
 	double add(double a, double b) const { return a + b; }
 	double sub(double a, double b) const { return a - b; }
-	double mul(double a, double b) const { return a * b; }
-	double div(double a, double b) const;
-	BigReal intdiv(double a, double b) const;
-	double mod(double a, double b) const;
-	double pow(double a, long long b) const;
-	double pow(double a, double b) const;
+    double mul(double a, double b) const { return a * b; }
+    double div(double a, double b) const;
+    long long intdiv(double a, double b) const;
+    double mod(double a, double b) const;
+    double pow(double a, long long b) const;
+    double pow(double a, double b) const;
 	double sqrt(double a) const;
 	double cbrt(double a) const;
 	double root(double a, double b) const;
@@ -106,13 +103,9 @@ public:
     double fact(double a) const;
     double gamma(double a) const;
 
+    BigReal fact(const BigReal& a) const;
+    BigReal gamma(const BigReal& a) const;
     // Permute/Choose
     BigReal permute(long long a, long long b) const;
     BigReal choose(long long a, long long b) const;
-};
-
-class CalculatorError : public std::runtime_error {
-public:
-    explicit CalculatorError(const char* message)
-        : std::runtime_error(message) {}
 };

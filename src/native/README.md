@@ -3,6 +3,8 @@
 ## Requirements
 
 - g++
+- cmake
+- ninja
 - Boost headers (for Multiprecision)
   - Debian/Ubuntu: libboost-dev
   - Fedora: boost-devel
@@ -10,11 +12,24 @@
   - Debian/Ubuntu: python3-dev
   - Fedora: python3-devel
 
+macOS:
+
+- Xcode Command Line Tools (clang++)
+- Boost headers (Homebrew)
+
 ## Build
 
 ```bash
 . venv/bin/activate
-python native/setup.py build_ext --inplace
+make -C src/native build BUILD_TYPE=Release
 ```
 
-This produces `calc_native*.so`
+This produces `src/calc_native*.so`
+
+## Tests (no Python)
+
+Linux/macOS:
+
+```bash
+make -C src/native test
+```
