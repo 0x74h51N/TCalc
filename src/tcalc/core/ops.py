@@ -174,7 +174,9 @@ OP_SPECS: dict[Operation, OpSpec] = {
     Operation.ACOSH: OpSpec(sym="acosh", prec=4, assoc="right", arity="unary", cx=_cx_acosh),
     Operation.ATANH: OpSpec(sym="atanh", prec=4, assoc="right", arity="unary", cx=_cx_atanh),
     Operation.RECIP: OpSpec(sym="⁻¹", prec=4, assoc="left", arity="postfix"),
-    Operation.FACT: OpSpec(sym="!", prec=4, assoc="left", arity="postfix", als=("factorial",)),
+    Operation.FACT: OpSpec(
+        sym="!", prec=4, assoc="left", arity="postfix", als=("factorial", "fact"), big=True
+    ),
     Operation.LOG: OpSpec(
         sym="log", prec=4, assoc="right", arity="unary", als=("log10",), big=True, cx=_cx_log_ln
     ),
@@ -187,7 +189,7 @@ OP_SPECS: dict[Operation, OpSpec] = {
     ),
     Operation.CHOOSE: OpSpec(sym="nCm", prec=4, assoc="right", arity="binary"),
     Operation.PERMUTE: OpSpec(sym="nPm", prec=4, assoc="right", arity="binary"),
-    Operation.GAMMA: OpSpec(sym="Γ", prec=4, assoc="right", arity="unary"),
+    Operation.GAMMA: OpSpec(sym="Γ", prec=4, assoc="right", arity="unary", als=["gamma"], big=True),
     Operation.CBRT: OpSpec(sym="³√", prec=4, assoc="right", arity="unary"),
     Operation.SQR: OpSpec(sym="²", prec=4, assoc="left", arity="postfix"),
     Operation.CUBE: OpSpec(sym="³", prec=4, assoc="left", arity="postfix"),
