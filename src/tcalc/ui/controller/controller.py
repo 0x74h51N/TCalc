@@ -125,6 +125,8 @@ class CalculatorController:
         arity = getattr(operation, "arity", None)
         if arity == "unary":
             self._expression += f"{symbol}{Operation.OPEN_PAREN.symbol}"
+        elif arity == "binary":
+            self._expression += f" {symbol} "
         else:
             self._expression += symbol
         self._just_solved = False

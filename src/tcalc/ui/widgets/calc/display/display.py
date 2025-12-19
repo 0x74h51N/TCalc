@@ -80,7 +80,11 @@ class Display(QWidget):
         self.result_label.setText(result_text)
 
     def update_expr(self, expression_text: str) -> None:
-        self.expression_label.setText(expression_text.strip())
+        new_text = expression_text
+        if self.expression_label.text() == new_text:
+            return
+        else:
+            self.expression_label.setText(expression_text)
 
     def _update_fonts(self) -> None:
         expression_scale = font_scale_config["display_expression"]
