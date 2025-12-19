@@ -15,13 +15,7 @@ Originally started as a minimal calculator, TCalc is designed with a modular arc
 
 - Python >= 3.10
 - Qt bindings: PySide6
-- C++ toolchain (only if you build the native extension)
-
-## Native build prerequisites (if needed)
-
-### Windows
-
-- MSVC Build Tools (Desktop development with C++)
+- C++ toolchain
 
 ### Linux
 
@@ -37,7 +31,7 @@ Originally started as a minimal calculator, TCalc is designed with a modular arc
 
 - entr (auto-restart dev mode)
 
-## Development setup (recommended)
+## Development setup
 
 Create and use a virtual environment:
 
@@ -68,11 +62,11 @@ Dev mode (auto-restart on changes):
 make dev
 ```
 
-Dev tools - lint/type-check
+**Dev tools - lint/type-check**
 
 ```bash
 make lint       # find issues
-make lint-fix   # auto-fix what ruff can
+make lint-fix   # auto-fix
 make typecheck  # mypy
 make check      # lint + typecheck
 ```
