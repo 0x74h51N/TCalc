@@ -22,7 +22,12 @@ def parse_number_token(s: str) -> int | float | calc_native.BigReal:
         return int(s)
     # scientific notation uses BigReal to avoid double overflow/underflow
     if ("e" in s.lower()) and hasattr(calc_native, "BigReal"):
-        return calc_native.BigReal(s)
+        try:
+            return calc_native.BigReal(s)
+        except Exception:
+            # BigReal parsing can fail for extremely large exponents; fall back
+            # to float so tokenization doesn't crash the UI.
+            return float(s)
     # float: "6.0", ".5", "1e3" (fallback)
     return float(s)
 
