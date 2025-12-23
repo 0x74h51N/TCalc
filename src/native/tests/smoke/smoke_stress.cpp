@@ -1,17 +1,20 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <utility>
 
-#include "calculator.hpp"
+#include "calc/internal/calculator.hpp"
 #include "internal/test_helpers.hpp"
 
 template <typename Fn>
-static void smoke_allow_math_error(TestContext& ctx, const char* name, Fn&& fn) {
+static void smoke_allow_math_error(TestContext &ctx, const char *name, Fn &&fn) {
     ctx.checks += 1;
     try {
-        fn();
-    } catch (const CalculatorError&) {
-    } catch (const std::exception& e) {
+        std::forward<Fn>(fn)();
+        return;
+    } catch (const CalculatorError &) { // allowed
+        return;
+    } catch (const std::exception &e) {
         ctx.failures += 1;
         std::cerr << "smoke: unexpected exception in " << name << ": " << e.what() << "\n";
     } catch (...) {
@@ -20,7 +23,7 @@ static void smoke_allow_math_error(TestContext& ctx, const char* name, Fn&& fn) 
     }
 }
 
-void smoke_stress(TestContext& ctx) {
+void smoke_stress(TestContext &ctx) {
     Calculator c;
 
     const double inf = std::numeric_limits<double>::infinity();

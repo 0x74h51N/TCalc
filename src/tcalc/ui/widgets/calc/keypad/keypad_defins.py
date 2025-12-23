@@ -7,7 +7,6 @@ RECIP_LABEL = "1/x"
 FACT_LABEL = "x!"
 SQR_LABEL = "x²"
 POW_LABEL = "xʸ"
-EXP10_LABEL = "x·10ʸ"
 ROOT_LABEL = "x¹ᐟʸ"
 INTDIV_LABEL = "intDiv"
 POW10_LABEL = "10ˣ"
@@ -52,14 +51,7 @@ SHIFTED_KEYS = {
         "operation": Operation.POLAR,
         "tooltip": "polar complex",
     },
-    Operation.SQRT: {"label": "³√x", "operation": Operation.CBRT, "tooltip": "cube root"},
-    Operation.RECIP: {
-        "label": EXP10_LABEL,
-        "operation": Operation.EXP10,
-        "row": 6,
-        "col": 1,
-        "tooltip": "exp 10",
-    },
+    Operation.SQRT: {"label": "³√x", "operation": Operation.CBRT, "tooltip": "cube root"}
 }
 
 
@@ -274,7 +266,6 @@ FUNCTION_KEYS = [
         "row": 3,
         "col": 1,
         "tooltip": "reciprocal",
-        "shifted": SHIFTED_KEYS[Operation.RECIP],
     },
 ]
 

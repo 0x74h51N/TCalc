@@ -1,55 +1,51 @@
 #pragma once
 
 #include <complex>
-#include "errors.hpp"
+#include "calc/internal/errors.hpp"
 #include "types.hpp"
 
 class Calculator {
-public:
+  public:
     using Complex = std::complex<double>;
 
-    enum class AngleUnit {
-        DEG,
-        RAD,
-        GRAD
-    };
+    enum class AngleUnit { DEG, RAD, GRAD };
 
     Calculator() = default;
 
-	// Real ops
-	double add(double a, double b) const { return a + b; }
-	double sub(double a, double b) const { return a - b; }
+    // Real ops
+    double add(double a, double b) const { return a + b; }
+    double sub(double a, double b) const { return a - b; }
     double mul(double a, double b) const { return a * b; }
     double div(double a, double b) const;
     long long intdiv(double a, double b) const;
     double mod(double a, double b) const;
     double pow(double a, long long b) const;
     double pow(double a, double b) const;
-	double sqrt(double a) const;
-	double cbrt(double a) const;
-	double root(double a, double b) const;
+    double sqrt(double a) const;
+    double cbrt(double a) const;
+    double root(double a, double b) const;
 
     // BigReal ops (real-only, extended range)
-    BigReal add(const BigReal& a, const BigReal& b) const { return a + b; }
-    BigReal sub(const BigReal& a, const BigReal& b) const { return a - b; }
-    BigReal mul(const BigReal& a, const BigReal& b) const { return a * b; }
-    BigReal div(const BigReal& a, const BigReal& b) const;
-    BigReal pow(const BigReal& a, const BigReal& b) const;
-    BigReal intdiv(const BigReal& a, const BigReal& b) const;
-    BigReal mod(const BigReal& a, const BigReal& b) const;
-    BigReal sqrt(const BigReal& a) const;
-    BigReal log(const BigReal& a) const;
-    BigReal ln(const BigReal& a) const;
-    BigReal root(const BigReal& a, const BigReal& b) const;
+    BigReal add(const BigReal &a, const BigReal &b) const { return a + b; }
+    BigReal sub(const BigReal &a, const BigReal &b) const { return a - b; }
+    BigReal mul(const BigReal &a, const BigReal &b) const { return a * b; }
+    BigReal div(const BigReal &a, const BigReal &b) const;
+    BigReal pow(const BigReal &a, const BigReal &b) const;
+    BigReal intdiv(const BigReal &a, const BigReal &b) const;
+    BigReal mod(const BigReal &a, const BigReal &b) const;
+    BigReal sqrt(const BigReal &a) const;
+    BigReal log(const BigReal &a) const;
+    BigReal ln(const BigReal &a) const;
+    BigReal root(const BigReal &a, const BigReal &b) const;
 
     // Complex ops
-	Complex add(Complex a, Complex b) const { return a + b; }
-	Complex sub(Complex a, Complex b) const { return a - b; }
-	Complex mul(Complex a, Complex b) const { return a * b; }
-	Complex div(Complex a, Complex b) const;
-	Complex pow(Complex a, Complex b) const;
-	Complex sqrt(Complex a) const;
-	Complex root(Complex a, Complex b) const;
+    Complex add(Complex a, Complex b) const { return a + b; }
+    Complex sub(Complex a, Complex b) const { return a - b; }
+    Complex mul(Complex a, Complex b) const { return a * b; }
+    Complex div(Complex a, Complex b) const;
+    Complex pow(Complex a, Complex b) const;
+    Complex sqrt(Complex a) const;
+    Complex root(Complex a, Complex b) const;
 
     // Polar (cis): cos(a) + i*sin(a) using selected angle unit
     Complex polar(double a, AngleUnit unit) const;
@@ -91,7 +87,6 @@ public:
     Complex acosh(Complex a) const;
     Complex atanh(Complex a) const;
 
-
     // Log ops
     double log(double a) const;
     double ln(double a) const;
@@ -103,8 +98,8 @@ public:
     double fact(double a) const;
     double gamma(double a) const;
 
-    BigReal fact(const BigReal& a) const;
-    BigReal gamma(const BigReal& a) const;
+    BigReal fact(const BigReal &a) const;
+    BigReal gamma(const BigReal &a) const;
     // Permute/Choose
     BigReal permute(long long a, long long b) const;
     BigReal choose(long long a, long long b) const;

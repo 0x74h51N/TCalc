@@ -1,9 +1,9 @@
-#include "calculator.hpp"
+#include "calc/internal/calculator.hpp"
 #include "internal/test_helpers.hpp"
 
 #include <complex>
 
-void unit_trig(TestContext& ctx) {
+void unit_trig(TestContext &ctx) {
     Calculator c;
     using U = Calculator::AngleUnit;
     using Z = Calculator::Complex;

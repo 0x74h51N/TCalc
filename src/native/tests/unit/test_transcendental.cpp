@@ -1,10 +1,10 @@
-#include "calculator.hpp"
+#include "calc/internal/calculator.hpp"
 #include "internal/test_helpers.hpp"
 
 #include <cmath>
 #include <limits>
 
-void unit_transcendental(TestContext& ctx) {
+void unit_transcendental(TestContext &ctx) {
     Calculator c;
     using Z = Calculator::Complex;
 
@@ -37,8 +37,10 @@ void unit_transcendental(TestContext& ctx) {
     EXPECT_THROWS(ctx, c.sqrt(BigReal("-1.0")));
 
     // Transcendentals: use tolerant comparisons.
-    EXPECT_TRUE(ctx, approx_big(c.log(BigReal("1e-100000000")), BigReal("-100000000"), BigReal("1e-30")));
-    EXPECT_TRUE(ctx, approx_big(c.log(BigReal("1e100000000")), BigReal("100000000"), BigReal("1e-30")));
+    EXPECT_TRUE(
+        ctx, approx_big(c.log(BigReal("1e-100000000")), BigReal("-100000000"), BigReal("1e-30")));
+    EXPECT_TRUE(ctx,
+                approx_big(c.log(BigReal("1e100000000")), BigReal("100000000"), BigReal("1e-30")));
     EXPECT_TRUE(ctx, approx_big(c.ln(BigReal("1")), BigReal("0"), BigReal("1e-40")));
     EXPECT_TRUE(ctx, c.ln(BigReal("1e-100000000")) < BigReal("0"));
     EXPECT_TRUE(ctx, c.ln(BigReal("1e-100000000")) < c.ln(BigReal("1e-1")));

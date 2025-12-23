@@ -3,6 +3,10 @@ from __future__ import annotations
 from calc_native import Calculator as NativeCalculator
 from calc_native import CalculatorError as NativeCalculatorError
 
+#
+# TODO: Make error handling more pleasent.
+#
+
 try:
     from calc_native import BigReal as NativeBigReal
 except ImportError:  # pragma: no cover

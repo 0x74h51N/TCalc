@@ -1,5 +1,5 @@
-#include "calculator.hpp"
-#include "internal/internal.hpp"
+#include "calc/internal/calculator.hpp"
+#include "calc/internal/helpers.hpp"
 
 #include <cmath>
 #include <complex>
@@ -47,25 +47,25 @@ double Calculator::ln(double a) const {
 // BigReal transcendental ops
 // -----------------
 
-BigReal Calculator::sqrt(const BigReal& a) const {
+BigReal Calculator::sqrt(const BigReal &a) const {
     calc_detail::require(a >= 0);
     using boost::multiprecision::sqrt;
     return sqrt(a);
 }
 
-BigReal Calculator::log(const BigReal& a) const {
+BigReal Calculator::log(const BigReal &a) const {
     calc_detail::require(a > 0);
     using boost::multiprecision::log10;
     return log10(a);
 }
 
-BigReal Calculator::ln(const BigReal& a) const {
+BigReal Calculator::ln(const BigReal &a) const {
     calc_detail::require(a > 0);
     using boost::multiprecision::log;
     return log(a);
 }
 
-BigReal Calculator::root(const BigReal& x, const BigReal& y) const {
+BigReal Calculator::root(const BigReal &x, const BigReal &y) const {
     calc_detail::require_nonzero(y);
     calc_detail::require(!(x == 0 && y < 0));
 

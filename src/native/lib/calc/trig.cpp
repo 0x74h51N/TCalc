@@ -1,4 +1,4 @@
-#include "calculator.hpp"
+#include "calc/internal/calculator.hpp"
 
 #include <cmath>
 #include <complex>
@@ -10,34 +10,38 @@ namespace {
 constexpr double radians_factor(Calculator::AngleUnit unit) noexcept {
     constexpr double pi = boost::math::constants::pi<double>();
     switch (unit) {
-        case Calculator::AngleUnit::DEG: return pi / 180.0;
-        case Calculator::AngleUnit::GRAD: return pi / 200.0;
-        case Calculator::AngleUnit::RAD:
-        default: return 1.0;
+    case Calculator::AngleUnit::DEG:
+        return pi / 180.0;
+    case Calculator::AngleUnit::GRAD:
+        return pi / 200.0;
+    case Calculator::AngleUnit::RAD:
+    default:
+        return 1.0;
     }
 }
 
 constexpr double from_radians_factor(Calculator::AngleUnit unit) noexcept {
     constexpr double pi = boost::math::constants::pi<double>();
     switch (unit) {
-        case Calculator::AngleUnit::DEG: return 180.0 / pi;
-        case Calculator::AngleUnit::GRAD: return 200.0 / pi;
-        case Calculator::AngleUnit::RAD:
-        default: return 1.0;
+    case Calculator::AngleUnit::DEG:
+        return 180.0 / pi;
+    case Calculator::AngleUnit::GRAD:
+        return 200.0 / pi;
+    case Calculator::AngleUnit::RAD:
+    default:
+        return 1.0;
     }
 }
 
-template <typename T>
-inline T to_radians(T x, Calculator::AngleUnit unit) noexcept {
+template <typename T> inline T to_radians(T x, Calculator::AngleUnit unit) noexcept {
     return x * radians_factor(unit);
 }
 
-template <typename T>
-inline T from_radians(T x, Calculator::AngleUnit unit) noexcept {
+template <typename T> inline T from_radians(T x, Calculator::AngleUnit unit) noexcept {
     return x * from_radians_factor(unit);
 }
 
-}  // namespace
+} // namespace
 
 Calculator::Complex Calculator::polar(double a, AngleUnit unit) const {
     const double t = to_radians(a, unit);

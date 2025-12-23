@@ -42,6 +42,7 @@ python -m pip install -e ".[dev]"
 
 # native build + tests (CMake + Ninja)
 # -----------------------------
+make native-configure
 make native NATIVE_TEST_ARGS=""
 
 

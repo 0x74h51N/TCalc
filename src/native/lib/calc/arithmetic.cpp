@@ -1,5 +1,5 @@
-#include "calculator.hpp"
-#include "internal/internal.hpp"
+#include "calc/internal/calculator.hpp"
+#include "calc/internal/helpers.hpp"
 
 #include <cmath>
 #include <complex>
@@ -22,7 +22,7 @@ double Calculator::mod(double a, double b) const {
 }
 
 double Calculator::pow(double a, long long b) const {
-    calc_detail::require(!(b < 0 && a == 0.0));
+    calc_detail::require(b >= 0 || a != 0.0);
 
     long long exp = b;
     double result = 1.0;
@@ -34,7 +34,7 @@ double Calculator::pow(double a, long long b) const {
     }
 
     while (exp > 0) {
-        if (exp & 1) {
+        if ((exp & 1LL) != 0) {
             result *= base;
         }
         base *= base;
@@ -48,7 +48,6 @@ double Calculator::pow(double a, double b) const {
     return std::pow(a, b);
 }
 
-
 long long Calculator::intdiv(double a, double b) const {
 
     calc_detail::require_nonzero(b);
@@ -59,12 +58,12 @@ long long Calculator::intdiv(double a, double b) const {
 // BigReal
 // -----------------
 
-BigReal Calculator::div(const BigReal& a, const BigReal& b) const {
+BigReal Calculator::div(const BigReal &a, const BigReal &b) const {
     calc_detail::require_nonzero(b);
     return a / b;
 }
 
-BigReal Calculator::intdiv(const BigReal& a, const BigReal& b) const {
+BigReal Calculator::intdiv(const BigReal &a, const BigReal &b) const {
     calc_detail::require_nonzero(b);
     const BigReal q = a / b;
     using boost::multiprecision::ceil;
@@ -75,12 +74,12 @@ BigReal Calculator::intdiv(const BigReal& a, const BigReal& b) const {
     return floor(q);
 }
 
-BigReal Calculator::pow(const BigReal& a, const BigReal& b) const {
+BigReal Calculator::pow(const BigReal &a, const BigReal &b) const {
     using boost::multiprecision::pow;
     return pow(a, b);
 }
 
-BigReal Calculator::mod(const BigReal& a, const BigReal& b) const {
+BigReal Calculator::mod(const BigReal &a, const BigReal &b) const {
     calc_detail::require_nonzero(b);
     using boost::multiprecision::fmod;
     return fmod(a, b);

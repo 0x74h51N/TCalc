@@ -4,7 +4,7 @@
 #include <boost/math/constants/constants.hpp>
 
 #include "bindings.hpp"
-#include "calculator.hpp"
+#include "calc/internal/calculator.hpp"
 
 namespace py = pybind11;
 
@@ -22,4 +22,5 @@ PYBIND11_MODULE(calc_native, m) {
 
     bind_angle_unit(m);
     bind_calculator(m);
+    bind_parser(m);
 }

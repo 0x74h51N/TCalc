@@ -11,11 +11,20 @@
 - Python development headers
   - Debian/Ubuntu: python3-dev
   - Fedora: python3-devel
-
-macOS:
-
+    macOS:
 - Xcode Command Line Tools (clang++)
 - Boost headers (Homebrew)
+
+## Dev tools
+
+Liny & Formatter:
+
+- `clang-format`
+- `clang-tidy`y
+
+- Debian/Ubuntu: `sudo apt-get install clang-format clang-tidy`
+- Fedora: `sudo dnf install clang-tools-extra`
+- macOS (Homebrew): `brew install clang-format llvm`
 
 ## Build
 
@@ -33,3 +42,11 @@ Linux/macOS:
 ```bash
 make -C src/native test
 ```
+
+## Formatting / Lint
+
+From repo root:
+
+- Format: `make cpp-format`
+- Check formatting: `make cpp-format-check`
+- Lint: `make cpp-tidy` (runs `native-configure` to generate `build/native/compile_commands.json`)

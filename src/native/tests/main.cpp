@@ -1,22 +1,22 @@
 #include <iostream>
+#include <utility>
 
 #include "internal/test_helpers.hpp"
 
-void unit_arithmetic(TestContext& ctx);
-void unit_transcendental(TestContext& ctx);
-void unit_trig(TestContext& ctx);
-void unit_combinatorics(TestContext& ctx);
-void smoke_stress(TestContext& ctx);
+void unit_arithmetic(TestContext &ctx);
+void unit_transcendental(TestContext &ctx);
+void unit_trig(TestContext &ctx);
+void unit_combinatorics(TestContext &ctx);
+void smoke_stress(TestContext &ctx);
 
-template <typename Fn>
-static void run_suite(TestContext& ctx, const char* name, Fn&& fn) {
+template <typename Fn> static void run_suite(TestContext &ctx, const char *name, Fn &&fn) {
     if (ctx.verbose) {
         std::cout << "RUN " << name << "\n";
     }
 
     try {
-        fn(ctx);
-    } catch (const std::exception& e) {
+        std::forward<Fn>(fn)(ctx);
+    } catch (const std::exception &e) {
         ctx.failures += 1;
         std::cerr << "Unhandled exception in " << name << ": " << e.what() << "\n";
     } catch (...) {
@@ -29,11 +29,11 @@ static void run_suite(TestContext& ctx, const char* name, Fn&& fn) {
     }
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) { // NOLINT(modernize-use-trailing-return-type)
     TestContext ctx;
 
     for (int i = 1; i < argc; i++) {
-        const std::string arg = argv[i];
+        const std::string arg = argv[i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         if (arg == "-q" || arg == "--quiet") {
             ctx.verbose = false;
         }

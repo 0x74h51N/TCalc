@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-#include "calculator.hpp"
+#include "calc/internal/calculator.hpp"
 
 namespace calc_detail {
 
@@ -25,7 +25,7 @@ inline void require_nonzero(double x) {
     require(x != 0.0);
 }
 
-inline void require_nonzero(const BigReal& x) {
+inline void require_nonzero(const BigReal &x) {
     require(x != 0);
 }
 
@@ -40,5 +40,4 @@ inline bool nonneg_or_zero(long long n, long long k) {
     return n >= k;
 }
 
-}  // namespace calc_detail
-
+} // namespace calc_detail
