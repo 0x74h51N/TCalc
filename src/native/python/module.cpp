@@ -4,7 +4,7 @@
 #include <boost/math/constants/constants.hpp>
 
 #include "bindings.hpp"
-#include "calc/internal/calculator.hpp"
+#include "calc/pub/calculator.hpp"
 
 namespace py = pybind11;
 

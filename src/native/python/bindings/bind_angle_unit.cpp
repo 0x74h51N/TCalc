@@ -1,7 +1,7 @@
 #include <pybind11/pybind11.h>
 
 #include "bindings.hpp"
-#include "calc/internal/calculator.hpp"
+#include "calc/pub/calculator.hpp"
 
 namespace py = pybind11;
 

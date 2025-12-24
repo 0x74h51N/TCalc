@@ -1,7 +1,7 @@
 #pragma once
 
 #include <complex>
-#include "calc/internal/errors.hpp"
+#include "calc/pub/errors.hpp"
 #include "types.hpp"
 
 class Calculator {

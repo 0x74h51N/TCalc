@@ -4,7 +4,6 @@
 #include <string>
 #include <utility>
 
-#include "parser/pub/errors.hpp"
 
 namespace tcalc::ops {
 
@@ -149,7 +148,7 @@ std::vector<Token> tokenize(std::string_view expression) {
             if (expression[i] == '(' || expression[i] == ')') {
                 break;
             }
-            
+
             std::size_t op_len = 0;
             if (match_op(expression, i, op_len) != nullptr && op_len != 0) {
                 break;
@@ -158,7 +157,8 @@ std::vector<Token> tokenize(std::string_view expression) {
         }
 
         if (start == i) {
-            syntax_error(expression, i, kUnexpectedCharacter);
+            ++i;
+            continue;
         }
 
         const std::string_view chunk = expression.substr(start, i - start);

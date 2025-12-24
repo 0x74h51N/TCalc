@@ -5,7 +5,7 @@
 #include <string_view>
 #include <vector>
 
-#include "parser/ops.hpp"
+#include "parser/pub/ops.hpp"
 
 namespace tcalc::ops {
 

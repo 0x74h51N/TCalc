@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-#include "calc/internal/calculator.hpp"
+#include "calc/pub/calculator.hpp"
 
 namespace calc_detail {
 

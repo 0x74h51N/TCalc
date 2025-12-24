@@ -4,7 +4,7 @@
 #include <string>
 
 #include "bindings.hpp"
-#include "parser/ops.hpp"
+#include "parser/pub/ops.hpp"
 #include "parser/pub/parser.hpp"
 
 namespace py = pybind11;
@@ -14,13 +14,15 @@ void bind_parser(py::module_ &m) {
     using tcalc::ops::Token;
     using tcalc::ops::TokenKind;
 
-    py::enum_<TokenKind>(m, "TokenKind")
+    py::enum_<TokenKind>(m, "TokenKind",
+                         "Token categories produced by the native tokenizer.")
         .value("Number", TokenKind::Number)
         .value("Op", TokenKind::Op)
         .value("LParen", TokenKind::LParen)
         .value("RParen", TokenKind::RParen);
 
-    py::enum_<OpId>(m, "OpId")
+    py::enum_<OpId>(m, "OpId",
+                    "Operation identifiers used by tokens and op_table; maps to engine methods.")
         .value("Add", OpId::Add)
         .value("Sub", OpId::Sub)
         .value("Mul", OpId::Mul)
@@ -58,7 +60,8 @@ void bind_parser(py::module_ &m) {
         .value("Exp", OpId::Exp)
         .value("Pow10", OpId::Pow10);
 
-    py::class_<Token>(m, "Token")
+    py::class_<Token>(m, "Token",
+                      "Parser token. 'value' is text for numbers; 'symbol' is only for ops.")
         .def_readonly("kind", &Token::kind)
         .def_readonly("op_id", &Token::op_id)
         .def_readonly("value", &Token::value)
@@ -70,11 +73,11 @@ void bind_parser(py::module_ &m) {
             return spec ? std::string(spec->symbol) : std::string();
         });
 
-    py::enum_<tcalc::ops::Assoc>(m, "OpAssoc")
+    py::enum_<tcalc::ops::Assoc>(m, "OpAssoc", "Operator associativity.")
         .value("Left", tcalc::ops::Assoc::Left)
         .value("Right", tcalc::ops::Assoc::Right);
 
-    py::enum_<tcalc::ops::Arity>(m, "OpArity")
+    py::enum_<tcalc::ops::Arity>(m, "OpArity", "Operator arity: unary, binary, or postfix.")
         .value("Binary", tcalc::ops::Arity::Binary)
         .value("Unary", tcalc::ops::Arity::Unary)
         .value("Postfix", tcalc::ops::Arity::Postfix);
@@ -94,7 +97,8 @@ void bind_parser(py::module_ &m) {
                                       std::string(op.promo_rule)));
         }
         return out;
-    });
+    }, "Return tuples of (id, symbol, precedence, associativity, arity, aliases, method, "
+        "needs_angle_unit, big_supported, promo_rule).");
 
     m.def("tokenize_string", &tcalc::ops::tokenize, py::arg("expression"));
     m.def("shunting_yard", &tcalc::ops::shunting_yard, py::arg("tokens"));

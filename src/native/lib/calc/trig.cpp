@@ -1,4 +1,4 @@
-#include "calc/internal/calculator.hpp"
+#include "calc/pub/calculator.hpp"
 
 #include <cmath>
 #include <complex>
