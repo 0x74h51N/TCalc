@@ -79,8 +79,18 @@ _operation_values: dict[str, str] = {}
 _op_specs_by_name: dict[str, OpSpec] = {}
 
 for entry in calc_native.op_table():
-    (op_id, symbol, _precedence, _associativity, arity, aliases,
-     method, needs_unit, big_supported, promo_rule) = entry
+    (
+        op_id,
+        symbol,
+        _precedence,
+        _associativity,
+        arity,
+        aliases,
+        method,
+        needs_unit,
+        big_supported,
+        promo_rule,
+    ) = entry
     spec = OpSpec(
         sym=symbol,
         arity=arity.name.lower(),
@@ -142,4 +152,3 @@ def get_symbols_with_aliases(filter_fn: Callable[[OpSpec], bool] | None = None) 
             symbols.add(op.sym)
             symbols.update(op.als)
     return symbols
-

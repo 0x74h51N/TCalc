@@ -51,7 +51,7 @@ SHIFTED_KEYS = {
         "operation": Operation.POLAR,
         "tooltip": "polar complex",
     },
-    Operation.SQRT: {"label": "³√x", "operation": Operation.CBRT, "tooltip": "cube root"}
+    Operation.SQRT: {"label": "³√x", "operation": Operation.CBRT, "tooltip": "cube root"},
 }
 
 

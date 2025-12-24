@@ -2,9 +2,9 @@ import math
 
 import calc_native
 
+
 def is_number_token(tok: object) -> bool:
     return tok.kind == calc_native.TokenKind.Number
-  
 
 
 def _parse_real_token(s: str) -> int | float | calc_native.BigReal:
