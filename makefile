@@ -1,4 +1,4 @@
-.PHONY: dev hooks lint lint-fix typecheck check
+.PHONY: dev hooks lint lint-fix typecheck check stubs
 .PHONY: native native-configure native-build native-test native-ctest native-clean native-release
 
 PY := ./venv/bin/python
@@ -22,6 +22,7 @@ check: lint typecheck
 NATIVE_BUILD_DIR := build/native
 NATIVE_BUILD_TYPE ?= Debug
 NATIVE_TEST_ARGS ?= --quiet
+STUBS_DIR := stubs
 
 native-configure:
 	rm -f src/calc_native*.so
@@ -32,14 +33,13 @@ native-configure:
 
 native-build: native-configure
 	cmake --build $(NATIVE_BUILD_DIR) -j
+	PYTHONPATH=src $(PY) -m pybind11_stubgen calc_native -o $(STUBS_DIR)
 
 native-test: native-build
 	$(NATIVE_BUILD_DIR)/native_tests $(NATIVE_TEST_ARGS)
 
 native-ctest: native-build
 	ctest --test-dir $(NATIVE_BUILD_DIR) --output-on-failure
-
-native: native-test
 
 native-release:
 	$(MAKE) native NATIVE_BUILD_TYPE=Release

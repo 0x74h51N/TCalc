@@ -28,6 +28,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
   "mypy>=1.10.0",
+  "pybind11-stubgen>=2.5.0",
   "ruff>=0.5.0",
 ]
 
@@ -59,7 +60,7 @@ ignore = ["E501"]
 known-first-party = ["tcalc"]
 
 [tool.mypy]
-mypy_path = "src"
+mypy_path = "src:stubs"
 packages = ["tcalc"]
 no_implicit_optional = true
 warn_unused_ignores = true
