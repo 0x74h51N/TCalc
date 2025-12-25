@@ -26,6 +26,23 @@ inline bool approx_big(const BigReal &a, const BigReal &b, const BigReal &eps = 
     return abs(a - b) <= eps;
 }
 
+template <typename T>
+inline bool approx_big(const T &a, const T &b,
+                       const boost::multiprecision::cpp_bin_float_50 &eps =
+                           boost::multiprecision::cpp_bin_float_50("1e-30")) {
+    using boost::multiprecision::abs;
+    const auto diff = abs(a - b);
+    auto scale = abs(a);
+    const auto bmag = abs(b);
+    if (bmag > scale) {
+        scale = bmag;
+    }
+    if (scale < 1) {
+        scale = 1;
+    }
+    return diff <= eps * scale;
+}
+
 template <typename T> inline void print_value(std::ostream &os, const T &v) {
     os << v;
 }

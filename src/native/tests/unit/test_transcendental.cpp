@@ -7,6 +7,8 @@
 void unit_transcendental(TestContext &ctx) {
     Calculator c;
     using Z = Calculator::Complex;
+    using BC = BigComplex;
+    using BF = boost::multiprecision::cpp_bin_float_50;
 
     // ----
     // Real
@@ -50,4 +52,20 @@ void unit_transcendental(TestContext &ctx) {
     // ----
     EXPECT_THROWS(ctx, c.log(Z(0.0, 0.0)));
     EXPECT_THROWS(ctx, c.ln(Z(0.0, 0.0)));
+
+    // ----
+    // BigComplex
+    // ----
+    const BC z("1e400", "1");
+    const BC z_pow2 = c.pow(z, BC("2"));
+    EXPECT_TRUE(ctx, approx_big(z_pow2, c.mul(z, z)));
+
+    const BC z_sqrt = c.sqrt(z);
+    EXPECT_TRUE(ctx, approx_big(c.mul(z_sqrt, z_sqrt), z));
+
+    const BC z_root = c.root(z, BC("2"));
+    EXPECT_TRUE(ctx, approx_big(c.pow(z_root, BC("2")), z));
+
+    const BC z_log = c.log(z); // log10
+    EXPECT_TRUE(ctx, approx_big(c.pow(BC("10"), z_log), z, BF("1e-20")));
 }
