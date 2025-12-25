@@ -47,6 +47,17 @@ class Calculator {
     Complex sqrt(Complex a) const;
     Complex root(Complex a, Complex b) const;
 
+    // BigComplex ops
+    BigComplex add(const BigComplex &a, const BigComplex &b) const { return a + b; }
+    BigComplex sub(const BigComplex &a, const BigComplex &b) const { return a - b; }
+    BigComplex mul(const BigComplex &a, const BigComplex &b) const { return a * b; }
+    BigComplex div(const BigComplex &a, const BigComplex &b) const;
+    BigComplex pow(const BigComplex &a, const BigComplex &b) const;
+    BigComplex sqrt(const BigComplex &a) const;
+    BigComplex root(const BigComplex &a, const BigComplex &b) const;
+    BigComplex log(const BigComplex &a) const;
+    BigComplex ln(const BigComplex &a) const;
+
     // Polar (cis): cos(a) + i*sin(a) using selected angle unit
     Complex polar(double a, AngleUnit unit) const;
     Complex polar(Complex a, AngleUnit unit) const;
@@ -59,6 +70,14 @@ class Calculator {
     Complex sin(Complex a, AngleUnit unit) const;
     Complex cos(Complex a, AngleUnit unit) const;
     Complex tan(Complex a, AngleUnit unit) const;
+
+    BigReal sin(const BigReal &a, AngleUnit unit) const;
+    BigReal cos(const BigReal &a, AngleUnit unit) const;
+    BigReal tan(const BigReal &a, AngleUnit unit) const;
+
+    BigComplex sin(const BigComplex &a, AngleUnit unit) const;
+    BigComplex cos(const BigComplex &a, AngleUnit unit) const;
+    BigComplex tan(const BigComplex &a, AngleUnit unit) const;
 
     // Hyperbolic ops
     double sinh(double a) const;

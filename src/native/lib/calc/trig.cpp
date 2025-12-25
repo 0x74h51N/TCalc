@@ -4,6 +4,9 @@
 #include <complex>
 
 #include <boost/math/constants/constants.hpp>
+#include <boost/multiprecision/cpp_bin_float.hpp>
+#include <boost/multiprecision/cpp_complex.hpp>
+#include <boost/multiprecision/cpp_dec_float.hpp>
 
 namespace {
 
@@ -41,6 +44,76 @@ template <typename T> inline T from_radians(T x, Calculator::AngleUnit unit) noe
     return x * from_radians_factor(unit);
 }
 
+inline BigReal radians_factor_big(Calculator::AngleUnit unit) noexcept {
+    const BigReal pi = boost::math::constants::pi<BigReal>();
+    switch (unit) {
+    case Calculator::AngleUnit::DEG:
+        return pi / BigReal(180);
+    case Calculator::AngleUnit::GRAD:
+        return pi / BigReal(200);
+    case Calculator::AngleUnit::RAD:
+    default:
+        return BigReal(1);
+    }
+}
+
+inline BigReal from_radians_factor_big(Calculator::AngleUnit unit) noexcept {
+    const BigReal pi = boost::math::constants::pi<BigReal>();
+    switch (unit) {
+    case Calculator::AngleUnit::DEG:
+        return BigReal(180) / pi;
+    case Calculator::AngleUnit::GRAD:
+        return BigReal(200) / pi;
+    case Calculator::AngleUnit::RAD:
+    default:
+        return BigReal(1);
+    }
+}
+
+inline BigReal to_radians(BigReal x, Calculator::AngleUnit unit) noexcept {
+    return x * radians_factor_big(unit);
+}
+
+inline BigReal from_radians(BigReal x, Calculator::AngleUnit unit) noexcept {
+    return x * from_radians_factor_big(unit);
+}
+
+inline BigComplex radians_factor_bigcx(Calculator::AngleUnit unit) noexcept {
+    using BF = boost::multiprecision::cpp_bin_float_50;
+    const BF pi = boost::math::constants::pi<BF>();
+    switch (unit) {
+    case Calculator::AngleUnit::DEG:
+        return BigComplex(pi / BF(180), BF(0));
+    case Calculator::AngleUnit::GRAD:
+        return BigComplex(pi / BF(200), BF(0));
+    case Calculator::AngleUnit::RAD:
+    default:
+        return BigComplex(BF(1), BF(0));
+    }
+}
+
+inline BigComplex from_radians_factor_bigcx(Calculator::AngleUnit unit) noexcept {
+    using BF = boost::multiprecision::cpp_bin_float_50;
+    const BF pi = boost::math::constants::pi<BF>();
+    switch (unit) {
+    case Calculator::AngleUnit::DEG:
+        return BigComplex(BF(180) / pi, BF(0));
+    case Calculator::AngleUnit::GRAD:
+        return BigComplex(BF(200) / pi, BF(0));
+    case Calculator::AngleUnit::RAD:
+    default:
+        return BigComplex(BF(1), BF(0));
+    }
+}
+
+inline BigComplex to_radians(BigComplex x, Calculator::AngleUnit unit) noexcept {
+    return x * radians_factor_bigcx(unit);
+}
+
+inline BigComplex from_radians(BigComplex x, Calculator::AngleUnit unit) noexcept {
+    return x * from_radians_factor_bigcx(unit);
+}
+
 } // namespace
 
 Calculator::Complex Calculator::polar(double a, AngleUnit unit) const {
@@ -71,6 +144,26 @@ Calculator::Complex Calculator::cos(Complex a, AngleUnit unit) const {
 }
 Calculator::Complex Calculator::tan(Complex a, AngleUnit unit) const {
     return std::tan(to_radians(a, unit));
+}
+
+BigReal Calculator::sin(const BigReal &a, AngleUnit unit) const {
+    return boost::multiprecision::sin(to_radians(a, unit));
+}
+BigReal Calculator::cos(const BigReal &a, AngleUnit unit) const {
+    return boost::multiprecision::cos(to_radians(a, unit));
+}
+BigReal Calculator::tan(const BigReal &a, AngleUnit unit) const {
+    return boost::multiprecision::tan(to_radians(a, unit));
+}
+
+BigComplex Calculator::sin(const BigComplex &a, AngleUnit unit) const {
+    return boost::multiprecision::sin(to_radians(a, unit));
+}
+BigComplex Calculator::cos(const BigComplex &a, AngleUnit unit) const {
+    return boost::multiprecision::cos(to_radians(a, unit));
+}
+BigComplex Calculator::tan(const BigComplex &a, AngleUnit unit) const {
+    return boost::multiprecision::tan(to_radians(a, unit));
 }
 
 double Calculator::sinh(double a) const {

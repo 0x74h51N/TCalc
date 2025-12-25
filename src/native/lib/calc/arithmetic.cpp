@@ -97,3 +97,17 @@ Calculator::Complex Calculator::div(Complex a, Complex b) const {
 Calculator::Complex Calculator::pow(Complex a, Complex b) const {
     return std::pow(a, b);
 }
+
+// -----------------
+// BigComplex
+// -----------------
+
+BigComplex Calculator::div(const BigComplex &a, const BigComplex &b) const {
+    calc_detail::require_nonzero(b);
+    return a / b;
+}
+
+BigComplex Calculator::pow(const BigComplex &a, const BigComplex &b) const {
+    using boost::multiprecision::pow;
+    return pow(a, b);
+}
