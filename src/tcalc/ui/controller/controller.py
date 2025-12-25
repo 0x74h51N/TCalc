@@ -11,6 +11,7 @@ from tcalc.core import (
     get_symbols_with_aliases,
     tokenize_string,
 )
+from tcalc.core.errors import ErrorKind
 from tcalc.core.utils import is_number_token
 
 from ..widgets.calc.topbar.defins import MEMORY_KEYS, MemoryKey
@@ -136,8 +137,12 @@ class CalculatorController:
         try:
             return evaluate_tokens(tokens, calculator)
         except Exception as exc:
-            msg = str(exc)
-            self._error_text = msg
+            self._error_text = (
+                ErrorKind.MATH_ERR.value
+                if str(exc).lower() == ErrorKind.MATH_ERR.value.lower()
+                else ErrorKind.INVALID.value
+            )
+            print("Evalute token native error: ", exc)
 
     def _handle_equals(self) -> None:
         """Evaluate expression, update history and show result."""
