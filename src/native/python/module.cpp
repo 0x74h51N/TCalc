@@ -13,6 +13,7 @@ PYBIND11_MODULE(calc_native, m) {
     py::register_exception<CalculatorError>(m, "CalculatorError");
 
     bind_bigreal(m);
+    bind_bigcomplex(m);
 
     using Z = Calculator::Complex;
     using B = BigReal;

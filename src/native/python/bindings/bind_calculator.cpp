@@ -12,6 +12,7 @@ void bind_calculator(py::module_ &m) {
     using C = Calculator;
     using Z = Calculator::Complex;
     using B = BigReal;
+    using BC = BigComplex;
     using U = Calculator::AngleUnit;
 
     py::class_<C> cls(m, "Calculator");
@@ -22,11 +23,15 @@ void bind_calculator(py::module_ &m) {
     cls.def("add", py::overload_cast<Z, Z>(&C::add, py::const_), py::arg("a"), py::arg("b"));
     cls.def("add", py::overload_cast<const B &, const B &>(&C::add, py::const_), py::arg("a"),
             py::arg("b"));
+    cls.def("add", py::overload_cast<const BC &, const BC &>(&C::add, py::const_), py::arg("a"),
+            py::arg("b"));
 
     cls.def("sub", py::overload_cast<double, double>(&C::sub, py::const_), py::arg("a"),
             py::arg("b"));
     cls.def("sub", py::overload_cast<Z, Z>(&C::sub, py::const_), py::arg("a"), py::arg("b"));
     cls.def("sub", py::overload_cast<const B &, const B &>(&C::sub, py::const_), py::arg("a"),
+            py::arg("b"));
+    cls.def("sub", py::overload_cast<const BC &, const BC &>(&C::sub, py::const_), py::arg("a"),
             py::arg("b"));
 
     cls.def(
@@ -39,6 +44,8 @@ void bind_calculator(py::module_ &m) {
     cls.def("mul", py::overload_cast<Z, Z>(&C::mul, py::const_), py::arg("a"), py::arg("b"));
     cls.def("mul", py::overload_cast<const B &, const B &>(&C::mul, py::const_), py::arg("a"),
             py::arg("b"));
+    cls.def("mul", py::overload_cast<const BC &, const BC &>(&C::mul, py::const_), py::arg("a"),
+            py::arg("b"));
 
     cls.def(
         "div",
@@ -50,12 +57,14 @@ void bind_calculator(py::module_ &m) {
     cls.def("div", py::overload_cast<Z, Z>(&C::div, py::const_), py::arg("a"), py::arg("b"));
     cls.def("div", py::overload_cast<const B &, const B &>(&C::div, py::const_), py::arg("a"),
             py::arg("b"));
+    cls.def("div", py::overload_cast<const BC &, const BC &>(&C::div, py::const_), py::arg("a"),
+            py::arg("b"));
 
     cls.def("intdiv", py::overload_cast<double, double>(&C::intdiv, py::const_), py::arg("a"),
             py::arg("b"));
     cls.def("intdiv", py::overload_cast<const B &, const B &>(&C::intdiv, py::const_), py::arg("a"),
             py::arg("b"));
-    
+
     cls.def("mod", py::overload_cast<double, double>(&C::mod, py::const_), py::arg("a"),
             py::arg("b"));
     cls.def("mod", py::overload_cast<const B &, const B &>(&C::mod, py::const_), py::arg("a"),
@@ -68,7 +77,7 @@ void bind_calculator(py::module_ &m) {
             return promote_inf_to_big(r, [&] { return calc.pow(B(a), B(b)); });
         },
         py::arg("a"), py::arg("b"));
-    
+
     cls.def(
         "pow",
         [](const C &calc, double a, double b) -> py::object {
@@ -80,10 +89,13 @@ void bind_calculator(py::module_ &m) {
 
     cls.def("pow", py::overload_cast<const B &, const B &>(&C::pow, py::const_), py::arg("a"),
             py::arg("b"));
+    cls.def("pow", py::overload_cast<const BC &, const BC &>(&C::pow, py::const_), py::arg("a"),
+            py::arg("b"));
 
     cls.def("sqrt", py::overload_cast<double>(&C::sqrt, py::const_), py::arg("a"));
     cls.def("sqrt", py::overload_cast<Z>(&C::sqrt, py::const_), py::arg("a"));
     cls.def("sqrt", py::overload_cast<const B &>(&C::sqrt, py::const_), py::arg("a"));
+    cls.def("sqrt", py::overload_cast<const BC &>(&C::sqrt, py::const_), py::arg("a"));
 
     cls.def("cbrt", py::overload_cast<double>(&C::cbrt, py::const_), py::arg("a"));
     cls.def("root", py::overload_cast<double, double>(&C::root, py::const_), py::arg("a"),
@@ -92,16 +104,30 @@ void bind_calculator(py::module_ &m) {
     cls.def("root", py::overload_cast<Z, Z>(&C::root, py::const_), py::arg("a"), py::arg("b"));
     cls.def("root", py::overload_cast<const B &, const B &>(&C::root, py::const_), py::arg("a"),
             py::arg("b"));
+    cls.def("root", py::overload_cast<const BC &, const BC &>(&C::root, py::const_), py::arg("a"),
+            py::arg("b"));
 
     cls.def("sin", py::overload_cast<double, U>(&C::sin, py::const_), py::arg("a"),
             py::arg("unit"));
     cls.def("sin", py::overload_cast<Z, U>(&C::sin, py::const_), py::arg("a"), py::arg("unit"));
+    cls.def("sin", py::overload_cast<const B &, U>(&C::sin, py::const_), py::arg("a"),
+            py::arg("unit"));
+    cls.def("sin", py::overload_cast<const BC &, U>(&C::sin, py::const_), py::arg("a"),
+            py::arg("unit"));
     cls.def("cos", py::overload_cast<double, U>(&C::cos, py::const_), py::arg("a"),
             py::arg("unit"));
     cls.def("cos", py::overload_cast<Z, U>(&C::cos, py::const_), py::arg("a"), py::arg("unit"));
+    cls.def("cos", py::overload_cast<const B &, U>(&C::cos, py::const_), py::arg("a"),
+            py::arg("unit"));
+    cls.def("cos", py::overload_cast<const BC &, U>(&C::cos, py::const_), py::arg("a"),
+            py::arg("unit"));
     cls.def("tan", py::overload_cast<double, U>(&C::tan, py::const_), py::arg("a"),
             py::arg("unit"));
     cls.def("tan", py::overload_cast<Z, U>(&C::tan, py::const_), py::arg("a"), py::arg("unit"));
+    cls.def("tan", py::overload_cast<const B &, U>(&C::tan, py::const_), py::arg("a"),
+            py::arg("unit"));
+    cls.def("tan", py::overload_cast<const BC &, U>(&C::tan, py::const_), py::arg("a"),
+            py::arg("unit"));
 
     cls.def("sinh", py::overload_cast<double>(&C::sinh, py::const_), py::arg("a"));
     cls.def("sinh", py::overload_cast<Z>(&C::sinh, py::const_), py::arg("a"));
@@ -134,10 +160,12 @@ void bind_calculator(py::module_ &m) {
     cls.def("log", py::overload_cast<double>(&C::log, py::const_), py::arg("a"));
     cls.def("log", py::overload_cast<Z>(&C::log, py::const_), py::arg("a"));
     cls.def("log", py::overload_cast<const B &>(&C::log, py::const_), py::arg("a"));
+    cls.def("log", py::overload_cast<const BC &>(&C::log, py::const_), py::arg("a"));
 
     cls.def("ln", py::overload_cast<double>(&C::ln, py::const_), py::arg("a"));
     cls.def("ln", py::overload_cast<Z>(&C::ln, py::const_), py::arg("a"));
     cls.def("ln", py::overload_cast<const B &>(&C::ln, py::const_), py::arg("a"));
+    cls.def("ln", py::overload_cast<const BC &>(&C::ln, py::const_), py::arg("a"));
 
     cls.def(
         "fact",

@@ -6,6 +6,7 @@
 #include <utility>
 
 void bind_bigreal(pybind11::module_ &m);
+void bind_bigcomplex(pybind11::module_ &m);
 void bind_angle_unit(pybind11::module_ &m);
 void bind_calculator(pybind11::module_ &m);
 void bind_parser(pybind11::module_ &m);
