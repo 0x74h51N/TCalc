@@ -53,6 +53,7 @@ add_test(NAME native_tests_quiet COMMAND native_tests --quiet)
 pybind11_add_module(calc_native
   python/module.cpp
   python/bindings/bind_bigreal.cpp
+  python/bindings/bind_bigcomplex.cpp
   python/bindings/bind_angle_unit.cpp
   python/bindings/bind_calculator.cpp
   python/bindings/bind_parser.cpp
