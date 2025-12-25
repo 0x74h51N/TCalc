@@ -169,6 +169,7 @@ class CalculatorController:
 
     def _handle_clear(self) -> None:
         self._expression = ""
+        self._edit_ops.reset_navigation()
         self._just_solved = False
 
     def _handle_backspace(self) -> None:
