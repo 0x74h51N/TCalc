@@ -5,8 +5,9 @@ from tcalc.core.engine import CalculatorError
 
 
 class ErrorKind(Enum):
-    INVALID_EXPRESSION = "Invalid expression"
-    MALFORMED_EXPRESSION = "Malformed Expression"
+    INVALID = "Invalid expression"
+    MALFORMED = "Malformed Expression"
+    MATH_ERR = "Math Error"
 
 
 class Error(CalculatorError):

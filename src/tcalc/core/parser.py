@@ -22,7 +22,7 @@ def shunting_yard(tokens: Iterable[object]) -> List[object]:
 
 def _pop_operand(operand_stack: List[object], tok: str) -> object:
     if not operand_stack:
-        raise_error(ErrorKind.MALFORMED_EXPRESSION, "Pop operand, not operand in stack.")
+        raise_error(ErrorKind.MALFORMED, "Pop operand, not operand in stack.")
     return operand_stack.pop()
 
 
@@ -33,7 +33,7 @@ def _coerce_token(tok: object) -> object:
         try:
             return parse_number_token(tok)
         except Exception as e:
-            raise_error(ErrorKind.INVALID_EXPRESSION, e)
+            raise_error(ErrorKind.INVALID, f"Parse number token error: {e}")
     return tok
 
 
@@ -69,7 +69,7 @@ def evaluate_rpn(rpn_tokens: Iterable[object], calculator: Calculator) -> object
         if spec.arity == "binary":
             if len(operand_stack) < 2:
                 raise_error(
-                    ErrorKind.MALFORMED_EXPRESSION,
+                    ErrorKind.MALFORMED,
                     "Operand stack length less than 2, spec.arity: binary",
                 )
             b = operand_stack.pop()
@@ -79,7 +79,7 @@ def evaluate_rpn(rpn_tokens: Iterable[object], calculator: Calculator) -> object
             operand_stack.append(func(a, b))
             continue
 
-        raise_error(ErrorKind.MALFORMED_EXPRESSION)
+        raise_error(ErrorKind.MALFORMED)
 
     return operand_stack[0]
 
