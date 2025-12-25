@@ -377,19 +377,19 @@ class CalculatorController:
             return False
         if self._force_error_display or not self._can_preview:
             self._display.update_res(self._error_text)  # forced action or invalid preview
+        else:
+            self._display.update_res("")
+
         self._error_text = None
         self._force_error_display = False
         return True
-
-    def _update_display(self) -> None:
-        self._display.update_expr(self._expression)
-        self._display.update_res(self._result)
 
     def _compute_and_update(self) -> None:
         """Recalculate preview and update display."""
         tokens = self._tokenize_expression()
         self._can_preview = self._can_compute_preview(tokens)
         self._result = self._compute_preview(tokens, self._can_preview)
+        self._display.update_expr(self._expression)
 
         if not self._show_and_clear_error():
-            self._update_display()
+            self._display.update_res(self._result)
