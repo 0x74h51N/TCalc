@@ -26,6 +26,6 @@ void bind_bigreal(py::module_ &m) {
         .def("__repr__", [](const B &v) {
             std::ostringstream oss;
             oss << std::setprecision(16) << v;
-            return oss.str();
+            return std::string("BigReal(\"") + oss.str() + "\")";
         });
 }
