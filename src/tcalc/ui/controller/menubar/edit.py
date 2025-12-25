@@ -89,5 +89,6 @@ class EditOperations:
                 self._set_expression(expression)
 
     def reset_navigation(self) -> None:
+        """Reset undo/redo navigation"""
         self.app_state.history_index = -1
         self.app_state.redo_cached_exprs = ""
