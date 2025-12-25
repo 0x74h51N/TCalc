@@ -47,6 +47,7 @@ class CalculatorController:
         self._operator_symbol_values = get_symbols_with_aliases(
             lambda op: getattr(op, "sym", None) is not None
         )
+        self._operator_symbol_values.discard(Operation.IMAG.symbol)
 
         # Get unary operator symbols
         self._unary_operator_symbols = get_symbols_with_aliases(
