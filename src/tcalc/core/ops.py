@@ -37,13 +37,15 @@ def _cx_root(x: float, y: float) -> bool:
     return x < 0.0 and ((not is_int_like(y)) or (int(round(y)) % 2 == 0))
 
 
-_PROMO_RULES: dict[str, Callable[..., bool]] = {
-    "sqrt": _cx_sqrt,
-    "asin_acos": _cx_asin_acos,
-    "acosh": _cx_acosh,
-    "atanh": _cx_atanh,
-    "log_ln": _cx_log_ln,
-    "root": _cx_root,
+_PROMO_RULES_BY_ID: dict[object, Callable[..., bool]] = {
+    calc_native.OpId.Sqrt: _cx_sqrt,
+    calc_native.OpId.Asin: _cx_asin_acos,
+    calc_native.OpId.Acos: _cx_asin_acos,
+    calc_native.OpId.Acosh: _cx_acosh,
+    calc_native.OpId.Atanh: _cx_atanh,
+    calc_native.OpId.Log: _cx_log_ln,
+    calc_native.OpId.Ln: _cx_log_ln,
+    calc_native.OpId.Root: _cx_root,
 }
 
 
@@ -55,6 +57,7 @@ class OpSpec:
     method: str = ""
     needs_unit: bool = False
     big: bool = False
+    bigcx: bool = False
     cx: Callable[..., bool] | None = None
 
 
@@ -89,7 +92,7 @@ for entry in calc_native.op_table():
         method,
         needs_unit,
         big_supported,
-        promo_rule,
+        big_complex_supported,
     ) = entry
     spec = OpSpec(
         sym=symbol,
@@ -98,7 +101,8 @@ for entry in calc_native.op_table():
         method=method,
         needs_unit=bool(needs_unit),
         big=bool(big_supported),
-        cx=_PROMO_RULES.get(promo_rule) if promo_rule else None,
+        bigcx=bool(big_complex_supported),
+        cx=_PROMO_RULES_BY_ID.get(op_id),
     )
     OP_BY_ID[op_id] = spec
     if symbol:
@@ -136,11 +140,16 @@ def _big_supported(self) -> bool:
     return self.spec.big
 
 
+def _bigcomplex_supported(self) -> bool:
+    return self.spec.bigcx
+
+
 Operation.spec = property(_spec)
 Operation.symbol = property(_symbol)
 Operation.arity = property(_arity)
 Operation.aliases = property(_aliases)
 Operation.big_supported = property(_big_supported)
+Operation.bigcomplex_supported = property(_bigcomplex_supported)
 
 
 def get_symbols_with_aliases(filter_fn: Callable[[OpSpec], bool] | None = None) -> set[str]:
