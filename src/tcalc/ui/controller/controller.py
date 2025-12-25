@@ -191,7 +191,7 @@ class CalculatorController:
         for i in range(len(texts) - 1, -1, -1):
             txt = texts[i]
 
-            if not txt or txt in self._operator_symbol_values:
+            if txt in self._operator_symbol_values:
                 continue
 
             # Determine if previous text is unary minus attached to this token
