@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-#include "calculator.hpp"
+#include "calc/pub/calculator.hpp"
 
 namespace calc_detail {
 
@@ -25,12 +25,19 @@ inline void require_nonzero(double x) {
     require(x != 0.0);
 }
 
-inline void require_nonzero(const BigReal& x) {
+inline void require_nonzero(const BigReal &x) {
     require(x != 0);
 }
 
 inline void require_nonzero(Calculator::Complex x) {
     require(!(x.real() == 0.0 && x.imag() == 0.0));
+}
+
+inline void require_nonzero(const BigComplex &x) {
+    using boost::multiprecision::backends::eval_is_zero;
+    const auto &re = x.backend().real_data();
+    const auto &im = x.backend().imag_data();
+    require(!(eval_is_zero(re) && eval_is_zero(im)));
 }
 
 inline bool nonneg_or_zero(long long n, long long k) {
@@ -40,5 +47,4 @@ inline bool nonneg_or_zero(long long n, long long k) {
     return n >= k;
 }
 
-}  // namespace calc_detail
-
+} // namespace calc_detail

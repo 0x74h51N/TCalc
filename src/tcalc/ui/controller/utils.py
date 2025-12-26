@@ -12,6 +12,9 @@ def format_result(value) -> str:
     if calc_native is not None and isinstance(value, getattr(calc_native, "BigReal", ())):
         return str(value)
 
+    if calc_native is not None and isinstance(value, getattr(calc_native, "BigComplex", ())):
+        return str(value)
+
     def fmt_real(x: float) -> str:
         abs_val = abs(x)
         if abs_val >= 1e10 or (0 < abs_val < 1e-6):

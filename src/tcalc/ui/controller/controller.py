@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Optional
 
+import calc_native
+
 from tcalc.app_state import AngleUnit, get_app_state
-from tcalc.core import (
-    CalculatorError,
-    Operation,
-    evaluate_tokens,
-    get_symbols_with_aliases,
-    tokenize_string,
-)
+from tcalc.core import Calculator, evaluate_tokens, tokenize_string
+from tcalc.core.errors import ErrorKind
+from tcalc.core.ops import Operation, get_symbols_with_aliases
 from tcalc.core.utils import is_number_token
+from tcalc.ui.controller.menubar import EditOperations
+from tcalc.ui.widgets import History
+from tcalc.ui.widgets.calc import Display, TopBar
 
 from ..widgets.calc.topbar.defins import MEMORY_KEYS, MemoryKey
 from .utils import clean_for_expression, format_result
@@ -19,12 +20,19 @@ from .utils import clean_for_expression, format_result
 class CalculatorController:
     """Main controller handling calculator input, expression state and display updates."""
 
-    def __init__(self, calculator, display, history, edit_ops, topbar) -> None:
-        self._calculator = calculator
-        self._display = display
-        self._history = history
-        self._edit_ops = edit_ops
-        self._topbar = topbar
+    def __init__(
+        self,
+        calculator: Calculator,
+        display: Display,
+        history: History,
+        edit_ops: EditOperations,
+        topbar: TopBar,
+    ) -> None:
+        self._calculator: Calculator = calculator
+        self._display: Display = display
+        self._history: History = history
+        self._edit_ops: EditOperations = edit_ops
+        self._topbar: TopBar = topbar
         self._app_state = get_app_state()
 
         self._display.expression_changed.connect(self._on_expression_input)
@@ -33,6 +41,8 @@ class CalculatorController:
         self._result: str = ""
         self._just_solved = False
         self._error_text: Optional[str] = None
+        self._force_error_display = False
+        self._can_preview = False
 
         self._memory_ops = {str(k["operation"]) for k in MEMORY_KEYS}
 
@@ -41,8 +51,9 @@ class CalculatorController:
 
         # Get all operator symbols including aliases
         self._operator_symbol_values = get_symbols_with_aliases(
-            lambda op: getattr(op, "symbol", None) is not None
+            lambda op: getattr(op, "sym", None) is not None
         )
+        self._operator_symbol_values.discard(Operation.IMAG.symbol)
 
         # Get unary operator symbols
         self._unary_operator_symbols = get_symbols_with_aliases(
@@ -54,7 +65,6 @@ class CalculatorController:
             lambda op: getattr(op, "arity", None) == "postfix"
         )
 
-        self._evaluate_tokens = evaluate_tokens
         self._tokenize_string = tokenize_string
 
         self._history.set_memory("")
@@ -97,9 +107,7 @@ class CalculatorController:
             label = operation.symbol
 
         handler = self._handlers.get(operation)
-        if handler is None:
-            print(f"[CONTROLLER] Handler not found: {operation} (label: {label})")
-            return
+
         handler(label)
         self._compute_and_update()
 
@@ -131,17 +139,28 @@ class CalculatorController:
             self._expression += symbol
         self._just_solved = False
 
+    def _evaluate_tokens(self, tokens, calculator):
+        """Call core.evaluate_tokens; on CalculatorError log and return the error text."""
+        try:
+            return evaluate_tokens(tokens, calculator)
+        except Exception as exc:
+            self._error_text = (
+                ErrorKind.MATH_ERR.value
+                if str(exc).lower() == ErrorKind.MATH_ERR.value.lower()
+                else ErrorKind.INVALID.value
+            )
+            print("Evalute token native error: ", exc)
+
     def _handle_equals(self) -> None:
         """Evaluate expression, update history and show result."""
         tokens = self._tokenize_expression()
-        if not tokens or not self._can_compute_preview(tokens):
+        if not tokens:
             return
 
-        try:
-            value = self._evaluate_tokens(tokens, self._calculator)
-        except CalculatorError as exc:
-            self._error_text = str(exc)
-            return
+        value = self._evaluate_tokens(tokens, self._calculator)
+        if value is None:
+            self._force_error_display = True
+            return None
 
         formatted_display = format_result(value)
         formatted_expr = clean_for_expression(formatted_display)
@@ -157,6 +176,7 @@ class CalculatorController:
 
     def _handle_clear(self) -> None:
         self._expression = ""
+        self._edit_ops.reset_navigation()
         self._just_solved = False
 
     def _handle_backspace(self) -> None:
@@ -166,55 +186,47 @@ class CalculatorController:
 
     def _handle_negate(self) -> None:
         """Toggle sign of the last number in expression."""
-        if not self._expression:
-            self._expression = Operation.SUB.symbol
+
+        if self._expression in ("", Operation.SUB.symbol):
+            self._expression = "" if self._expression else Operation.SUB.symbol
             return
 
         tokens = self._tokenize_expression()
 
-        for i in range(len(tokens) - 1, -1, -1):
-            tok = tokens[i]
-            # Skip operators and empty tokens
-            if not tok or tok in self._operator_symbol_values:
+        texts = [self._token_text(t) for t in tokens]
+
+        for i in range(len(texts) - 1, -1, -1):
+            txt = texts[i]
+
+            if txt in self._operator_symbol_values:
                 continue
 
-            # Determine if previous token is unary minus attached to this number
-            unary_prev = False
-            if i > 0 and tokens[i - 1] == Operation.SUB.symbol:
-                # Unary context when start of expression or previous token is operator or open paren
-                if i == 1:
-                    unary_prev = True
-                else:
-                    prev_prev = tokens[i - 2]
-                    unary_prev = (
-                        prev_prev in self._operator_symbol_values
-                        or prev_prev == Operation.OPEN_PAREN.symbol
-                    )
+            # Determine if previous text is unary minus attached to this token
+            unary_prev = (
+                i > 0
+                and texts[i - 1] == Operation.SUB.symbol
+                and (
+                    i == 1
+                    or texts[i - 2] in self._operator_symbol_values
+                    or texts[i - 2] == Operation.OPEN_PAREN.symbol
+                )
+            )
 
             if unary_prev:
-                tokens.pop(i - 1)
+                texts.pop(i - 1)
             else:
-                tokens.insert(i, Operation.SUB.symbol)
+                texts.insert(i, Operation.SUB.symbol)
 
-            self._expression = "".join(str(t) for t in tokens)
+            self._expression = "".join(str(t) for t in texts)
             return
-
-        # No number found
-        self._expression = (
-            Operation.SUB.symbol + self._expression
-            if Operation.SUB.symbol not in self._expression
-            else ""
-        )
 
     def _handle_memory(self, op: str) -> None:
         def current_value():
             tokens = self._tokenize_expression()
-            if not tokens or not self._can_compute_preview(tokens):
+            if not tokens:
                 return None
-            try:
-                return self._evaluate_tokens(tokens, self._calculator)
-            except CalculatorError:
-                return None
+
+            return self._evaluate_tokens(tokens, self._calculator)
 
         def recall():
             if self._app_state.memory is None:
@@ -227,27 +239,36 @@ class CalculatorController:
                 self._expression += token
 
         def store(value):
-            if value is None:
-                return
             self._app_state.memory = value
 
         def add(value):
-            if value is None:
-                return
             self._app_state.memory = (
                 value
                 if self._app_state.memory is None
                 else self._calculator.add(self._app_state.memory, value)
             )
 
-        key_actions = {
-            MemoryKey.MC: lambda: setattr(self._app_state, "memory", None),
-            MemoryKey.MR: recall,
-            MemoryKey.MS: lambda: store(current_value()),
-            MemoryKey.M_PLUS: lambda: add(current_value()),
+        if op not in self._memory_ops:
+            return
+
+        def with_value(fn):
+            value = current_value()
+            if value is None:
+                if self._error_text is not None:
+                    self._force_error_display = True
+                return
+            fn(value)
+
+        actions = {
+            MemoryKey.MC.value: lambda: setattr(self._app_state, "memory", None),
+            MemoryKey.MR.value: recall,
+            MemoryKey.MS.value: lambda: with_value(store),
+            MemoryKey.M_PLUS.value: lambda: with_value(add),
         }
-        actions = {k.value: fn for k, fn in key_actions.items() if k.value in self._memory_ops}
-        actions[op]()
+        action = actions.get(op)
+        if action is None:
+            return
+        action()
         self._topbar.set_memory_available(self._app_state.memory is not None)
         self._history.set_memory(
             "" if self._app_state.memory is None else format_result(self._app_state.memory)
@@ -289,10 +310,10 @@ class CalculatorController:
 
         return handlers
 
+    # Mode handlers
     def _toggle_hyp(self) -> None:
         self._app_state.hyp = not self._app_state.hyp
 
-    # Mode handlers
     def set_angle_unit(self, unit: AngleUnit) -> None:
         self._app_state.angle_unit = unit
         self._compute_and_update()
@@ -302,6 +323,18 @@ class CalculatorController:
     def _tokenize_expression(self) -> List[object]:
         return self._tokenize_string(self._expression)
 
+    def _token_text(self, tok: object) -> object:
+        if tok.kind == calc_native.TokenKind.Number:
+            return tok.value
+        if tok.kind == calc_native.TokenKind.Op:
+            if tok.op_id == calc_native.OpId.Negate:
+                return Operation.SUB.symbol
+            return tok.symbol
+        if tok.kind == calc_native.TokenKind.LParen:
+            return Operation.OPEN_PAREN.symbol
+        if tok.kind == calc_native.TokenKind.RParen:
+            return Operation.CLOSE_PAREN.symbol
+
     def _can_compute_preview(self, tokens: List[object]) -> bool:
         """Check if tokens form a valid expression for preview calculation."""
         if not tokens:
@@ -310,81 +343,34 @@ class CalculatorController:
         if len(tokens) == 1:
             return is_number_token(tokens[0])
 
-        # Prevent preview if last token is unary op and next is open paren (e.g. sqrt()
-        if (
-            len(tokens) >= 2
-            and tokens[-2] in self._unary_operator_symbols
-            and tokens[-1] == Operation.OPEN_PAREN.symbol
-        ):
+        last_text = self._token_text(tokens[-1])
+        if not last_text:
             return False
-
-        # Unary/postfix + number handling: only allow preview if one is a number and the other is unary/postfix
-        if len(tokens) == 2:
-            t0, t1 = tokens[0], tokens[1]
-            is_t0_unary = t0 in self._unary_operator_symbols
-            is_t1_unary = t1 in self._unary_operator_symbols
-            is_t0_postfix = t0 in self._postfix_operator_symbols
-            is_t1_postfix = t1 in self._postfix_operator_symbols
-            is_t0_number = is_number_token(t0)
-            is_t1_number = is_number_token(t1)
-
-            # Disallow cases like '√-' (unary + minus)
-            if (is_t0_unary and t1 == Operation.SUB.symbol) or (
-                is_t1_unary and t0 == Operation.SUB.symbol
-            ):
-                return False
-            # Allow only if one is number and the other is unary or postfix
-            if (is_t0_number and (is_t1_unary or is_t1_postfix)) or (
-                (is_t0_unary or is_t0_postfix) and is_t1_number
-            ):
-                return True
+        if last_text == Operation.OPEN_PAREN.symbol:
             return False
+        if last_text in self._postfix_operator_symbols:
+            return True
+        if last_text in self._unary_operator_symbols:
+            return False
+        if last_text == Operation.CLOSE_PAREN.symbol:
+            return True
+        if last_text in self._operator_symbol_values:
+            return False
+        return True
 
-        # If last token is operator and has res, show res
-        last_is_operator = (
-            tokens[-1] in self._operator_symbol_values and tokens[-1] != Operation.PERCENT.symbol
-        )
-        if last_is_operator:
-            return self._result != ""
-
-        # Check last token is valid
-        return (
-            tokens[-1] not in self._operator_symbol_values or tokens[-1] == Operation.PERCENT.symbol
-        )
-
-    def _compute_preview(self, tokens: List[object]) -> str:
+    def _compute_preview(self, tokens: List[object], can_preview: bool) -> str:
         """Evaluate tokens and return formatted result"""
 
-        if not self._can_compute_preview(tokens):
+        if not can_preview:
             return ""
 
-        # If last token is operator return cached result
-        last_is_operator = (
-            tokens[-1] in self._operator_symbol_values and tokens[-1] != Operation.PERCENT.symbol
-        )
-        if last_is_operator:
-            if last_is_operator and len(tokens) >= 3:
-                result_tokens = tokens[:-1]
-                try:
-                    value = self._evaluate_tokens(result_tokens, self._calculator)
-                    self._result = format_result(value)
-                    return self._result
-                except Exception:
-                    return ""
+        value = self._evaluate_tokens(tokens, self._calculator)
+        if value is None:
+            return None
 
-        try:
-            value = self._evaluate_tokens(tokens, self._calculator)
-            formatted = format_result(value)
-            self._result = formatted
-            return formatted
-        except CalculatorError as exc:
-            msg = str(exc)
-            # If expression has not finish don't show syntax errors until press equal
-            if msg in {"Malformed Expression", "Syntax Error"} or msg.startswith(
-                "Calculator missing operation:"
-            ):
-                return ""
-            return msg
+        formatted = format_result(value)
+        self._result = formatted
+        return formatted
 
     def _on_expression_input(self, text: str) -> None:
         """Handle keyboard input"""
@@ -392,15 +378,24 @@ class CalculatorController:
         self._just_solved = False
         self._compute_and_update()
 
+    def _show_and_clear_error(self) -> bool:
+        if self._error_text is None:
+            return False
+        if self._force_error_display or not self._can_preview:
+            self._display.update_res(self._error_text)  # forced action or invalid preview
+        else:
+            self._display.update_res("")
+
+        self._error_text = None
+        self._force_error_display = False
+        return True
+
     def _compute_and_update(self) -> None:
         """Recalculate preview and update display."""
-        if self._error_text is not None:
-            self._display.update_res(self._error_text)
-            self._error_text = None
-            return
-
         tokens = self._tokenize_expression()
-        self._result = self._compute_preview(tokens)
-
+        self._can_preview = self._can_compute_preview(tokens)
+        self._result = self._compute_preview(tokens, self._can_preview)
         self._display.update_expr(self._expression)
-        self._display.update_res(self._result)
+
+        if not self._show_and_clear_error():
+            self._display.update_res(self._result)

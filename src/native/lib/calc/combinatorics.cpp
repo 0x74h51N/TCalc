@@ -1,5 +1,5 @@
-#include "calculator.hpp"
-#include "internal/internal.hpp"
+#include "calc/pub/calculator.hpp"
+#include "calc/internal/helpers.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -24,7 +24,7 @@ double Calculator::gamma(double a) const {
     return std::tgamma(a);
 }
 
-BigReal Calculator::fact(const BigReal& a) const {
+BigReal Calculator::fact(const BigReal &a) const {
     calc_detail::require(a >= 0);
     using boost::multiprecision::floor;
     calc_detail::require(floor(a) == a);
@@ -33,7 +33,7 @@ BigReal Calculator::fact(const BigReal& a) const {
     return tgamma(a + 1);
 }
 
-BigReal Calculator::gamma(const BigReal& a) const {
+BigReal Calculator::gamma(const BigReal &a) const {
     if (a <= 0) {
         using boost::multiprecision::floor;
         if (floor(a) == a) {

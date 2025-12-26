@@ -20,3 +20,5 @@ calc_native*.so
 *.egg-info/
 
 *.log
+
+stubs/

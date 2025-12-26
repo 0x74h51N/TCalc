@@ -1,7 +1,7 @@
-#include "calculator.hpp"
+#include "calc/pub/calculator.hpp"
 #include "internal/test_helpers.hpp"
 
-void unit_arithmetic(TestContext& ctx) {
+void unit_arithmetic(TestContext &ctx) {
     Calculator c;
     using Z = Calculator::Complex;
 

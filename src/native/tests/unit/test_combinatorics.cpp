@@ -1,7 +1,7 @@
-#include "calculator.hpp"
+#include "calc/pub/calculator.hpp"
 #include "internal/test_helpers.hpp"
 
-void unit_combinatorics(TestContext& ctx) {
+void unit_combinatorics(TestContext &ctx) {
     Calculator c;
 
     EXPECT_TRUE(ctx, c.fact(0.0) == 1.0);
@@ -15,10 +15,11 @@ void unit_combinatorics(TestContext& ctx) {
     EXPECT_THROWS(ctx, c.gamma(-2.0));
 
     EXPECT_TRUE(ctx, approx_big(c.gamma(BigReal("6")), BigReal("120"), BigReal("1e-30")));
-    EXPECT_TRUE(ctx, approx_big(c.fact(BigReal("20")), BigReal("2432902008176640000"), BigReal("1e-10")));
+    EXPECT_TRUE(
+        ctx, approx_big(c.fact(BigReal("20")), BigReal("2432902008176640000"), BigReal("1e-10")));
     EXPECT_THROWS(ctx, c.fact(BigReal("-1")));
     EXPECT_THROWS(ctx, c.fact(BigReal("1.5")));
-    
+
     EXPECT_THROWS(ctx, c.gamma(BigReal("0")));
     EXPECT_THROWS(ctx, c.gamma(BigReal("-2")));
 

@@ -3,7 +3,9 @@ from __future__ import annotations
 from calc_native import Calculator as NativeCalculator
 from calc_native import CalculatorError as NativeCalculatorError
 
+
 try:
+    from calc_native import BigComplex as NativeBigComplex
     from calc_native import BigReal as NativeBigReal
 except ImportError:  # pragma: no cover
     import logging
@@ -13,16 +15,9 @@ except ImportError:  # pragma: no cover
     )
     raise
 
-from tcalc.app_state import CalculatorMode, get_app_state
-
 from .constants import E
+from .errors import ErrorKind, raise_error
 from .ops import Operation
-
-
-class CalculatorError(Exception):
-    """Exception raised for calculator operation errors."""
-
-    pass
 
 
 class Calculator:
@@ -31,77 +26,73 @@ class Calculator:
     def __init__(self) -> None:
         self._native = NativeCalculator()
 
-    def _complex_allowed(self) -> bool:
-        return get_app_state().mode == CalculatorMode.SCIENCE
-
-    def _is_big(self, v: object) -> bool:
-        return isinstance(v, NativeBigReal)
-
     def _to_big(self, v: object):
         if isinstance(v, NativeBigReal):
             return v
-        if isinstance(v, int):
-            return NativeBigReal(str(v))
-        if isinstance(v, float):
-            return NativeBigReal(repr(v))
-        return NativeBigReal(str(v))
+        return NativeBigReal(repr(v))
 
-    def _big_to_float(self, v: object) -> float:
-        return float(str(v))
+    def _to_big_complex(self, v: object):
+        if isinstance(v, NativeBigComplex):
+            return v
+        if not isinstance(v, (complex, NativeBigReal, int, float)):
+            return v
+        if isinstance(v, complex):
+            return NativeBigComplex(repr(v.real), repr(v.imag))
+        return NativeBigComplex(repr(v))
+
+    def _to_complex(self, value: object) -> object:
+        if isinstance(value, complex):
+            return value
+        if isinstance(value, (int, float)):
+            return complex(float(value), 0.0)
+        return value
 
     def _coerce_args(self, name: str, args: tuple[object, ...]) -> tuple[object, ...]:
-        # Complex has top priority (native complex ops are double-based)
-        if any(isinstance(a, complex) for a in args):
-            coerced_complex: list[object] = []
-            for a in args:
-                if isinstance(a, complex):
-                    coerced_complex.append(a)
-                elif self._is_big(a):
-                    coerced_complex.append(complex(self._big_to_float(a), 0.0))
-                elif isinstance(a, (int, float)):
-                    coerced_complex.append(complex(float(a), 0.0))
-                else:
-                    coerced_complex.append(a)
-            return tuple(coerced_complex)
-
         try:
             op = Operation(name)
         except ValueError:
             op = None
         supports_big = bool(op is not None and getattr(op, "big_supported", False))
+        supports_bigcx = bool(op is not None and getattr(op, "bigcomplex_supported", False))
 
-        # Auto-promote pow to BigReal for large real exponents (e.g. 10^1232)
+        has_complex = any(isinstance(a, complex) for a in args)
+        has_big = any(isinstance(a, NativeBigReal) for a in args)
+        has_big_complex = any(isinstance(a, NativeBigComplex) for a in args)
+
         if (
             name == Operation.POW.value
             and len(args) >= 2
-            and not self._is_big(args[0])
-            and not self._is_big(args[1])
+            and not has_big_complex
             and isinstance(args[1], (int, float))
             and abs(float(args[1])) >= 309.0
         ):
-            return (self._to_big(args[0]), self._to_big(args[1]), *args[2:])
+            return self._pow_big_prom(args, has_complex, supports_bigcx)
+
+        if supports_bigcx and (has_big_complex or (has_big and has_complex)):
+            return tuple(self._to_big_complex(a) for a in args)
+
+        if has_complex:
+            return tuple(self._to_complex(a) for a in args)
 
         # If any operand is BigReal, keep in BigReal for supported ops; otherwise downcast.
-        if any(self._is_big(a) for a in args):
+        if has_big:
             if supports_big:
-                coerced_big: list[object] = []
-                for a in args:
-                    if isinstance(a, (int, float)) or self._is_big(a):
-                        coerced_big.append(self._to_big(a))
-                    else:
-                        coerced_big.append(a)
-                return tuple(coerced_big)
-            coerced_downcast: list[object] = []
-            for a in args:
-                if self._is_big(a):
-                    coerced_downcast.append(self._big_to_float(a))
-                else:
-                    coerced_downcast.append(a)
-            return tuple(coerced_downcast)
+                return tuple(self._to_big(a) if self._is_num_or_big(a) else a for a in args)
+
+            return tuple(a for a in args)
 
         return args
 
-    # helpers
+    def _is_num_or_big(self, value: object) -> bool:
+        return isinstance(value, (int, float, NativeBigReal))
+
+    def _pow_big_prom(
+        self, args: tuple[object, ...], has_complex: bool, supports_bigcx: bool
+    ) -> tuple[object, ...]:
+        if has_complex and supports_bigcx:
+            return tuple(self._to_big_complex(a) for a in args)
+        return tuple(self._to_big(a) for a in args)
+
     def negate(self, a):
         return self.sub(0, a)
 
@@ -123,66 +114,55 @@ class Calculator:
     def exp(self, a):
         return self.pow(E, a)
 
+    def _promote_complex(self, name: str, args: tuple[object, ...]) -> tuple[object, ...]:
+        # Only attempt complex domain-promotion for float/int inputs.
+        # BigReal values can be far outside float range; converting them to float
+        # for domain checks can underflow to 0.0 and incorrectly force complex ops.
+        if (
+            len(args) < 1
+            or not isinstance(args[0], (int, float))
+            or any(isinstance(a, NativeBigReal) for a in args)
+        ):
+            return args
+        try:
+            op = Operation(name)
+        except ValueError:
+            return args
+        rule = op.spec.cx
+
+        if rule is None:
+            return args
+
+        x = float(args[0])
+        if len(args) >= 2:
+            y = float(args[1])
+            needs_complex = rule(x, y)
+        else:
+            needs_complex = rule(x)
+
+        if not needs_complex:
+            return args
+
+        return (complex(x, 0.0),) + args[1:]
+
     def __getattr__(self, name: str):
         try:
             attr = getattr(self._native, name)
-        except AttributeError as e:
-            raise AttributeError(f"Calculator has no attribute '{name}'") from e
+        except AttributeError as exc:
+            raise_error(ErrorKind.INVALID, exc)
 
         if not callable(attr):
             return attr
 
         def wrapper(*args, **kwargs):
-            allowed = self._complex_allowed()
-
-            if not allowed:
-                if name == Operation.POLAR.value:
-                    raise CalculatorError("Math error")
-                if any(isinstance(a, complex) for a in args) or any(
-                    isinstance(v, complex) for v in kwargs.values()
-                ):
-                    raise CalculatorError("Math error")
-
-            # Only attempt complex domain-promotion for float/int inputs.
-            # BigReal values can be far outside float range; converting them to float
-            # for domain checks can underflow to 0.0 and incorrectly force complex ops.
-            if (
-                allowed
-                and len(args) >= 1
-                and isinstance(args[0], (int, float))
-                and not any(self._is_big(a) for a in args)
-            ):
-                try:
-                    op = Operation(name)
-                except ValueError:
-                    op = None
-                rule = None if op is None else op.spec.cx
-                if rule is not None:
-                    x = float(args[0])
-
-                    if name == Operation.ROOT.value and len(args) >= 2:
-                        y = (
-                            float(args[1])
-                            if not self._is_big(args[1])
-                            else self._big_to_float(args[1])
-                        )
-                        needs_complex = rule(x, y)
-                    else:
-                        needs_complex = rule(x)
-
-                    if needs_complex:
-                        if name == Operation.ROOT.value and len(args) >= 2:
-                            args = (complex(x, 0.0), complex(float(args[1]), 0.0)) + args[2:]
-                        else:
-                            args = (complex(x, 0.0),) + args[1:]
-
+            args = self._promote_complex(name, args)
             args = self._coerce_args(name, args)
 
             try:
                 return attr(*args, **kwargs)
             except TypeError as exc:
-                raise CalculatorError("Math error") from exc
+                raise_error(ErrorKind.MATH_ERR, exc)
             except NativeCalculatorError as exc:
-                raise CalculatorError(str(exc)) from exc
+                raise_error(ErrorKind.MATH_ERR, exc)
 
         return wrapper

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.24)
 
 project(tcalc_native LANGUAGES CXX)
 
@@ -23,13 +23,13 @@ endif()
 find_package(pybind11 CONFIG REQUIRED)
 
 add_library(calc_core STATIC
-  lib/arithmetic.cpp
-  lib/transcendental.cpp
-  lib/trig.cpp
-  lib/combinatorics.cpp
+  lib/calc/arithmetic.cpp
+  lib/calc/transcendental.cpp
+  lib/calc/trig.cpp
+  lib/calc/combinatorics.cpp
+  lib/parser/parser.cpp
 )
 target_include_directories(calc_core PUBLIC
-  "${CMAKE_CURRENT_LIST_DIR}/lib/pub"
   "${CMAKE_CURRENT_LIST_DIR}/lib"
 )
 
@@ -43,7 +43,6 @@ add_executable(native_tests
 )
 target_include_directories(native_tests PRIVATE
   "${CMAKE_CURRENT_LIST_DIR}/tests"
-  "${CMAKE_CURRENT_LIST_DIR}/lib/pub"
   "${CMAKE_CURRENT_LIST_DIR}/lib"
 )
 target_link_libraries(native_tests PRIVATE calc_core)
@@ -54,12 +53,13 @@ add_test(NAME native_tests_quiet COMMAND native_tests --quiet)
 pybind11_add_module(calc_native
   python/module.cpp
   python/bindings/bind_bigreal.cpp
+  python/bindings/bind_bigcomplex.cpp
   python/bindings/bind_angle_unit.cpp
   python/bindings/bind_calculator.cpp
+  python/bindings/bind_parser.cpp
 )
 target_include_directories(calc_native PRIVATE
   "${CMAKE_CURRENT_LIST_DIR}/python/include"
-  "${CMAKE_CURRENT_LIST_DIR}/lib/pub"
   "${CMAKE_CURRENT_LIST_DIR}/lib"
 )
 target_link_libraries(calc_native PRIVATE calc_core)
@@ -70,4 +70,3 @@ set_target_properties(calc_native PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}/.."
   PREFIX ""
 )
-

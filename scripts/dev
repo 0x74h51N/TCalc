@@ -36,13 +36,12 @@ source venv/bin/activate
 
 # dependencies
 # -----------------------------
-echo "Installing/updating Python deps (+ dev extras)..."
-python -m pip install -U pip setuptools wheel
+echo "Installing Python deps"
 python -m pip install -e ".[dev]"
 
 # native build + tests (CMake + Ninja)
 # -----------------------------
-make native NATIVE_TEST_ARGS=""
+make native-test NATIVE_TEST_ARGS=""
 
 
 

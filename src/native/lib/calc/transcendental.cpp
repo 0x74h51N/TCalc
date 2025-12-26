@@ -1,13 +1,14 @@
-#include "calculator.hpp"
-#include "internal/internal.hpp"
+#include "calc/pub/calculator.hpp"
+#include "calc/internal/helpers.hpp"
 
 #include <cmath>
 #include <complex>
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
+#include <boost/multiprecision/cpp_complex.hpp>
 
 // -----------------
-// Real transcendental ops
+// Real
 // -----------------
 
 double Calculator::sqrt(double a) const {
@@ -44,28 +45,28 @@ double Calculator::ln(double a) const {
 }
 
 // -----------------
-// BigReal transcendental ops
+// BigReal
 // -----------------
 
-BigReal Calculator::sqrt(const BigReal& a) const {
+BigReal Calculator::sqrt(const BigReal &a) const {
     calc_detail::require(a >= 0);
     using boost::multiprecision::sqrt;
     return sqrt(a);
 }
 
-BigReal Calculator::log(const BigReal& a) const {
+BigReal Calculator::log(const BigReal &a) const {
     calc_detail::require(a > 0);
     using boost::multiprecision::log10;
     return log10(a);
 }
 
-BigReal Calculator::ln(const BigReal& a) const {
+BigReal Calculator::ln(const BigReal &a) const {
     calc_detail::require(a > 0);
     using boost::multiprecision::log;
     return log(a);
 }
 
-BigReal Calculator::root(const BigReal& x, const BigReal& y) const {
+BigReal Calculator::root(const BigReal &x, const BigReal &y) const {
     calc_detail::require_nonzero(y);
     calc_detail::require(!(x == 0 && y < 0));
 
@@ -83,7 +84,7 @@ BigReal Calculator::root(const BigReal& x, const BigReal& y) const {
 }
 
 // -----------------
-// Complex transcendental ops
+// Complex
 // -----------------
 
 Calculator::Complex Calculator::sqrt(Complex a) const {
@@ -103,4 +104,30 @@ Calculator::Complex Calculator::log(Complex a) const {
 Calculator::Complex Calculator::ln(Complex a) const {
     calc_detail::require_nonzero(a);
     return std::log(a);
+}
+
+// -----------------
+// BigComplex
+// -----------------
+
+BigComplex Calculator::sqrt(const BigComplex &a) const {
+    using boost::multiprecision::sqrt;
+    return sqrt(a);
+}
+
+BigComplex Calculator::root(const BigComplex &x, const BigComplex &y) const {
+    calc_detail::require_nonzero(y);
+    return this->pow(x, BigComplex(1) / y);
+}
+
+BigComplex Calculator::log(const BigComplex &a) const {
+    calc_detail::require_nonzero(a);
+    using boost::multiprecision::log10;
+    return log10(a);
+}
+
+BigComplex Calculator::ln(const BigComplex &a) const {
+    calc_detail::require_nonzero(a);
+    using boost::multiprecision::log;
+    return log(a);
 }

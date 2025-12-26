@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Literal
+from typing import Callable
 
-from .utils import is_int_like
+import calc_native
 
-Arity = Literal["binary", "unary", "postfix"]
-Assoc = Literal["left", "right"]
+Arity = str
+
+
+def is_int_like(v: float, eps: float = 1e-12) -> bool:
+    return abs(v - round(v)) <= eps
 
 
 def _cx_sqrt(x: float) -> bool:
@@ -34,202 +37,130 @@ def _cx_root(x: float, y: float) -> bool:
     return x < 0.0 and ((not is_int_like(y)) or (int(round(y)) % 2 == 0))
 
 
-PromoArity = Literal[1, 2]
+_PROMO_RULES_BY_ID: dict[object, Callable[..., bool]] = {
+    calc_native.OpId.Sqrt: _cx_sqrt,
+    calc_native.OpId.Asin: _cx_asin_acos,
+    calc_native.OpId.Acos: _cx_asin_acos,
+    calc_native.OpId.Acosh: _cx_acosh,
+    calc_native.OpId.Atanh: _cx_atanh,
+    calc_native.OpId.Log: _cx_log_ln,
+    calc_native.OpId.Ln: _cx_log_ln,
+    calc_native.OpId.Root: _cx_root,
+}
 
 
 @dataclass(frozen=True, slots=True)
 class OpSpec:
     sym: str
-    prec: int | None = None
-    assoc: Assoc | None = None
     arity: Arity | None = None
     als: tuple[str, ...] = ()
+    method: str = ""
+    needs_unit: bool = False
     big: bool = False
+    bigcx: bool = False
     cx: Callable[..., bool] | None = None
-    cx_arity: PromoArity | None = None
+
+
+OP_BY_ID: dict[object, OpSpec] = {}
+
+
+_UI_SPECS = (
+    ("DIGIT", OpSpec(sym="digit")),
+    ("DOT", OpSpec(sym=".")),
+    ("OPEN_PAREN", OpSpec(sym="(")),
+    ("CLOSE_PAREN", OpSpec(sym=")")),
+    ("EQUALS", OpSpec(sym="=")),
+    ("CLEAR", OpSpec(sym="C")),
+    ("BACKSPACE", OpSpec(sym="⌫")),
+    ("HYP", OpSpec(sym="hyp")),
+    ("IMAG", OpSpec(sym="i")),
+)
+
+
+_specs_by_name: dict[str, OpSpec] = {}
+_operation_values: dict[str, str] = {}
+
+for entry in calc_native.op_table():
+    (
+        op_id,
+        symbol,
+        _precedence,
+        _associativity,
+        arity,
+        aliases,
+        method,
+        needs_unit,
+        big_supported,
+        big_complex_supported,
+    ) = entry
+
+    spec = OpSpec(
+        sym=symbol,
+        arity=arity.name.lower(),
+        als=tuple(aliases),
+        method=method,
+        needs_unit=bool(needs_unit),
+        big=bool(big_supported),
+        bigcx=bool(big_complex_supported),
+        cx=_PROMO_RULES_BY_ID.get(op_id),
+    )
+
+    OP_BY_ID[op_id] = spec
+    name = op_id.name.upper()
+    _specs_by_name[name] = spec
+    _operation_values[name] = method or op_id.name.lower()
+
+for name, spec in _UI_SPECS:
+    _specs_by_name[name] = spec
+    _operation_values[name] = name.lower()
 
 
 class Operation(str, Enum):
-    """
-    Operation identifiers.
-    """
-
-    DIGIT = "digit"
-
-    # binary operators
-    ADD = "add"
-    SUB = "sub"
-    MUL = "mul"
-    DIV = "div"
-    POW = "pow"
-
-    # postfix percent
-    PERCENT = "percent"
-
-    DOT = "dot"
-    OPEN_PAREN = "open_paren"
-    CLOSE_PAREN = "close_paren"
-
-    EQUALS = "equals"
-    CLEAR = "clear"
-    BACKSPACE = "backspace"
-    NEGATE = "negate"
-    SQRT = "sqrt"
-
-    # Trigonometric functions (unary)
-    SIN = "sin"
-    COS = "cos"
-    TAN = "tan"
-    HYP = "hyp"
-    SINH = "sinh"
-    COSH = "cosh"
-    TANH = "tanh"
-    ASIN = "asin"
-    ACOS = "acos"
-    ATAN = "atan"
-    ASINH = "asinh"
-    ACOSH = "acosh"
-    ATANH = "atanh"
-
-    # Function operations
-    RECIP = "recip"
-    FACT = "fact"
-    LOG = "log"
-    LN = "ln"
-    MOD = "mod"
-    POW10 = "pow10"
-    EXP = "exp"
-    INTDIV = "intdiv"
-    PERMUTE = "permute"
-    CHOOSE = "choose"
-    GAMMA = "gamma"
-    CBRT = "cbrt"
-
-    # Power operations
-    SQR = "sqr"
-    CUBE = "cube"
-    EXP10 = "exp10"
-    ROOT = "root"
-    IMAG = "imag"
-    POLAR = "polar"
-
+    _spec: OpSpec
     @property
     def spec(self) -> OpSpec:
-        return OP_SPECS[self]
+        return self._spec
 
     @property
     def symbol(self) -> str:
-        return self.spec.sym
-
-    @property
-    def precedence(self) -> int | None:
-        return self.spec.prec
-
-    @property
-    def associativity(self) -> Assoc | None:
-        return self.spec.assoc
+        return self._spec.sym
 
     @property
     def arity(self) -> Arity | None:
-        return self.spec.arity
+        return self._spec.arity
 
     @property
     def aliases(self) -> tuple[str, ...]:
-        return self.spec.als
+        return self._spec.als
 
     @property
     def big_supported(self) -> bool:
-        return self.spec.big
+        return self._spec.big
+
+    @property
+    def bigcomplex_supported(self) -> bool:
+        return self._spec.bigcx
+
+    @property
+    def token(self) -> str:
+        return self._spec.method or self.name.lower()
+
+Operation = Enum("Operation", _operation_values, type=Operation)
+for op in Operation:
+    op._spec = _specs_by_name[op.name]
+
+del _operation_values
+del _specs_by_name
+del _UI_SPECS
 
 
-OP_SPECS: dict[Operation, OpSpec] = {
-    Operation.DIGIT: OpSpec(sym="digit"),
-    Operation.ADD: OpSpec(sym="+", prec=1, assoc="left", arity="binary", big=True),
-    Operation.SUB: OpSpec(sym="-", prec=1, assoc="left", arity="binary", big=True),
-    Operation.MUL: OpSpec(sym="x", prec=2, assoc="left", arity="binary", als=("*",), big=True),
-    Operation.DIV: OpSpec(sym="÷", prec=2, assoc="left", arity="binary", als=("/",), big=True),
-    Operation.POW: OpSpec(sym="^", prec=3, assoc="right", arity="binary", big=True),
-    Operation.PERCENT: OpSpec(sym="%", prec=4, assoc="left", arity="postfix"),
-    Operation.DOT: OpSpec(sym="."),
-    Operation.OPEN_PAREN: OpSpec(sym="("),
-    Operation.CLOSE_PAREN: OpSpec(sym=")"),
-    Operation.EQUALS: OpSpec(sym="="),
-    Operation.CLEAR: OpSpec(sym="C"),
-    Operation.BACKSPACE: OpSpec(sym="⌫"),
-    Operation.NEGATE: OpSpec(sym="u-", prec=3, assoc="right", arity="unary"),
-    Operation.SQRT: OpSpec(
-        sym="√", prec=4, assoc="right", arity="unary", als=("sqrt",), big=True, cx=_cx_sqrt
-    ),
-    Operation.SIN: OpSpec(sym="sin", prec=4, assoc="right", arity="unary"),
-    Operation.COS: OpSpec(sym="cos", prec=4, assoc="right", arity="unary"),
-    Operation.TAN: OpSpec(sym="tan", prec=4, assoc="right", arity="unary"),
-    Operation.HYP: OpSpec(sym="hyp"),
-    Operation.SINH: OpSpec(sym="sinh", prec=4, assoc="right", arity="unary"),
-    Operation.COSH: OpSpec(sym="cosh", prec=4, assoc="right", arity="unary"),
-    Operation.TANH: OpSpec(sym="tanh", prec=4, assoc="right", arity="unary"),
-    Operation.ASIN: OpSpec(sym="asin", prec=4, assoc="right", arity="unary", cx=_cx_asin_acos),
-    Operation.ACOS: OpSpec(sym="acos", prec=4, assoc="right", arity="unary", cx=_cx_asin_acos),
-    Operation.ATAN: OpSpec(sym="atan", prec=4, assoc="right", arity="unary"),
-    Operation.ASINH: OpSpec(sym="asinh", prec=4, assoc="right", arity="unary"),
-    Operation.ACOSH: OpSpec(sym="acosh", prec=4, assoc="right", arity="unary", cx=_cx_acosh),
-    Operation.ATANH: OpSpec(sym="atanh", prec=4, assoc="right", arity="unary", cx=_cx_atanh),
-    Operation.RECIP: OpSpec(sym="⁻¹", prec=4, assoc="left", arity="postfix"),
-    Operation.FACT: OpSpec(
-        sym="!", prec=4, assoc="left", arity="postfix", als=("factorial", "fact"), big=True
-    ),
-    Operation.LOG: OpSpec(
-        sym="log", prec=4, assoc="right", arity="unary", als=("log10",), big=True, cx=_cx_log_ln
-    ),
-    Operation.LN: OpSpec(sym="ln", prec=4, assoc="right", arity="unary", big=True, cx=_cx_log_ln),
-    Operation.MOD: OpSpec(sym="mod", prec=2, assoc="left", arity="binary", big=True),
-    Operation.POW10: OpSpec(sym="⏨", prec=4, assoc="right", arity="unary"),
-    Operation.EXP: OpSpec(sym="exp", prec=4, assoc="right", arity="unary", big=True),
-    Operation.INTDIV: OpSpec(
-        sym="div", prec=2, assoc="left", arity="binary", als=("//",), big=True
-    ),
-    Operation.CHOOSE: OpSpec(sym="nCm", prec=4, assoc="right", arity="binary"),
-    Operation.PERMUTE: OpSpec(sym="nPm", prec=4, assoc="right", arity="binary"),
-    Operation.GAMMA: OpSpec(sym="Γ", prec=4, assoc="right", arity="unary", als=["gamma"], big=True),
-    Operation.CBRT: OpSpec(sym="³√", prec=4, assoc="right", arity="unary"),
-    Operation.SQR: OpSpec(sym="²", prec=4, assoc="left", arity="postfix"),
-    Operation.CUBE: OpSpec(sym="³", prec=4, assoc="left", arity="postfix"),
-    Operation.EXP10: OpSpec(sym="⏨", prec=3, assoc="right", arity="binary"),
-    Operation.ROOT: OpSpec(sym="⌄", prec=3, assoc="right", arity="binary", big=True, cx=_cx_root),
-    Operation.IMAG: OpSpec(sym="i"),
-    Operation.POLAR: OpSpec(sym="∠", prec=4, assoc="right", arity="unary", als=("polar",)),
-}
-
-
-def get_symbols_with_aliases(filter_fn=None) -> set[str]:
+def get_symbols_with_aliases(filter_fn: Callable[[OpSpec], bool] | None = None) -> set[str]:
     symbols: set[str] = set()
     for op in Operation:
-        if filter_fn and not filter_fn(op):
+        spec = op._spec
+        if filter_fn and not filter_fn(spec):
             continue
-        if op.symbol:
-            symbols.add(op.symbol)
-            symbols.update(op.aliases)
+        if spec.sym:
+            symbols.add(spec.sym)
+            symbols.update(spec.als)
     return symbols
-
-
-def build_operator_table(filter_fn=None) -> dict[str, tuple[int, str]]:
-    table: dict[str, tuple[int, str]] = {}
-    for op in Operation:
-        if filter_fn and not filter_fn(op):
-            continue
-        if op.symbol and op.precedence is not None:
-            table[op.symbol] = (op.precedence, op.associativity or "left")
-            for alias in op.aliases:
-                table[alias] = (op.precedence, op.associativity or "left")
-    return table
-
-
-def build_operation_map(filter_fn=None) -> dict[str, Operation]:
-    op_map: dict[str, Operation] = {}
-    for op in Operation:
-        if filter_fn and not filter_fn(op):
-            continue
-        if op.symbol:
-            op_map[op.symbol] = op
-            for alias in op.aliases:
-                op_map[alias] = op
-    return op_map

@@ -1,11 +1,11 @@
 #include <pybind11/pybind11.h>
 
 #include "bindings.hpp"
-#include "calculator.hpp"
+#include "calc/pub/calculator.hpp"
 
 namespace py = pybind11;
 
-void bind_angle_unit(py::module_& m) {
+void bind_angle_unit(py::module_ &m) {
     using U = Calculator::AngleUnit;
 
     py::enum_<U>(m, "AngleUnit")

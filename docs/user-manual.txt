@@ -1,0 +1,31 @@
+User Manual Notes
+=================
+======Draft======
+
+
+Scientific notation vs. constant e
+----------------------------------
+The parser supports both scientific notation and the constant e.
+
+- "10e" is treated as 10 * e (implicit multiplication with the constant).
+- "10e+0" (no space) is treated as scientific notation (10e+0 == 10).
+- "10e + 0" (with spaces) is treated as 10 * e + 0 (implicit multiplication),
+  which evaluates to about 27.18.
+
+Whitespace matters for this case because it affects tokenization. If you want
+the constant e, use spaces or an explicit multiply or parantheses.
+
+
+Unary Minus
+-----------
+Unary minus is a prefix operator that toggles the sign of the last number.
+Repeated presses do not stack; the sign flips back and forth.
+
+Unary minus has lower precedence than power/root. That means it applies after
+those operations unless you add parentheses.
+
+- "- 4 + 2" -> -2
+- "- 4 ⌄ 2" -> -(4 ⌄ 2) -> -2
+- "(-4) ⌄ 2" makes the base negative -> 2i
+
+Use parentheses to bind the minus to a single number or sub-expression.

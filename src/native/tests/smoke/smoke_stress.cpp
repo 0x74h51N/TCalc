@@ -1,17 +1,20 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <utility>
 
-#include "calculator.hpp"
+#include "calc/pub/calculator.hpp"
 #include "internal/test_helpers.hpp"
 
 template <typename Fn>
-static void smoke_allow_math_error(TestContext& ctx, const char* name, Fn&& fn) {
+static void smoke_allow_math_error(TestContext &ctx, const char *name, Fn &&fn) {
     ctx.checks += 1;
     try {
-        fn();
-    } catch (const CalculatorError&) {
-    } catch (const std::exception& e) {
+        std::forward<Fn>(fn)();
+        return;
+    } catch (const CalculatorError &) { // allowed
+        return;
+    } catch (const std::exception &e) {
         ctx.failures += 1;
         std::cerr << "smoke: unexpected exception in " << name << ": " << e.what() << "\n";
     } catch (...) {
@@ -20,8 +23,10 @@ static void smoke_allow_math_error(TestContext& ctx, const char* name, Fn&& fn) 
     }
 }
 
-void smoke_stress(TestContext& ctx) {
+void smoke_stress(TestContext &ctx) {
     Calculator c;
+    using BC = BigComplex;
+    using BF = boost::multiprecision::cpp_bin_float_50;
 
     const double inf = std::numeric_limits<double>::infinity();
     const double nan = std::numeric_limits<double>::quiet_NaN();
@@ -49,8 +54,26 @@ void smoke_stress(TestContext& ctx) {
 
     smoke_allow_math_error(ctx, "choose(500, 250)", [&] { (void)c.choose(500, 250); });
 
-    const BigReal huge = BigReal("1e1000");
-    smoke_allow_math_error(ctx, "sqrt(huge)", [&] { (void)c.sqrt(huge); });
-    smoke_allow_math_error(ctx, "log(huge)", [&] { (void)c.log(huge); });
-    smoke_allow_math_error(ctx, "pow(huge, 2)", [&] { (void)c.pow(huge, BigReal("2.0")); });
+    const BigReal hug = BigReal("1e1000");
+    smoke_allow_math_error(ctx, "sqrt(hug)", [&] { (void)c.sqrt(hug); });
+    smoke_allow_math_error(ctx, "log(hug)", [&] { (void)c.log(hug); });
+    smoke_allow_math_error(ctx, "pow(hug, 2)", [&] { (void)c.pow(hug, BigReal("2.0")); });
+
+    const BigReal hug2 = BigReal("1e20000");
+    smoke_allow_math_error(ctx, "sqrt(hug2)", [&] { (void)c.sqrt(hug2); });
+    smoke_allow_math_error(ctx, "root(hug2, 7)", [&] { (void)c.root(hug2, BigReal("7")); });
+    smoke_allow_math_error(ctx, "pow(hug2, 3)", [&] { (void)c.pow(hug2, BigReal("3")); });
+
+    const BC z("1e400", "1");
+    const BC z_pow = c.pow(z, BC("20000"));
+    EXPECT_TRUE(ctx, boost::multiprecision::abs(z_pow) > BF(0));
+
+    const BC z_log = c.log(z);
+    EXPECT_TRUE(ctx, boost::multiprecision::abs(z_log) > BF(0));
+
+    const BC z_root = c.root(BC("1e400", "1e-50"), BC("3"));
+    EXPECT_TRUE(ctx, boost::multiprecision::abs(z_root) > BF(0));
+
+    const BC z_pow2 = c.pow(BC("1e200", "1e200"), BC("5000"));
+    EXPECT_TRUE(ctx, boost::multiprecision::abs(z_pow2) > BF(0));
 }
