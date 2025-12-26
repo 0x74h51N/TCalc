@@ -10,7 +10,7 @@ font_size = 10
 wrap_padding_factor = 3
 
 [font_scale.list]
-max_pt = 18
+max_pt = 16
 divisor = 30
 
 [font_scale.clear_button]
