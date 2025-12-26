@@ -134,7 +134,7 @@ class Calculator:
             return args
 
         x = float(args[0])
-        if len(args) >= 2:
+        if op.spec.arity == "binary" and len(args) >= 2:
             y = float(args[1])
             needs_complex = rule(x, y)
         else:
