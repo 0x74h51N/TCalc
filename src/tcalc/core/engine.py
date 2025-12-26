@@ -3,9 +3,6 @@ from __future__ import annotations
 from calc_native import Calculator as NativeCalculator
 from calc_native import CalculatorError as NativeCalculatorError
 
-#
-# TODO: Make error handling more pleasent.
-#
 
 try:
     from calc_native import BigComplex as NativeBigComplex
@@ -19,13 +16,8 @@ except ImportError:  # pragma: no cover
     raise
 
 from .constants import E
+from .errors import ErrorKind, raise_error
 from .ops import Operation
-
-
-class CalculatorError(Exception):
-    """Exception raised for calculator operation errors."""
-
-    pass
 
 
 class Calculator:
@@ -156,8 +148,8 @@ class Calculator:
     def __getattr__(self, name: str):
         try:
             attr = getattr(self._native, name)
-        except AttributeError as e:
-            raise AttributeError(f"Calculator has no attribute '{name}'") from e
+        except AttributeError as exc:
+            raise_error(ErrorKind.INVALID, exc)
 
         if not callable(attr):
             return attr
@@ -169,8 +161,8 @@ class Calculator:
             try:
                 return attr(*args, **kwargs)
             except TypeError as exc:
-                raise CalculatorError("Math error") from exc
+                raise_error(ErrorKind.MATH_ERR, exc)
             except NativeCalculatorError as exc:
-                raise CalculatorError(str(exc)) from exc
+                raise_error(ErrorKind.MATH_ERR, exc)
 
         return wrapper

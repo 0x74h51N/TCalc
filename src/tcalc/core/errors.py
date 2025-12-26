@@ -1,7 +1,10 @@
 import logging
 from enum import Enum
 
-from tcalc.core.engine import CalculatorError
+
+class CalculatorError(Exception):
+    """Exception raised for calculator operation errors."""
+    pass
 
 
 class ErrorKind(Enum):
