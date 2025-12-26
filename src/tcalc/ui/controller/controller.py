@@ -5,14 +5,13 @@ from typing import Callable, Dict, List, Optional
 import calc_native
 
 from tcalc.app_state import AngleUnit, get_app_state
-from tcalc.core import (
-    Operation,
-    evaluate_tokens,
-    get_symbols_with_aliases,
-    tokenize_string,
-)
+from tcalc.core import Calculator, evaluate_tokens, tokenize_string
 from tcalc.core.errors import ErrorKind
+from tcalc.core.ops import Operation, get_symbols_with_aliases
 from tcalc.core.utils import is_number_token
+from tcalc.ui.controller.menubar import EditOperations
+from tcalc.ui.widgets import History
+from tcalc.ui.widgets.calc import Display, TopBar
 
 from ..widgets.calc.topbar.defins import MEMORY_KEYS, MemoryKey
 from .utils import clean_for_expression, format_result
@@ -21,12 +20,19 @@ from .utils import clean_for_expression, format_result
 class CalculatorController:
     """Main controller handling calculator input, expression state and display updates."""
 
-    def __init__(self, calculator, display, history, edit_ops, topbar) -> None:
-        self._calculator = calculator
-        self._display = display
-        self._history = history
-        self._edit_ops = edit_ops
-        self._topbar = topbar
+    def __init__(
+        self,
+        calculator: Calculator,
+        display: Display,
+        history: History,
+        edit_ops: EditOperations,
+        topbar: TopBar,
+    ) -> None:
+        self._calculator: Calculator = calculator
+        self._display: Display = display
+        self._history: History = history
+        self._edit_ops: EditOperations = edit_ops
+        self._topbar: TopBar = topbar
         self._app_state = get_app_state()
 
         self._display.expression_changed.connect(self._on_expression_input)

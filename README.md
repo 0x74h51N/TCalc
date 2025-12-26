@@ -110,7 +110,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 
 - [x] Memory for all modes MS, MC, MR, M+ Buttons
 
-- [ ] Input / Parser / Eval
+- [x] Input / Parser / Eval
 
   - [x] Expression pipeline: tokenize -> normalize -> shunting-yard -> RPN eval
   - [x] Unary/prefix/postfix handling + mode-based domain behavior (sqrt(-4): real MathError, complex 2i)
@@ -123,7 +123,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [x] Mode state, layout update, binding and side effects
   - [x] Simple Mode
 
-  - [ ] Science mode
+  - [x] Science mode
 
     - [x] UI / Controls
       - [x] Science keypad panel
@@ -136,7 +136,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [x] Functions - log10/ln, 1/x, x!, mod, permutation/choose
     - [x] Power / Complex - sqrt, x², xʸ, i, complex domain rules
     - [x] Parser parity - Implement ops in native + pybind
-    - [ ] Edge cases + error messages
+    - [x] Edge cases + error messages
 
   - [ ] Statistic mode
     - [ ] Data store
