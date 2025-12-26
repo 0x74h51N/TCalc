@@ -34,7 +34,8 @@ native-configure:
 native-build: native-configure
 	cmake --build $(NATIVE_BUILD_DIR) -j
 	PYTHONPATH=src $(PY) -m pybind11_stubgen calc_native -o $(STUBS_DIR)
-
+	PYTHONPATH=src ./venv/bin/stubgen --verbose --inspect-mode -m tcalc.core.ops -o $(STUBS_DIR)
+	
 native-test: native-build
 	$(NATIVE_BUILD_DIR)/native_tests $(NATIVE_TEST_ARGS)
 

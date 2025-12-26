@@ -1,4 +1,4 @@
-from tcalc.core import Operation
+from tcalc.core.ops import Operation
 
 # Custom labels for buttons (where symbol differs from display)
 NEGATE_LABEL = "+/-"
