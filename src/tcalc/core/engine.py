@@ -47,7 +47,6 @@ class Calculator:
         if isinstance(v, complex):
             return NativeBigComplex(repr(v.real), repr(v.imag))
         return NativeBigComplex(repr(v))
-        return v
 
     def _to_complex(self, value: object) -> object:
         if isinstance(value, complex):
@@ -68,24 +67,20 @@ class Calculator:
         has_big = any(isinstance(a, NativeBigReal) for a in args)
         has_big_complex = any(isinstance(a, NativeBigComplex) for a in args)
 
-        # Auto-promote pow to BigReal for large real exponents (e.g. 10^1232)
         if (
             name == Operation.POW.value
             and len(args) >= 2
-            and not has_complex
             and not has_big_complex
-            and not isinstance(args[0], NativeBigReal)
-            and not isinstance(args[1], NativeBigReal)
             and isinstance(args[1], (int, float))
             and abs(float(args[1])) >= 309.0
         ):
-            return (self._to_big(args[0]), self._to_big(args[1]), *args[2:])
+            return self._pow_big_prom(args, has_complex, supports_bigcx)
 
         if supports_bigcx and (has_big_complex or (has_big and has_complex)):
-            return tuple(self._to_big_complex(a) if self._is_numberish(a) else a for a in args)
+            return tuple(self._to_big_complex(a) for a in args)
 
         if has_complex:
-            return tuple(self._to_complex(a) if self._is_numberish(a) else a for a in args)
+            return tuple(self._to_complex(a) for a in args)
 
         # If any operand is BigReal, keep in BigReal for supported ops; otherwise downcast.
         if has_big:
@@ -99,10 +94,13 @@ class Calculator:
     def _is_num_or_big(self, value: object) -> bool:
         return isinstance(value, (int, float, NativeBigReal))
 
-    def _is_numberish(self, value: object) -> bool:
-        return isinstance(value, (int, float, complex, NativeBigReal, NativeBigComplex))
+    def _pow_big_prom(
+        self, args: tuple[object, ...], has_complex: bool, supports_bigcx: bool
+    ) -> tuple[object, ...]:
+        if has_complex and supports_bigcx:
+            return tuple(self._to_big_complex(a) for a in args)
+        return tuple(self._to_big(a) for a in args)
 
-    # helpers
     def negate(self, a):
         return self.sub(0, a)
 
