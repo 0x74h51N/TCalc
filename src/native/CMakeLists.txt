@@ -40,6 +40,8 @@ add_executable(native_tests
   tests/unit/test_trig.cpp
   tests/unit/test_combinatorics.cpp
   tests/smoke/smoke_stress.cpp
+  tests/unit/test_parser.cpp
+  tests/test_test_helpers.cpp
 )
 target_include_directories(native_tests PRIVATE
   "${CMAKE_CURRENT_LIST_DIR}/tests"

@@ -7,6 +7,9 @@ void unit_arithmetic(TestContext &ctx);
 void unit_transcendental(TestContext &ctx);
 void unit_trig(TestContext &ctx);
 void unit_combinatorics(TestContext &ctx);
+void unit_parser(TestContext &ctx);
+void unit_helpers(TestContext &ctx);
+
 void smoke_stress(TestContext &ctx);
 
 template <typename Fn> static void run_suite(TestContext &ctx, const char *name, Fn &&fn) {
@@ -39,11 +42,13 @@ int main(int argc, char **argv) { // NOLINT(modernize-use-trailing-return-type)
         }
     }
 
+    run_suite(ctx, "unit_helpers", unit_helpers);
     run_suite(ctx, "unit_arithmetic", unit_arithmetic);
     run_suite(ctx, "unit_transcendental", unit_transcendental);
     run_suite(ctx, "unit_trig", unit_trig);
     run_suite(ctx, "unit_combinatorics", unit_combinatorics);
     run_suite(ctx, "smoke_stress", smoke_stress);
+    run_suite(ctx, "unit_parser", unit_parser);
 
     if (ctx.failures == 0) {
         std::cout << "native tests: OK (" << ctx.checks << " checks)\n";
