@@ -10,6 +10,7 @@
 #include <utility>
 #include <vector>
 
+/// Tracks test assertions and verbosity for native test runs.
 struct TestContext {
     int failures = 0;
     int checks = 0;
@@ -24,23 +25,30 @@ template <typename InputT, typename ExpectedT> struct Case {
 
 constexpr double kDefaultApproxEps = 1e-12;
 
+/// Approximate double comparison with absolute tolerance.
 inline bool approx(double a, double b, double eps = kDefaultApproxEps) {
     return std::abs(a - b) <= eps;
 }
 
+/// Approximate BigReal comparison with absolute tolerance.
 inline bool approx_big(const BigReal &a, const BigReal &b, const BigReal &eps = BigReal("1e-40")) {
     using boost::multiprecision::abs;
     return abs(a - b) <= eps;
 }
 
+/// Approximate multiprecision comparison with scaled tolerance.
 template <typename T>
-inline bool approx_big(const T &a, const T &b,
-                       const boost::multiprecision::cpp_bin_float_50 &eps =
-                           boost::multiprecision::cpp_bin_float_50("1e-30")) {
+inline bool approx_big(
+    const T &a,
+    const T &b,
+    const boost::multiprecision::cpp_bin_float_50 &eps =
+        boost::multiprecision::cpp_bin_float_50("1e-30")) {
     using boost::multiprecision::abs;
+
     const auto diff = abs(a - b);
     auto scale = abs(a);
     const auto bmag = abs(b);
+
     if (bmag > scale) {
         scale = bmag;
     }
@@ -50,6 +58,7 @@ inline bool approx_big(const T &a, const T &b,
     return diff <= eps * scale;
 }
 
+/// Print a value if streamable, otherwise emit a placeholder.
 template <typename T> inline void print_value(std::ostream &os, const T &v) {
     if constexpr (requires(std::ostream &out, const T &value) { out << value; }) {
         os << v;
@@ -58,10 +67,12 @@ template <typename T> inline void print_value(std::ostream &os, const T &v) {
     }
 }
 
+/// Print a double with full precision.
 inline void print_value(std::ostream &os, double v) {
     os << std::setprecision(std::numeric_limits<double>::max_digits10) << v;
 }
 
+/// Print a BigReal with its configured precision.
 inline void print_value(std::ostream &os, const BigReal &v) {
     os << std::setprecision(std::numeric_limits<BigReal>::digits10) << v;
 }
@@ -80,8 +91,14 @@ template <typename T> inline void print_value(std::ostream &os, const std::vecto
 
 /// Assert equality and record failures with optional verbose output.
 template <typename A, typename B>
-inline void expect_eq(TestContext &ctx, const A &got, const B &expected, const char *got_expr,
-                      const char *expected_expr, const char *file, int line) {
+inline void expect_eq(
+    TestContext &ctx,
+    const A &got,
+    const B &expected,
+    const char *got_expr,
+    const char *expected_expr,
+    const char *file,
+    int line) {
     ctx.checks += 1;
     if (!(got == expected)) {
         ctx.failures += 1;
@@ -98,6 +115,7 @@ inline void expect_eq(TestContext &ctx, const A &got, const B &expected, const c
     }
 }
 
+/// Assert a boolean expression and record failures.
 inline void expect_true(TestContext &ctx, bool ok, const char *expr, const char *file, int line) {
     ctx.checks += 1;
     if (!ok) {
@@ -106,6 +124,7 @@ inline void expect_true(TestContext &ctx, bool ok, const char *expr, const char 
     }
 }
 
+/// Assert that a callable throws.
 template <typename Fn>
 inline void expect_throws(TestContext &ctx, Fn &&fn, const char *expr, const char *file, int line) {
     ctx.checks += 1;
@@ -118,8 +137,11 @@ inline void expect_throws(TestContext &ctx, Fn &&fn, const char *expr, const cha
     std::cerr << file << ":" << line << " EXPECT_THROWS failed: " << expr << "\n";
 }
 
+/// Shorthand for expect_true with source location.
 #define EXPECT_TRUE(ctx, expr) expect_true((ctx), (expr), #expr, __FILE__, __LINE__)
+/// Shorthand for expect_throws with source location.
 #define EXPECT_THROWS(ctx, expr)                                                                   \
     expect_throws((ctx), [&] { (void)(expr); }, #expr, __FILE__, __LINE__)
+/// Shorthand for expect_eq with source location.
 #define EXPECT_EQ(ctx, got, expected)                                                              \
     expect_eq((ctx), (got), (expected), #got, #expected, __FILE__, __LINE__)

@@ -17,12 +17,13 @@ void bind_bigreal(py::module_ &m) {
     py::class_<B>(m, "BigReal")
         .def(py::init<double>())
         .def(py::init<const std::string &>())
-        .def("__str__",
-             [](const B &v) {
-                 std::ostringstream oss;
-                 oss << std::setprecision(16) << v;
-                 return oss.str();
-             })
+        .def(
+            "__str__",
+            [](const B &v) {
+                std::ostringstream oss;
+                oss << std::setprecision(16) << v;
+                return oss.str();
+            })
         .def("__repr__", [](const B &v) {
             std::ostringstream oss;
             oss << std::setprecision(16) << v;

@@ -3,9 +3,15 @@ IndentWidth: 4
 TabWidth: 4
 UseTab: Never
 ColumnLimit: 100
+BinPackArguments: false
+BinPackParameters: false
+AllowAllConstructorInitializersOnNextLine: true
+BreakConstructorInitializersBeforeComma: true
 
 BreakBeforeBraces: Attach
+Cpp11BracedListStyle: true
+AlignAfterOpenBracket: AlwaysBreak
+AllowShortBlocksOnASingleLine: Never
 AllowShortFunctionsOnASingleLine: InlineOnly
 
 SortIncludes: false
-

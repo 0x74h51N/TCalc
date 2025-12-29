@@ -18,7 +18,8 @@ void unit_combinatorics(TestContext &ctx) {
     EXPECT_TRUE(
         ctx, approx_big(c.fact(BigReal("20")), BigReal("2432902008176640000"), BigReal("1e-10")));
     EXPECT_THROWS(ctx, c.fact(BigReal("-1")));
-    EXPECT_TRUE(ctx, approx_big(c.fact(BigReal("0.25")), BigReal("0.9064024770554771"), BigReal("1e-10")));
+    EXPECT_TRUE(
+        ctx, approx_big(c.fact(BigReal("0.25")), BigReal("0.9064024770554771"), BigReal("1e-10")));
 
     EXPECT_THROWS(ctx, c.gamma(BigReal("0")));
     EXPECT_THROWS(ctx, c.gamma(BigReal("-2")));

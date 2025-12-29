@@ -4,10 +4,11 @@
 #include <string>
 #include <utility>
 
+namespace tcalc::parser {
 
-namespace tcalc::ops {
+using namespace tcalc::ops;
 
-namespace {
+namespace detail {
 
 inline unsigned char as_uchar(char c) {
     return static_cast<unsigned char>(c);
@@ -52,6 +53,10 @@ std::string_view scan_number(std::string_view s, std::size_t start, std::size_t 
     out_next = i;
     return s.substr(start, i - start);
 }
+
+} // namespace detail
+
+namespace {
 
 const OpSpec *match_op(std::string_view s, std::size_t i, std::size_t &out_len) {
     const std::string_view rest = s.substr(i);
@@ -122,7 +127,7 @@ std::vector<Token> tokenize(std::string_view expression) {
 
         if (std::isdigit(c) != 0 || expression[i] == '.') {
             std::size_t next = i;
-            const std::string_view sv = scan_number(expression, i, next);
+            const std::string_view sv = detail::scan_number(expression, i, next);
 
             if (!sv.empty()) {
                 i = next;
@@ -169,6 +174,8 @@ std::vector<Token> tokenize(std::string_view expression) {
     return tokens;
 }
 
+namespace detail {
+
 std::vector<Token> normalize(const std::vector<Token> &raw) {
     std::vector<Token> normalized;
     normalized.reserve(raw.size());
@@ -207,6 +214,7 @@ std::vector<Token> normalize(const std::vector<Token> &raw) {
             }
 
             if (ends_operand(last) && starts_operand(tok)) {
+                // Implicit multiplication: "2(3)" -> "2 * (3)"
                 normalized.push_back(Token{TokenKind::Op, OpId::Mul});
             }
         }
@@ -217,6 +225,8 @@ std::vector<Token> normalize(const std::vector<Token> &raw) {
     return normalized;
 }
 
+} // namespace detail
+
 //
 // Shunting Yard Algorithm
 // RIP Edsger Dijkstra
@@ -224,7 +234,7 @@ std::vector<Token> normalize(const std::vector<Token> &raw) {
 // Ref: https://www.sunshine2k.de/articles/coding/shuntingyardalgorithm/shunting_yard_algorithm.html
 //
 std::vector<Token> shunting_yard(const std::vector<Token> &tokens) {
-    std::vector<Token> normalized = normalize(tokens);
+    std::vector<Token> normalized = detail::normalize(tokens);
 
     std::vector<Token> output;
     std::vector<Token> operator_stack;
@@ -285,4 +295,4 @@ std::vector<Token> shunting_yard(const std::vector<Token> &tokens) {
     return output;
 }
 
-} // namespace tcalc::ops
+} // namespace tcalc::parser

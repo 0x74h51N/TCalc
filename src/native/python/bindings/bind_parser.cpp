@@ -11,8 +11,8 @@ namespace py = pybind11;
 
 void bind_parser(py::module_ &m) {
     using tcalc::ops::OpId;
-    using tcalc::ops::Token;
-    using tcalc::ops::TokenKind;
+    using tcalc::parser::Token;
+    using tcalc::parser::TokenKind;
 
     py::enum_<TokenKind>(m, "TokenKind", "Token categories produced by the native tokenizer.")
         .value("Number", TokenKind::Number)
@@ -20,8 +20,8 @@ void bind_parser(py::module_ &m) {
         .value("LParen", TokenKind::LParen)
         .value("RParen", TokenKind::RParen);
 
-    py::enum_<OpId>(m, "OpId",
-                    "Operation identifiers used by tokens and op_table; maps to engine methods.")
+    py::enum_<OpId>(
+        m, "OpId", "Operation identifiers used by tokens and op_table; maps to engine methods.")
         .value("Add", OpId::Add)
         .value("Sub", OpId::Sub)
         .value("Mul", OpId::Mul)
@@ -59,8 +59,8 @@ void bind_parser(py::module_ &m) {
         .value("Exp", OpId::Exp)
         .value("Pow10", OpId::Pow10);
 
-    py::class_<Token>(m, "Token",
-                      "Parser token. 'value' is text for numbers; 'symbol' is only for ops.")
+    py::class_<Token>(
+        m, "Token", "Parser token. 'value' is text for numbers; 'symbol' is only for ops.")
         .def_readonly("kind", &Token::kind)
         .def_readonly("op_id", &Token::op_id)
         .def_readonly("value", &Token::value)
@@ -92,16 +92,24 @@ void bind_parser(py::module_ &m) {
                         aliases.append(std::string(alias));
                     }
                 }
-                out.append(py::make_tuple(
-                    op.id, std::string(op.symbol), op.precedence, op.associativity, op.arity,
-                    aliases, std::string(op.method), tcalc::ops::needs_angle_unit(op),
-                    tcalc::ops::big_supported(op), tcalc::ops::big_complex_supported(op)));
+                out.append(
+                    py::make_tuple(
+                        op.id,
+                        std::string(op.symbol),
+                        op.precedence,
+                        op.associativity,
+                        op.arity,
+                        aliases,
+                        std::string(op.method),
+                        tcalc::ops::needs_angle_unit(op),
+                        tcalc::ops::big_supported(op),
+                        tcalc::ops::big_complex_supported(op)));
             }
             return out;
         },
         "Return tuples of (id, symbol, precedence, associativity, arity, aliases, method, "
         "needs_angle_unit, big_supported, big_complex_supported).");
 
-    m.def("tokenize_string", &tcalc::ops::tokenize, py::arg("expression"));
-    m.def("shunting_yard", &tcalc::ops::shunting_yard, py::arg("tokens"));
+    m.def("tokenize_string", &tcalc::parser::tokenize, py::arg("expression"));
+    m.def("shunting_yard", &tcalc::parser::shunting_yard, py::arg("tokens"));
 }

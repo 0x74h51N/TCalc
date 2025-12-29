@@ -6,9 +6,12 @@
 
 namespace tcalc::ops {
 
+/// Operator associativity for precedence resolution.
 enum class Assoc : std::uint8_t { Left, Right };
+/// Operator arity classification for parser rules.
 enum class Arity : std::uint8_t { Binary, Unary, Postfix };
 
+/// Operation identifiers used in tokens and op_table.
 enum class OpId : std::uint16_t {
     Add,
     Sub,
@@ -54,9 +57,11 @@ enum class OpId : std::uint16_t {
     Exp,
     Pow10,
 
+    /// Sentinel: not a real op; used for number tokens.
     Count,
 };
 
+/// Operator specification used by the tokenizer/parser.
 struct OpSpec {
     OpId id;
     std::string_view symbol;
@@ -65,39 +70,51 @@ struct OpSpec {
     Arity arity;
     std::array<std::string_view, 2> aliases{};
     std::string_view method;
+    /// Bitflags describing extra operator capabilities.
     enum class OpFlags : std::uint8_t {
         None = 0,
+        /// Trig uses the angle unit setting.
         NeedsAngleUnit = 1 << 0,
+        /// BigReal supported.
         BigSupported = 1 << 1,
-        BigComplexSupported = 1 << 2,
+        /// BigComplex supported.
+        BigComplexSupported = 1 << 2
     };
 
+    /// Extra operator capabilities.
     OpFlags flags{OpFlags::None};
 };
 
+/// Bitwise OR for OpFlags.
 constexpr OpSpec::OpFlags operator|(OpSpec::OpFlags lhs, OpSpec::OpFlags rhs) {
-    return static_cast<OpSpec::OpFlags>(static_cast<std::uint8_t>(lhs) |
-                                        static_cast<std::uint8_t>(rhs));
+    return static_cast<OpSpec::OpFlags>(
+        static_cast<std::uint8_t>(lhs) | static_cast<std::uint8_t>(rhs));
 }
 
+/// Check whether a flag is present.
 constexpr bool has_flag(OpSpec::OpFlags flags, OpSpec::OpFlags flag) {
     return (static_cast<std::uint8_t>(flags) & static_cast<std::uint8_t>(flag)) != 0;
 }
 
+/// True when the op depends on the angle unit setting.
 constexpr bool needs_angle_unit(const OpSpec &op) {
     return has_flag(op.flags, OpSpec::OpFlags::NeedsAngleUnit);
 }
 
+/// True when BigReal is supported for the op.
 constexpr bool big_supported(const OpSpec &op) {
     return has_flag(op.flags, OpSpec::OpFlags::BigSupported);
 }
 
+/// True when BigComplex is supported for the op.
 constexpr bool big_complex_supported(const OpSpec &op) {
     return has_flag(op.flags, OpSpec::OpFlags::BigComplexSupported);
 }
 
+/// Short alias for OpFlags.
 using Flags = OpSpec::OpFlags;
 
+/// Operation table used by tokenizer/normalizer and parser.
 inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Add,

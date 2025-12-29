@@ -41,8 +41,10 @@ void unit_transcendental(TestContext &ctx) {
     // Transcendentals: use tolerant comparisons.
     EXPECT_TRUE(
         ctx, approx_big(c.log(BigReal("1e-100000000")), BigReal("-100000000"), BigReal("1e-30")));
-    EXPECT_TRUE(ctx,
-                approx_big(c.log(BigReal("1e100000000")), BigReal("100000000"), BigReal("1e-30")));
+
+    EXPECT_TRUE(
+        ctx, approx_big(c.log(BigReal("1e100000000")), BigReal("100000000"), BigReal("1e-30")));
+
     EXPECT_TRUE(ctx, approx_big(c.ln(BigReal("1")), BigReal("0"), BigReal("1e-40")));
     EXPECT_TRUE(ctx, c.ln(BigReal("1e-100000000")) < BigReal("0"));
     EXPECT_TRUE(ctx, c.ln(BigReal("1e-100000000")) < c.ln(BigReal("1e-1")));
