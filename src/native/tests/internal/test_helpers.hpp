@@ -16,6 +16,12 @@ struct TestContext {
     bool verbose = true;
 };
 
+/// Simple test case pairing input data with an expected result.
+template <typename InputT, typename ExpectedT> struct Case {
+    InputT input;
+    ExpectedT expected;
+};
+
 constexpr double kDefaultApproxEps = 1e-12;
 
 inline bool approx(double a, double b, double eps = kDefaultApproxEps) {
