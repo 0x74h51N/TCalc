@@ -8,12 +8,11 @@
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
 double Calculator::fact(double a) const {
-    const double rounded = std::round(a);
-    if (!calc_detail::int_like(a) || rounded < 0.0) {
+    if (calc_detail::int_like(a) && a < 0.0) {
         calc_detail::math_error();
     }
 
-    return std::tgamma(rounded + 1.0);
+    return std::tgamma(a + 1.0);
 }
 
 double Calculator::gamma(double a) const {
@@ -26,8 +25,6 @@ double Calculator::gamma(double a) const {
 
 BigReal Calculator::fact(const BigReal &a) const {
     calc_detail::require(a >= 0);
-    using boost::multiprecision::floor;
-    calc_detail::require(floor(a) == a);
 
     using boost::math::tgamma;
     return tgamma(a + 1);

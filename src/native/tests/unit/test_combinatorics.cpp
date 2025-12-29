@@ -7,7 +7,7 @@ void unit_combinatorics(TestContext &ctx) {
     EXPECT_TRUE(ctx, c.fact(0.0) == 1.0);
     EXPECT_TRUE(ctx, c.fact(5.0) == 120.0);
     EXPECT_THROWS(ctx, c.fact(-1.0));
-    EXPECT_THROWS(ctx, c.fact(1.5));
+    EXPECT_TRUE(ctx, c.fact(0.25) == 0.9064024770554771);
 
     EXPECT_TRUE(ctx, c.gamma(1.0) == 1.0);
     EXPECT_TRUE(ctx, c.gamma(0.5) > 1.7);
@@ -18,7 +18,7 @@ void unit_combinatorics(TestContext &ctx) {
     EXPECT_TRUE(
         ctx, approx_big(c.fact(BigReal("20")), BigReal("2432902008176640000"), BigReal("1e-10")));
     EXPECT_THROWS(ctx, c.fact(BigReal("-1")));
-    EXPECT_THROWS(ctx, c.fact(BigReal("1.5")));
+    EXPECT_TRUE(ctx, approx_big(c.fact(BigReal("0.25")), BigReal("0.9064024770554771"), BigReal("1e-10")));
 
     EXPECT_THROWS(ctx, c.gamma(BigReal("0")));
     EXPECT_THROWS(ctx, c.gamma(BigReal("-2")));

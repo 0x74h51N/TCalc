@@ -29,3 +29,16 @@ those operations unless you add parentheses.
 - "(-4) ⌄ 2" makes the base negative -> 2i
 
 Use parentheses to bind the minus to a single number or sub-expression.
+
+
+Factorial (Gamma)
+-----------------
+Factorial uses the native C math `tgamma` implementation. To keep UX flexible,
+the extended factorial is enabled: decimal and decimal-negative inputs can be
+evaluated via the Gamma formulation (n! = Γ(n + 1)), while negative integers
+remain invalid.
+
+For readers who want the factorial formulation and implementation details,
+see these:
+- https://mathworld.wolfram.com/LanczosApproximation.html
+- https://git.musl-libc.org/cgit/musl/tree/src/math/tgamma.c
