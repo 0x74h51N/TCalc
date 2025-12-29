@@ -8,6 +8,7 @@
 #include <limits>
 #include <string>
 #include <utility>
+#include <vector>
 
 struct TestContext {
     int failures = 0;
@@ -44,7 +45,11 @@ inline bool approx_big(const T &a, const T &b,
 }
 
 template <typename T> inline void print_value(std::ostream &os, const T &v) {
-    os << v;
+    if constexpr (requires(std::ostream &out, const T &value) { out << value; }) {
+        os << v;
+    } else {
+        os << "<unprintable>";
+    }
 }
 
 inline void print_value(std::ostream &os, double v) {
@@ -55,6 +60,19 @@ inline void print_value(std::ostream &os, const BigReal &v) {
     os << std::setprecision(std::numeric_limits<BigReal>::digits10) << v;
 }
 
+/// Print vectors by iterating and delegating to print_value.
+template <typename T> inline void print_value(std::ostream &os, const std::vector<T> &values) {
+    os << "[";
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        if (i != 0) {
+            os << ", ";
+        }
+        print_value(os, values[i]);
+    }
+    os << "]";
+}
+
+/// Assert equality and record failures with optional verbose output.
 template <typename A, typename B>
 inline void expect_eq(TestContext &ctx, const A &got, const B &expected, const char *got_expr,
                       const char *expected_expr, const char *file, int line) {
