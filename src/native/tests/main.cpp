@@ -9,6 +9,7 @@ void unit_trig(TestContext &ctx);
 void unit_combinatorics(TestContext &ctx);
 void unit_parser(TestContext &ctx);
 void unit_helpers(TestContext &ctx);
+void unit_ops(TestContext &ctx);
 
 void smoke_stress(TestContext &ctx);
 
@@ -43,6 +44,7 @@ int main(int argc, char **argv) { // NOLINT(modernize-use-trailing-return-type)
     }
 
     run_suite(ctx, "unit_helpers", unit_helpers);
+    run_suite(ctx, "unit_ops", unit_ops);
     run_suite(ctx, "unit_arithmetic", unit_arithmetic);
     run_suite(ctx, "unit_transcendental", unit_transcendental);
     run_suite(ctx, "unit_trig", unit_trig);

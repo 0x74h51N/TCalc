@@ -39,6 +39,7 @@ add_executable(native_tests
   tests/unit/test_transcendental.cpp
   tests/unit/test_trig.cpp
   tests/unit/test_combinatorics.cpp
+  tests/unit/test_ops.cpp
   tests/smoke/smoke_stress.cpp
   tests/unit/test_parser.cpp
   tests/test_test_helpers.cpp
