@@ -203,10 +203,22 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [ ] .app bundle + dmg/zip distribution
 
 - [ ] Tests (native core + pipeline)
-  - [ ] Core unit tests (engine)
-  - [ ] Parser pipeline tests (tokenize -> normalize -> shunting-yard -> RPN eval)
-  - [ ] Edge cases / regression tests (add to golden list)
-  - [ ] UI smoke tests
+  - [ ] Unit tests
+    - [x] Native unit tests
+      - [x] Native Calculator class tests
+      - [x] Native Parser Unit tests: Tokinize, Normalize, Scanize, Shantinize
+      - [x] ops.hpp tables tests: op_table flags/arity/symbol invariants
+    - [ ] Py Core unit tests
+      - [ ] Rpn eval
+      - [ ] Promotion rules
+      - [ ] Number tokens parse utils
+      - [ ] Error handling
+      - [ ] Native pybind tests
+    - [ ] UI unit tests
+  - [ ] E2E Edge cases / regression tests (add to golden list)
+  - [ ] Smoke tests
+    - [ ] Native smoke
+    - [ ] PY Core/UI smoke
 
 ### v2 Roadmap
 
