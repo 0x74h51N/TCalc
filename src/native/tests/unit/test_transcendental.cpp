@@ -1,6 +1,7 @@
 #include "calc/pub/calculator.hpp"
 #include "internal/test_helpers.hpp"
 
+#include <boost/math/constants/constants.hpp>
 #include <cmath>
 #include <limits>
 
@@ -48,12 +49,23 @@ void unit_transcendental(TestContext &ctx) {
     EXPECT_TRUE(ctx, approx_big(c.ln(BigReal("1")), BigReal("0"), BigReal("1e-40")));
     EXPECT_TRUE(ctx, c.ln(BigReal("1e-100000000")) < BigReal("0"));
     EXPECT_TRUE(ctx, c.ln(BigReal("1e-100000000")) < c.ln(BigReal("1e-1")));
+    EXPECT_TRUE(
+        ctx, approx_big(c.root(BigReal("-27"), BigReal("3")), BigReal("-3"), BigReal("1e-30")));
 
     // ----
     // Complex
     // ----
     EXPECT_THROWS(ctx, c.log(Z(0.0, 0.0)));
     EXPECT_THROWS(ctx, c.ln(Z(0.0, 0.0)));
+
+    const Z i(0.0, 1.0);
+    const Z i_pow = c.pow(i, Z(2.0, 0.0));
+    EXPECT_TRUE(ctx, approx(i_pow.real(), -1.0, 1e-12));
+    EXPECT_TRUE(ctx, approx(i_pow.imag(), 0.0, 1e-12));
+
+    const Z z_sqrt = c.sqrt(Z(-4.0, 0.0));
+    EXPECT_TRUE(ctx, approx(z_sqrt.real(), 0.0, 1e-12));
+    EXPECT_TRUE(ctx, approx(z_sqrt.imag(), 2.0, 1e-12));
 
     // ----
     // BigComplex
@@ -62,12 +74,17 @@ void unit_transcendental(TestContext &ctx) {
     const BC z_pow2 = c.pow(z, BC("2"));
     EXPECT_TRUE(ctx, approx_big(z_pow2, c.mul(z, z)));
 
-    const BC z_sqrt = c.sqrt(z);
-    EXPECT_TRUE(ctx, approx_big(c.mul(z_sqrt, z_sqrt), z));
+    const BC z_sqrt_bc = c.sqrt(z);
+    EXPECT_TRUE(ctx, approx_big(c.mul(z_sqrt_bc, z_sqrt_bc), z));
 
     const BC z_root = c.root(z, BC("2"));
     EXPECT_TRUE(ctx, approx_big(c.pow(z_root, BC("2")), z));
 
-    const BC z_log = c.log(z); // log10
+    const BC z_log = c.log(z);
     EXPECT_TRUE(ctx, approx_big(c.pow(BC("10"), z_log), z, BF("1e-20")));
+
+    const BC z_ln("1e10", "1e-5");
+    const BF ln_ten = boost::math::constants::ln_ten<BF>();
+    const BC ln_from_log = c.log(z_ln) * BC(ln_ten, BF(0));
+    EXPECT_TRUE(ctx, approx_big(c.ln(z_ln), ln_from_log, BF("1e-20")));
 }

@@ -39,4 +39,11 @@ void unit_arithmetic(TestContext &ctx) {
     EXPECT_EQ(ctx, c.intdiv(BigReal("5.9"), BigReal("2.0")), BigReal("2"));
     EXPECT_EQ(ctx, c.intdiv(BigReal("-5"), BigReal("2")), BigReal("-2"));
     EXPECT_THROWS(ctx, c.div(BigReal("1.0"), BigReal("0.0")));
+    EXPECT_EQ(ctx, c.mod(BigReal("-8.5"), BigReal("2.5")), BigReal("-1.0"));
+
+    // BigComplex arithmetic
+    const BigComplex bc_a("1.5", "-2.5");
+    const BigComplex bc_b("0.5", "0.25");
+    const BigComplex bc_div = c.div(bc_a, bc_b);
+    EXPECT_TRUE(ctx, approx_big(c.mul(bc_div, bc_b), bc_a));
 }

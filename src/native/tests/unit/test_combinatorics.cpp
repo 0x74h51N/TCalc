@@ -32,4 +32,6 @@ void unit_combinatorics(TestContext &ctx) {
     EXPECT_TRUE(ctx, c.choose(5, 2) == BigReal("10"));
     EXPECT_TRUE(ctx, c.choose(5, 6) == BigReal("0"));
     EXPECT_TRUE(ctx, c.permute(5, 6) == BigReal("0"));
+    EXPECT_THROWS(ctx, c.permute(-1, 2));
+    EXPECT_THROWS(ctx, c.choose(3, -2));
 }
