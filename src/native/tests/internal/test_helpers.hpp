@@ -5,6 +5,7 @@
 #include <cmath>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <limits>
 #include <string>
 #include <utility>
@@ -116,12 +117,34 @@ inline void expect_eq(
 }
 
 /// Assert a boolean expression and record failures.
-inline void expect_true(TestContext &ctx, bool ok, const char *expr, const char *file, int line) {
+inline void expect_true(
+    TestContext &ctx,
+    bool ok,
+    const char *expr,
+    const char *file,
+    int line,
+    const char *message = nullptr) {
     ctx.checks += 1;
     if (!ok) {
         ctx.failures += 1;
-        std::cerr << file << ":" << line << " EXPECT_TRUE failed: " << expr << "\n";
+        if (message) {
+            std::cerr << file << ":" << line << " EXPECT_TRUE failed: " << expr << " (" << message
+                      << ")\n";
+        } else {
+            std::cerr << file << ":" << line << " EXPECT_TRUE failed: " << expr << "\n";
+        }
     }
+}
+
+/// Assert a condition with a lazily-built message.
+template <typename Fn>
+inline void
+expect_msg(TestContext &ctx, bool ok, const char *expr, const char *file, int line, Fn &&builder) {
+
+    std::ostringstream os;
+    std::forward<Fn>(builder)(os);
+    const std::string msg = os.str();
+    expect_true(ctx, ok, expr, file, line, msg.c_str());
 }
 
 /// Assert that a callable throws.
@@ -138,7 +161,11 @@ inline void expect_throws(TestContext &ctx, Fn &&fn, const char *expr, const cha
 }
 
 /// Shorthand for expect_true with source location.
-#define EXPECT_TRUE(ctx, expr) expect_true((ctx), (expr), #expr, __FILE__, __LINE__)
+#define EXPECT_TRUE(ctx, expr, ...)                                                                \
+    expect_true((ctx), (expr), #expr, __FILE__, __LINE__ __VA_OPT__(, ) __VA_ARGS__)
+/// Shorthand for expect_msg with source location.
+#define EXPECT_MSG(ctx, expr, builder)                                                             \
+    expect_msg((ctx), (expr), #expr, __FILE__, __LINE__, (builder))
 /// Shorthand for expect_throws with source location.
 #define EXPECT_THROWS(ctx, expr)                                                                   \
     expect_throws((ctx), [&] { (void)(expr); }, #expr, __FILE__, __LINE__)
