@@ -1,7 +1,9 @@
 .PHONY: dev hooks lint lint-fix typecheck check stubs
 .PHONY: native native-configure native-build native-test native-ctest native-clean native-release
+.PHONY: py-test
 
 PY := ./venv/bin/python
+PYTEST_ARGS ?= -vv -rA
 
 dev: hooks
 	./scripts/dev
@@ -18,6 +20,10 @@ typecheck:
 	$(PY) -m mypy
 
 check: lint typecheck
+
+py-test:
+	PYTHONPATH=src $(PY) -m pytest $(PYTEST_ARGS)
+
 
 NATIVE_BUILD_TYPE ?= Debug
 NATIVE_TEST_ARGS ?= --quiet

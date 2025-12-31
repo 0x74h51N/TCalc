@@ -43,6 +43,10 @@ python -m pip install -e ".[dev]"
 # -----------------------------
 make native-test NATIVE_TEST_ARGS=""
 
+# Py-tests
+# -----------------------------
+echo "Py-test running..."
+make py-test PYTEST_ARGS="-ra"
 
 
 echo "Auto-restart enabled"
