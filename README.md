@@ -209,9 +209,9 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
       - [x] Native Parser Unit tests: Tokinize, Normalize, Scanize, Shantinize
       - [x] ops.hpp tables tests: op_table flags/arity/symbol invariants
     - [ ] Py Core unit tests
-      - [ ] Rpn eval
+      - [x] Rpn eval
       - [ ] Promotion rules
-      - [ ] Number tokens parse utils
+      - [x] Number tokens parse utils
       - [ ] Error handling
       - [ ] Native pybind tests
     - [ ] UI unit tests
