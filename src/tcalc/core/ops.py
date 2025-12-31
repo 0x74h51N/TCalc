@@ -117,6 +117,7 @@ for name, spec in _UI_SPECS:
 
 class Operation(str, Enum):
     _spec: OpSpec
+
     @property
     def spec(self) -> OpSpec:
         return self._spec
@@ -144,6 +145,7 @@ class Operation(str, Enum):
     @property
     def token(self) -> str:
         return self._spec.method or self.name.lower()
+
 
 Operation = Enum("Operation", _operation_values, type=Operation)
 for op in Operation:

@@ -4,6 +4,7 @@ from enum import Enum
 
 class CalculatorError(Exception):
     """Exception raised for calculator operation errors."""
+
     pass
 
 
