@@ -6,7 +6,7 @@
 PY := ./venv/bin/python
 PYTEST_ARGS ?= -vv -rA
 
-dev: hooks
+dev:
 	./scripts/dev
 
 lint:
@@ -71,3 +71,6 @@ cpp-format-check:
 
 cpp-tidy:
 	$(NATIVE_MAKE) cpp-tidy
+
+hooks:
+	$(PY) -m pre_commit install --install-hooks --config .pre-commit.yaml
