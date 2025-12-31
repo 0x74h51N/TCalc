@@ -2,6 +2,8 @@ import math
 
 import calc_native
 
+from .constants import I_UNIT_CHARS
+
 
 def is_number_token(tok: object) -> bool:
     return tok.kind == calc_native.TokenKind.Number
@@ -22,11 +24,11 @@ def parse_number_token(s: str) -> int | float | complex | calc_native.BigReal:
     if not s:
         return _parse_real_token(s)
 
-    # normalize leading 'i' to trailing 'i'
-    if s[0] in {"i", "I"}:
-        s = s[1:] + "i"
+    # normalize leading imag unit
+    if s[0] in I_UNIT_CHARS:
+        s = s[1:] + s[0]
 
-    if s[-1] in {"i", "I"}:
+    if s[-1] in I_UNIT_CHARS:
         real_part = s[:-1]
         real = 1 if real_part == "" else _parse_real_token(real_part)
         if isinstance(real, getattr(calc_native, "BigReal", ())):
