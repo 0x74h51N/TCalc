@@ -39,6 +39,16 @@ source venv/bin/activate
 echo "Installing Python deps"
 python -m pip install -e ".[dev]"
 
+# formatting
+# -----------------------------
+echo "Formatting C++"
+make cpp-format
+make cpp-format-check
+
+echo "Formatting Python"
+make py-format
+make py-format-check
+
 # native build + tests (CMake + Ninja)
 # -----------------------------
 make native-test NATIVE_TEST_ARGS=""

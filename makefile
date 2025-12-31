@@ -1,4 +1,5 @@
 .PHONY: dev hooks lint lint-fix typecheck check stubs
+.PHONY: py-format py-format-check
 .PHONY: native native-configure native-build native-test native-ctest native-clean native-release
 .PHONY: py-test
 
@@ -20,6 +21,12 @@ typecheck:
 	$(PY) -m mypy
 
 check: lint typecheck
+
+py-format:
+	$(PY) -m ruff format src
+
+py-format-check:
+	$(PY) -m ruff format --check src
 
 py-test:
 	PYTHONPATH=src $(PY) -m pytest $(PYTEST_ARGS)
