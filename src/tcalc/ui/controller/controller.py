@@ -37,12 +37,11 @@ class CalculatorController:
         self._display.expression_changed.connect(self._on_expression_input)
 
         self._expression: str = ""
-        self.tokens: Iterable[object] = []
+        self.tokens: List[object] = []
         self._result: Optional[object] = None
         self._just_solved = False
         self._error_text: Optional[str] = None
         self._force_error_display = False
-        self._can_preview = False
 
         self._memory_ops = {str(k["operation"]) for k in MEMORY_KEYS}
 
@@ -50,23 +49,15 @@ class CalculatorController:
         self._handlers: Dict[Operation, Callable[[str], None]] = self._build_handlers()
 
         # Get all operator symbols including aliases
-        self._operator_symbol_values = get_symbols_with_aliases(
-            lambda op: getattr(op, "sym", None) is not None
-        )
+        self._operator_symbol_values = get_symbols_with_aliases()
         self._operator_symbol_values.discard(Operation.IMAG.symbol)
 
-        # Get unary operator symbols
-        self._unary_operator_symbols = get_symbols_with_aliases(
-            lambda op: getattr(op, "arity", None) == "unary"
-        )
-
-        # Get postfix operator symbols
-        self._postfix_operator_symbols = get_symbols_with_aliases(
-            lambda op: getattr(op, "arity", None) == "postfix"
+        # Get binary operator symbols
+        self._binary_operator_symbols = get_symbols_with_aliases(
+            lambda spec: spec.arity == "binary"
         )
 
         self._tokenize_string = tokenize_string
-
         self._history.set_memory("")
         self._compute_and_update()
 
@@ -75,7 +66,6 @@ class CalculatorController:
         self._just_solved = False
         if operation == "shift":
             self._app_state.shifted = not self._app_state.shifted
-            self._compute_and_update()
             return
 
         if isinstance(operation, str) and operation in self._memory_ops:
@@ -199,9 +189,6 @@ class CalculatorController:
                 else self._calculator.add(self._app_state.memory, value)
             )
 
-        if op not in self._memory_ops:
-            return
-
         def with_value(fn):
             value = self._result
             if value is None:
@@ -311,17 +298,9 @@ class CalculatorController:
             return is_number_token(tokens[0])
 
         last_text = self._token_text(tokens[-1])
-        if not last_text:
-            return False
         if last_text == Operation.OPEN_PAREN.symbol:
             return False
-        if last_text in self._postfix_operator_symbols:
-            return True
-        if last_text in self._unary_operator_symbols:
-            return False
-        if last_text == Operation.CLOSE_PAREN.symbol:
-            return True
-        if last_text in self._operator_symbol_values:
+        if last_text in self._binary_operator_symbols:
             return False
         return True
 
@@ -335,10 +314,10 @@ class CalculatorController:
 
         self.tokens = self._tokenize_string(self._expression)
         self._display.update_expr(self._expression)
-        self._can_preview = self._can_compute_preview(self.tokens)
+        _can_preview = self._can_compute_preview(self.tokens)
 
         result_text = ""
-        if self._force_error_display or self._can_preview:
+        if self._force_error_display or _can_preview:
             self._result = self._evaluate_tokens(self.tokens, self._calculator)
 
         if self._result is None:
@@ -346,7 +325,7 @@ class CalculatorController:
                 result_text = self._error_text
         else:
             self._error_text = None
-            if self._can_preview and not self._just_solved:
+            if _can_preview and not self._just_solved:
                 result_text = format_result(self._result)
 
         self._force_error_display = False
