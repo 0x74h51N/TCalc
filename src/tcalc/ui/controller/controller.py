@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Iterable
 
 import calc_native
 
 from tcalc.app_state import AngleUnit, get_app_state
 from tcalc.core import Calculator, evaluate_tokens, tokenize_string
-from tcalc.core.errors import ErrorKind
 from tcalc.core.ops import Operation, get_symbols_with_aliases
 from tcalc.core.utils import is_number_token
 from tcalc.ui.controller.menubar import EditOperations
@@ -38,7 +37,8 @@ class CalculatorController:
         self._display.expression_changed.connect(self._on_expression_input)
 
         self._expression: str = ""
-        self._result: str = ""
+        self.tokens: Iterable[object] = []
+        self._result: Optional[object] = None
         self._just_solved = False
         self._error_text: Optional[str] = None
         self._force_error_display = False
@@ -72,7 +72,7 @@ class CalculatorController:
 
     def handle_key(self, label: str, operation) -> None:
         """Dispatch button press to appropriate handler."""
-
+        self._just_solved = False
         if operation == "shift":
             self._app_state.shifted = not self._app_state.shifted
             self._compute_and_update()
@@ -115,74 +115,37 @@ class CalculatorController:
 
     def _handle_digit(self, label: str) -> None:
         """Append digit to expression, reset if just solved."""
-        if self._just_solved:
-            self._expression = label
-            self._just_solved = False
-        else:
-            self._expression += label
+
+        self._expression += label
 
     def _handle_dot(self) -> None:
-        if self._just_solved:
-            self._expression = "0."
-            self._just_solved = False
-        elif "." not in self._expression:
-            self._expression += "."
-
-    def _set_operator(self, _label: str, operation: Operation) -> None:
-        symbol = operation.symbol
-        arity = getattr(operation, "arity", None)
-        if arity == "unary":
-            self._expression += f"{symbol}{Operation.OPEN_PAREN.symbol}"
-        elif arity == "binary":
-            self._expression += f" {symbol} "
-        else:
-            self._expression += symbol
-        self._just_solved = False
-
-    def _evaluate_tokens(self, tokens, calculator):
-        """Call core.evaluate_tokens; on CalculatorError log and return the error text."""
-        try:
-            return evaluate_tokens(tokens, calculator)
-        except Exception as exc:
-            self._error_text = (
-                ErrorKind.MATH_ERR.value
-                if str(exc).lower() == ErrorKind.MATH_ERR.value.lower()
-                else ErrorKind.INVALID.value
-            )
-            print("Evalute token native error: ", exc)
+        self._expression += Operation.DOT.symbol
 
     def _handle_equals(self) -> None:
         """Evaluate expression, update history and show result."""
-        tokens = self._tokenize_expression()
-        if not tokens:
+        if not self.tokens:
             return
 
-        value = self._evaluate_tokens(tokens, self._calculator)
-        if value is None:
+        if self._result is None:
             self._force_error_display = True
-            return None
+            return
 
-        formatted_display = format_result(value)
-        formatted_expr = clean_for_expression(formatted_display)
-
+        formatted_res = clean_for_expression(format_result(self._result))
         expr = self._expression
-        self._history.update_history(f"{expr}={formatted_expr}")
-        self._expression = formatted_expr
+        self._history.update_history(f"{expr}={formatted_res}")
+        self._expression = formatted_res
+        self._just_solved = True
 
         # Reset undo/redo navigation
         self._edit_ops.reset_navigation()
 
-        self._just_solved = True
-
     def _handle_clear(self) -> None:
         self._expression = ""
         self._edit_ops.reset_navigation()
-        self._just_solved = False
 
     def _handle_backspace(self) -> None:
         if self._expression:
             self._expression = self._expression[:-1]
-        self._just_solved = False
 
     def _handle_negate(self) -> None:
         """Toggle sign of the last number in expression."""
@@ -191,9 +154,7 @@ class CalculatorController:
             self._expression = "" if self._expression else Operation.SUB.symbol
             return
 
-        tokens = self._tokenize_expression()
-
-        texts = [self._token_text(t) for t in tokens]
+        texts = [self._token_text(t) for t in self.tokens]
 
         for i in range(len(texts) - 1, -1, -1):
             txt = texts[i]
@@ -221,22 +182,12 @@ class CalculatorController:
             return
 
     def _handle_memory(self, op: str) -> None:
-        def current_value():
-            tokens = self._tokenize_expression()
-            if not tokens:
-                return None
-
-            return self._evaluate_tokens(tokens, self._calculator)
-
         def recall():
             if self._app_state.memory is None:
                 return
             token = clean_for_expression(format_result(self._app_state.memory))
-            if self._just_solved:
-                self._expression = token
-                self._just_solved = False
-            else:
-                self._expression += token
+
+            self._expression += token
 
         def store(value):
             self._app_state.memory = value
@@ -252,10 +203,9 @@ class CalculatorController:
             return
 
         def with_value(fn):
-            value = current_value()
+            value = self._result
             if value is None:
-                if self._error_text is not None:
-                    self._force_error_display = True
+                self._force_error_display = True
                 return
             fn(value)
 
@@ -273,6 +223,16 @@ class CalculatorController:
         self._history.set_memory(
             "" if self._app_state.memory is None else format_result(self._app_state.memory)
         )
+
+    # Mode handlers
+    def _toggle_hyp(self) -> None:
+        self._app_state.hyp = not self._app_state.hyp
+
+    def set_angle_unit(self, unit: AngleUnit) -> None:
+        self._app_state.angle_unit = unit
+        self._compute_and_update()
+
+    # -- Handle factory ------------------------------------------------------
 
     def _build_handlers(self) -> Dict[Operation, Callable[[str], None]]:
         """Auto-generate operation handlers based on Operation attributes"""
@@ -310,18 +270,25 @@ class CalculatorController:
 
         return handlers
 
-    # Mode handlers
-    def _toggle_hyp(self) -> None:
-        self._app_state.hyp = not self._app_state.hyp
-
-    def set_angle_unit(self, unit: AngleUnit) -> None:
-        self._app_state.angle_unit = unit
-        self._compute_and_update()
-
     # -- Helpers ----------------------------------------------------------
 
-    def _tokenize_expression(self) -> List[object]:
-        return self._tokenize_string(self._expression)
+    def _set_operator(self, _label: str, operation: Operation) -> None:
+        symbol = operation.symbol
+        arity = getattr(operation, "arity", None)
+        if arity == "unary":
+            self._expression += f"{symbol}{Operation.OPEN_PAREN.symbol}"
+        elif arity == "binary":
+            self._expression += f" {symbol} "
+        else:
+            self._expression += symbol
+
+    def _evaluate_tokens(self, tokens: Iterable[object], calculator: Calculator):
+        """Call core.evaluate_tokens; on CalculatorError log and return the error text."""
+        try:
+            return evaluate_tokens(tokens, calculator)
+        except Exception as exc:
+            self._error_text = str(exc)
+            print("Evalute token native error: ", exc)
 
     def _token_text(self, tok: object) -> object:
         if tok.kind == calc_native.TokenKind.Number:
@@ -358,44 +325,29 @@ class CalculatorController:
             return False
         return True
 
-    def _compute_preview(self, tokens: List[object], can_preview: bool) -> str:
-        """Evaluate tokens and return formatted result"""
-
-        if not can_preview:
-            return ""
-
-        value = self._evaluate_tokens(tokens, self._calculator)
-        if value is None:
-            return None
-
-        formatted = format_result(value)
-        self._result = formatted
-        return formatted
-
     def _on_expression_input(self, text: str) -> None:
         """Handle keyboard input"""
         self._expression = text
-        self._just_solved = False
         self._compute_and_update()
-
-    def _show_and_clear_error(self) -> bool:
-        if self._error_text is None:
-            return False
-        if self._force_error_display or not self._can_preview:
-            self._display.update_res(self._error_text)  # forced action or invalid preview
-        else:
-            self._display.update_res("")
-
-        self._error_text = None
-        self._force_error_display = False
-        return True
 
     def _compute_and_update(self) -> None:
         """Recalculate preview and update display."""
-        tokens = self._tokenize_expression()
-        self._can_preview = self._can_compute_preview(tokens)
-        self._result = self._compute_preview(tokens, self._can_preview)
-        self._display.update_expr(self._expression)
 
-        if not self._show_and_clear_error():
-            self._display.update_res(self._result)
+        self.tokens = self._tokenize_string(self._expression)
+        self._display.update_expr(self._expression)
+        self._can_preview = self._can_compute_preview(self.tokens)
+
+        result_text = ""
+        if self._force_error_display or self._can_preview:
+            self._result = self._evaluate_tokens(self.tokens, self._calculator)
+
+        if self._result is None:
+            if self._force_error_display and self._error_text:
+                result_text = self._error_text
+        else:
+            self._error_text = None
+            if self._can_preview and not self._just_solved:
+                result_text = format_result(self._result)
+
+        self._force_error_display = False
+        self._display.update_res(result_text)
