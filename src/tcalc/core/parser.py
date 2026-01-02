@@ -20,6 +20,12 @@ def shunting_yard(tokens: Iterable[object]) -> List[object]:
     return list(calc_native.shunting_yard(tokens))
 
 
+def _pop_operand(operand_stack: List[object], tok: str) -> object:
+    if not operand_stack:
+        raise_error(ErrorKind.MALFORMED, "Pop operand, not operand in stack.")
+    return operand_stack.pop()
+
+
 def _coerce_token(tok: object) -> object:
     if isinstance(tok, str):
         if tok in CONSTANTS:
@@ -44,18 +50,14 @@ def evaluate_rpn(rpn_tokens: Iterable[object], calculator: Calculator) -> object
             # and missing OpId specs are caught by native ops tests.
 
         if spec.arity == "postfix":
-            if not operand_stack:
-                raise_error(ErrorKind.MALFORMED, "Pop operand, not operand in stack.")
-            val = operand_stack.pop()
+            val = _pop_operand(operand_stack, spec.sym)
             func = getattr(calculator, spec.method, None)
 
             operand_stack.append(func(val))
             continue
 
         if spec.arity == "unary":
-            if not operand_stack:
-                raise_error(ErrorKind.MALFORMED, "Pop operand, not operand in stack.")
-            val = operand_stack.pop()
+            val = _pop_operand(operand_stack, spec.sym)
             func = getattr(calculator, spec.method, None)
 
             if spec.needs_unit:
