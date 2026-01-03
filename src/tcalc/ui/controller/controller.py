@@ -300,8 +300,6 @@ class CalculatorController:
         last_text = self._token_text(tokens[-1])
         if last_text == Operation.OPEN_PAREN.symbol:
             return False
-        if last_text in self._binary_operator_symbols:
-            return False
         return True
 
     def _on_expression_input(self, text: str) -> None:

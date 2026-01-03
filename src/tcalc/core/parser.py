@@ -83,6 +83,8 @@ def evaluate_rpn(rpn_tokens: Iterable[object], calculator: Calculator) -> object
 
         raise_error(ErrorKind.MALFORMED)
 
+    if not operand_stack:
+        raise_error(ErrorKind.MALFORMED, "Operand stack empty")
     return operand_stack[0]
 
 
