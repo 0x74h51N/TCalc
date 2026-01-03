@@ -5,6 +5,8 @@ import pytest
 from tcalc.core import errors
 from tcalc.core import parser as parser_mod
 
+param = pytest.param
+
 
 def test_rpn_binary_order(fake_ops, op_ids, token_factory, dummy_calc):
     num, op = token_factory
@@ -27,36 +29,40 @@ def test_rpn_needs_unit(fake_ops, op_ids, token_factory, dummy_calc, angle_unit)
     assert parser_mod.evaluate_rpn(tokens, dummy_calc) == (1, angle_unit)
 
 
-def test_rpn_operand_check_malformed_raises(fake_ops, op_ids, token_factory, dummy_calc):
-    _, op = token_factory
-    tokens = [op(op_ids.PERCENT)]
-
-    with pytest.raises(errors.Error):
-        parser_mod.evaluate_rpn(tokens, dummy_calc)
-
-
-def test_rpn_malformed_unary_raises(fake_ops, op_ids, token_factory, dummy_calc):
-    _, op = token_factory
-    tokens = [op(op_ids.NEGATE)]
-
-    with pytest.raises(errors.Error):
-        parser_mod.evaluate_rpn(tokens, dummy_calc)
-
-
-def test_rpn_malformed_binary_raises(fake_ops, op_ids, token_factory, dummy_calc):
+@pytest.mark.parametrize(
+    "rpn",
+    [
+        param(("op", "PERCENT"), id="postfix-missing-operand"),
+        param(("op", "NEGATE"), id="unary-missing-operand"),
+        param(("num", 69, "op", "ADD"), id="binary-missing-operand"),
+    ],
+)
+def test_rpn_malformed_raises(fake_ops, op_ids, token_factory, dummy_calc, rpn):
     num, op = token_factory
-    tokens = [num(69), op(op_ids.ADD)]
+    it = iter(rpn)
+    tokens = []
+    for kind in it:
+        if kind == "num":
+            tokens.append(num(next(it)))
+        elif kind == "op":
+            tokens.append(op(getattr(op_ids, next(it))))
+        else:
+            raise AssertionError(f"Unknown rpn kind: {kind!r}")
 
     with pytest.raises(errors.Error):
         parser_mod.evaluate_rpn(tokens, dummy_calc)
 
 
-def test_coerce_token_constant():
-    assert parser_mod._coerce_token("π") == parser_mod.CONSTANTS["π"]
+@pytest.mark.parametrize(
+    ("literal", "expected"),
+    [
+        param("π", parser_mod.CONSTANTS["π"], id="constant-pi"),
+        param("123", 123, id="number-int"),
+    ],
+)
+def test_coerce_token(literal, expected, fake_parse_number):
+    assert parser_mod._coerce_token(literal) == expected
 
-
-def test_coerce_token_number(fake_parse_number):
-    assert parser_mod._coerce_token("123") == 123
 
 def test_coerce_token_invalid_raises(fake_parse_number):
     with pytest.raises(errors.Error):
