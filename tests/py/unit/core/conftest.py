@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 from types import ModuleType, SimpleNamespace
 from typing import Callable
-
+import math
 import pytest
 
 import sys
@@ -73,6 +73,10 @@ class DummyCalc:
         self.calls.append(("sub", (a, b)))
         return a - b
 
+    def div(self, a, b):
+        self.calls.append(("div", (a, b)))
+        return a / b
+
     def negate(self, a):
         self.calls.append(("negate", (a,)))
         return -a
@@ -139,8 +143,8 @@ class FakeArity(Enum):
 def _install_fake_calc_native() -> ModuleType:
     calc_native = ModuleType("calc_native")
 
-    calc_native.e = 2.718281828459045
-    calc_native.pi = 3.141592653589793
+    calc_native.e = math.e
+    calc_native.pi = math.pi
     calc_native.i = 1j
 
     class AngleUnit(Enum):
@@ -150,8 +154,7 @@ def _install_fake_calc_native() -> ModuleType:
     calc_native.AngleUnit = AngleUnit
 
     calc_native.TokenKind = FakeTokenKind
-    # Native code uses PascalCase members like `OpId.Sqrt`; keep production imports
-    # working while still using UPPERCASE FakeOpId keys everywhere else.
+
     calc_native.OpId = SimpleNamespace(
         Sqrt=FakeOpId.SQRT,
         Asin=FakeOpId.ASIN,
@@ -222,6 +225,14 @@ def _cx_sqrt(x: float) -> bool:
     return x < 0.0
 
 
+def _cx_root(x: float, y: float) -> bool:
+    return x < 0.0
+
+
+def _cx_log(x: float) -> bool:
+    return x <= 0.0
+
+
 _FAKE_OP_SPECS: dict[FakeOpId, FakeSpec] = {
     FakeOpId.ADD: FakeSpec(arity="binary", method="add", big=True, bigcx=True),
     FakeOpId.SUB: FakeSpec(arity="binary", method="sub"),
@@ -230,9 +241,10 @@ _FAKE_OP_SPECS: dict[FakeOpId, FakeSpec] = {
     FakeOpId.SIN: FakeSpec(arity="unary", method="sin"),
     FakeOpId.POW: FakeSpec(arity="binary", method="pow", big=True, bigcx=True),
     FakeOpId.SQRT: FakeSpec(
-        arity="unary", method="sqrt", cx=_cx_sqrt, big=True, bigcx=True
+         arity="unary", method="sqrt", cx=_cx_sqrt, big=True, bigcx=True
     ),
-    FakeOpId.LOG: FakeSpec(arity="unary", method="log"),
+    FakeOpId.ROOT: FakeSpec(arity="binary", method="root", cx=_cx_root),
+    FakeOpId.LOG: FakeSpec(arity="unary", method="log", cx=_cx_log),
     FakeOpId.BAD_TYPE: FakeSpec(arity="binary", method="bad_type"),
     FakeOpId.BAD_NATIVE: FakeSpec(arity="binary", method="bad_native"),
 }
