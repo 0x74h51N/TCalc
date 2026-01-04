@@ -124,6 +124,23 @@ void unit_parser(TestContext &ctx) {
              {{TokenKind::Number, OpId::Count, "1"},
               {TokenKind::Op, OpId::Sub, ""},
               {TokenKind::Number, OpId::Count, "2"}}},
+        {.input =
+             {{TokenKind::Number, OpId::Count, "1"},
+              {TokenKind::Op, OpId::Add, ""},
+              {TokenKind::Op, OpId::Sub, ""},
+              {TokenKind::Op, OpId::Sub, ""},
+              {TokenKind::Op, OpId::Sub, ""},
+              {TokenKind::Op, OpId::Add, ""},
+              {TokenKind::Op, OpId::Add, ""},
+              {TokenKind::Op, OpId::Sub, ""},
+              {TokenKind::Op, OpId::Sub, ""},
+              {TokenKind::Op, OpId::Add, ""},
+              {TokenKind::Op, OpId::Add, ""},
+              {TokenKind::Number, OpId::Count, "2"}},
+         .expected =
+             {{TokenKind::Number, OpId::Count, "1"},
+              {TokenKind::Op, OpId::Sub, ""},
+              {TokenKind::Number, OpId::Count, "2"}}},
 
         // Implicit multipications
         {.input =
