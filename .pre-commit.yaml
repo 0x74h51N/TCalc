@@ -6,18 +6,23 @@ repos:
         entry: make cpp-format
         language: system
         pass_filenames: false
-      - id: py-format
-        name: py-format
-        entry: make py-format
+      - id: lint-format
+        name: py-lint-format
+        entry: make py-lint-fix
         language: system
         pass_filenames: false
-      - id: py-test
-        name: py-test
-        entry: make py-test PYTEST_ARGS="-ra"
+      - id: native-build
+        name: native-build
+        entry: make native-build
         language: system
         pass_filenames: false
       - id: native-test
         name: native-test
         entry: make native-test
+        language: system
+        pass_filenames: false
+      - id: py-test
+        name: py-test
+        entry: make py-test PYTEST_ARGS="-ra"
         language: system
         pass_filenames: false

@@ -9,24 +9,16 @@ PYTEST_ARGS ?= -vv -rA
 dev:
 	./scripts/dev
 
-lint:
+py-lint:
 	$(PY) -m ruff check src
 	$(PY) -m ruff format --check src
 
-lint-fix:
+py-lint-fix:
 	$(PY) -m ruff check --fix src
 	$(PY) -m ruff format src
 
 typecheck:
 	$(PY) -m mypy
-
-check: lint typecheck
-
-py-format:
-	$(PY) -m ruff format src
-
-py-format-check:
-	$(PY) -m ruff format --check src
 
 py-test:
 	PYTHONPATH=src $(PY) -m pytest $(PYTEST_ARGS)
