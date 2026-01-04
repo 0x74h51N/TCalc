@@ -21,7 +21,8 @@ typecheck:
 	$(PY) -m mypy
 
 py-test:
-	PYTHONPATH=src $(PY) -m pytest $(PYTEST_ARGS)
+	PYTHONPATH=src $(PY) -m pytest tests/py/unit $(PYTEST_ARGS)
+	PYTHONPATH=src $(PY) -m pytest tests/py/e2e $(PYTEST_ARGS)
 
 
 NATIVE_BUILD_TYPE ?= Debug
