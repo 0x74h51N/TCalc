@@ -70,13 +70,17 @@ def test_coerce_args_type_promotions(calc, name, args, expected_types):
 @pytest.mark.parametrize(
     ("args", "expected"),
     [
-        param((2, 308), (int, int), id="pow-below-threshold"),
-        param((2, 309), (FakeBigReal, FakeBigReal), id="pow-at-threshold"),
-        param((2, -309), (FakeBigReal, FakeBigReal), id="pow-neg-threshold"),
-        param((1 + 2j, 400), (FakeBigComplex, FakeBigComplex), id="pow-complex->bigcomplex"),
+        param((10, 308), (int, int), id="pow-no-special-promotion"),
+        param((0.1, 400), (float, int), id="pow-no-special-promotion-underflow"),
+        param(
+            (FakeBigReal("2"), 308),
+            (FakeBigReal, FakeBigReal),
+            id="pow-preserves-existing-bigreal",
+        ),
+        param((1 + 2j, 400), (complex, complex), id="pow-complex-promotes-complex"),
     ],
 )
-def test_pow_big_promote(calc, args, expected):
+def test_pow_arg_coercion(calc, args, expected):
     out = calc._coerce_args("pow", args)
     assert isinstance(out[0], expected[0])
     assert isinstance(out[1], expected[1])
