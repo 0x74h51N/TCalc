@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import calc_native
 
-E: object = calc_native.e
-PI: object = calc_native.pi
+E: float = float(str(calc_native.e))
+PI: float = float(str(calc_native.pi))
 I_UNIT: object = calc_native.i
 
 I_UNIT_CHARS = frozenset({"i", "I", "j", "J"})
