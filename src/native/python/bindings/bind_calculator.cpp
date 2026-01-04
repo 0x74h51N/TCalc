@@ -108,8 +108,11 @@ void bind_calculator(py::module_ &m) {
     cls.def(
         "pow",
         [](const C &calc, double a, long long b) -> py::object {
-            const double r = calc.pow(a, b);
-            return promote_inf_to_big(r, [&] { return calc.pow(B(a), B(b)); });
+            if (pow_to_big(a, static_cast<double>(b), true)) {
+                return py::cast(calc.pow(B(a), B(b)));
+            }
+
+            return py::float_(calc.pow(a, b));
         },
         py::arg("a"),
         py::arg("b"));
@@ -117,8 +120,12 @@ void bind_calculator(py::module_ &m) {
     cls.def(
         "pow",
         [](const C &calc, double a, double b) -> py::object {
-            const double r = calc.pow(a, b);
-            return promote_inf_to_big(r, [&] { return calc.pow(B(a), B(b)); });
+            const bool exp_is_int = std::trunc(b) == b;
+            if (pow_to_big(a, b, exp_is_int)) {
+                return py::cast(calc.pow(B(a), B(b)));
+            }
+
+            return py::float_(calc.pow(a, b));
         },
         py::arg("a"),
         py::arg("b"));
@@ -129,6 +136,7 @@ void bind_calculator(py::module_ &m) {
         py::overload_cast<const B &, const B &>(&C::pow, py::const_),
         py::arg("a"),
         py::arg("b"));
+
     cls.def(
         "pow",
         py::overload_cast<const BC &, const BC &>(&C::pow, py::const_),
