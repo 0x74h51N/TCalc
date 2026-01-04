@@ -116,6 +116,11 @@ std::vector<Token> tokenize(std::string_view expression) {
         std::size_t len = 0;
         const OpSpec *spec = match_op(expression, i, len);
         if (spec != nullptr && len != 0) {
+            // Unary plus is a no-op; ignore it when we are expecting an operand.
+            if (spec->id == OpId::Add && expect_operand) {
+                i += len;
+                continue;
+            }
             if (spec->id == OpId::Sub && expect_operand) {
                 spec = op_spec(OpId::Negate);
             }
