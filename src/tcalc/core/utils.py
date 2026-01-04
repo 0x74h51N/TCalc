@@ -1,4 +1,5 @@
 import math
+from decimal import Decimal
 
 import calc_native
 
@@ -12,12 +13,19 @@ def is_number_token(tok: object) -> bool:
 def _parse_real_token(s: str) -> int | float | calc_native.BigReal:
     if "." not in s and "e" not in s.lower():
         return int(s)
-    if ("e" in s.lower()) and hasattr(calc_native, "BigReal"):
-        try:
-            return calc_native.BigReal(s)
-        except Exception:
-            return float(s)
-    return float(s)
+
+    f = float(s)
+    result: float | calc_native.BigReal = f
+
+    if "e" in s.lower():
+        float_ok = math.isfinite(f) and (f != 0.0 or Decimal(s) == 0)
+        if not float_ok:
+            try:
+                result = calc_native.BigReal(s)
+            except Exception:
+                pass
+
+    return result
 
 
 def parse_number_token(s: str) -> int | float | complex | calc_native.BigReal:

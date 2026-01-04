@@ -1,12 +1,25 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
+import math
 
 import pytest
 
+from tcalc.core import constants as constants_mod
 from tcalc.core import utils as utils_mod
 
 param = pytest.param
+
+
+@pytest.mark.parametrize(
+    ("literal", "expected"),
+    [
+        param("e", math.e, id="constant-e"),
+    ],
+)
+def test_constant_is_float(literal: str, expected: float) -> None:
+    value = constants_mod.CONSTANTS[literal]
+    assert isinstance(value, float)
+    assert value == pytest.approx(expected)
 
 
 @pytest.mark.parametrize(
@@ -20,24 +33,27 @@ def test_parse_number_token_basic(fake_calc_native, literal, expected):
     assert utils_mod.parse_number_token(literal) == expected
 
 
-def test_parse_number_token_scientific_bigreal(fake_calc_native):
-    out = utils_mod.parse_number_token("1e-3")
+@pytest.mark.parametrize(
+    ("literal", "expected", "expected_type"),
+    [
+        param("10e+0", 10.0, float, id="scientific-notation-exponent-zero"),
+        param("10e+1", 100.0, float, id="scientific-notation"),
+        param("1e-3", 0.001, float, id="scientific-notation-small"),
+        param("1e309", None, "FakeBigReal", id="scientific-notation-overflow-bigreal"),
+        param("1e-400", None, "FakeBigReal", id="scientific-notation-underflow-bigreal"),
+    ],
+)
+def test_parse_number_token_scientific_notation(
+    fake_calc_native, literal: str, expected: float | None, expected_type: object
+) -> None:
+    out = utils_mod.parse_number_token(literal)
 
-    assert out.__class__.__name__ == "FakeBigReal"
-    assert str(out) == "1e-3"
+    if expected_type is float:
+        assert out == pytest.approx(expected)
+        return
 
-
-def test_parse_number_token_scientific_fallback_float(monkeypatch):
-    from tests.py.unit.core.conftest import FakeBigRealFail
-
-    monkeypatch.setattr(
-        utils_mod,
-        "calc_native",
-        SimpleNamespace(BigReal=FakeBigRealFail),
-        raising=False,
-    )
-
-    assert utils_mod.parse_number_token("1e-3") == 0.001
+    assert out.__class__.__name__ == expected_type
+    assert str(out) == literal
 
 
 @pytest.mark.parametrize(
