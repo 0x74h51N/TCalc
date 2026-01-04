@@ -82,15 +82,6 @@ Dev mode (auto-restart on changes):
 make dev
 ```
 
-**Dev tools - lint/type-check**
-
-```bash
-make lint       # find issues
-make lint-fix   # auto-fix
-make typecheck  # mypy
-make check      # lint + typecheck
-```
-
 ## Release Plans
 
 Goal: ship a stable v1 with a polished UI/UX and a solid native core.
@@ -208,16 +199,16 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
       - [x] Native Calculator class tests
       - [x] Native Parser Unit tests: Tokinize, Normalize, Scanize, Shantinize
       - [x] ops.hpp tables tests: op_table flags/arity/symbol invariants
-    - [ ] Py Core unit tests
+    - [x] Py Core unit tests
       - [x] Rpn eval
-      - [ ] Promotion rules
+      - [x] Promotion rules
       - [x] Number tokens parse utils
-      - [ ] Error handling
-      - [ ] Native pybind tests
+      - [x] Error handling
+      - [x] Native pybind tests
     - [ ] UI unit tests
-  - [ ] E2E Edge cases / regression tests (add to golden list)
+  - [x] E2E Edge cases / regression tests (add to golden list)
   - [ ] Smoke tests
-    - [ ] Native smoke
+    - [x] Native smoke
     - [ ] PY Core/UI smoke
 
 ### v2 Roadmap
