@@ -52,6 +52,9 @@ void unit_parser(TestContext &ctx) {
         {.input = "-3.5",
          .expected = {{TokenKind::Op, OpId::Negate, ""}, {TokenKind::Number, OpId::Count, "3.5"}}},
 
+        {.input = "-+2",
+         .expected = {{TokenKind::Op, OpId::Negate, ""}, {TokenKind::Number, OpId::Count, "2"}}},
+
         {.input = "sin(2i)",
          .expected =
              {{TokenKind::Op, OpId::Sin, ""},
