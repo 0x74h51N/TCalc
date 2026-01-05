@@ -11,11 +11,6 @@ repos:
         entry: make py-lint-fix
         language: system
         pass_filenames: false
-      - id: native-build
-        name: native-build
-        entry: make native-build
-        language: system
-        pass_filenames: false
       - id: native-test
         name: native-test
         entry: make native-test
