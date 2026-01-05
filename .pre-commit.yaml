@@ -13,7 +13,7 @@ repos:
         pass_filenames: false
       - id: native-test
         name: native-test
-        entry: make native-test
+        entry: make native-test NATIVE_TEST_ARGS="-m"
         language: system
         pass_filenames: false
       - id: py-test

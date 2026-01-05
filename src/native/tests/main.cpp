@@ -1,4 +1,6 @@
+#include <chrono>
 #include <iostream>
+#include <string>
 #include <utility>
 
 #include "internal/test_helpers.hpp"
@@ -13,50 +15,50 @@ void unit_ops(TestContext &ctx);
 
 void smoke_stress(TestContext &ctx);
 
-template <typename Fn> static void run_suite(TestContext &ctx, const char *name, Fn &&fn) {
-    if (ctx.verbose) {
-        std::cout << "RUN " << name << "\n";
-    }
-
-    try {
-        std::forward<Fn>(fn)(ctx);
-    } catch (const std::exception &e) {
-        ctx.failures += 1;
-        std::cerr << "Unhandled exception in " << name << ": " << e.what() << "\n";
-    } catch (...) {
-        ctx.failures += 1;
-        std::cerr << "Unhandled unknown exception in " << name << "\n";
-    }
-
-    if (ctx.verbose) {
-        std::cout << "DONE " << name << "\n";
-    }
-}
-
 int main(int argc, char **argv) { // NOLINT(modernize-use-trailing-return-type)
     TestContext ctx;
+    const auto all_start = std::chrono::steady_clock::now();
 
     for (int i = 1; i < argc; i++) {
         const std::string arg = argv[i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
         if (arg == "-q" || arg == "--quiet") {
-            ctx.verbose = false;
+            ctx.output = TestContext::OutputMode::Quiet;
+        } else if (arg == "-v" || arg == "--verbose") {
+            ctx.output = TestContext::OutputMode::Verbose;
+        } else if (arg == "-m" || arg == "--mid") {
+            ctx.output = TestContext::OutputMode::Mid;
         }
     }
 
-    run_suite(ctx, "unit_helpers", unit_helpers);
-    run_suite(ctx, "unit_ops", unit_ops);
-    run_suite(ctx, "unit_arithmetic", unit_arithmetic);
-    run_suite(ctx, "unit_transcendental", unit_transcendental);
-    run_suite(ctx, "unit_trig", unit_trig);
-    run_suite(ctx, "unit_combinatorics", unit_combinatorics);
-    run_suite(ctx, "smoke_stress", smoke_stress);
-    run_suite(ctx, "unit_parser", unit_parser);
+    test_detail::run_suite(
+        ctx, "unit test helpers", "src/native/tests/test_test_helpers.cpp", unit_helpers);
+    test_detail::run_suite(ctx, "unit ops", "src/native/tests/unit/test_ops.cpp", unit_ops);
+    test_detail::run_suite(
+        ctx, "unit arithmetic", "src/native/tests/unit/test_arithmetic.cpp", unit_arithmetic);
+    test_detail::run_suite(
+        ctx,
+        "unit transcendental",
+        "src/native/tests/unit/test_transcendental.cpp",
+        unit_transcendental);
+    test_detail::run_suite(ctx, "unit trig", "src/native/tests/unit/test_trig.cpp", unit_trig);
+    test_detail::run_suite(
+        ctx,
+        "unit combinatorics",
+        "src/native/tests/unit/test_combinatorics.cpp",
+        unit_combinatorics);
+    test_detail::run_suite(
+        ctx, "smoke stress", "src/native/tests/smoke/smoke_stress.cpp", smoke_stress);
+    test_detail::run_suite(
+        ctx, "unit parser", "src/native/tests/unit/test_parser.cpp", unit_parser);
 
-    if (ctx.failures == 0) {
-        std::cout << "native tests: OK (" << ctx.checks << " checks)\n";
-        return 0;
-    }
+    const auto all_end = std::chrono::steady_clock::now();
+    const auto all_elapsed_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(all_end - all_start);
+    const int passed = ctx.cases - ctx.case_failures;
+    const char *banner_color = (ctx.case_failures == 0) ? test_detail::kGreen : test_detail::kRed;
+    const std::string summary =
+        test_detail::summary_line(ctx.case_failures, passed, all_elapsed_ms.count());
+    test_detail::print_banner(ctx, std::cout, summary, banner_color);
 
-    std::cerr << "native tests: FAIL (" << ctx.failures << "/" << ctx.checks << ")\n";
-    return 1;
+    return (ctx.failures == 0) ? 0 : 1;
 }
