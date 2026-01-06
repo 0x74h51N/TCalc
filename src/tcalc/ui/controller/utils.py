@@ -68,10 +68,6 @@ def format_result(value) -> str:
 
         return f"{fmt_real(re)}{sign}{imag_part}"
 
-    # Float/int handling (legacy behavior)
-    if isinstance(value, int):
-        return f"{value:,}"
-
     return fmt_real(float(value))
 
 
