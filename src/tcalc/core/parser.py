@@ -20,7 +20,7 @@ def shunting_yard(tokens: Iterable[object]) -> List[object]:
     return list(calc_native.shunting_yard(tokens))
 
 
-def _pop_operand(operand_stack: List[object], tok: str) -> object:
+def _pop_operand(operand_stack: List[object]) -> object:
     if not operand_stack:
         raise_error(ErrorKind.MALFORMED, "Pop operand, not operand in stack.")
     return operand_stack.pop()
@@ -48,37 +48,26 @@ def evaluate_rpn(rpn_tokens: Iterable[object], calculator: Calculator) -> object
             spec = OP_BY_ID.get(tok.op_id)
             # No need spec guard here, unknown input is rejected upstream by _coerce_token,
             # and missing OpId specs are caught by native ops tests.
-
-        if spec.arity == "postfix":
-            val = _pop_operand(operand_stack, spec.sym)
+            val_a = _pop_operand(operand_stack)
             func = getattr(calculator, spec.method, None)
 
-            operand_stack.append(func(val))
+        if spec.arity == "postfix":
+            operand_stack.append(func(val_a))
             continue
 
         if spec.arity == "unary":
-            val = _pop_operand(operand_stack, spec.sym)
-            func = getattr(calculator, spec.method, None)
-
             if spec.needs_unit:
                 from tcalc.app_state import get_app_state
 
-                operand_stack.append(func(val, get_app_state().angle_unit))
+                operand_stack.append(func(val_a, get_app_state().angle_unit))
             else:
-                operand_stack.append(func(val))
+                operand_stack.append(func(val_a))
             continue
 
         if spec.arity == "binary":
-            if len(operand_stack) < 2:
-                raise_error(
-                    ErrorKind.MALFORMED,
-                    "Operand stack length less than 2, spec.arity: binary",
-                )
-            b = operand_stack.pop()
-            a = operand_stack.pop()
-            func = getattr(calculator, spec.method, None)
+            val_b = _pop_operand(operand_stack)
 
-            operand_stack.append(func(a, b))
+            operand_stack.append(func(val_b, val_a))
             continue
 
         raise_error(ErrorKind.MALFORMED)
