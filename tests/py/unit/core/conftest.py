@@ -17,84 +17,103 @@ class FakeToken:
     value: object | None = None
 
 
-class FakeOpId(Enum):
-    ADD = "add"
-    SUB = "sub"
-    NEGATE = "negate"
-    PERCENT = "percent"
-    SIN = "sin"
-    POW = "pow"
-    SQRT = "sqrt"
-    LOG = "log"
-    LN = "ln"
-    ASIN = "asin"
-    ACOS = "acos"
-    ACOSH = "acosh"
-    ATANH = "atanh"
-    ROOT = "root"
-
+class Id(Enum):
+    Add = "add"
+    Sub = "sub"
+    Div = "div"
+    Negate = "negate"
+    Percent = "percent"
+    Sin = "sin"
+    Pow = "pow"
+    Sqrt = "sqrt"
+    Log = "log"
+    Ln = "ln"
+    Asin = "asin"
+    Acos = "acos"
+    Acosh = "acosh"
+    Atanh = "atanh"
+    Root = "root"
     BAD_TYPE = "bad_type"
     BAD_NATIVE = "bad_native"
     CEKOMASTIK = "cekomastik"
 
     @property
-    def spec(self) -> FakeSpec:
-        return _FAKE_OP_SPECS[self]
+    def spec(self) -> _OpDef:
+        return _FAKE_OP_BY_ID[self]
 
     @property
     def big_supported(self) -> bool:
-        return _FAKE_OP_SPECS[self].big
+        return _FAKE_OP_BY_ID[self].big
 
     @property
     def bigcomplex_supported(self) -> bool:
-        return _FAKE_OP_SPECS[self].bigcx
+        return _FAKE_OP_BY_ID[self].bigcx
 
 
 @dataclass(frozen=True)
-class FakeSpec:
+class _OpDef:
+    op_id: Id
+    sym: str
     arity: str
     method: str
+    precedence: int = 0
+    assoc: int = 0
+    aliases: tuple[str, ...] = ()
     needs_unit: bool = False
-    sym: str = ""
-    cx: Callable[..., bool] | None = None
     big: bool = False
     bigcx: bool = False
+    cx: Callable[..., bool] | None = None
 
+    def __iter__(self):
+        return iter(
+            (
+                self.op_id,
+                self.sym,
+                self.precedence,
+                self.assoc,
+                FakeArity(self.arity),
+                self.aliases,
+                self.method,
+                self.needs_unit,
+                self.big,
+                self.bigcx,
+            )
+        )
 
 class DummyCalc:
     def __init__(self):
         self.calls: list[tuple[str, tuple[object, ...]]] = []
 
     def add(self, a, b):
-        self.calls.append(("add", (a, b)))
+        self.calls.append((Id.Add.value, (a, b)))
         return a + b
 
     def sub(self, a, b):
-        self.calls.append(("sub", (a, b)))
+        self.calls.append((Id.Sub.value, (a, b)))
         return a - b
 
     def div(self, a, b):
-        self.calls.append(("div", (a, b)))
+        self.calls.append((Id.Div.value, (a, b)))
         return a / b
 
     def negate(self, a):
-        self.calls.append(("negate", (a,)))
+        self.calls.append((Id.Negate.value, (a,)))
         return -a
 
     def percent(self, a):
-        self.calls.append(("percent", (a,)))
+        self.calls.append((Id.Percent.value, (a,)))
         return a / 100
 
     def sin(self, a, unit):
-        self.calls.append(("sin", (a, unit)))
+        self.calls.append((Id.Sin.value, (a, unit)))
         return (a, unit)
 
     def pow(self, a, b):
-        self.calls.append(("pow", (a, b)))
+        self.calls.append((Id.Pow.value, (a, b)))
         return pow(a, b)
 
     def sqrt(self, a):
-        self.calls.append(("sqrt", (a,)))
+        self.calls.append((Id.Sqrt.value, (a,)))
         return a
 
     def bad_type(self, *args):
@@ -140,6 +159,41 @@ class FakeArity(Enum):
     Postfix = "postfix"
 
 
+def _cx_sqrt(x: float) -> bool:
+    return x < 0.0
+
+
+def _cx_root(x: float) -> bool:
+    return x < 0.0
+
+
+def _cx_log(x: float) -> bool:
+    return x <= 0.0
+
+
+_FAKE_OPS: tuple[_OpDef, ...] = (
+    _OpDef(Id.Add, "+", FakeArity.Binary, Id.Add.value, big=True, bigcx=True),
+    _OpDef(Id.Sub, "-", FakeArity.Binary, Id.Sub.value),
+    _OpDef(Id.Div, "/", FakeArity.Binary, Id.Div.value),
+    _OpDef(Id.Negate, "u-", FakeArity.Unary, Id.Negate.value),
+    _OpDef(Id.Percent, "%", FakeArity.Postfix, Id.Percent.value),
+    _OpDef(Id.Sin, "sin", FakeArity.Unary, Id.Sin.value, needs_unit=True),
+    _OpDef(Id.Pow, "^", FakeArity.Binary, Id.Pow.value, big=True, bigcx=True),
+    _OpDef(Id.Sqrt, "sqrt", FakeArity.Unary, Id.Sqrt.value, cx=_cx_sqrt, big=True, bigcx=True),
+    _OpDef(Id.Root, "⌄", FakeArity.Binary, Id.Root.value, cx=_cx_root),
+    _OpDef(Id.Log, "log", FakeArity.Unary, Id.Log.value, cx=_cx_log),
+    _OpDef(Id.Ln, "ln", FakeArity.Unary, Id.Ln.value, cx=_cx_log),
+    _OpDef(Id.Asin, "asin", FakeArity.Unary, Id.Asin.value),
+    _OpDef(Id.Acos, "acos", FakeArity.Unary, Id.Acos.value),
+    _OpDef(Id.Acosh, "acosh", FakeArity.Unary, Id.Acosh.value),
+    _OpDef(Id.Atanh, "atanh", FakeArity.Unary, Id.Atanh.value),
+    _OpDef(Id.BAD_TYPE, "", FakeArity.Binary, Id.BAD_TYPE.value),
+    _OpDef(Id.BAD_NATIVE, "", FakeArity.Binary, Id.BAD_NATIVE.value),
+)
+
+_FAKE_OP_BY_ID: dict[Id, _OpDef] = {op.op_id: op for op in _FAKE_OPS}
+
+
 def _install_fake_calc_native() -> ModuleType:
     calc_native = ModuleType("calc_native")
 
@@ -155,51 +209,10 @@ def _install_fake_calc_native() -> ModuleType:
 
     calc_native.TokenKind = FakeTokenKind
 
-    calc_native.OpId = SimpleNamespace(
-        Sqrt=FakeOpId.SQRT,
-        Asin=FakeOpId.ASIN,
-        Acos=FakeOpId.ACOS,
-        Acosh=FakeOpId.ACOSH,
-        Atanh=FakeOpId.ATANH,
-        Log=FakeOpId.LOG,
-        Ln=FakeOpId.LN,
-        Root=FakeOpId.ROOT,
-    )
+    calc_native.OpId = Id
 
     def op_table():
-        def entry(
-            op_id: FakeOpId,
-            symbol: str,
-            arity: FakeArity,
-            method: str,
-            *,
-            needs_unit: bool = False,
-            big: bool = False,
-            bigcx: bool = False,
-        ):
-            return (
-                op_id,
-                symbol,
-                0,  # precedence 
-                0,  # assoc
-                arity,
-                (),  # aliases
-                method,
-                needs_unit,
-                big,
-                bigcx,
-            )
-
-        return [
-            entry(FakeOpId.ADD, "+", FakeArity.Binary, "add", big=True, bigcx=True),
-            entry(FakeOpId.SUB, "-", FakeArity.Binary, "sub"),
-            entry(FakeOpId.NEGATE, "u-", FakeArity.Unary, "negate"),
-            entry(FakeOpId.PERCENT, "%", FakeArity.Postfix, "percent"),
-            entry(FakeOpId.SIN, "sin", FakeArity.Unary, "sin", needs_unit=True),
-            entry(FakeOpId.POW, "^", FakeArity.Binary, "pow", big=True, bigcx=True),
-            entry(FakeOpId.SQRT, "sqrt", FakeArity.Unary, "sqrt", big=True, bigcx=True),
-            entry(FakeOpId.LOG, "log", FakeArity.Unary, "log"),
-        ]
+        return [op for op in _FAKE_OPS if op.sym]
 
     calc_native.op_table = op_table
 
@@ -220,36 +233,6 @@ def _install_fake_calc_native() -> ModuleType:
 sys.modules["calc_native"] = _install_fake_calc_native()
 
 
-
-def _cx_sqrt(x: float) -> bool:
-    return x < 0.0
-
-
-def _cx_root(x: float, y: float) -> bool:
-    return x < 0.0
-
-
-def _cx_log(x: float) -> bool:
-    return x <= 0.0
-
-
-_FAKE_OP_SPECS: dict[FakeOpId, FakeSpec] = {
-    FakeOpId.ADD: FakeSpec(arity="binary", method="add", big=True, bigcx=True),
-    FakeOpId.SUB: FakeSpec(arity="binary", method="sub"),
-    FakeOpId.NEGATE: FakeSpec(arity="unary", method="negate"),
-    FakeOpId.PERCENT: FakeSpec(arity="unary", method="percent"),
-    FakeOpId.SIN: FakeSpec(arity="unary", method="sin"),
-    FakeOpId.POW: FakeSpec(arity="binary", method="pow", big=True, bigcx=True),
-    FakeOpId.SQRT: FakeSpec(
-         arity="unary", method="sqrt", cx=_cx_sqrt, big=True, bigcx=True
-    ),
-    FakeOpId.ROOT: FakeSpec(arity="binary", method="root", cx=_cx_root),
-    FakeOpId.LOG: FakeSpec(arity="unary", method="log", cx=_cx_log),
-    FakeOpId.BAD_TYPE: FakeSpec(arity="binary", method="bad_type"),
-    FakeOpId.BAD_NATIVE: FakeSpec(arity="binary", method="bad_native"),
-}
-
-
 @pytest.fixture
 def dummy_calc() -> DummyCalc:
     return DummyCalc()
@@ -267,16 +250,10 @@ def token_factory() -> tuple[Callable[[object], FakeToken], Callable[[object], F
 
 
 @pytest.fixture
-def fake_ops(monkeypatch) -> dict[FakeOpId, FakeSpec]:
+def fake_ops(monkeypatch) -> dict[Id, _OpDef]:
     from tcalc.core import parser as parser_mod
 
-    ops = {
-        FakeOpId.ADD: FakeSpec(arity="binary", method="add", sym="+"),
-        FakeOpId.SUB: FakeSpec(arity="binary", method="sub", sym="-"),
-        FakeOpId.NEGATE: FakeSpec(arity="unary", method="negate", sym="u-"),
-        FakeOpId.PERCENT: FakeSpec(arity="postfix", method="percent", sym="%"),
-        FakeOpId.SIN: FakeSpec(arity="unary", method="sin", needs_unit=True, sym="sin"),
-    }
+    ops = _FAKE_OP_BY_ID
 
     monkeypatch.setattr(parser_mod, "OP_BY_ID", ops)
     monkeypatch.setattr(
@@ -287,8 +264,8 @@ def fake_ops(monkeypatch) -> dict[FakeOpId, FakeSpec]:
 
 
 @pytest.fixture
-def op_ids() -> type[FakeOpId]:
-    return FakeOpId
+def op_ids() -> type[Id]:
+    return Id
 
 
 @pytest.fixture
@@ -327,7 +304,7 @@ def fake_calc_native(monkeypatch):
 def fake_engine(monkeypatch):
     from tcalc.core import engine as engine_mod
 
-    monkeypatch.setattr(engine_mod, "Operation", FakeOpId)
+    monkeypatch.setattr(engine_mod, "Operation", Id)
     return engine_mod
 
 
