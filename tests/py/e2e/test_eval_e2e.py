@@ -126,3 +126,20 @@ def test_pow_boundary_exactness() -> None:
     out = _eval("(10^308*10)/(10^309)")
     assert isinstance(out, calc_native.BigReal)
     assert Decimal(str(out)) == Decimal(1)
+
+def test_pow_exponent_is_int_after_parser_number_coercion() -> None:
+    from tcalc.core import parser as parser_mod
+
+    tokens = parser_mod.tokenize_string("2^3")
+    number_literals = [t.value for t in tokens if t.kind == calc_native.TokenKind.Number]
+    assert len(number_literals) >= 2
+
+    exponent = parser_mod._coerce_token(number_literals[-1])
+    assert exponent == 3
+    assert isinstance(exponent, int)
+
+    tokens = parser_mod.tokenize_string("2^3.0")
+    number_literals = [t.value for t in tokens if t.kind == calc_native.TokenKind.Number]
+    exponent = parser_mod._coerce_token(number_literals[-1])
+    assert exponent == pytest.approx(3.0)
+    assert isinstance(exponent, float)

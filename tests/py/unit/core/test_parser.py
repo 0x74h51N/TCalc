@@ -29,6 +29,16 @@ def test_rpn_needs_unit( op_ids, token_factory, dummy_calc, angle_unit):
     assert parser_mod.evaluate_rpn(tokens, dummy_calc) == (1, angle_unit)
 
 
+def test_coerce_token_parses_int_vs_float_literals():
+    out_int = parser_mod._coerce_token("3")
+    assert out_int == 3
+    assert isinstance(out_int, int)
+
+    out_float = parser_mod._coerce_token("3.0")
+    assert out_float == pytest.approx(3.0)
+    assert isinstance(out_float, float)
+
+
 @pytest.mark.parametrize(
     "rpn",
     [
