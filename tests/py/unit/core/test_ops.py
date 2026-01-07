@@ -4,7 +4,7 @@ import pytest
 
 from tcalc.core import ops as ops_mod
 
-from tests.py.unit.core.conftest import Id
+from tests.py.unit.core.conftest import FakeArity, Id
 
 param = pytest.param
 
@@ -15,7 +15,7 @@ def test_ops_tables_are_built_from_fakes():
     for op_id, spec in ops_mod.OP_BY_ID.items():
         assert isinstance(op_id, Id)
         assert isinstance(spec.sym, str)
-        assert spec.arity in {"unary", "binary", "postfix"}
+        assert isinstance(spec.arity, FakeArity)
 
         op = getattr(ops_mod.Operation, op_id.name.upper())
         assert op.spec is spec

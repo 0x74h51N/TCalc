@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, List, Optional, Sequence
 
 import calc_native
 
@@ -37,7 +37,7 @@ class CalculatorController:
         self._display.expression_changed.connect(self._on_expression_input)
 
         self._expression: str = ""
-        self.tokens: List[object] = []
+        self.tokens: List[calc_native.Token] = []
         self._result: Optional[object] = None
         self._just_solved = False
         self._error_text: Optional[str] = None
@@ -54,7 +54,7 @@ class CalculatorController:
 
         # Get binary operator symbols
         self._binary_operator_symbols = get_symbols_with_aliases(
-            lambda spec: spec.arity == "binary"
+            lambda spec: spec.arity == calc_native.OpArity.Binary
         )
 
         self._tokenize_string = tokenize_string
@@ -97,6 +97,7 @@ class CalculatorController:
             label = operation.symbol
 
         handler = self._handlers.get(operation)
+        assert handler is not None
 
         handler(label)
         self._compute_and_update()
@@ -249,7 +250,11 @@ class CalculatorController:
             if op in handlers:
                 continue
             arity = getattr(op, "arity", None)
-            if arity in ("binary", "postfix", "unary") or op in (
+            if arity in (
+                calc_native.OpArity.Binary,
+                calc_native.OpArity.Postfix,
+                calc_native.OpArity.Unary,
+            ) or op in (
                 Operation.OPEN_PAREN,
                 Operation.CLOSE_PAREN,
             ):
@@ -262,14 +267,14 @@ class CalculatorController:
     def _set_operator(self, _label: str, operation: Operation) -> None:
         symbol = operation.symbol
         arity = getattr(operation, "arity", None)
-        if arity == "unary":
+        if arity == calc_native.OpArity.Unary:
             self._expression += f"{symbol}{Operation.OPEN_PAREN.symbol}"
-        elif arity == "binary":
+        elif arity == calc_native.OpArity.Binary:
             self._expression += f" {symbol} "
         else:
             self._expression += symbol
 
-    def _evaluate_tokens(self, tokens: Iterable[object], calculator: Calculator):
+    def _evaluate_tokens(self, tokens: Sequence[calc_native.Token], calculator: Calculator):
         """Call core.evaluate_tokens; on CalculatorError log and return the error text."""
         try:
             return evaluate_tokens(tokens, calculator)
@@ -277,7 +282,7 @@ class CalculatorController:
             self._error_text = str(exc)
             print("Evalute token native error: ", exc)
 
-    def _token_text(self, tok: object) -> object:
+    def _token_text(self, tok: calc_native.Token) -> str | int | float:
         if tok.kind == calc_native.TokenKind.Number:
             return tok.value
         if tok.kind == calc_native.TokenKind.Op:
@@ -288,8 +293,9 @@ class CalculatorController:
             return Operation.OPEN_PAREN.symbol
         if tok.kind == calc_native.TokenKind.RParen:
             return Operation.CLOSE_PAREN.symbol
+        return ""
 
-    def _can_compute_preview(self, tokens: List[object]) -> bool:
+    def _can_compute_preview(self, tokens: List[calc_native.Token]) -> bool:
         """Check if tokens form a valid expression for preview calculation."""
         if not tokens:
             return False

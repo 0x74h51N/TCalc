@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import tomllib
 
@@ -10,14 +11,19 @@ import tomllib
 class Theme:
     """Central theme configuration loaded from config.toml."""
 
+    colors: dict[str, Any]
+    spacing: dict[str, Any]
+    fonts: dict[str, Any]
+
     def __init__(self):
-        self._config = self._load_config()
-        self.colors = self._config["theme"]["colors"]
-        self.spacing = self._config["theme"]["spacing"]
-        self.fonts = self._config["theme"]["fonts"]
+        config = self._load_config()
+        theme_data: dict[str, Any] = config["theme"]
+        self.colors = theme_data["colors"]
+        self.spacing = theme_data["spacing"]
+        self.fonts = theme_data["fonts"]
 
     @staticmethod
-    def _load_config() -> dict[str, object]:
+    def _load_config() -> dict[str, Any]:
         config_path = Path(__file__).parent / "config.toml"
         with open(config_path, "rb") as f:
             return tomllib.load(f)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import calc_native
 from calc_native import Calculator as NativeCalculator
 from calc_native import CalculatorError as NativeCalculatorError
 
@@ -117,8 +118,8 @@ class Calculator:
             return args
 
         x = float(args[0])
-        if op.spec.arity == "binary" and len(args) >= 2:
-            y = float(args[1])
+        if op.spec.arity == calc_native.OpArity.Binary and len(args) >= 2:
+            y = float(args[1])  # type: ignore[arg-type]
             needs_complex = rule(x, y)
         else:
             needs_complex = rule(x)

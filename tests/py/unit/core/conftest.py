@@ -17,6 +17,16 @@ class FakeToken:
     value: object | None = None
 
 
+class FakeArity(Enum):
+    Unary = "unary"
+    Binary = "binary"
+    Postfix = "postfix"
+
+    @property
+    def name(self) -> str:
+        return self._name_
+
+
 class Id(Enum):
     Add = "add"
     Sub = "sub"
@@ -54,7 +64,7 @@ class Id(Enum):
 class _OpDef:
     op_id: Id
     sym: str
-    arity: str
+    arity: FakeArity
     method: str
     precedence: int = 0
     assoc: int = 0
@@ -71,7 +81,7 @@ class _OpDef:
                 self.sym,
                 self.precedence,
                 self.assoc,
-                FakeArity(self.arity),
+                self.arity,
                 self.aliases,
                 self.method,
                 self.needs_unit,
@@ -153,17 +163,11 @@ class FakeTokenKind:
     Op = "op"
 
 
-class FakeArity(Enum):
-    Unary = "unary"
-    Binary = "binary"
-    Postfix = "postfix"
-
-
 def _cx_sqrt(x: float) -> bool:
     return x < 0.0
 
 
-def _cx_root(x: float) -> bool:
+def _cx_root(x: float, y: float) -> bool:
     return x < 0.0
 
 
@@ -209,6 +213,8 @@ def _install_fake_calc_native() -> ModuleType:
 
     calc_native.TokenKind = FakeTokenKind
 
+    calc_native.OpArity = FakeArity
+
     calc_native.OpId = Id
 
     def op_table():
@@ -226,6 +232,7 @@ def _install_fake_calc_native() -> ModuleType:
     calc_native.BigComplex = FakeBigComplex
     calc_native.Calculator = DummyCalc
     calc_native.CalculatorError = FakeNativeCalculatorError
+    calc_native.Token = FakeToken
     return calc_native
 
 

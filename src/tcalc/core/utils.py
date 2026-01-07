@@ -6,7 +6,7 @@ import calc_native
 from .constants import I_UNIT_CHARS
 
 
-def is_number_token(tok: object) -> bool:
+def is_number_token(tok: calc_native.Token) -> bool:
     return tok.kind == calc_native.TokenKind.Number
 
 
@@ -39,7 +39,7 @@ def parse_number_token(s: str) -> int | float | complex | calc_native.BigReal:
     if s[-1] in I_UNIT_CHARS:
         real_part = s[:-1]
         real = 1 if real_part == "" else _parse_real_token(real_part)
-        if isinstance(real, getattr(calc_native, "BigReal", ())):
+        if isinstance(real, calc_native.BigReal):
             mag = float(str(real))
         else:
             mag = float(real)

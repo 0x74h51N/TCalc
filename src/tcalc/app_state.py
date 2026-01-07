@@ -29,10 +29,10 @@ class AppState:
             CalculatorMode(mode_str) if isinstance(mode_str, str) else CalculatorMode.SIMPLE
         )
 
-        self._show_history = self._settings.value("show_history", False, type=bool)
+        self._show_history: bool = bool(self._settings.value("show_history", False, type=bool))
 
-        self._show_constant_buttons = self._settings.value(
-            "show_constant_buttons", False, type=bool
+        self._show_constant_buttons: bool = bool(
+            self._settings.value("show_constant_buttons", False, type=bool)
         )
 
         # Undo/redo state (not persisted)

@@ -6,8 +6,6 @@ from typing import Callable
 
 import calc_native
 
-Arity = str
-
 
 def is_int_like(v: float, eps: float = 1e-12) -> bool:
     return abs(v - round(v)) <= eps
@@ -52,7 +50,7 @@ _PROMO_RULES_BY_ID: dict[object, Callable[..., bool]] = {
 @dataclass(frozen=True, slots=True)
 class OpSpec:
     sym: str
-    arity: Arity | None = None
+    arity: calc_native.OpArity | None = None
     als: tuple[str, ...] = ()
     method: str = ""
     needs_unit: bool = False
@@ -96,7 +94,7 @@ for entry in calc_native.op_table():
 
     spec = OpSpec(
         sym=symbol,
-        arity=arity.name.lower(),
+        arity=arity,
         als=tuple(aliases),
         method=method,
         needs_unit=bool(needs_unit),
@@ -115,7 +113,7 @@ for name, spec in _UI_SPECS:
     _operation_values[name] = name.lower()
 
 
-class Operation(str, Enum):
+class OperationBase(str, Enum):
     _spec: OpSpec
 
     @property
@@ -127,7 +125,7 @@ class Operation(str, Enum):
         return self._spec.sym
 
     @property
-    def arity(self) -> Arity | None:
+    def arity(self) -> calc_native.OpArity | None:
         return self._spec.arity
 
     @property
@@ -147,9 +145,9 @@ class Operation(str, Enum):
         return self._spec.method or self.name.lower()
 
 
-Operation = Enum("Operation", _operation_values, type=Operation)
+Operation = Enum("Operation", _operation_values, type=OperationBase)  # type: ignore[misc]
 for op in Operation:
-    op._spec = _specs_by_name[op.name]
+    op._spec = _specs_by_name[op.name]  # type: ignore[attr-defined]
 
 del _operation_values
 del _specs_by_name
@@ -159,7 +157,7 @@ del _UI_SPECS
 def get_symbols_with_aliases(filter_fn: Callable[[OpSpec], bool] | None = None) -> set[str]:
     symbols: set[str] = set()
     for op in Operation:
-        spec = op._spec
+        spec = op._spec  # type: ignore[attr-defined]
         if filter_fn and not filter_fn(spec):
             continue
         if spec.sym:

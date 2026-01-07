@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable, List
+from typing import Iterable, List, Sequence
 
 import calc_native
 
@@ -12,11 +12,11 @@ from .ops import OP_BY_ID
 from .utils import is_number_token, parse_number_token
 
 
-def tokenize_string(expression: str) -> List[object]:
+def tokenize_string(expression: str) -> List[calc_native.Token]:
     return list(calc_native.tokenize_string(expression))
 
 
-def shunting_yard(tokens: Iterable[object]) -> List[object]:
+def shunting_yard(tokens: Sequence[calc_native.Token]) -> List[calc_native.Token]:
     return list(calc_native.shunting_yard(tokens))
 
 
@@ -26,7 +26,7 @@ def _pop_operand(operand_stack: List[object]) -> object:
     return operand_stack.pop()
 
 
-def _coerce_token(tok: object) -> object:
+def _coerce_token(tok: str | int | float) -> object:
     if isinstance(tok, str):
         if tok in CONSTANTS:
             return CONSTANTS[tok]
@@ -37,7 +37,7 @@ def _coerce_token(tok: object) -> object:
     return tok
 
 
-def evaluate_rpn(rpn_tokens: Iterable[object], calculator: Calculator) -> object:
+def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator) -> object:
     operand_stack: List[object] = []
 
     for tok in rpn_tokens:
@@ -46,29 +46,29 @@ def evaluate_rpn(rpn_tokens: Iterable[object], calculator: Calculator) -> object
             continue
         if tok.kind == calc_native.TokenKind.Op:
             spec = OP_BY_ID.get(tok.op_id)
-            # No need spec guard here, unknown input is rejected upstream by _coerce_token,
-            # and missing OpId specs are caught by native ops tests.
+            assert spec is not None
             val_a = _pop_operand(operand_stack)
             func = getattr(calculator, spec.method, None)
+            assert func is not None
 
-        if spec.arity == "postfix":
-            operand_stack.append(func(val_a))
-            continue
-
-        if spec.arity == "unary":
-            if spec.needs_unit:
-                from tcalc.app_state import get_app_state
-
-                operand_stack.append(func(val_a, get_app_state().angle_unit))
-            else:
+            if spec.arity == calc_native.OpArity.Postfix:
                 operand_stack.append(func(val_a))
-            continue
+                continue
 
-        if spec.arity == "binary":
-            val_b = _pop_operand(operand_stack)
+            if spec.arity == calc_native.OpArity.Unary:
+                if spec.needs_unit:
+                    from tcalc.app_state import get_app_state
 
-            operand_stack.append(func(val_b, val_a))
-            continue
+                    operand_stack.append(func(val_a, get_app_state().angle_unit))
+                else:
+                    operand_stack.append(func(val_a))
+                continue
+
+            if spec.arity == calc_native.OpArity.Binary:
+                val_b = _pop_operand(operand_stack)
+
+                operand_stack.append(func(val_b, val_a))
+                continue
 
         raise_error(ErrorKind.MALFORMED)
 
@@ -77,5 +77,5 @@ def evaluate_rpn(rpn_tokens: Iterable[object], calculator: Calculator) -> object
     return operand_stack[0]
 
 
-def evaluate_tokens(tokens: Iterable[object], calculator: Calculator) -> object:
+def evaluate_tokens(tokens: Sequence[calc_native.Token], calculator: Calculator) -> object:
     return evaluate_rpn(shunting_yard(tokens), calculator)

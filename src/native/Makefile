@@ -46,3 +46,6 @@ cpp-format-check:
 cpp-tidy: configure
 	@command -v clang-tidy >/dev/null || (echo "clang-tidy not found"; exit 1)
 	clang-tidy -quiet -extra-arg=-w -p $(BUILD_DIR) $(CPP_TIDY_FILES)
+
+stub-gen: $(SO_FILE)
+	PYTHONPATH=$(ROOT)/src $(PYTHON) -m pybind11_stubgen calc_native -o $(ROOT)/stubs

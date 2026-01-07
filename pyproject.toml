@@ -62,8 +62,9 @@ ignore = ["E501"]
 known-first-party = ["tcalc"]
 
 [tool.mypy]
-mypy_path = "src:stubs"
-packages = ["tcalc"]
+mypy_path = "stubs:src"
+files = ["src"]
+exclude = ["src/tcalc/core/ops.py"]
 no_implicit_optional = true
 warn_unused_ignores = true
 warn_redundant_casts = true

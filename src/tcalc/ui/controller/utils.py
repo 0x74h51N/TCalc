@@ -1,18 +1,15 @@
 from __future__ import annotations
 
+import calc_native
+
 
 def format_result(value) -> str:
     """Format a numeric result (float or complex) for display."""
 
-    try:
-        import calc_native  # type: ignore
-    except ModuleNotFoundError:  # pragma: no cover
-        calc_native = None
-
-    if calc_native is not None and isinstance(value, getattr(calc_native, "BigReal", ())):
+    if isinstance(value, calc_native.BigReal):
         return str(value)
 
-    if calc_native is not None and isinstance(value, getattr(calc_native, "BigComplex", ())):
+    if isinstance(value, calc_native.BigComplex):
         return str(value)
 
     def fmt_real(x: float) -> str:

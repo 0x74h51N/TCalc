@@ -6,6 +6,10 @@
 PY := ./venv/bin/python
 PYTEST_ARGS ?= -vv -rA
 
+stub-gen:
+	make -C src/native stub-gen ROOT=$(CURDIR)
+	PYTHONPATH=$(CURDIR)/src $(PY) scripts/generate_ops_stub.py
+
 dev:
 	./scripts/dev
 
@@ -18,7 +22,7 @@ py-lint-fix:
 	$(PY) -m ruff format src
 
 typecheck:
-	$(PY) -m mypy
+	$(PY) -m mypy --check-untyped-defs
 
 py-test:
 	PYTHONPATH=src $(PY) -m pytest tests/py/unit $(PYTEST_ARGS)

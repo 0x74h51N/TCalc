@@ -53,6 +53,11 @@ fi
 # -----------------------------
 make native-test NATIVE_TEST_ARGS=""
 
+# generate Python stubs for dynamic ops enum
+# -----------------------------
+echo "Generating ops stubs"
+python scripts/generate_ops_stub.py
+
 
 echo "Auto-restart enabled"
 
