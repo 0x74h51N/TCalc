@@ -1,23 +1,17 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, cast
+from typing import TYPE_CHECKING
 
-from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMenuBar
 
 from tcalc.ui.controller.menubar import EditOperations
-from tcalc.ui.keyboard.shortcuts import ShortcutId
 
 from ..defins import EDIT_MENU_ACTIONS
+from ..menu_builder import OpsMenuContext
 
 if TYPE_CHECKING:
     from ...keyboard import ShortcutManager
     from ...window import MainWindow
-
-
-def _get_icon(theme_name: str) -> QIcon:
-    icon = QIcon.fromTheme(theme_name)
-    return icon if not icon.isNull() else QIcon()
 
 
 class EditMenu:
@@ -27,19 +21,8 @@ class EditMenu:
 
         edit_menu = menu.addMenu("Edit")
 
-        for spec in EDIT_MENU_ACTIONS:
-            icon = _get_icon(str(spec["icon"]))
-            text = str(spec["text"])
-            action = QAction(icon, text, window)
-            action.setCheckable(bool(spec["checkable"]))
-            action.setEnabled(bool(spec["enabled"]))
-
-            action_id = cast(ShortcutId, spec["id"])
-            shortcuts.bind_action(action_id, action)
-
-            fn = cast(Callable[[EditOperations], None], spec["id"])
-            action.triggered.connect(lambda checked=False, fn=fn: fn(self.edit_ops))
-            edit_menu.addAction(action)
-
-            if spec["id"] is EditOperations.redo:
-                edit_menu.addSeparator()
+        ctx: OpsMenuContext[EditOperations] = OpsMenuContext(
+            window=window, shortcuts=shortcuts, ops=self.edit_ops
+        )
+        for item in EDIT_MENU_ACTIONS:
+            item.add_to(edit_menu, ctx)
