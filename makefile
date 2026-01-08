@@ -45,6 +45,7 @@ native-configure:
 
 native-build:
 	$(NATIVE_MAKE) build
+	PYTHONPATH=$(CURDIR)/src $(PY) scripts/generate_ops_stub.py
 
 native-test:
 	$(NATIVE_MAKE) test

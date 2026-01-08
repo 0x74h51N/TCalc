@@ -21,7 +21,6 @@ configure:
 build: configure
 	cmake --build $(BUILD_DIR) -j
 	PYTHONPATH=$(ROOT)/src $(PYTHON) -m pybind11_stubgen calc_native -o $(STUBS_DIR)
-	PYTHONPATH=$(ROOT)/src $(ROOT)/venv/bin/stubgen --verbose --inspect-mode -m tcalc.core.ops -o $(STUBS_DIR)
 
 test: build
 	$(BUILD_DIR)/native_tests $(TEST_ARGS)
