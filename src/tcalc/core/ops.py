@@ -35,7 +35,7 @@ def _cx_root(x: float, y: float) -> bool:
     return x < 0.0 and ((not is_int_like(y)) or (int(round(y)) % 2 == 0))
 
 
-_PROMO_RULES_BY_ID: dict[object, Callable[..., bool]] = {
+PROMO_RULES_BY_ID: dict[calc_native.OpId, Callable[..., bool]] = {
     calc_native.OpId.Sqrt: _cx_sqrt,
     calc_native.OpId.Asin: _cx_asin_acos,
     calc_native.OpId.Acos: _cx_asin_acos,
@@ -47,120 +47,122 @@ _PROMO_RULES_BY_ID: dict[object, Callable[..., bool]] = {
 }
 
 
-@dataclass(frozen=True, slots=True)
-class OpSpec:
-    sym: str
-    arity: calc_native.OpArity | None = None
-    als: tuple[str, ...] = ()
+@dataclass(frozen=True)
+class _UIOpSpec:
+    """Minimal OpSpec-compatible wrapper for UI-only operations."""
+
+    symbol: str
+    arity: None = None
+    aliases: tuple[str, ...] = ()
+    big_supported: bool = False
+    big_complex_supported: bool = False
+    angle_unit: bool = False
     method: str = ""
-    needs_unit: bool = False
-    big: bool = False
-    bigcx: bool = False
-    cx: Callable[..., bool] | None = None
 
 
-OP_BY_ID: dict[object, OpSpec] = {}
+# Global registry mapping OpId to native OpSpec
+OP_BY_ID: dict[calc_native.OpId, calc_native.OpSpec] = {}
+
+# Build from native op_table
+for native_spec in calc_native.op_table():
+    OP_BY_ID[native_spec.id] = native_spec
 
 
+# UI-only operations
 _UI_SPECS = (
-    ("DIGIT", OpSpec(sym="digit")),
-    ("DOT", OpSpec(sym=".")),
-    ("OPEN_PAREN", OpSpec(sym="(")),
-    ("CLOSE_PAREN", OpSpec(sym=")")),
-    ("EQUALS", OpSpec(sym="=")),
-    ("CLEAR", OpSpec(sym="C")),
-    ("BACKSPACE", OpSpec(sym="⌫")),
-    ("HYP", OpSpec(sym="hyp")),
-    ("IMAG", OpSpec(sym="i")),
+    ("DIGIT", "digit"),
+    ("DOT", "."),
+    ("OPEN_PAREN", "("),
+    ("CLOSE_PAREN", ")"),
+    ("EQUALS", "="),
+    ("CLEAR", "C"),
+    ("BACKSPACE", "⌫"),
+    ("HYP", "hyp"),
+    ("IMAG", "i"),
 )
 
-
-_specs_by_name: dict[str, OpSpec] = {}
+_specs_by_name: dict[str, calc_native.OpSpec | _UIOpSpec] = {}
 _operation_values: dict[str, str] = {}
 
-for entry in calc_native.op_table():
-    (
-        op_id,
-        symbol,
-        _precedence,
-        _associativity,
-        arity,
-        aliases,
-        method,
-        needs_unit,
-        big_supported,
-        big_complex_supported,
-    ) = entry
+# Add native operations
+for native_spec in calc_native.op_table():
+    name = native_spec.id.name.upper()
+    _specs_by_name[name] = native_spec
+    _operation_values[name] = native_spec.method or native_spec.id.name.lower()
 
-    spec = OpSpec(
-        sym=symbol,
-        arity=arity,
-        als=tuple(aliases),
-        method=method,
-        needs_unit=bool(needs_unit),
-        big=bool(big_supported),
-        bigcx=bool(big_complex_supported),
-        cx=_PROMO_RULES_BY_ID.get(op_id),
-    )
-
-    OP_BY_ID[op_id] = spec
-    name = op_id.name.upper()
-    _specs_by_name[name] = spec
-    _operation_values[name] = method or op_id.name.lower()
-
-for name, spec in _UI_SPECS:
-    _specs_by_name[name] = spec
+# Add UI operations as OpSpec-compatible wrappers
+for name, symbol in _UI_SPECS:
+    _specs_by_name[name] = _UIOpSpec(symbol=symbol)
     _operation_values[name] = name.lower()
 
 
 class OperationBase(str, Enum):
-    _spec: OpSpec
+    """Base class for Operation enum with runtime spec access."""
 
     @property
-    def spec(self) -> OpSpec:
-        return self._spec
+    def _spec(self) -> calc_native.OpSpec | _UIOpSpec:
+        """Get the OpSpec or UI wrapper for this operation."""
+        return _specs_by_name[self.name]
 
     @property
     def symbol(self) -> str:
-        return self._spec.sym
+        """Operation symbol."""
+        return self._spec.symbol
 
     @property
     def arity(self) -> calc_native.OpArity | None:
+        """Operation arity (unary/binary/postfix)."""
         return self._spec.arity
 
     @property
     def aliases(self) -> tuple[str, ...]:
-        return self._spec.als
+        """Alternative symbols for this operation."""
+        return self._spec.aliases
 
     @property
     def big_supported(self) -> bool:
-        return self._spec.big
+        """Whether BigReal is supported."""
+        return self._spec.big_supported
 
     @property
     def bigcomplex_supported(self) -> bool:
-        return self._spec.bigcx
+        """Whether BigComplex is supported."""
+        return self._spec.big_complex_supported
+
+    @property
+    def angle_unit(self) -> bool:
+        """Whether operation needs angle unit setting."""
+        return self._spec.angle_unit
+
+    @property
+    def cx(self) -> Callable[..., bool] | None:
+        """Complex promotion rule for this operation."""
+        return PROMO_RULES_BY_ID.get(self._spec.id)
+
+    @property
+    def method(self) -> str:
+        """Method name for this operation."""
+        return self._spec.method or self.name.lower()
 
     @property
     def token(self) -> str:
-        return self._spec.method or self.name.lower()
+        """Token string for this operation."""
+        return self.method
 
 
-Operation = Enum("Operation", _operation_values, type=OperationBase)  # type: ignore[misc]
-for op in Operation:
-    op._spec = _specs_by_name[op.name]  # type: ignore[attr-defined]
-
-del _operation_values
-del _specs_by_name
-del _UI_SPECS
+# Dynamically create the Operation enum
+Operation: type[OperationBase] = Enum("Operation", _operation_values, type=OperationBase)  # type: ignore[assignment,misc]
 
 
-def get_symbols_with_aliases(filter_fn: Callable[[OpSpec], bool] | None = None) -> set[str]:
+def get_symbols_with_aliases(
+    filter_fn: Callable[[calc_native.OpSpec | _UIOpSpec], bool] | None = None,
+) -> set[str]:
+    """Get all operation symbols including aliases."""
     symbols: set[str] = set()
     for op in Operation:
-        spec = op._spec  # type: ignore[attr-defined]
+        spec = op._spec
         if filter_fn and not filter_fn(spec):
             continue
-        if spec.sym:
-            symbols.add(spec.sym)
-            symbols.update(spec.als)
+        symbols.add(op.symbol)
+        symbols.update(op.aliases)
     return symbols

@@ -48,45 +48,56 @@ class Id(Enum):
     CEKOMASTIK = "cekomastik"
 
     @property
-    def spec(self) -> _OpDef:
+    def _spec(self) -> _OpDef:
         return _FAKE_OP_BY_ID[self]
 
     @property
+    def cx(self) -> Callable[..., bool] | None:
+        """Complex promotion rule from fake op table."""
+        return _FAKE_OP_BY_ID[self].cx
+
+    @property
     def big_supported(self) -> bool:
-        return _FAKE_OP_BY_ID[self].big
+        return _FAKE_OP_BY_ID[self].big_supported
 
     @property
     def bigcomplex_supported(self) -> bool:
-        return _FAKE_OP_BY_ID[self].bigcx
+        return _FAKE_OP_BY_ID[self].big_complex_supported
 
 
 @dataclass(frozen=True)
 class _OpDef:
-    op_id: Id
-    sym: str
+    # Use same field names as native OpSpec - no property mapping needed!
+    id: Id
+    symbol: str
     arity: FakeArity
     method: str
     precedence: int = 0
-    assoc: int = 0
+    associativity: int = 0
     aliases: tuple[str, ...] = ()
-    needs_unit: bool = False
-    big: bool = False
-    bigcx: bool = False
+    needs_angle_unit: bool = False
+    big_supported: bool = False
+    big_complex_supported: bool = False
     cx: Callable[..., bool] | None = None
+
+    @property
+    def angle_unit(self) -> bool:
+        """Alias for needs_angle_unit to match native OpSpec property name."""
+        return self.needs_angle_unit
 
     def __iter__(self):
         return iter(
             (
-                self.op_id,
-                self.sym,
+                self.id,
+                self.symbol,
                 self.precedence,
-                self.assoc,
+                self.associativity,
                 self.arity,
                 self.aliases,
                 self.method,
-                self.needs_unit,
-                self.big,
-                self.bigcx,
+                self.needs_angle_unit,
+                self.big_supported,
+                self.big_complex_supported,
             )
         )
 
@@ -176,14 +187,14 @@ def _cx_log(x: float) -> bool:
 
 
 _FAKE_OPS: tuple[_OpDef, ...] = (
-    _OpDef(Id.Add, "+", FakeArity.Binary, Id.Add.value, big=True, bigcx=True),
+    _OpDef(Id.Add, "+", FakeArity.Binary, Id.Add.value, big_supported=True, big_complex_supported=True),
     _OpDef(Id.Sub, "-", FakeArity.Binary, Id.Sub.value),
     _OpDef(Id.Div, "/", FakeArity.Binary, Id.Div.value),
     _OpDef(Id.Negate, "u-", FakeArity.Unary, Id.Negate.value),
     _OpDef(Id.Percent, "%", FakeArity.Postfix, Id.Percent.value),
-    _OpDef(Id.Sin, "sin", FakeArity.Unary, Id.Sin.value, needs_unit=True),
-    _OpDef(Id.Pow, "^", FakeArity.Binary, Id.Pow.value, big=True, bigcx=True),
-    _OpDef(Id.Sqrt, "sqrt", FakeArity.Unary, Id.Sqrt.value, cx=_cx_sqrt, big=True, bigcx=True),
+    _OpDef(Id.Sin, "sin", FakeArity.Unary, Id.Sin.value, needs_angle_unit=True),
+    _OpDef(Id.Pow, "^", FakeArity.Binary, Id.Pow.value, cx=_cx_root, big_supported=True, big_complex_supported=True),
+    _OpDef(Id.Sqrt, "sqrt", FakeArity.Unary, Id.Sqrt.value, cx=_cx_sqrt, big_supported=True, big_complex_supported=True),
     _OpDef(Id.Root, "⌄", FakeArity.Binary, Id.Root.value, cx=_cx_root),
     _OpDef(Id.Log, "log", FakeArity.Unary, Id.Log.value, cx=_cx_log),
     _OpDef(Id.Ln, "ln", FakeArity.Unary, Id.Ln.value, cx=_cx_log),
@@ -195,7 +206,7 @@ _FAKE_OPS: tuple[_OpDef, ...] = (
     _OpDef(Id.BAD_NATIVE, "", FakeArity.Binary, Id.BAD_NATIVE.value),
 )
 
-_FAKE_OP_BY_ID: dict[Id, _OpDef] = {op.op_id: op for op in _FAKE_OPS}
+_FAKE_OP_BY_ID: dict[Id, _OpDef] = {op.id: op for op in _FAKE_OPS}
 
 
 def _install_fake_calc_native() -> ModuleType:
@@ -216,9 +227,11 @@ def _install_fake_calc_native() -> ModuleType:
     calc_native.OpArity = FakeArity
 
     calc_native.OpId = Id
+    
+    calc_native.OpSpec = _OpDef
 
     def op_table():
-        return [op for op in _FAKE_OPS if op.sym]
+        return [op for op in _FAKE_OPS if op.symbol]
 
     calc_native.op_table = op_table
 

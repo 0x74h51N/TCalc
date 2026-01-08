@@ -56,7 +56,7 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
                 continue
 
             if spec.arity == calc_native.OpArity.Unary:
-                if spec.needs_unit:
+                if spec.angle_unit:
                     from tcalc.app_state import get_app_state
 
                     operand_stack.append(func(val_a, get_app_state().angle_unit))

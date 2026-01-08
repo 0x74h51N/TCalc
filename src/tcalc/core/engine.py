@@ -112,13 +112,13 @@ class Calculator:
             op = Operation(name)
         except ValueError:
             return args
-        rule = op.spec.cx
 
+        rule = op.cx
         if rule is None:
             return args
 
         x = float(args[0])
-        if op.spec.arity == calc_native.OpArity.Binary and len(args) >= 2:
+        if op._spec.arity == calc_native.OpArity.Binary and len(args) >= 2:
             y = float(args[1])  # type: ignore[arg-type]
             needs_complex = rule(x, y)
         else:

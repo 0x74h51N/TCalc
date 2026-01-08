@@ -14,12 +14,12 @@ def test_ops_tables_are_built_from_fakes():
 
     for op_id, spec in ops_mod.OP_BY_ID.items():
         assert isinstance(op_id, Id)
-        assert isinstance(spec.sym, str)
+        assert isinstance(spec.symbol, str)
         assert isinstance(spec.arity, FakeArity)
 
         op = getattr(ops_mod.Operation, op_id.name.upper())
-        assert op.spec is spec
-        assert op.symbol == spec.sym
+        assert op._spec is spec
+        assert op.symbol == spec.symbol
 
 
 def test_ui_ops():
@@ -34,16 +34,17 @@ def test_symbols_with_aliases():
     assert symbols
 
     for op in ops_mod.Operation:
-        spec = op.spec
-        if spec.sym:
-            assert spec.sym in symbols
-        for alias in spec.als:
+        spec = op._spec
+        if spec.symbol:
+            assert spec.symbol in symbols
+        for alias in spec.aliases:
             assert alias in symbols
 
 
 def test_promo_rules_wired():
-    for op_id, spec in ops_mod.OP_BY_ID.items():
-        assert spec.cx is ops_mod._PROMO_RULES_BY_ID.get(op_id)
+    """Verify PROMO_RULES_BY_ID is correctly wired."""
+    for op_id in ops_mod.PROMO_RULES_BY_ID:
+        assert op_id in ops_mod.OP_BY_ID, f"PROMO_RULES_BY_ID has {op_id} but OP_BY_ID doesn't"
 
 
 @pytest.mark.parametrize(

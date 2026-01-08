@@ -5,13 +5,13 @@ from typing import Callable, Dict, List, Optional, Sequence
 import calc_native
 
 from tcalc.app_state import AngleUnit, get_app_state
-from tcalc.core import Calculator, evaluate_tokens, tokenize_string
 from tcalc.core.ops import Operation, get_symbols_with_aliases
 from tcalc.core.utils import is_number_token
 from tcalc.ui.controller.menubar import EditOperations
 from tcalc.ui.widgets import History
 from tcalc.ui.widgets.calc import Display, TopBar
 
+from ...core import Calculator, evaluate_tokens, tokenize_string
 from ..widgets.calc.topbar.defins import MEMORY_KEYS, MemoryKey
 from .utils import clean_for_expression, format_result
 
