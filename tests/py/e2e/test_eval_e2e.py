@@ -72,12 +72,21 @@ def _eval(expr: str) -> object:
         param("sqrt(-1)", "complex", (0.0, 1.0), id="sqrt-domain-promotes-complex"),
         param("sqrt(-1)^2", "complex", (-1.0, 0.0), id="complex-pow-collapses-to-real"),
         param("sqrt(-1)*sqrt(-1)", "complex", (-1.0, 0.0), id="complex-mul-collapses-to-real"),
+        param("log(-1)", "complex", (0.0, 1.364376353841841), id="log-domain-promotes-complex"),
+        param("ln(-1)", "complex", (0.0, math.pi), id="ln-domain-promotes-complex"),
 
         # ----------------------------
         # root operator domain behavior
         # ----------------------------
         param("(-4) ⌄ 2", "complex", (0.0, 2.0), id="root-domain-complex"),
         param("-4 ⌄ 2", "float", -2.0, id="root-noncomplex-with-leading-minus"),
+        param("sqrt(-1)*sqrt(-4)", "complex", (-2.0, 0.0), id="complex-mul-imaginary-units"),
+        param("log(-1) + log(-2)", "complex", (0.3010299956639812, 2.728752707683683), id="complex-add-two-domains"),
+        param("sqrt(-1) / sqrt(-4)", "complex", (0.5, 0.0), id="complex-div-imaginary-units"),
+        param("(sqrt(-1))^2", "complex", (-1.0, 0.0), id="imaginary-unit-squared"),
+        param("sqrt(-1)^4", "complex", (1.0, 0.0), id="imaginary-unit-fourth-power"),
+        param("ln(-e)", "complex", (1.0, math.pi), id="ln-negative-e-exact"),
+        param("sqrt(-2)*sqrt(-2)", "complex", (-2.0, 0.0), id="complex-mul-same-base"),
 
         # ----------------------------
         # BigReal promotion + non-overflow path
