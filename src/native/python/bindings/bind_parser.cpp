@@ -81,34 +81,48 @@ void bind_parser(py::module_ &m) {
         .value("Unary", tcalc::ops::Arity::Unary)
         .value("Postfix", tcalc::ops::Arity::Postfix);
 
+    // Bind OpSpec structure
+    py::class_<tcalc::ops::OpSpec>(m, "OpSpec", "Operator specification from native op table.")
+        .def_readonly("id", &tcalc::ops::OpSpec::id, "Operation identifier")
+        .def_property_readonly(
+            "symbol", [](const tcalc::ops::OpSpec &op) { return std::string(op.symbol); })
+        .def_readonly("precedence", &tcalc::ops::OpSpec::precedence, "Operator precedence")
+        .def_readonly("associativity", &tcalc::ops::OpSpec::associativity, "Operator associativity")
+        .def_readonly("arity", &tcalc::ops::OpSpec::arity, "Operator arity")
+        .def_property_readonly(
+            "aliases",
+            [](const tcalc::ops::OpSpec &op) {
+                py::list out;
+                for (const auto alias : op.aliases) {
+                    if (!alias.empty()) {
+                        out.append(std::string(alias));
+                    }
+                }
+                return out;
+            })
+        .def_property_readonly(
+            "method", [](const tcalc::ops::OpSpec &op) { return std::string(op.method); })
+        .def_property_readonly(
+            "angle_unit",
+            [](const tcalc::ops::OpSpec &op) { return tcalc::ops::needs_angle_unit(op); })
+        .def_property_readonly(
+            "big_supported",
+            [](const tcalc::ops::OpSpec &op) { return tcalc::ops::big_supported(op); })
+        .def_property_readonly("big_complex_supported", [](const tcalc::ops::OpSpec &op) {
+            return tcalc::ops::big_complex_supported(op);
+        });
+
     m.def(
         "op_table",
         []() {
             py::list out;
             for (const auto &op : tcalc::ops::kOps) {
-                py::list aliases;
-                for (const auto alias : op.aliases) {
-                    if (!alias.empty()) {
-                        aliases.append(std::string(alias));
-                    }
-                }
-                out.append(
-                    py::make_tuple(
-                        op.id,
-                        std::string(op.symbol),
-                        op.precedence,
-                        op.associativity,
-                        op.arity,
-                        aliases,
-                        std::string(op.method),
-                        tcalc::ops::needs_angle_unit(op),
-                        tcalc::ops::big_supported(op),
-                        tcalc::ops::big_complex_supported(op)));
+                out.append(&op);
             }
             return out;
         },
-        "Return tuples of (id, symbol, precedence, associativity, arity, aliases, method, "
-        "needs_angle_unit, big_supported, big_complex_supported).");
+        "Return list of OpSpec objects from the native operation table.",
+        py::return_value_policy::reference);
 
     m.def("tokenize_string", &tcalc::parser::tokenize, py::arg("expression"));
     m.def("shunting_yard", &tcalc::parser::shunting_yard, py::arg("tokens"));
