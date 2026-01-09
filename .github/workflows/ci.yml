@@ -98,7 +98,7 @@ jobs:
           python -m venv venv
           . venv/bin/activate
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e ".[dev]"
           pip install mypy
 
       - name: Build native extension and generate stubs
