@@ -8,8 +8,4 @@ Checks: >
   -cppcoreguidelines-pro-bounds-constant-array-index,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
 
-WarningsAsErrors: ""
-
 HeaderFilterRegex: "src/native/(lib|python)/.*"
-
-ExcludeHeaderFilterRegex: "(.*pybind11.*|.*boost.*|.*tests.*|/usr/include.*)"

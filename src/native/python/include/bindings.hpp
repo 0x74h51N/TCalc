@@ -5,6 +5,7 @@
 #include <cmath>
 #include <utility>
 
+// Python binding declarations for calculator native extension
 void bind_bigreal(pybind11::module_ &m);
 void bind_bigcomplex(pybind11::module_ &m);
 void bind_angle_unit(pybind11::module_ &m);
