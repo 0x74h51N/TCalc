@@ -111,9 +111,12 @@ def main() -> int:
     if not init_pyi.exists():
         init_pyi.write_text("from __future__ import annotations\n", encoding="utf-8")
 
+    core_init_pyi = STUB_PATH.parent / "__init__.pyi"
+    if not core_init_pyi.exists():
+        core_init_pyi.write_text("from __future__ import annotations\n", encoding="utf-8")
+
     STUB_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-    STUB_PATH.relative_to(Path.cwd())
     print(f"[generate_ops_stub] Wrote {len(members)} ops to {STUB_PATH.relative_to(ROOT)}")
     return 0
 
