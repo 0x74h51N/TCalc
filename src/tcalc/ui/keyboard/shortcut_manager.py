@@ -5,8 +5,6 @@ from typing import Dict
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction
 
-from tcalc.app_state import CalculatorMode
-
 from .shortcuts import DEFAULT_ACTION_SHORTCUTS, ShortcutId
 
 
@@ -15,11 +13,12 @@ class ShortcutManager:
         self._settings = QSettings("TCalc", "TCalc")
         self._bindings: Dict[ShortcutId, QAction] = {}
 
-    def _settings_key(self, action_id: ShortcutId) -> str:
-        if isinstance(action_id, CalculatorMode):
-            return f"mode.{action_id.value}"
-
-        owner, name = action_id.__qualname__.split(".", 1)
+    def _settings_key(self, action_id: ShortcutId) -> str | None:
+        """Get settings key for action, None if lambda or invalid."""
+        qualname = action_id.__qualname__
+        if "." not in qualname:
+            return None
+        owner, name = qualname.split(".", 1)
         return f"{owner.removesuffix('Operations').lower()}.{name}"
 
     def bind_action(
@@ -30,7 +29,9 @@ class ShortcutManager:
     ) -> None:
         self._bindings[action_id] = action
         action.setShortcutContext(context)
-        action.setShortcut(self.get_shortcut(action_id))
+        shortcut = self.get_shortcut(action_id)
+        if shortcut:
+            action.setShortcut(shortcut)
 
     def get_shortcut(self, action_id: ShortcutId) -> str:
         key = self._settings_key(action_id)

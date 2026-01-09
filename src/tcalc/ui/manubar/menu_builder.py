@@ -2,20 +2,28 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Generic, TypeVar
+from enum import Enum
+from typing import TYPE_CHECKING, Callable, Generic, TypeVar, cast
 
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QMenu
 
 from tcalc.app_state import AppState, CalculatorMode
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, SettingsOperations
-from tcalc.ui.keyboard.shortcuts import ShortcutId
 
 if TYPE_CHECKING:
     from ..keyboard import ShortcutManager
     from ..window import MainWindow
 
 OpsType = TypeVar("OpsType", FileOperations, EditOperations, SettingsOperations)
+
+
+class MenuActionType(Enum):
+    """Menu action item type - determines callback behavior and context."""
+
+    OPS = "ops"  # fn(ops) - EditOperations/FileOperations/SettingsOperations
+    TOGGLE = "toggle"  # fn(ops, checked) - with app_state
+    BUTTON = "button"  # fn(ctx)
 
 
 def _get_icon(theme_name: str) -> QIcon:
@@ -41,11 +49,6 @@ class ToggleMenuContext(OpsMenuContext[OpsType], Generic[OpsType]):
     app_state: AppState
 
 
-@dataclass(frozen=True, slots=True)
-class ModeMenuContext(BaseMenuContext):
-    on_mode_selected: Callable[[CalculatorMode], None]
-
-
 TMenuContext = TypeVar("TMenuContext", bound=BaseMenuContext, contravariant=True)
 
 
@@ -60,12 +63,18 @@ class MenuSeparatorItem(MenuItem[BaseMenuContext]):
         return None
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class MenuActionItem(MenuItem[TMenuContext], Generic[TMenuContext]):
+    """Single unified action item. Type determines callback behavior."""
+
     text: str
     icon: str = ""
     checkable: bool = False
     enabled: bool = True
+    item_type: MenuActionType = MenuActionType.OPS
+    checked_attr: str = ""
+    fn: Callable
+    mode: CalculatorMode | None = None
 
     def _create_action(self, ctx: BaseMenuContext) -> QAction:
         action = QAction(_get_icon(self.icon), self.text, ctx.window)
@@ -73,53 +82,33 @@ class MenuActionItem(MenuItem[TMenuContext], Generic[TMenuContext]):
         action.setEnabled(self.enabled)
         return action
 
+    def _setup_initial_state(self, action: QAction, ctx: TMenuContext) -> None:
+        """Setup checked state and shortcuts."""
+        if self.item_type == MenuActionType.TOGGLE and self.checked_attr:
+            toggle_ctx = cast(ToggleMenuContext, ctx)
+            action.setChecked(getattr(toggle_ctx.app_state, self.checked_attr))
 
-@dataclass(frozen=True, slots=True)
-class MenuButtonItem(MenuActionItem[BaseMenuContext]):
-    on_trigger: Callable[[BaseMenuContext], None] | None = None
+        if self.item_type in (MenuActionType.OPS, MenuActionType.TOGGLE):
+            ctx.shortcuts.bind_action(self.fn, action)
 
-    def add_to(self, menu: QMenu, ctx: BaseMenuContext) -> QAction:
+    def _build_callback(self, ctx: TMenuContext) -> Callable:
+        """Build callback based on item type."""
+        match self.item_type:
+            case MenuActionType.OPS:
+                assert callable(self.fn)
+                ops_ctx = cast(OpsMenuContext, ctx)
+                return lambda: self.fn(ops_ctx.ops)
+            case MenuActionType.TOGGLE:
+                assert callable(self.fn)
+                toggle_ctx = cast(ToggleMenuContext, ctx)
+                return lambda checked: self.fn(toggle_ctx.ops, checked)
+            case MenuActionType.BUTTON:
+                assert callable(self.fn)
+                return lambda: self.fn(ctx)
+
+    def add_to(self, menu: QMenu, ctx: TMenuContext) -> QAction:
         action = self._create_action(ctx)
-        if self.on_trigger is not None:
-            action.triggered.connect(lambda _checked=False, fn=self.on_trigger, ctx=ctx: fn(ctx))
-        menu.addAction(action)
-        return action
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class MenuOpsActionItem(MenuActionItem[OpsMenuContext[OpsType]], Generic[OpsType]):
-    action_id: ShortcutId
-    fn: Callable[[OpsType], None]
-
-    def add_to(self, menu: QMenu, ctx: OpsMenuContext[OpsType]) -> QAction:
-        action = self._create_action(ctx)
-        ctx.shortcuts.bind_action(self.action_id, action)
-        action.triggered.connect(lambda _checked=False, fn=self.fn, ops=ctx.ops: fn(ops))
-        menu.addAction(action)
-        return action
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class MenuToggleItem(MenuActionItem[ToggleMenuContext[OpsType]], Generic[OpsType]):
-    toggle_fn: Callable[[OpsType, bool], None]
-    checked_attr: str
-
-    def add_to(self, menu: QMenu, ctx: ToggleMenuContext[OpsType]) -> QAction:
-        action = self._create_action(ctx)
-        action.setChecked(bool(getattr(ctx.app_state, self.checked_attr)))
-        ctx.shortcuts.bind_action(self.toggle_fn, action)
-        action.triggered.connect(lambda checked, fn=self.toggle_fn, ops=ctx.ops: fn(ops, checked))
-        menu.addAction(action)
-        return action
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class MenuModeItem(MenuActionItem[ModeMenuContext]):
-    mode: CalculatorMode
-
-    def add_to(self, menu: QMenu, ctx: ModeMenuContext) -> QAction:
-        action = self._create_action(ctx)
-        ctx.shortcuts.bind_action(self.mode, action)
-        action.triggered.connect(lambda _checked, m=self.mode: ctx.on_mode_selected(m))
+        self._setup_initial_state(action, ctx)
+        action.triggered.connect(self._build_callback(ctx))
         menu.addAction(action)
         return action

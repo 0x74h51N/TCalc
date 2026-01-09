@@ -7,13 +7,7 @@ from PySide6.QtWidgets import QMessageBox
 from tcalc.app_state import CalculatorMode
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, SettingsOperations
 
-from .menu_builder import (
-    MenuButtonItem,
-    MenuModeItem,
-    MenuOpsActionItem,
-    MenuSeparatorItem,
-    MenuToggleItem,
-)
+from .menu_builder import MenuActionItem, MenuActionType, MenuSeparatorItem
 
 
 def _open_keyboard_shortcuts(ctx) -> None:
@@ -24,117 +18,104 @@ def _open_tcalc_config(ctx) -> None:
     QMessageBox.information(ctx.window, "TCalc Settings", "Coming soon.")
 
 
-FILE_MENU_ACTIONS: Tuple[MenuOpsActionItem[FileOperations], ...] = (
-    MenuOpsActionItem(
-        action_id=FileOperations.quit,
-        fn=FileOperations.quit,
-        icon="application-exit",
+FILE_MENU_ACTIONS: Tuple[MenuActionItem, ...] = (
+    MenuActionItem(
         text="Quit",
-        checkable=False,
-        enabled=True,
+        icon="application-exit",
+        item_type=MenuActionType.OPS,
+        fn=FileOperations.quit,
     ),
 )
 
-EDIT_MENU_ACTIONS: Tuple[MenuOpsActionItem[EditOperations] | MenuSeparatorItem, ...] = (
-    MenuOpsActionItem(
-        action_id=EditOperations.undo,
-        fn=EditOperations.undo,
-        icon="edit-undo",
+EDIT_MENU_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
+    MenuActionItem(
         text="Undo",
-        checkable=False,
-        enabled=True,
+        icon="edit-undo",
+        item_type=MenuActionType.OPS,
+        fn=EditOperations.undo,
     ),
-    MenuOpsActionItem(
-        action_id=EditOperations.redo,
-        fn=EditOperations.redo,
-        icon="edit-redo",
+    MenuActionItem(
         text="Redo",
-        checkable=False,
-        enabled=True,
+        icon="edit-redo",
+        item_type=MenuActionType.OPS,
+        fn=EditOperations.redo,
     ),
     MenuSeparatorItem(),
-    MenuOpsActionItem(
-        action_id=EditOperations.cut,
-        fn=EditOperations.cut,
-        icon="edit-cut",
+    MenuActionItem(
         text="Cut",
-        checkable=False,
-        enabled=True,
+        icon="edit-cut",
+        item_type=MenuActionType.OPS,
+        fn=EditOperations.cut,
     ),
-    MenuOpsActionItem(
-        action_id=EditOperations.copy,
-        fn=EditOperations.copy,
-        icon="edit-copy",
+    MenuActionItem(
         text="Copy",
-        checkable=False,
-        enabled=True,
+        icon="edit-copy",
+        item_type=MenuActionType.OPS,
+        fn=EditOperations.copy,
     ),
-    MenuOpsActionItem(
-        action_id=EditOperations.paste,
-        fn=EditOperations.paste,
-        icon="edit-paste",
+    MenuActionItem(
         text="Paste",
-        checkable=False,
-        enabled=True,
+        icon="edit-paste",
+        item_type=MenuActionType.OPS,
+        fn=EditOperations.paste,
     ),
 )
 
-SETTINGS_ACTIONS: Tuple[
-    MenuToggleItem[SettingsOperations] | MenuSeparatorItem | MenuButtonItem, ...
-] = (
-    MenuToggleItem(
-        toggle_fn=SettingsOperations.toggle_history,
-        checked_attr="show_history",
-        icon="view-history",
-        text="Show History",
+SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
+    MenuActionItem(
+        text="Simple Mode",
+        icon="accessories-calculator",
         checkable=True,
-        enabled=True,
+        item_type=MenuActionType.OPS,
+        fn=lambda ops: ops.set_mode(CalculatorMode.SIMPLE),
+        mode=CalculatorMode.SIMPLE,
     ),
-    MenuToggleItem(
-        toggle_fn=SettingsOperations.toggle_constants,
-        checked_attr="show_constant_buttons",
-        icon="format-text-symbol",
-        text="Constant Buttons (Coming Soon)",
+    MenuActionItem(
+        text="Science Mode",
+        icon="applications-science",
+        checkable=True,
+        item_type=MenuActionType.OPS,
+        fn=lambda ops: ops.set_mode(CalculatorMode.SCIENCE),
+        mode=CalculatorMode.SCIENCE,
+    ),
+    MenuActionItem(
+        text="Statistic Mode (Coming Soon)",
+        icon="office-chart-bar",
         checkable=True,
         enabled=False,
+        item_type=MenuActionType.OPS,
+        fn=lambda ops: ops.set_mode(CalculatorMode.STATISTIC),
+        mode=CalculatorMode.STATISTIC,
     ),
     MenuSeparatorItem(),
-    MenuButtonItem(
-        icon="input-keyboard",
-        text="Configure Keyboard Shortcuts...",
-        checkable=False,
-        enabled=True,
-        on_trigger=_open_keyboard_shortcuts,
-    ),
-    MenuButtonItem(
-        icon="configure",
-        text="Configure TCalc...",
-        checkable=False,
-        enabled=True,
-        on_trigger=_open_tcalc_config,
-    ),
-)
-
-MODE_ACTIONS: Tuple[MenuModeItem, ...] = (
-    MenuModeItem(
-        mode=CalculatorMode.SIMPLE,
-        icon="accessories-calculator",
-        text="Simple Mode",
+    MenuActionItem(
+        text="Show History",
+        icon="view-history",
         checkable=True,
-        enabled=True,
+        item_type=MenuActionType.TOGGLE,
+        checked_attr="show_history",
+        fn=SettingsOperations.toggle_history,
     ),
-    MenuModeItem(
-        mode=CalculatorMode.SCIENCE,
-        icon="applications-science",
-        text="Science Mode (Coming Soon)",
-        checkable=True,
-        enabled=True,
-    ),
-    MenuModeItem(
-        mode=CalculatorMode.STATISTIC,
-        icon="office-chart-bar",
-        text="Statistic Mode (Coming Soon)",
+    MenuActionItem(
+        text="Constant Buttons (Coming Soon)",
+        icon="format-text-symbol",
         checkable=True,
         enabled=False,
+        item_type=MenuActionType.TOGGLE,
+        checked_attr="show_constant_buttons",
+        fn=SettingsOperations.toggle_constants,
+    ),
+    MenuSeparatorItem(),
+    MenuActionItem(
+        text="Configure Keyboard Shortcuts...",
+        icon="input-keyboard",
+        item_type=MenuActionType.BUTTON,
+        fn=_open_keyboard_shortcuts,
+    ),
+    MenuActionItem(
+        text="Configure TCalc...",
+        icon="configure",
+        item_type=MenuActionType.BUTTON,
+        fn=_open_tcalc_config,
     ),
 )

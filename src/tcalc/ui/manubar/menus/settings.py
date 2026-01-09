@@ -2,14 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenuBar
 
-from tcalc.app_state import CalculatorMode, get_app_state
+from tcalc.app_state import get_app_state
 from tcalc.ui.controller.menubar import SettingsOperations
 
-from ..defins import MODE_ACTIONS, SETTINGS_ACTIONS
-from ..menu_builder import ModeMenuContext, ToggleMenuContext
+from ..defins import SETTINGS_ACTIONS
+from ..menu_builder import MenuActionItem, ToggleMenuContext
 
 if TYPE_CHECKING:
     from ...keyboard import ShortcutManager
@@ -21,24 +20,10 @@ class SettingsMenu:
         self.app_state = get_app_state()
         self.window = window
         self.ops = SettingsOperations(window)
+        self._mode_actions: dict = {}
 
         settings_menu = menu.addMenu("Settings")
 
-        # Mode actions
-        self._mode_actions: dict[CalculatorMode, QAction] = {}
-        mode_ctx: ModeMenuContext = ModeMenuContext(
-            window, shortcuts, on_mode_selected=self._set_mode
-        )
-        for mode_item in MODE_ACTIONS:
-            action = mode_item.add_to(settings_menu, mode_ctx)
-            if action is not None:
-                self._mode_actions[mode_item.mode] = action
-
-        self._update_mode_selection()
-
-        settings_menu.addSeparator()
-
-        # Settings actions (toggles + config placeholders)
         settings_ctx: ToggleMenuContext[SettingsOperations] = ToggleMenuContext(
             window,
             shortcuts,
@@ -46,10 +31,11 @@ class SettingsMenu:
             app_state=self.app_state,
         )
         for settings_item in SETTINGS_ACTIONS:
-            settings_item.add_to(settings_menu, settings_ctx)
+            action = settings_item.add_to(settings_menu, settings_ctx)
 
-    def _set_mode(self, mode: CalculatorMode) -> None:
-        self.ops.set_mode(mode)
+            if action and isinstance(settings_item, MenuActionItem) and settings_item.mode:
+                self._mode_actions[settings_item.mode] = action
+                action.triggered.connect(self._update_mode_selection)
         self._update_mode_selection()
 
     def _update_mode_selection(self) -> None:

@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from tcalc.app_state import CalculatorMode
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, SettingsOperations
 
-ShortcutId = Callable[..., object] | CalculatorMode
+ShortcutId = Callable[..., object]
 
 
 DEFAULT_ACTION_SHORTCUTS: dict[ShortcutId, str] = {
