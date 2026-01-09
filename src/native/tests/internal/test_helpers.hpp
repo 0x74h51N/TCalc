@@ -26,7 +26,7 @@ struct TestContext {
     int cases = 0;
     int case_failures = 0;
     bool case_failed_reported = false;
-    enum class OutputMode {
+    enum class OutputMode : std::uint8_t {
         Quiet,
         Mid,
         Verbose,
@@ -143,6 +143,22 @@ inline std::string case_prefix(const TestContext &ctx) {
     return ctx.current_case + " ";
 }
 
+struct SuiteName {
+    std::string_view value;
+    constexpr SuiteName(std::string_view v)
+        : value(v) {}
+    constexpr SuiteName(const char *v)
+        : value(v) {}
+};
+
+struct FilePath {
+    std::string_view value;
+    constexpr FilePath(std::string_view v)
+        : value(v) {}
+    constexpr FilePath(const char *v)
+        : value(v) {}
+};
+
 struct ScopedCase {
     TestContext &ctx;
     std::string prev;
@@ -158,12 +174,14 @@ struct ScopedCase {
     }
 
     ~ScopedCase() { ctx.current_case = std::move(prev); }
+
+    ScopedCase(const ScopedCase &) = delete;
+    ScopedCase &operator=(const ScopedCase &) = delete;
 };
 
 template <typename Fn> inline void with_case(TestContext &ctx, std::string name, Fn &&fn) {
     const int failures_before = ctx.failures;
     ScopedCase scoped(ctx, std::move(name));
-    const std::string label = ctx.current_case;
     ctx.cases += 1;
     ctx.case_failed_reported = false;
     std::forward<Fn>(fn)();
@@ -174,27 +192,28 @@ template <typename Fn> inline void with_case(TestContext &ctx, std::string name,
 }
 
 template <typename Fn>
-inline void run_suite(TestContext &ctx, const char *name, const char *file, Fn &&fn) {
+inline void run_suite(TestContext &ctx, SuiteName name, FilePath file, Fn &&fn) {
     const int cases_before = ctx.cases;
     const int case_failures_before = ctx.case_failures;
 
     const auto start = std::chrono::steady_clock::now();
 
     if (out(ctx)) {
-        const std::string label = std::string("RUN ") + name;
+        const std::string label = std::string("RUN ") + std::string(name.value);
         print_banner(ctx, std::cout, label, kYellow);
-        std::cout << file << "\n" << std::flush;
+        std::cout << file.value << "\n" << std::flush;
     }
 
     try {
-        ScopedCase suite_case(ctx, name);
+        ScopedCase suite_case(ctx, std::string(name.value));
         std::forward<Fn>(fn)(ctx);
     } catch (const std::exception &e) {
         ctx.failures += 1;
-        status_line(ctx, false, std::string(name) + " unhandled exception: " + e.what(), true);
+        status_line(
+            ctx, false, std::string(name.value) + " unhandled exception: " + e.what(), true);
     } catch (...) {
         ctx.failures += 1;
-        status_line(ctx, false, std::string(name) + " unhandled unknown exception", true);
+        status_line(ctx, false, std::string(name.value) + " unhandled unknown exception", true);
     }
 
     const auto end = std::chrono::steady_clock::now();

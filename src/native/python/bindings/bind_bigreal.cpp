@@ -21,12 +21,14 @@ void bind_bigreal(py::module_ &m) {
             "__str__",
             [](const B &v) {
                 std::ostringstream oss;
-                oss << std::setprecision(16) << v;
+                oss << std::setprecision(detail::kPythonPrecision)
+                    << v; // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
                 return oss.str();
             })
         .def("__repr__", [](const B &v) {
             std::ostringstream oss;
-            oss << std::setprecision(16) << v;
+            oss << std::setprecision(detail::kPythonPrecision)
+                << v; // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
             return std::string("BigReal(\"") + oss.str() + "\")";
         });
 }

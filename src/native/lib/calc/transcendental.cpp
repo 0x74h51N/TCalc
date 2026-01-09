@@ -26,8 +26,9 @@ double Calculator::root(double x, double y) const {
 
     if (x < 0.0) {
         calc_detail::require(calc_detail::int_like(y));
+        constexpr double kTwo = 2.0;
         const double rounded = std::round(y);
-        calc_detail::require(std::fmod(rounded, 2.0) != 0.0);
+        calc_detail::require(std::fmod(rounded, kTwo) != 0.0);
         return -this->pow(-x, 1.0 / y);
     }
 

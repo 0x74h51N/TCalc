@@ -6,6 +6,8 @@
 
 namespace calc_detail {
 
+constexpr double kDefaultEpsilon = 1e-12;
+
 [[noreturn]] inline void math_error() {
     throw CalculatorError("Math error");
 }
@@ -16,7 +18,7 @@ inline void require(bool ok) {
     }
 }
 
-inline bool int_like(double x, double eps = 1e-12) {
+inline bool int_like(double x, double eps = kDefaultEpsilon) {
     const double rounded = std::round(x);
     return std::abs(x - rounded) <= eps;
 }

@@ -10,13 +10,16 @@
 
 namespace {
 
+constexpr double kDegreesPerCircle = 180.0;
+constexpr double kGradsPerCircle = 200.0;
+
 constexpr double radians_factor(Calculator::AngleUnit unit) noexcept {
     constexpr double pi = boost::math::constants::pi<double>();
     switch (unit) {
     case Calculator::AngleUnit::DEG:
-        return pi / 180.0;
+        return pi / kDegreesPerCircle;
     case Calculator::AngleUnit::GRAD:
-        return pi / 200.0;
+        return pi / kGradsPerCircle;
     case Calculator::AngleUnit::RAD:
     default:
         return 1.0;
@@ -27,9 +30,9 @@ constexpr double from_radians_factor(Calculator::AngleUnit unit) noexcept {
     constexpr double pi = boost::math::constants::pi<double>();
     switch (unit) {
     case Calculator::AngleUnit::DEG:
-        return 180.0 / pi;
+        return kDegreesPerCircle / pi;
     case Calculator::AngleUnit::GRAD:
-        return 200.0 / pi;
+        return kGradsPerCircle / pi;
     case Calculator::AngleUnit::RAD:
     default:
         return 1.0;
@@ -44,73 +47,73 @@ template <typename T> inline T from_radians(T x, Calculator::AngleUnit unit) noe
     return x * from_radians_factor(unit);
 }
 
-inline BigReal radians_factor_big(Calculator::AngleUnit unit) noexcept {
-    const BigReal pi = boost::math::constants::pi<BigReal>();
+inline BigReal radians_factor_big(Calculator::AngleUnit unit) {
+    const BigReal &pi = boost::math::constants::pi<BigReal>();
     switch (unit) {
     case Calculator::AngleUnit::DEG:
-        return pi / BigReal(180);
+        return pi / BigReal(kDegreesPerCircle);
     case Calculator::AngleUnit::GRAD:
-        return pi / BigReal(200);
+        return pi / BigReal(kGradsPerCircle);
     case Calculator::AngleUnit::RAD:
     default:
         return BigReal(1);
     }
 }
 
-inline BigReal from_radians_factor_big(Calculator::AngleUnit unit) noexcept {
-    const BigReal pi = boost::math::constants::pi<BigReal>();
+inline BigReal from_radians_factor_big(Calculator::AngleUnit unit) {
+    const BigReal &pi = boost::math::constants::pi<BigReal>();
     switch (unit) {
     case Calculator::AngleUnit::DEG:
-        return BigReal(180) / pi;
+        return BigReal(kDegreesPerCircle) / pi;
     case Calculator::AngleUnit::GRAD:
-        return BigReal(200) / pi;
+        return BigReal(kGradsPerCircle) / pi;
     case Calculator::AngleUnit::RAD:
     default:
         return BigReal(1);
     }
 }
 
-inline BigReal to_radians(BigReal x, Calculator::AngleUnit unit) noexcept {
+inline BigReal to_radians(const BigReal &x, Calculator::AngleUnit unit) noexcept {
     return x * radians_factor_big(unit);
 }
 
-inline BigReal from_radians(BigReal x, Calculator::AngleUnit unit) noexcept {
+inline BigReal from_radians(const BigReal &x, Calculator::AngleUnit unit) noexcept {
     return x * from_radians_factor_big(unit);
 }
 
-inline BigComplex radians_factor_bigcx(Calculator::AngleUnit unit) noexcept {
+inline BigComplex radians_factor_bigcx(Calculator::AngleUnit unit) {
     using BF = boost::multiprecision::cpp_bin_float_50;
-    const BF pi = boost::math::constants::pi<BF>();
+    const BF &pi = boost::math::constants::pi<BF>();
     switch (unit) {
     case Calculator::AngleUnit::DEG:
-        return BigComplex(pi / BF(180), BF(0));
+        return BigComplex(pi / BF(kDegreesPerCircle), BF(0));
     case Calculator::AngleUnit::GRAD:
-        return BigComplex(pi / BF(200), BF(0));
+        return BigComplex(pi / BF(kGradsPerCircle), BF(0));
     case Calculator::AngleUnit::RAD:
     default:
         return BigComplex(BF(1), BF(0));
     }
 }
 
-inline BigComplex from_radians_factor_bigcx(Calculator::AngleUnit unit) noexcept {
+inline BigComplex from_radians_factor_bigcx(Calculator::AngleUnit unit) {
     using BF = boost::multiprecision::cpp_bin_float_50;
-    const BF pi = boost::math::constants::pi<BF>();
+    const BF &pi = boost::math::constants::pi<BF>();
     switch (unit) {
     case Calculator::AngleUnit::DEG:
-        return BigComplex(BF(180) / pi, BF(0));
+        return BigComplex(BF(kDegreesPerCircle) / pi, BF(0));
     case Calculator::AngleUnit::GRAD:
-        return BigComplex(BF(200) / pi, BF(0));
+        return BigComplex(BF(kGradsPerCircle) / pi, BF(0));
     case Calculator::AngleUnit::RAD:
     default:
         return BigComplex(BF(1), BF(0));
     }
 }
 
-inline BigComplex to_radians(BigComplex x, Calculator::AngleUnit unit) noexcept {
+inline BigComplex to_radians(const BigComplex &x, Calculator::AngleUnit unit) {
     return x * radians_factor_bigcx(unit);
 }
 
-inline BigComplex from_radians(BigComplex x, Calculator::AngleUnit unit) noexcept {
+inline BigComplex from_radians(const BigComplex &x, Calculator::AngleUnit unit) {
     return x * from_radians_factor_bigcx(unit);
 }
 

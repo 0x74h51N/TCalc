@@ -9,7 +9,7 @@ TEST_ARGS ?= --quiet
 STUBS_DIR := $(ROOT)/stubs
 
 CPP_FORMAT_FILES := $(shell find $(ROOT)/src/native -type f \( -name "*.cpp" -o -name "*.hpp" -o -name "*.h" \) -print)
-CPP_TIDY_FILES := $(shell find $(ROOT)/src/native -type f -name "*.cpp" -print)
+CPP_TIDY_FILES := $(shell find $(ROOT)/src/native/lib $(ROOT)/src/native/python -type f -name "*.cpp" -print)
 
 configure:
 	rm -f $(ROOT)/src/calc_native*.so
@@ -43,8 +43,8 @@ cpp-format-check:
 	@clang-format --dry-run --Werror $(CPP_FORMAT_FILES)
 
 cpp-tidy: configure
-	@command -v clang-tidy >/dev/null || (echo "clang-tidy not found"; exit 1)
-	clang-tidy -quiet -extra-arg=-w -p $(BUILD_DIR) $(CPP_TIDY_FILES)
+	@command -v run-clang-tidy >/dev/null || (echo "run-clang-tidy not found"; exit 1)
+	run-clang-tidy -p $(BUILD_DIR) -j $$(nproc) -extra-arg=-w -header-filter='' $(CPP_TIDY_FILES)
 
 stub-gen: $(SO_FILE)
 	PYTHONPATH=$(ROOT)/src $(PYTHON) -m pybind11_stubgen calc_native -o $(ROOT)/stubs

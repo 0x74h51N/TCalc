@@ -24,22 +24,24 @@ void bind_bigcomplex(py::module_ &m) {
                 std::ostringstream oss;
                 BF re(v.backend().real_data());
                 BF im(v.backend().imag_data());
-                oss << std::setprecision(16) << re;
+                oss << std::setprecision(detail::kPythonPrecision) << re;
                 if (im >= 0) {
                     oss << "+";
                 }
-                oss << std::setprecision(16) << im << "i";
+                oss << std::setprecision(detail::kPythonPrecision) << im << "i";
                 return oss.str();
             })
         .def("__repr__", [](const BC &v) {
             std::ostringstream oss;
             BF re(v.backend().real_data());
             BF im(v.backend().imag_data());
-            oss << std::setprecision(16) << re;
+            oss << std::setprecision(detail::kPythonPrecision)
+                << re; // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
             if (im >= 0) {
                 oss << "+";
             }
-            oss << std::setprecision(16) << im << "i";
+            oss << std::setprecision(detail::kPythonPrecision) << im
+                << "i"; // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
             return std::string("BigComplex(\"") + oss.str() + "\")";
         });
 }

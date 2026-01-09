@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  cpp-format-check:
+    name: C++ Format Check (clang-format)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: Run format check
+        run: make cpp-format-check
+
+  cpp-code-check:
+    name: C++ Code Quality (clang-tidy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build clang-tidy g++-15 libboost-dev python3-dev python3-venv python3-pip
+          pip install pybind11
+
+      - name: Cache build directory
+        uses: actions/cache@v3
+        with:
+          path: build/native
+          key: clang-tidy-${{ runner.os }}-${{ hashFiles('src/native/CMakeLists.txt') }}
+
+      - name: Run clang-tidy
+        run: make cpp-tidy
+
+  py-format-check:
+    name: Python Format Check (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install ruff
+
+      - name: Run ruff checks
+        run: make py-lint
+
+  py-typecheck:
+    name: Python Type Check (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install mypy
+
+      - name: Run mypy
+        run: make typecheck
+
+  native-test:
+    name: Native Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++-15 libboost-dev python3-dev python3-venv python3-pip
+          pip install pybind11
+
+      - name: Run native tests
+        run: make native-test NATIVE_TEST_ARGS="-m"
+
+  py-test:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+          pip install pytest
+
+      - name: Run pytest
+        run: make py-test PYTEST_ARGS="-ra"

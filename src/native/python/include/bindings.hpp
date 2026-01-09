@@ -12,14 +12,16 @@ void bind_calculator(pybind11::module_ &m);
 void bind_parser(pybind11::module_ &m);
 
 namespace detail {
+inline constexpr int kPythonPrecision = 16;
 inline constexpr double kPowToBigUp = 308.0;
 inline constexpr double kPowToBigLow = -324.0;
+inline constexpr double kBaseTen = 10.0;
 } // namespace detail
 
 inline bool pow_to_big(double base, double exp, bool exp_is_int) {
     const double base_mag = std::fabs(base);
 
-    if (base_mag == 10.0 && exp_is_int && std::fabs(exp) >= detail::kPowToBigUp) {
+    if (base_mag == detail::kBaseTen && exp_is_int && std::fabs(exp) >= detail::kPowToBigUp) {
         return true;
     }
 

@@ -1,23 +1,15 @@
 Checks: >
   -*,
   clang-analyzer-*,
+  -clang-analyzer-core.StackAddressEscape,
   bugprone-*,
   performance-*,
-  readability-*,
-  -readability-magic-numbers,
-  -readability-convert-member-functions-to-static,
-  -readability-function-cognitive-complexity,
-  -readability-redundant-member-init,
-  modernize-*,
-  -modernize-use-designated-initializers,
-  -modernize-use-trailing-return-type,
   cppcoreguidelines-*,
-  -cppcoreguidelines-avoid-magic-numbers,
-  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
-  -readability-identifier-length,
-  -cppcoreguidelines-owning-memory,
-  -clang-analyzer-core.StackAddressEscape
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
 
-WarningsAsErrors: ''
+WarningsAsErrors: ""
 
-HeaderFilterRegex: 'src/native/.*'
+HeaderFilterRegex: "src/native/(lib|python)/.*"
+
+ExcludeHeaderFilterRegex: "(.*pybind11.*|.*boost.*|.*tests.*|/usr/include.*)"

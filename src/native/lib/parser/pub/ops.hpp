@@ -12,7 +12,7 @@ enum class Assoc : std::uint8_t { Left, Right };
 enum class Arity : std::uint8_t { Binary, Unary, Postfix };
 
 /// Operation identifiers used in tokens and op_table.
-enum class OpId : std::uint16_t {
+enum class OpId : std::uint8_t {
     Add,
     Sub,
     Mul,

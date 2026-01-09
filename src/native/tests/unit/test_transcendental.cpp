@@ -115,7 +115,7 @@ void unit_transcendental(TestContext &ctx) {
     });
 
     const BC z_ln("1e10", "1e-5");
-    const BF ln_ten = boost::math::constants::ln_ten<BF>();
+    const BF &ln_ten = boost::math::constants::ln_ten<BF>();
     const BC ln_from_log = c.log(z_ln) * BC(ln_ten, BF(0));
     TEST_CASE(ctx, "bigcomplex :: ln matches log", {
         EXPECT_TRUE(ctx, approx_big(c.ln(z_ln), ln_from_log, BF("1e-20")));
