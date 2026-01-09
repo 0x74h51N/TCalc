@@ -101,6 +101,14 @@ jobs:
           pip install -e .
           pip install mypy
 
+      - name: Build native extension and generate stubs
+        run: |
+          . venv/bin/activate
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++-15 libboost-dev python3-dev
+          make native-build NATIVE_BUILD_TYPE=Debug
+          make stub-gen
+
       - name: Run mypy
         run: |
           . venv/bin/activate
