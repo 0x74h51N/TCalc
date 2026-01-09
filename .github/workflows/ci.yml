@@ -53,6 +53,7 @@ jobs:
 
       - name: Run clang-tidy
         run: |
+          set -euo pipefail
           . venv/bin/activate
           make cpp-tidy
 
@@ -113,11 +114,3 @@ jobs:
         run: |
           . venv/bin/activate
           make typecheck
-
-  native-test:
-    name: Native Tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
