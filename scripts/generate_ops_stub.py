@@ -100,14 +100,20 @@ def main() -> int:
     ])
     
     # Write stub file
-    stub_pkg_root = STUB_PATH.parents[1]
+    STUB_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    stub_pkg_root = ROOT / "stubs" / "tcalc"
     stub_pkg_root.mkdir(parents=True, exist_ok=True)
+
     (stub_pkg_root / "py.typed").write_text("partial\n", encoding="utf-8")
-    (stub_pkg_root / "__init__.pyi").parent.mkdir(parents=True, exist_ok=True)
-    if not (stub_pkg_root / "__init__.pyi").exists():
-        (stub_pkg_root / "__init__.pyi").write_text("from __future__ import annotations\n", encoding="utf-8")
+
+    init_pyi = stub_pkg_root / "__init__.pyi"
+    if not init_pyi.exists():
+        init_pyi.write_text("from __future__ import annotations\n", encoding="utf-8")
+
     STUB_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    rel = STUB_PATH.relative_to(Path.cwd())
+
+    STUB_PATH.relative_to(Path.cwd())
     print(f"[generate_ops_stub] Wrote {len(members)} ops to {STUB_PATH.relative_to(ROOT)}")
     return 0
 
