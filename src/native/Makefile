@@ -25,8 +25,8 @@ build: configure
 test: build
 	$(BUILD_DIR)/native_tests $(TEST_ARGS)
 
-ctest: build
-	ctest --test-dir $(BUILD_DIR) --output-on-failure
+ctest:
+	$(BUILD_DIR)/native_tests $(TEST_ARGS)
 
 release:
 	$(MAKE) test BUILD_TYPE=Release

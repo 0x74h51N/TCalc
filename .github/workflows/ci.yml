@@ -169,7 +169,7 @@ jobs:
           chmod +x build/native/native_tests || true
 
       - name: Run native tests (ctest)
-        run: ctest --test-dir build/native --output-on-failure
+        run: make native-ctest NATIVE_TEST_ARGS=--verbose
 
   py-test:
     name: Python Tests

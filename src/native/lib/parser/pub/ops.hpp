@@ -56,10 +56,12 @@ enum class OpId : std::uint8_t {
 
     Exp,
     Pow10,
-
+    Cekomastik,
+    Silikone,
+    
     /// Sentinel: not a real op; used for number tokens.
     Count,
-};
+  };
 
 /// Operator specification used by the tokenizer/parser.
 struct OpSpec {
