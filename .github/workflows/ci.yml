@@ -47,7 +47,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/native
-          key: clang-tidy-${{ runner.os }}-${{ hashFiles('src/native/CMakeLists.txt', 'src/native/**', '.clang-tidy', 'CMakePresets.json') }}
+          key: clang-tidy-${{ runner.os }}-${{hashFiles('src/native/CMakeLists.txt', 'src/native/CMakeLists.txt', '.clang-tidy', 'CMakePresets.json') }}
           restore-keys: |
             clang-tidy-${{ runner.os }}-
 

@@ -44,10 +44,16 @@ cpp-format-check:
 
 BASE_REF ?= origin/master
 
-cpp-tidy: configure
+cpp-tidy:
+	@if [ ! -f "$(BUILD_DIR)/compile_commands.json" ]; then \
+	  $(MAKE) configure; \
+	fi
 	@BUILD_DIR="$(BUILD_DIR)" ROOT="$(ROOT)" CPP_TIDY_WARNS="$(CPP_TIDY_WARNS)" bash "$(ROOT)/scripts/cpp_tidy"
 
-cpp-tidy-diff: configure
+cpp-tidy-diff:
+	@if [ ! -f "$(BUILD_DIR)/compile_commands.json" ]; then \
+	  $(MAKE) configure; \
+	fi
 	@BUILD_DIR="$(BUILD_DIR)" ROOT="$(ROOT)" CPP_TIDY_WARNS="$(CPP_TIDY_WARNS)" BASE_REF="$(BASE_REF)" bash "$(ROOT)/scripts/cpp_tidy" --diff
 
 
