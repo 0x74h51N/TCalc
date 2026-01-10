@@ -15,23 +15,26 @@ command -v run-clang-tidy >/dev/null || { echo "run-clang-tidy not found"; exit 
 
 HEADER_FILTER='.*/src/native/(lib|python)/.*'
 
-LIB_DIR="$ROOT/src/native/lib"
-PY_DIR="$ROOT/src/native/python"
+# IMPORTANT: git diff wants RELATIVE paths
+LIB_DIR_REL="src/native/lib"
+PY_DIR_REL="src/native/python"
+
+cd "$ROOT"
 
 if [[ "$MODE" == "full" ]]; then
-  FILES="$(find "$LIB_DIR" "$PY_DIR" -type f -name "*.cpp" -print)"
+  FILES="$(find "$LIB_DIR_REL" "$PY_DIR_REL" -type f -name "*.cpp" -print)"
 else
-  : "${BASE_REF:=origin/master}"
+  BASE_REF="${BASE_REF:-origin/master}"
+
   git rev-parse --verify "$BASE_REF" >/dev/null 2>&1 || {
-    echo "Base ref '$BASE_REF' not found. Fetch it in CI."
+    echo "Base ref '$BASE_REF' not found"
     exit 1
   }
 
   BASE_SHA="$(git merge-base "$BASE_REF" HEAD)"
 
-  # PR diff: include .cpp and headers under the same dirs
   FILES="$(git diff --name-only --diff-filter=ACMRTUXB "$BASE_SHA...HEAD" -- \
-    "$LIB_DIR" "$PY_DIR" \
+    "$LIB_DIR_REL" "$PY_DIR_REL" \
     | grep -E '\.(c|cc|cpp|cxx|h|hpp)$' || true)"
 fi
 

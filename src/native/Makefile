@@ -42,11 +42,13 @@ cpp-format-check:
 	@command -v clang-format >/dev/null || (echo "clang-format not found"; exit 1)
 	@clang-format --dry-run --Werror $(CPP_FORMAT_FILES)
 
+BASE_REF ?= origin/master
+
 cpp-tidy: configure
-	@BUILD_DIR="$(BUILD_DIR)" ROOT="$(ROOT)" CPP_TIDY_WARNS="$(CPP_TIDY_WARNS)" bash ./tools/clang-tidy.sh
+	@BUILD_DIR="$(BUILD_DIR)" ROOT="$(ROOT)" CPP_TIDY_WARNS="$(CPP_TIDY_WARNS)" bash "$(ROOT)/scripts/cpp_tidy"
 
 cpp-tidy-diff: configure
-	@BUILD_DIR="$(BUILD_DIR)" ROOT="$(ROOT)" CPP_TIDY_WARNS="$(CPP_TIDY_WARNS)" BASE_REF="$(BASE_REF)" bash ./tools/clang-tidy.sh --diff
+	@BUILD_DIR="$(BUILD_DIR)" ROOT="$(ROOT)" CPP_TIDY_WARNS="$(CPP_TIDY_WARNS)" BASE_REF="$(BASE_REF)" bash "$(ROOT)/scripts/cpp_tidy" --diff
 
 
 stub-gen: $(SO_FILE)
