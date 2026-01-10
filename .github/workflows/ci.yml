@@ -107,13 +107,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: native-build-debug
-      - name: Debug compile_commands
-        run: |
-          set -euo pipefail
-          pwd
-          ls -la build/native || true
-          ls -la build/native/compile_commands.json || true
-          test -f build/native/compile_commands.json && echo "compile_commands OK" || echo "compile_commands MISSING"
+
       - name: Run clang-tidy (diff only)
         run: |
           set -euo pipefail
