@@ -55,7 +55,7 @@ jobs:
         run: |
           set -euo pipefail
           . venv/bin/activate
-          make cpp-tidy
+          make cpp-tidy-diff
 
   py-format-check:
     name: Python Format Check (ruff)
@@ -177,5 +177,3 @@ jobs:
         run: |
           . venv/bin/activate
           make py-test
-
-
