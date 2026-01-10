@@ -20,11 +20,6 @@ PYBIND11_MODULE(calc_native, m) {
     m.attr("pi") = py::float_(boost::math::constants::pi<D>());
     m.attr("e") = py::float_(boost::math::constants::e<D>());
     m.attr("φ") = py::float_(boost::math::constants::phi<D>());
-
-    m.attr("c") = py::float_(299792458.0);        // Speed of light
-    m.attr("e_ch") = py::float_(1.602176634e-19); // Elementery charge
-    m.attr("Z₀") = py::float_(376.730313668);     // Impedance of vacuum
-
     m.attr("i") = py::cast(Z(0.0, 1.0));
 
     bind_angle_unit(m);
