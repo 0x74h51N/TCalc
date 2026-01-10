@@ -19,6 +19,7 @@ PYBIND11_MODULE(calc_native, m) {
     using D = double;
     m.attr("pi") = py::float_(boost::math::constants::pi<D>());
     m.attr("e") = py::float_(boost::math::constants::e<D>());
+    m.attr("φ") = py::float_(boost::math::constants::phi<D>());
     m.attr("i") = py::cast(Z(0.0, 1.0));
 
     bind_angle_unit(m);

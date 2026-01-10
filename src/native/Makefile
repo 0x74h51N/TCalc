@@ -1,5 +1,5 @@
 .PHONY: configure build test ctest clean release
-.PHONY: cpp-format cpp-format-check cpp-tidy
+.PHONY: cpp-format cpp-format-check cpp-tidy cpp-tidy-diff
 
 ROOT := ../..
 BUILD_DIR := $(ROOT)/build/native
@@ -9,7 +9,6 @@ TEST_ARGS ?= --quiet
 STUBS_DIR := $(ROOT)/stubs
 
 CPP_FORMAT_FILES := $(shell find $(ROOT)/src/native -type f \( -name "*.cpp" -o -name "*.hpp" -o -name "*.h" \) -print)
-CPP_TIDY_FILES := $(shell find $(ROOT)/src/native/lib $(ROOT)/src/native/python -type f -name "*.cpp" -print)
 CPP_TIDY_WARNS := -warnings-as-errors=clang-analyzer-core-*,clang-analyzer-cplusplus-*,clang-analyzer-deadcode.*,bugprone-*,cppcoreguidelines-*,performance-*
 
 configure:
@@ -26,8 +25,8 @@ build: configure
 test: build
 	$(BUILD_DIR)/native_tests $(TEST_ARGS)
 
-ctest: build
-	ctest --test-dir $(BUILD_DIR) --output-on-failure
+ctest:
+	$(BUILD_DIR)/native_tests $(TEST_ARGS)
 
 release:
 	$(MAKE) test BUILD_TYPE=Release
@@ -43,13 +42,20 @@ cpp-format-check:
 	@command -v clang-format >/dev/null || (echo "clang-format not found"; exit 1)
 	@clang-format --dry-run --Werror $(CPP_FORMAT_FILES)
 
-cpp-tidy: configure
-	@command -v run-clang-tidy >/dev/null || (echo "run-clang-tidy not found"; exit 1)
-	run-clang-tidy -p $(BUILD_DIR) -j $$(nproc) -quiet \
-	  -extra-arg=-w \
-	  -header-filter='.*/src/native/(lib|python)/.*' \
-	  $(CPP_TIDY_WARNS) \
-	  $(CPP_TIDY_FILES)
+BASE_REF ?= origin/master
+
+cpp-tidy:
+	@if [ ! -f "$(BUILD_DIR)/compile_commands.json" ]; then \
+	  $(MAKE) configure; \
+	fi
+	@BUILD_DIR="$(BUILD_DIR)" ROOT="$(ROOT)" CPP_TIDY_WARNS="$(CPP_TIDY_WARNS)" bash "$(ROOT)/scripts/cpp_tidy"
+
+cpp-tidy-diff:
+	@if [ ! -f "$(BUILD_DIR)/compile_commands.json" ]; then \
+	  $(MAKE) configure; \
+	fi
+	@BUILD_DIR="$(BUILD_DIR)" ROOT="$(ROOT)" CPP_TIDY_WARNS="$(CPP_TIDY_WARNS)" BASE_REF="$(BASE_REF)" bash "$(ROOT)/scripts/cpp_tidy" --diff
+
 
 stub-gen: $(SO_FILE)
 	PYTHONPATH=$(ROOT)/src $(PYTHON) -m pybind11_stubgen calc_native -o $(ROOT)/stubs

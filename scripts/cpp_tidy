@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MODE="full"
+if [[ "${1:-}" == "--diff" ]]; then
+  MODE="diff"
+  shift
+fi
+
+: "${BUILD_DIR:?missing BUILD_DIR}"
+: "${ROOT:?missing ROOT}"
+: "${CPP_TIDY_WARNS:?missing CPP_TIDY_WARNS}"
+
+command -v run-clang-tidy >/dev/null || { echo "run-clang-tidy not found"; exit 1; }
+
+HEADER_FILTER='.*/src/native/(lib|python)/.*'
+
+# IMPORTANT: git diff wants RELATIVE paths
+LIB_DIR_REL="src/native/lib"
+PY_DIR_REL="src/native/python"
+
+cd "$ROOT"
+
+if [[ "$MODE" == "full" ]]; then
+  FILES="$(find "$LIB_DIR_REL" "$PY_DIR_REL" -type f -name "*.cpp" -print)"
+else
+  BASE_REF="${BASE_REF:-origin/master}"
+
+  git rev-parse --verify "$BASE_REF" >/dev/null 2>&1 || {
+    echo "Base ref '$BASE_REF' not found"
+    exit 1
+  }
+
+  BASE_SHA="$(git merge-base "$BASE_REF" HEAD)"
+
+  FILES="$(git diff --name-only --diff-filter=ACMRTUXB "$BASE_SHA...HEAD" -- \
+    "$LIB_DIR_REL" "$PY_DIR_REL" \
+    | grep -E '\.(c|cc|cpp|cxx|h|hpp)$' || true)"
+fi
+
+if [[ -z "${FILES// }" ]]; then
+  echo "No matching files, skipping clang-tidy"
+  exit 0
+fi
+
+echo "clang-tidy mode: $MODE"
+echo "$FILES"
+
+run-clang-tidy -p "$BUILD_DIR" -j "$(nproc)" -quiet \
+  -extra-arg=-w \
+  -header-filter="$HEADER_FILTER" \
+  $CPP_TIDY_WARNS \
+  $FILES

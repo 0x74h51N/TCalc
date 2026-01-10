@@ -70,5 +70,8 @@ cpp-format-check:
 cpp-tidy:
 	$(NATIVE_MAKE) cpp-tidy
 
+cpp-tidy-diff:
+	$(NATIVE_MAKE) cpp-tidy-diff
+
 hooks:
 	$(PY) -m pre_commit install --install-hooks --config .pre-commit.yaml
