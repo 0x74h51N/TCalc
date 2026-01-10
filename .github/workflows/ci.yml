@@ -107,7 +107,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: native-build-debug
-
+      - name: Debug compile_commands
+        run: |
+          set -euo pipefail
+          pwd
+          ls -la build/native || true
+          ls -la build/native/compile_commands.json || true
+          test -f build/native/compile_commands.json && echo "compile_commands OK" || echo "compile_commands MISSING"
       - name: Run clang-tidy (diff only)
         run: |
           set -euo pipefail
@@ -158,9 +164,12 @@ jobs:
         with:
           name: native-build-debug
 
-      - name: Run native tests
+      - name: Fix native test permissions
         run: |
-          ./build/native/native_tests --quiet
+          chmod +x build/native/native_tests || true
+
+      - name: Run native tests (ctest)
+        run: ctest --test-dir build/native --output-on-failure
 
   py-test:
     name: Python Tests
