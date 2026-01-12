@@ -14,8 +14,8 @@ dev:
 	./scripts/dev
 
 py-lint:
-	$(PY) -m ruff check src
-	$(PY) -m ruff format --check src
+	$(PY) -m ruff check .
+	$(PY) -m ruff format --check .
 
 py-lint-fix:
 	$(PY) -m ruff check --fix src
