@@ -3,9 +3,8 @@ from __future__ import annotations
 import pytest
 
 from tcalc.core import errors
-
-from tests.py.unit.core.conftest import FakeBigComplex, FakeBigReal
 from tcalc.core.constants import E
+from tests.py.unit.core.conftest import FakeBigComplex, FakeBigReal
 
 param = pytest.param
 

@@ -30,7 +30,9 @@ def build_rpn(op_ids, token_factory, rpn_spec):
         param(("num", 6, "num", 2, "op", "Div"), 3, id="binary-order-div"),
         param(("num", 2, "num", 8, "op", "Pow"), 256, id="binary-pow-basic"),
         param(("num", 5, "op", "Negate", "op", "Negate"), 5, id="unary-chain-negate-negate"),
-        param(("num", 50, "op", "Percent", "op", "Percent"), 0.005, id="postfix-chain-percent-percent"),
+        param(
+            ("num", 50, "op", "Percent", "op", "Percent"), 0.005, id="postfix-chain-percent-percent"
+        ),
     ],
 )
 def test_evaluate_rpn_cases(op_ids, token_factory, dummy_calc, rpn_spec, expected):

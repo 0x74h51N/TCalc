@@ -49,6 +49,7 @@ target-version = "py310"
 line-length = 100
 extend-exclude = [
   "build",
+  "stubs",
   "venv",
   "src/native",
   "src/calc_native*.so",

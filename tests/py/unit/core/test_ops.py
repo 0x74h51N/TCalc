@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 
 from tcalc.core import ops as ops_mod
-
 from tests.py.unit.core.conftest import FakeArity, Id
 
 param = pytest.param

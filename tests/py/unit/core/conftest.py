@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import math
+import sys
 from dataclasses import dataclass
 from enum import Enum
 from types import ModuleType, SimpleNamespace
 from typing import Callable
-import math
-import pytest
 
-import sys
+import pytest
 
 
 @dataclass(frozen=True)
@@ -101,6 +101,7 @@ class _OpDef:
             )
         )
 
+
 class DummyCalc:
     def __init__(self):
         self.calls: list[tuple[str, tuple[object, ...]]] = []
@@ -187,14 +188,32 @@ def _cx_log(x: float) -> bool:
 
 
 _FAKE_OPS: tuple[_OpDef, ...] = (
-    _OpDef(Id.Add, "+", FakeArity.Binary, Id.Add.value, big_supported=True, big_complex_supported=True),
+    _OpDef(
+        Id.Add, "+", FakeArity.Binary, Id.Add.value, big_supported=True, big_complex_supported=True
+    ),
     _OpDef(Id.Sub, "-", FakeArity.Binary, Id.Sub.value),
     _OpDef(Id.Div, "/", FakeArity.Binary, Id.Div.value),
     _OpDef(Id.Negate, "u-", FakeArity.Unary, Id.Negate.value),
     _OpDef(Id.Percent, "%", FakeArity.Postfix, Id.Percent.value),
     _OpDef(Id.Sin, "sin", FakeArity.Unary, Id.Sin.value, needs_angle_unit=True),
-    _OpDef(Id.Pow, "^", FakeArity.Binary, Id.Pow.value, cx=_cx_root, big_supported=True, big_complex_supported=True),
-    _OpDef(Id.Sqrt, "sqrt", FakeArity.Unary, Id.Sqrt.value, cx=_cx_sqrt, big_supported=True, big_complex_supported=True),
+    _OpDef(
+        Id.Pow,
+        "^",
+        FakeArity.Binary,
+        Id.Pow.value,
+        cx=_cx_root,
+        big_supported=True,
+        big_complex_supported=True,
+    ),
+    _OpDef(
+        Id.Sqrt,
+        "sqrt",
+        FakeArity.Unary,
+        Id.Sqrt.value,
+        cx=_cx_sqrt,
+        big_supported=True,
+        big_complex_supported=True,
+    ),
     _OpDef(Id.Root, "⌄", FakeArity.Binary, Id.Root.value, cx=_cx_root),
     _OpDef(Id.Log, "log", FakeArity.Unary, Id.Log.value, cx=_cx_log),
     _OpDef(Id.Ln, "ln", FakeArity.Unary, Id.Ln.value, cx=_cx_log),
@@ -227,7 +246,7 @@ def _install_fake_calc_native() -> ModuleType:
     calc_native.OpArity = FakeArity
 
     calc_native.OpId = Id
-    
+
     calc_native.OpSpec = _OpDef
 
     def op_table():

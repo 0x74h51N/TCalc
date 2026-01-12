@@ -6,20 +6,22 @@
 PY := ./venv/bin/python
 PYTEST_ARGS ?= -vv -rA
 
+STUBS ?= scripts/stubgen/main.py
+
 stub-gen:
 	make -C src/native stub-gen ROOT=$(CURDIR)
-	PYTHONPATH=$(CURDIR)/src $(PY) scripts/generate_ops_stub.py
+	PYTHONPATH=$(CURDIR)/src $(PY) $(STUBS)
 
 dev:
 	./scripts/dev
 
 py-lint:
-	$(PY) -m ruff check src
-	$(PY) -m ruff format --check src
+	$(PY) -m ruff check .
+	$(PY) -m ruff format --check .
 
 py-lint-fix:
-	$(PY) -m ruff check --fix src
-	$(PY) -m ruff format src
+	$(PY) -m ruff check --fix .
+	$(PY) -m ruff format .
 
 typecheck:
 	$(PY) -m mypy --check-untyped-defs
@@ -45,7 +47,7 @@ native-configure:
 
 native-build:
 	$(NATIVE_MAKE) build
-	PYTHONPATH=$(CURDIR)/src $(PY) scripts/generate_ops_stub.py
+	PYTHONPATH=$(CURDIR)/src $(PY) $(STUBS)
 
 native-test:
 	$(NATIVE_MAKE) test
