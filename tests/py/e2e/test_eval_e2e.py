@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from decimal import Decimal
-import pytest
 import math
+from decimal import Decimal
+
+import pytest
 
 calc_native = pytest.importorskip("calc_native")
 param = pytest.param
+
 
 def _eval(expr: str) -> object:
     from tcalc.core.engine import Calculator
@@ -27,27 +29,26 @@ def _eval(expr: str) -> object:
         param("(2^3)^2", "float", 64.0, id="pow-parens-left-group"),
         param("-2^2", "float", -4.0, id="unary-vs-pow"),
         param("(-2)^2", "float", 4.0, id="pow-negative-base"),
-        param("1/2/3", "float", (1.0/2.0)/3.0, id="left-assoc-division-chain"),
+        param("1/2/3", "float", (1.0 / 2.0) / 3.0, id="left-assoc-division-chain"),
         param("1/(2/3)", "float", 1.5, id="paren-changes-division-assoc"),
-
         # ----------------------------
         # unary / sign folding (edge, not repeats)
         # ----------------------------
         param("-(2+3)", "float", -5.0, id="unary-negate"),
         param("1+--+2", "float", 3.0, id="mixed-sign-collapse-plus"),
         param("1+-+--+--++--+2", "float", -1.0, id="insane-sign-collapse"),
-
         # ----------------------------
         # nesting + stack discipline
         # ----------------------------
         param("(1+(2*(3+(4*5))))", "float", 47.0, id="deep-nesting"),
         param("1/(2+3*4)", "float", 1.0 / 14.0, id="div-with-precedence"),
-
         # ----------------------------
         # implicit multiplication
         # ----------------------------
         param("10e + 0", "float", 27.18281828459045, id="implicit-mul-constant"),
-        param("1e1610e + 0", "BigReal", "2.718281828459045e+1610", id="implicit-mul-constant-bigreal"),
+        param(
+            "1e1610e + 0", "BigReal", "2.718281828459045e+1610", id="implicit-mul-constant-bigreal"
+        ),
         param("(1e-3 + 2e-3) * 1000", "float", 3.0, id="scientific-notation-flow"),
         param("2π", "float", 2.0 * math.pi, id="pi-symbol-implicit-mul"),
         param("π*10^309", "BigReal", "3.141592653589793e+309", id="pi-symbol-promotes-bigreal"),
@@ -55,7 +56,6 @@ def _eval(expr: str) -> object:
         param("2sqrt(9)", "float", 6.0, id="implicit-mul-func"),
         param("(1+1)(1+2)", "float", 6.0, id="implicit-mul-paren-paren"),
         param("2(-3+4)", "float", 2.0, id="implicit-mul-paren-with-unary"),
-
         # ----------------------------
         # postfix percent
         # ----------------------------
@@ -64,7 +64,6 @@ def _eval(expr: str) -> object:
         param("50%+50%", "float", 1.0, id="percent-sum"),
         param("(1+1)%*200", "float", 4.0, id="percent-after-paren-then-mul"),
         param("3%*200", "float", 6.0, id="percent-then-mul"),
-
         # ----------------------------
         # function domain -> complex promotion
         # ----------------------------
@@ -74,20 +73,23 @@ def _eval(expr: str) -> object:
         param("sqrt(-1)*sqrt(-1)", "complex", (-1.0, 0.0), id="complex-mul-collapses-to-real"),
         param("log(-1)", "complex", (0.0, 1.364376353841841), id="log-domain-promotes-complex"),
         param("ln(-1)", "complex", (0.0, math.pi), id="ln-domain-promotes-complex"),
-
         # ----------------------------
         # root operator domain behavior
         # ----------------------------
         param("(-4) ⌄ 2", "complex", (0.0, 2.0), id="root-domain-complex"),
         param("-4 ⌄ 2", "float", -2.0, id="root-noncomplex-with-leading-minus"),
         param("sqrt(-1)*sqrt(-4)", "complex", (-2.0, 0.0), id="complex-mul-imaginary-units"),
-        param("log(-1) + log(-2)", "complex", (0.3010299956639812, 2.728752707683683), id="complex-add-two-domains"),
+        param(
+            "log(-1) + log(-2)",
+            "complex",
+            (0.3010299956639812, 2.728752707683683),
+            id="complex-add-two-domains",
+        ),
         param("sqrt(-1) / sqrt(-4)", "complex", (0.5, 0.0), id="complex-div-imaginary-units"),
         param("(sqrt(-1))^2", "complex", (-1.0, 0.0), id="imaginary-unit-squared"),
         param("sqrt(-1)^4", "complex", (1.0, 0.0), id="imaginary-unit-fourth-power"),
         param("ln(-e)", "complex", (1.0, math.pi), id="ln-negative-e-exact"),
         param("sqrt(-2)*sqrt(-2)", "complex", (-2.0, 0.0), id="complex-mul-same-base"),
-
         # ----------------------------
         # BigReal promotion + non-overflow path
         # ----------------------------
@@ -107,7 +109,7 @@ def _eval(expr: str) -> object:
         param("(10^309)/(10^308)", "BigReal", "10", id="bigreal-div-keeps-bigreal"),
         param("1e16!", "BigReal", "e+155657055180967490", id="factorial-bigreal-huge"),
         param("1e17!", "BigReal", "inf", id="factorial-overflows-to-inf"),
-        param("10^309 + e", "BigReal", "e+309", id="bigreal-promotes-e"),        
+        param("10^309 + e", "BigReal", "e+309", id="bigreal-promotes-e"),
     ],
 )
 def test_native_eval_golden(expr: str, expected_type: str, expected_value: object) -> None:
@@ -135,6 +137,7 @@ def test_pow_boundary_exactness() -> None:
     out = _eval("(10^308*10)/(10^309)")
     assert isinstance(out, calc_native.BigReal)
     assert Decimal(str(out)) == Decimal(1)
+
 
 def test_pow_exponent_is_int_after_parser_number_coercion() -> None:
     from tcalc.core import parser as parser_mod
