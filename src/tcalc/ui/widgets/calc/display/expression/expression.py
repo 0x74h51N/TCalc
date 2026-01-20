@@ -1,0 +1,376 @@
+from __future__ import annotations
+
+from enum import Enum
+from typing import Optional
+
+import calc_native
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QFont
+from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QHBoxLayout,
+    QLineEdit,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
+
+from tcalc.core.ops import Operation, get_symbols_with_aliases
+from tcalc.ui.widgets.calc.config import display_config
+
+from .utils import parenter, split_trailing_number, token_text, update_autowidth
+
+
+class InputKind(Enum):
+    """Tag inputs as main expression or auxiliary slots."""
+
+    MAIN = "main"
+    AUX = "aux"
+
+
+class InputAlign(Enum):
+    """Predefined alignment flags for expression inputs."""
+
+    LEFT = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+    CENTER = Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+    RIGHT = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+
+
+class ExpressionNode(QWidget):
+    """Abstract node for expression widgets that can serialize to text."""
+
+    def line_edits(self) -> list[QLineEdit]:
+        raise NotImplementedError
+
+    def to_plain_text(self) -> str:
+        raise NotImplementedError
+
+
+class ExpressionSlot(QWidget):
+    """A horizontal slot that holds inputs and nested expression nodes."""
+
+    def __init__(self, editor: Expression, *, kind: InputKind, key: str, align: InputAlign) -> None:
+        super().__init__(editor)
+
+        self._editor = editor
+        self._kind = kind
+        self._key = key
+        self._align = align
+        self._segments: list[QWidget] = []
+
+        self.setProperty("exprSlot", True)
+        self.setProperty("exprSlotKind", kind.value)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+
+        self._layout = QHBoxLayout(self)
+
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(0)
+
+        self._layout.setAlignment(self._align.value)
+
+        self.append_input()
+
+    def _input_key(self) -> str:
+        return f"{self._key}_{len(self._segments)}"
+
+    def append_input(self) -> QLineEdit:
+        le = self._editor._create_input(
+            self._input_key(), kind=self._kind, align=self._align, parent=self
+        )
+        self._layout.addWidget(le, 0, self._align.value)
+        self._segments.append(le)
+        return le
+
+    def insert_widget(self, index: int, w: QWidget) -> None:
+        self._layout.insertWidget(index, w, 0, self._align.value)
+        self._segments.insert(index, w)
+
+    def default_input(self) -> QLineEdit:
+        for seg in reversed(self._segments):
+            if isinstance(seg, QLineEdit):
+                return seg
+        return self.append_input()
+
+    def index_of(self, seg: QWidget) -> int:
+        return self._segments.index(seg)
+
+    def remove(self, seg: QWidget) -> None:
+        self._layout.removeWidget(seg)
+        seg.deleteLater()
+        self._segments.remove(seg)
+
+    def reset(self) -> QLineEdit:
+        for seg in self._segments:
+            self._layout.removeWidget(seg)
+            seg.deleteLater()
+        self._segments = []
+
+        return self.append_input()
+
+    def line_edits(self) -> list[QLineEdit]:
+        out: list[QLineEdit] = []
+        for seg in self._segments:
+            if isinstance(seg, QLineEdit):
+                out.append(seg)
+                continue
+            if isinstance(seg, ExpressionNode):
+                out.extend(seg.line_edits())
+        return out
+
+    def to_plain_text(self) -> str:
+        parts: list[str] = []
+        for seg in self._segments:
+            if isinstance(seg, QLineEdit):
+                parts.append(seg.text())
+                continue
+            if isinstance(seg, ExpressionNode):
+                parts.append(seg.to_plain_text())
+        return "".join(parts)
+
+
+class FractionWidget(ExpressionNode):
+    """UI node for a fraction with numerator and denominator slots."""
+
+    def __init__(self, editor: "Expression", op: Operation) -> None:
+        super().__init__(editor)
+        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+        self._op = op
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self.numerator = ExpressionSlot(
+            editor, kind=InputKind.AUX, key="numerator", align=InputAlign.CENTER
+        )
+        layout.addWidget(self.numerator, 0, Qt.AlignmentFlag.AlignHCenter)
+
+        line = QFrame(self)
+        line.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        line.setMinimumWidth(0)
+        line.setFrameShape(QFrame.Shape.HLine)
+        layout.addWidget(line)
+
+        self.denominator = ExpressionSlot(
+            editor, kind=InputKind.AUX, key="denominator", align=InputAlign.CENTER
+        )
+        layout.addWidget(self.denominator, 0, Qt.AlignmentFlag.AlignHCenter)
+
+    def line_edits(self) -> list[QLineEdit]:
+        return [*self.numerator.line_edits(), *self.denominator.line_edits()]
+
+    def to_plain_text(self) -> str:
+        op_symbol = self._op.symbol
+        numerator = parenter(self.numerator.to_plain_text())
+        denominator = parenter(self.denominator.to_plain_text())
+        return f"({numerator}{op_symbol}{denominator})"
+
+
+class Expression(QWidget):
+    """Expression editor widget managing inputs and serialization for math-style UI."""
+
+    plain_text_changed = Signal(str)
+
+    EXPR_PREFIX = "displayExpression_"
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+
+        self._last_focused: QLineEdit | None = None
+
+        self._inputs_layout = QVBoxLayout(self)
+        self._inputs_layout.setContentsMargins(0, 0, 0, 0)
+        self._inputs_layout.setSpacing(0)
+
+        self._inputs_layout.addStretch(1)
+        self._root = ExpressionSlot(
+            self, kind=InputKind.MAIN, key=InputKind.MAIN.value, align=InputAlign.RIGHT
+        )
+        self._inputs_layout.addWidget(self._root)
+        self._inputs_layout.addStretch(1)
+
+        self._last_focused = self._root.default_input()
+
+        self._operator_symbol_values = get_symbols_with_aliases()
+        self._operator_symbol_values.discard(Operation.IMAG.symbol)
+
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            app.focusChanged.connect(self._on_app_focus_changed)
+
+    def expression_inputs(self) -> list[QLineEdit]:
+        return self._root.line_edits()
+
+    def _create_input(
+        self, key: str, *, kind: InputKind, align: InputAlign, parent: QWidget
+    ) -> QLineEdit:
+        le = QLineEdit("", parent)
+        le.setObjectName(f"{self.EXPR_PREFIX}{key}")
+        le.setAlignment(align.value)
+        le.setProperty("exprInput", True)
+        le.setProperty("exprKind", kind.value)
+
+        base_pt = int(display_config["expression_font_size"])
+        if kind != InputKind.MAIN:
+            base_pt = max(8, int(base_pt * 0.7))
+
+        f = QFont()
+        f.setPointSize(base_pt)
+        le.setFont(f)
+
+        le.textChanged.connect(self._on_qt_text_changed)
+        le.textChanged.connect(lambda _text, le=le: update_autowidth(le))
+        update_autowidth(le)
+        return le
+
+    def _on_app_focus_changed(self, _old, new) -> None:
+        if isinstance(new, QLineEdit) and self.isAncestorOf(new):
+            self._last_focused = new
+
+    def _resolve_target(self) -> QLineEdit:
+        """Return the input that should receive edits (focus or last focused)."""
+        fw = QApplication.focusWidget()
+        if isinstance(fw, QLineEdit) and self.isAncestorOf(fw):
+            return fw
+        if self._last_focused is not None and self.isAncestorOf(self._last_focused):
+            return self._last_focused
+        return self._root.default_input()
+
+    def _on_qt_text_changed(self, _text: str) -> None:
+        self.plain_text_changed.emit(self.get_plain_text())
+
+    def get_plain_text(self) -> str:
+        return self._root.to_plain_text()
+
+    def set_plain_text(self, text: str) -> None:
+        le = self._root.reset()
+        self._last_focused = le
+        le.setFocus()
+
+        if le.text() == text:
+            self.plain_text_changed.emit(self.get_plain_text())
+            return
+        le.setText(text)
+
+    def insert_text(self, text: str) -> None:
+        self._resolve_target().insert(text)
+
+    def backspace(self) -> None:
+        """Handle backspace across slots/fractions when the current input is empty."""
+        target = self._resolve_target()
+        if target.hasSelectedText() or target.cursorPosition() > 0:
+            target.backspace()
+            return
+
+        slot = target.parent()
+        if not isinstance(slot, ExpressionSlot):
+            target.backspace()
+            return
+
+        idx = slot.index_of(target)
+        if not target.text() and idx > 0:
+            prev = slot._segments[idx - 1]
+            if isinstance(prev, FractionWidget):
+                if self._backspace_fraction(prev):
+                    return
+                slot.remove(prev)
+                self.plain_text_changed.emit(self.get_plain_text())
+                return
+            if isinstance(prev, QLineEdit):
+                self._focus_backspace(prev)
+                return
+
+        target.backspace()
+
+    def handle_negate(self) -> None:
+        """Toggle unary minus for the current token sequence."""
+        target = self._resolve_target()
+
+        if target.text() in ("", Operation.SUB.symbol):
+            target.setText("" if target.text() else Operation.SUB.symbol)
+            return
+
+        toks = calc_native.tokenize_string(target.text())
+        texts = [token_text(t) for t in toks]
+
+        for i in range(len(texts) - 1, -1, -1):
+            txt = texts[i]
+            if txt in self._operator_symbol_values:
+                continue
+
+            unary_prev = (
+                i > 0
+                and texts[i - 1] == Operation.SUB.symbol
+                and (
+                    i == 1
+                    or texts[i - 2] in self._operator_symbol_values
+                    or texts[i - 2] == Operation.OPEN_PAREN.symbol
+                )
+            )
+
+            if unary_prev:
+                texts.pop(i - 1)
+            else:
+                texts.insert(i, Operation.SUB.symbol)
+
+            new_expr = "".join(str(t) for t in texts)
+            target.setText(new_expr)
+            return
+
+    def apply_key(self, label: str, op: Operation) -> None:
+        """Insert operator text or create a fraction widget for division."""
+        if op.symbol == Operation.DIV.symbol:
+            target = self._resolve_target()
+            slot = target.parent()
+            assert isinstance(slot, ExpressionSlot)
+            self._insert_fraction(target, slot, op)
+            return
+
+        if op.arity == calc_native.OpArity.Binary:
+            self.insert_text(f" {label} ")
+            return
+        self.insert_text(label)
+
+    def _backspace_slot(self, slot: ExpressionSlot) -> bool:
+        for le in reversed(slot.line_edits()):
+            if le.text():
+                self._focus_backspace(le)
+                return True
+        return False
+
+    def _backspace_fraction(self, frac: FractionWidget) -> bool:
+        if self._backspace_slot(frac.denominator):
+            return True
+        if self._backspace_slot(frac.numerator):
+            return True
+        return False
+
+    def _focus_backspace(self, le: QLineEdit) -> None:
+        le.setFocus()
+        le.setCursorPosition(len(le.text()))
+        le.backspace()
+
+    def _insert_fraction(self, target: QLineEdit, slot: ExpressionSlot, op: Operation) -> None:
+        """Insert a fraction widget after target, carrying any trailing number."""
+        prefix, tail = split_trailing_number(target.text())
+        idx = slot.index_of(target)
+        if tail:
+            target.setText(prefix)
+            self._insert_fraction_next(slot, idx, tail, op)
+            return
+        if target.text():
+            self._insert_fraction_next(slot, idx, carried="", op=op)
+            return
+
+    def _insert_fraction_next(
+        self, slot: ExpressionSlot, idx: int, carried: str, op: Operation
+    ) -> None:
+        frac = FractionWidget(self, op)
+        slot.insert_widget(idx + 1, frac)
+        if idx + 1 == (len(slot._segments) - 1):
+            slot.append_input()
+        frac.numerator.default_input().setText(carried)
+        frac.denominator.default_input().setFocus()
+        self.plain_text_changed.emit(self.get_plain_text())

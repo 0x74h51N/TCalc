@@ -1,6 +1,39 @@
 from __future__ import annotations
 
+from typing import Dict, Tuple
+
 import calc_native
+
+from tcalc.core.ops import Operation
+
+
+def _build_hyp_map() -> Dict[Operation, Operation]:
+    pairs: Tuple[Tuple[str, str], ...] = (
+        ("SIN", "SINH"),
+        ("COS", "COSH"),
+        ("TAN", "TANH"),
+        ("ASIN", "ASINH"),
+        ("ACOS", "ACOSH"),
+        ("ATAN", "ATANH"),
+    )
+
+    m: Dict[Operation, Operation] = {}
+    for src_name, dst_name in pairs:
+        src = getattr(Operation, src_name, None)
+        dst = getattr(Operation, dst_name, None)
+        if src is None or dst is None:
+            continue
+        m[src] = dst
+    return m
+
+
+HYP_MAP: Dict[Operation, Operation] = _build_hyp_map()
+
+
+def apply_hyp_variant(op: Operation, hyp_enabled: bool) -> Operation:
+    if not hyp_enabled:
+        return op
+    return HYP_MAP.get(op, op)
 
 
 def format_result(value) -> str:

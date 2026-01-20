@@ -15,8 +15,8 @@ expression_min_height = 28
 
 [layout]
 # CalcWidget layout stretch ratios
-display_stretch = 3
-keypad_stretch = 7
+display_stretch = 4
+keypad_stretch = 6
 
 # Divider between display/topbar/keypad
 divider_line_width = 1
