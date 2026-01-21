@@ -238,6 +238,13 @@ class Expression(QWidget):
             return self._last_focused
         return self._root.default_input()
 
+    def _split_target_at_cursor(self) -> tuple[QLineEdit, str, str]:
+        """Return target input and its text split at the cursor position."""
+        target = self._resolve_target()
+        text = target.text()
+        pos = target.cursorPosition()
+        return target, text[:pos], text[pos:]
+
     def _on_qt_text_changed(self, _text: str) -> None:
         self.plain_text_changed.emit(self.get_plain_text())
 
@@ -286,13 +293,17 @@ class Expression(QWidget):
 
     def handle_negate(self) -> None:
         """Toggle unary minus for the current token sequence."""
-        target = self._resolve_target()
+        target, prefix, suffix = self._split_target_at_cursor()
 
-        if target.text() in ("", Operation.SUB.symbol):
-            target.setText("" if target.text() else Operation.SUB.symbol)
+        def apply_prefix(new_prefix: str) -> None:
+            target.setText(new_prefix + suffix)
+            target.setCursorPosition(len(new_prefix))
+
+        if prefix in ("", Operation.SUB.symbol):
+            apply_prefix("" if prefix else Operation.SUB.symbol)
             return
 
-        toks = calc_native.tokenize_string(target.text())
+        toks = calc_native.tokenize_string(prefix)
         parts = [
             (t.op_id if t.kind == calc_native.TokenKind.Op else None, str(token_text(t)))
             for t in toks
@@ -311,7 +322,7 @@ class Expression(QWidget):
                     parts.pop(i)
                 else:
                     parts.insert(i + 1, (calc_native.OpId.Negate, Operation.SUB.symbol))
-                target.setText(space_binary_ops(parts))
+                apply_prefix(space_binary_ops(parts))
                 return
             if match_paren_end:
                 if txt == Operation.CLOSE_PAREN.symbol:
@@ -336,8 +347,7 @@ class Expression(QWidget):
             else:
                 parts.insert(i, (calc_native.OpId.Negate, Operation.SUB.symbol))
 
-            new_expr = space_binary_ops(parts)
-            target.setText(new_expr)
+            apply_prefix(space_binary_ops(parts))
             return
 
     def apply_key(self, label: str, op: Operation) -> None:
