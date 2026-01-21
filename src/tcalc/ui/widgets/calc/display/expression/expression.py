@@ -16,10 +16,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from tcalc.core.ops import Operation, get_symbols_with_aliases
+from tcalc.core.ops import OP_BY_ID, Operation, get_symbols_with_aliases
 from tcalc.ui.widgets.calc.config import display_config
 
-from .utils import parenter, split_trailing_number, token_text, update_autowidth
+from .utils import parenter, space_binary_ops, split_trailing_number, token_text, update_autowidth
 
 
 class InputKind(Enum):
@@ -293,29 +293,50 @@ class Expression(QWidget):
             return
 
         toks = calc_native.tokenize_string(target.text())
-        texts = [token_text(t) for t in toks]
+        parts = [
+            (t.op_id if t.kind == calc_native.TokenKind.Op else None, str(token_text(t)))
+            for t in toks
+        ]
 
-        for i in range(len(texts) - 1, -1, -1):
-            txt = texts[i]
-            if txt in self._operator_symbol_values:
+        match_paren_end = bool(parts) and parts[-1][1] == Operation.CLOSE_PAREN.symbol
+        depth = 0
+        for i in range(len(parts) - 1, -1, -1):
+            op_id = parts[i][0]
+            txt = parts[i][1]
+            if i == len(parts) - 1 and (
+                txt == Operation.OPEN_PAREN.symbol
+                or (op_id is not None and OP_BY_ID[op_id].arity == calc_native.OpArity.Binary)
+            ):
+                if op_id == calc_native.OpId.Negate:
+                    parts.pop(i)
+                else:
+                    parts.insert(i + 1, (calc_native.OpId.Negate, Operation.SUB.symbol))
+                target.setText(space_binary_ops(parts))
+                return
+            if match_paren_end:
+                if txt == Operation.CLOSE_PAREN.symbol:
+                    depth += 1
+                elif txt == Operation.OPEN_PAREN.symbol:
+                    depth -= 1
+                if depth > 0:
+                    continue
+            if txt in self._operator_symbol_values and not (
+                match_paren_end and depth == 0 and txt == Operation.OPEN_PAREN.symbol
+            ):
                 continue
 
             unary_prev = (
                 i > 0
-                and texts[i - 1] == Operation.SUB.symbol
-                and (
-                    i == 1
-                    or texts[i - 2] in self._operator_symbol_values
-                    or texts[i - 2] == Operation.OPEN_PAREN.symbol
-                )
+                and parts[i - 1][1] == Operation.SUB.symbol
+                and (i == 1 or parts[i - 2][1] in self._operator_symbol_values)
             )
 
             if unary_prev:
-                texts.pop(i - 1)
+                parts.pop(i - 1)
             else:
-                texts.insert(i, Operation.SUB.symbol)
+                parts.insert(i, (calc_native.OpId.Negate, Operation.SUB.symbol))
 
-            new_expr = "".join(str(t) for t in texts)
+            new_expr = space_binary_ops(parts)
             target.setText(new_expr)
             return
 
@@ -328,10 +349,8 @@ class Expression(QWidget):
             self._insert_fraction(target, slot, op)
             return
 
-        if op.arity == calc_native.OpArity.Binary:
-            self.insert_text(f" {label} ")
-            return
-        self.insert_text(label)
+        op_id = getattr(op._spec, "id", None)
+        self.insert_text(space_binary_ops([(op_id, label)]))
 
     def _backspace_slot(self, slot: ExpressionSlot) -> bool:
         for le in reversed(slot.line_edits()):
