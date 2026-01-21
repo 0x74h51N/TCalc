@@ -19,7 +19,14 @@ from PySide6.QtWidgets import (
 from tcalc.core.ops import OP_BY_ID, Operation, get_symbols_with_aliases
 from tcalc.ui.widgets.calc.config import display_config
 
-from .utils import parenter, space_binary_ops, split_trailing_number, token_text, update_autowidth
+from .utils import (
+    parenter,
+    space_binary_ops,
+    split_outer_paren_tail,
+    split_trailing_number,
+    token_text,
+    update_autowidth,
+)
 
 
 class InputKind(Enum):
@@ -38,13 +45,40 @@ class InputAlign(Enum):
 
 
 class ExpressionNode(QWidget):
-    """Abstract node for expression widgets that can serialize to text."""
+    """Base class for math expression widgets that can serialize to text."""
 
     def line_edits(self) -> list[QLineEdit]:
-        raise NotImplementedError
+        return []
 
     def to_plain_text(self) -> str:
-        raise NotImplementedError
+        return ""
+
+    def remove(self) -> None:
+        """Remove this node from its parent slot."""
+        parent = self.parent()
+        if isinstance(parent, ExpressionSlot):
+            parent.remove(self)
+        else:
+            self.deleteLater()
+
+    def apply_carry_from(self, text: str) -> tuple[str, int]:
+        """Split trailing number from text and apply it to the first input."""
+        trimmed = text.rstrip()
+        split = split_outer_paren_tail(list(trimmed))
+        if split is not None:
+            prefix, carry = ("".join(part) for part in split)
+            edits = self.line_edits()
+            if edits:
+                edits[0].setText(carry)
+                return prefix, -1
+            return prefix, 0
+
+        prefix, carry = split_trailing_number(trimmed)
+        edits = self.line_edits()
+        if carry and edits:
+            edits[0].setText(carry)
+            return prefix, -1
+        return prefix, 0
 
 
 class ExpressionSlot(QWidget):
@@ -279,10 +313,8 @@ class Expression(QWidget):
         idx = slot.index_of(target)
         if not target.text() and idx > 0:
             prev = slot._segments[idx - 1]
-            if isinstance(prev, FractionWidget):
-                if self._backspace_fraction(prev):
-                    return
-                slot.remove(prev)
+            if isinstance(prev, ExpressionNode):
+                prev.remove()
                 self.plain_text_changed.emit(self.get_plain_text())
                 return
             if isinstance(prev, QLineEdit):
@@ -309,8 +341,8 @@ class Expression(QWidget):
             for t in toks
         ]
 
-        match_paren_end = bool(parts) and parts[-1][1] == Operation.CLOSE_PAREN.symbol
-        depth = 0
+        paren_split = split_outer_paren_tail([part[1] for part in parts])
+        paren_start = len(paren_split[0]) if paren_split else None
         for i in range(len(parts) - 1, -1, -1):
             op_id = parts[i][0]
             txt = parts[i][1]
@@ -324,15 +356,10 @@ class Expression(QWidget):
                     parts.insert(i + 1, (calc_native.OpId.Negate, Operation.SUB.symbol))
                 apply_prefix(space_binary_ops(parts))
                 return
-            if match_paren_end:
-                if txt == Operation.CLOSE_PAREN.symbol:
-                    depth += 1
-                elif txt == Operation.OPEN_PAREN.symbol:
-                    depth -= 1
-                if depth > 0:
-                    continue
+            if paren_start is not None and i > paren_start:
+                continue
             if txt in self._operator_symbol_values and not (
-                match_paren_end and depth == 0 and txt == Operation.OPEN_PAREN.symbol
+                paren_start is not None and i == paren_start and txt == Operation.OPEN_PAREN.symbol
             ):
                 continue
 
@@ -357,7 +384,7 @@ class Expression(QWidget):
             target = self._resolve_target()
             slot = target.parent()
             assert isinstance(slot, ExpressionSlot)
-            self._insert_fraction(target, slot, op)
+            self._insert_node(target, slot, FractionWidget(self, op))
             return
 
         if op.arity == calc_native.OpArity.Unary:
@@ -367,44 +394,21 @@ class Expression(QWidget):
         op_id = getattr(op._spec, "id", None)
         self.insert_text(space_binary_ops([(op_id, label)]))
 
-    def _backspace_slot(self, slot: ExpressionSlot) -> bool:
-        for le in reversed(slot.line_edits()):
-            if le.text():
-                self._focus_backspace(le)
-                return True
-        return False
-
-    def _backspace_fraction(self, frac: FractionWidget) -> bool:
-        if self._backspace_slot(frac.denominator):
-            return True
-        if self._backspace_slot(frac.numerator):
-            return True
-        return False
-
     def _focus_backspace(self, le: QLineEdit) -> None:
         le.setFocus()
         le.setCursorPosition(len(le.text()))
         le.backspace()
 
-    def _insert_fraction(self, target: QLineEdit, slot: ExpressionSlot, op: Operation) -> None:
-        """Insert a fraction widget after target, carrying any trailing number."""
-        prefix, tail = split_trailing_number(target.text())
-        idx = slot.index_of(target)
-        if tail:
+    def _insert_node(self, target: QLineEdit, slot: ExpressionSlot, node: ExpressionNode) -> None:
+        """Insert a math expression node after target, carrying trailing numbers."""
+        prefix, focus_idx = node.apply_carry_from(target.text())
+        if prefix != target.text():
             target.setText(prefix)
-            self._insert_fraction_next(slot, idx, tail, op)
-            return
-        if target.text():
-            self._insert_fraction_next(slot, idx, carried="", op=op)
-            return
-
-    def _insert_fraction_next(
-        self, slot: ExpressionSlot, idx: int, carried: str, op: Operation
-    ) -> None:
-        frac = FractionWidget(self, op)
-        slot.insert_widget(idx + 1, frac)
+        idx = slot.index_of(target)
+        slot.insert_widget(idx + 1, node)
         if idx + 1 == (len(slot._segments) - 1):
             slot.append_input()
-        frac.numerator.default_input().setText(carried)
-        frac.denominator.default_input().setFocus()
+        edits = node.line_edits()
+        if edits:
+            edits[focus_idx].setFocus()
         self.plain_text_changed.emit(self.get_plain_text())

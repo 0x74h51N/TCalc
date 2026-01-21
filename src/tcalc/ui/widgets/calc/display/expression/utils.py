@@ -64,3 +64,18 @@ def space_binary_ops(parts: list[tuple[calc_native.OpId | None, str]]) -> str:
         else:
             out.append(text)
     return "".join(out)
+
+def split_outer_paren_tail(tokens: list[str]) -> tuple[list[str], list[str]] | None:
+    """Split tokens into prefix and trailing '(...)' group if present."""
+    if not tokens or tokens[-1] != Operation.CLOSE_PAREN.symbol:
+        return None
+    depth = 0
+    for i in range(len(tokens) - 1, -1, -1):
+        token = tokens[i]
+        if token == Operation.CLOSE_PAREN.symbol:
+            depth += 1
+        elif token == Operation.OPEN_PAREN.symbol:
+            depth -= 1
+            if depth == 0:
+                return tokens[:i], tokens[i:]
+    return None
