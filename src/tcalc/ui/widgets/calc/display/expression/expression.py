@@ -342,11 +342,16 @@ class Expression(QWidget):
 
     def apply_key(self, label: str, op: Operation) -> None:
         """Insert operator text or create a fraction widget for division."""
+
         if op.symbol == Operation.DIV.symbol:
             target = self._resolve_target()
             slot = target.parent()
             assert isinstance(slot, ExpressionSlot)
             self._insert_fraction(target, slot, op)
+            return
+
+        if op.arity == calc_native.OpArity.Unary:
+            self.insert_text(f"{label}{Operation.OPEN_PAREN.symbol}")
             return
 
         op_id = getattr(op._spec, "id", None)
