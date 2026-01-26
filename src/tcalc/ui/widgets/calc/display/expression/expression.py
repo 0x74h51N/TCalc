@@ -22,9 +22,11 @@ from tcalc.ui.widgets.calc.config import display_config
 from .utils import (
     parenter,
     space_binary_ops,
-    split_outer_paren_tail,
-    split_trailing_number,
+    split_operand,
+    split_paren,
     token_text,
+    tokens_to_text,
+    untokenized_prefix,
     update_autowidth,
 )
 
@@ -47,11 +49,29 @@ class InputAlign(Enum):
 class ExpressionNode(QWidget):
     """Base class for math expression widgets that can serialize to text."""
 
+    def __init__(
+        self,
+        editor: Expression,
+        left_tokens: list[calc_native.Token] | None,
+        right_tokens: list[calc_native.Token] | None,
+    ):
+        super().__init__(editor)
+        self.left_tokens = left_tokens if left_tokens is not None else []
+        self.right_tokens = right_tokens if right_tokens is not None else []
+
+    OP_ID: calc_native.OpId | None = None
+
     def line_edits(self) -> list[QLineEdit]:
         return []
 
     def to_plain_text(self) -> str:
         return ""
+
+    def focus_default(self) -> None:
+        """Focus the default input after widget creation."""
+        edits = self.line_edits()
+        if edits:
+            edits[-1].setFocus()
 
     def remove(self) -> None:
         """Remove this node from its parent slot."""
@@ -61,24 +81,17 @@ class ExpressionNode(QWidget):
         else:
             self.deleteLater()
 
-    def apply_carry_from(self, text: str) -> tuple[str, int]:
-        """Split trailing number from text and apply it to the first input."""
-        trimmed = text.rstrip()
-        split = split_outer_paren_tail(list(trimmed))
-        if split is not None:
-            prefix, carry = ("".join(part) for part in split)
-            edits = self.line_edits()
-            if edits:
-                edits[0].setText(carry)
-                return prefix, -1
-            return prefix, 0
-
-        prefix, carry = split_trailing_number(trimmed)
+    def apply_carry_from(
+        self, tokens: list[calc_native.Token]
+    ) -> tuple[list[calc_native.Token], int]:
+        """Split trailing number/paren from tokens and apply it to the first input."""
+        prefix_tokens, carry_tokens = split_operand(tokens)
+        carry = tokens_to_text(carry_tokens)
         edits = self.line_edits()
         if carry and edits:
             edits[0].setText(carry)
-            return prefix, -1
-        return prefix, 0
+            return prefix_tokens, -1
+        return prefix_tokens, 0
 
 
 class ExpressionSlot(QWidget):
@@ -167,10 +180,16 @@ class ExpressionSlot(QWidget):
 class FractionWidget(ExpressionNode):
     """UI node for a fraction with numerator and denominator slots."""
 
-    def __init__(self, editor: "Expression", op: Operation) -> None:
-        super().__init__(editor)
+    OP_ID = calc_native.OpId.Div
+
+    def __init__(
+        self,
+        editor: Expression,
+        left_tokens: list[calc_native.Token] | None = None,
+        right_tokens: list[calc_native.Token] | None = None,
+    ) -> None:
+        super().__init__(editor, left_tokens, right_tokens)
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
-        self._op = op
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -192,14 +211,25 @@ class FractionWidget(ExpressionNode):
         )
         layout.addWidget(self.denominator, 0, Qt.AlignmentFlag.AlignHCenter)
 
+        if self.left_tokens:
+            self.numerator.default_input().setText(tokens_to_text(self.left_tokens))
+        if self.right_tokens:
+            self.denominator.default_input().setText(tokens_to_text(self.right_tokens))
+
     def line_edits(self) -> list[QLineEdit]:
         return [*self.numerator.line_edits(), *self.denominator.line_edits()]
 
+    def focus_default(self) -> None:
+        num_input = self.numerator.default_input()
+        if not num_input.text():
+            num_input.setFocus()
+        else:
+            self.denominator.default_input().setFocus()
+
     def to_plain_text(self) -> str:
-        op_symbol = self._op.symbol
         numerator = parenter(self.numerator.to_plain_text())
         denominator = parenter(self.denominator.to_plain_text())
-        return f"({numerator}{op_symbol}{denominator})"
+        return f"({numerator}{Operation.DIV.symbol}{denominator})"
 
 
 class Expression(QWidget):
@@ -209,10 +239,16 @@ class Expression(QWidget):
 
     EXPR_PREFIX = "displayExpression_"
 
+    NODE_WIDGETS: dict[calc_native.OpId, type[ExpressionNode]] = {
+        FractionWidget.OP_ID: FractionWidget,
+        # PowWidget.OP_ID: PowWidget,  # coming soon
+    }
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
 
         self._last_focused: QLineEdit | None = None
+        self._rendering: bool = False
 
         self._inputs_layout = QVBoxLayout(self)
         self._inputs_layout.setContentsMargins(0, 0, 0, 0)
@@ -280,7 +316,18 @@ class Expression(QWidget):
         return target, text[:pos], text[pos:]
 
     def _on_qt_text_changed(self, _text: str) -> None:
+        if not self._rendering:
+            self._add_exp_node()
         self.plain_text_changed.emit(self.get_plain_text())
+
+    def _find_node_op(
+        self, tokens: list[calc_native.Token]
+    ) -> tuple[int, type[ExpressionNode]] | None:
+        """Find first operator that triggers a node widget. Returns (index, widget_class)."""
+        for i, token in enumerate(tokens):
+            if token.kind == calc_native.TokenKind.Op and token.op_id in self.NODE_WIDGETS:
+                return i, self.NODE_WIDGETS[token.op_id]
+        return None
 
     def get_plain_text(self) -> str:
         return self._root.to_plain_text()
@@ -341,7 +388,7 @@ class Expression(QWidget):
             for t in toks
         ]
 
-        paren_split = split_outer_paren_tail([part[1] for part in parts])
+        paren_split = split_paren(list(toks))
         paren_start = len(paren_split[0]) if paren_split else None
         for i in range(len(parts) - 1, -1, -1):
             op_id = parts[i][0]
@@ -378,14 +425,7 @@ class Expression(QWidget):
             return
 
     def apply_key(self, label: str, op: Operation) -> None:
-        """Insert operator text or create a fraction widget for division."""
-
-        if op.symbol == Operation.DIV.symbol:
-            target = self._resolve_target()
-            slot = target.parent()
-            assert isinstance(slot, ExpressionSlot)
-            self._insert_node(target, slot, FractionWidget(self, op))
-            return
+        """Insert operator text."""
 
         if op.arity == calc_native.OpArity.Unary:
             self.insert_text(f"{label}{Operation.OPEN_PAREN.symbol}")
@@ -399,16 +439,62 @@ class Expression(QWidget):
         le.setCursorPosition(len(le.text()))
         le.backspace()
 
-    def _insert_node(self, target: QLineEdit, slot: ExpressionSlot, node: ExpressionNode) -> None:
-        """Insert a math expression node after target, carrying trailing numbers."""
-        prefix, focus_idx = node.apply_carry_from(target.text())
-        if prefix != target.text():
-            target.setText(prefix)
-        idx = slot.index_of(target)
+    def _insert_node(
+        self,
+        slot: ExpressionSlot,
+        seg: QLineEdit,
+        prefix: str,
+        node: ExpressionNode,
+        suffix_tokens: list[calc_native.Token],
+    ) -> None:
+        """Insert a node widget after the segment and handle prefix/suffix, in the correct slot."""
+        idx = slot.index_of(seg)
+        seg.setText(prefix)
+
         slot.insert_widget(idx + 1, node)
-        if idx + 1 == (len(slot._segments) - 1):
+
+        if suffix_tokens:
+            suffix = tokens_to_text(suffix_tokens)
+            if idx + 2 < len(slot._segments):
+                next_seg = slot._segments[idx + 2]
+                if isinstance(next_seg, QLineEdit):
+                    next_seg.setText(suffix + next_seg.text())
+            else:
+                slot.append_input().setText(suffix)
+        elif idx + 1 == len(slot._segments) - 1:
             slot.append_input()
-        edits = node.line_edits()
-        if edits:
-            edits[focus_idx].setFocus()
+
+        node.focus_default()
         self.plain_text_changed.emit(self.get_plain_text())
+
+    def _add_exp_node(self) -> None:
+        self._rendering = True
+        try:
+            for seg in self._root.line_edits():
+                slot = seg.parent()
+                if not isinstance(slot, ExpressionSlot):
+                    continue
+
+                text = seg.text()
+
+                seg_tokens = calc_native.tokenize_string(text)
+                seg_prefix = untokenized_prefix(text, seg_tokens)
+
+                found = self._find_node_op(seg_tokens)
+                if not found:
+                    continue
+
+                op_idx, widget_class = found
+                before_tokens = seg_tokens[:op_idx]
+                after_tokens = seg_tokens[op_idx + 1 :]
+
+                prefix_tokens, left_tokens = split_operand(before_tokens)
+                right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
+
+                node = widget_class(self, left_tokens, right_tokens)
+                self._insert_node(
+                    slot, seg, seg_prefix + tokens_to_text(prefix_tokens), node, suffix_tokens
+                )
+                return
+        finally:
+            self._rendering = False
