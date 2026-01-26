@@ -16,10 +16,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from tcalc.core.ops import OP_BY_ID, Operation, get_symbols_with_aliases
+from tcalc.core.ops import Operation, get_symbols_with_aliases
 from tcalc.ui.widgets.calc.config import display_config
 
 from .utils import (
+    CLOSE_KIND,
+    OPEN_KIND,
     parenter,
     space_binary_ops,
     split_operand,
@@ -28,6 +30,7 @@ from .utils import (
     tokens_to_text,
     untokenized_prefix,
     update_autowidth,
+    wrapped_in_parens,
 )
 
 
@@ -59,6 +62,12 @@ class ExpressionNode(QWidget):
         self.left_tokens = left_tokens if left_tokens is not None else []
         self.right_tokens = right_tokens if right_tokens is not None else []
 
+        def strip_outer_parens(tokens):
+            return tokens[1:-1] if wrapped_in_parens(tokens) else tokens
+
+        self.left_tokens = strip_outer_parens(self.left_tokens)
+        self.right_tokens = strip_outer_parens(self.right_tokens)
+
     OP_ID: calc_native.OpId | None = None
 
     def line_edits(self) -> list[QLineEdit]:
@@ -80,18 +89,6 @@ class ExpressionNode(QWidget):
             parent.remove(self)
         else:
             self.deleteLater()
-
-    def apply_carry_from(
-        self, tokens: list[calc_native.Token]
-    ) -> tuple[list[calc_native.Token], int]:
-        """Split trailing number/paren from tokens and apply it to the first input."""
-        prefix_tokens, carry_tokens = split_operand(tokens)
-        carry = tokens_to_text(carry_tokens)
-        edits = self.line_edits()
-        if carry and edits:
-            edits[0].setText(carry)
-            return prefix_tokens, -1
-        return prefix_tokens, 0
 
 
 class ExpressionSlot(QWidget):
@@ -227,9 +224,17 @@ class FractionWidget(ExpressionNode):
             self.denominator.default_input().setFocus()
 
     def to_plain_text(self) -> str:
-        numerator = parenter(self.numerator.to_plain_text())
-        denominator = parenter(self.denominator.to_plain_text())
-        return f"{numerator}{Operation.DIV.symbol}{denominator}"
+        # TODO: tokens-first or cached structure
+        # this setup does pointless text->token->text juggling and causes unnecessary conversions
+
+        num_text = self.numerator.to_plain_text()
+        den_text = self.denominator.to_plain_text()
+
+        num_serial = parenter(calc_native.tokenize_string(num_text))
+        den_serial = parenter(calc_native.tokenize_string(den_text))
+
+        fraction_text = f"{num_serial}{Operation.DIV.symbol}{den_serial}"
+        return parenter(fraction_text)
 
 
 class Expression(QWidget):
@@ -324,10 +329,23 @@ class Expression(QWidget):
         self, tokens: list[calc_native.Token]
     ) -> tuple[int, type[ExpressionNode]] | None:
         """Find first operator that triggers a node widget. Returns (index, widget_class)."""
+        candidates: list[tuple[int, int]] = []  # (index, depth)
+        depth = 0
         for i, token in enumerate(tokens):
+            if token.kind == OPEN_KIND:
+                depth += 1
+                continue
+            if token.kind == CLOSE_KIND:
+                depth = max(0, depth - 1)
+                continue
             if token.kind == calc_native.TokenKind.Op and token.op_id in self.NODE_WIDGETS:
-                return i, self.NODE_WIDGETS[token.op_id]
-        return None
+                candidates.append((i, depth))
+
+        if not candidates:
+            return None
+
+        best = min(candidates, key=lambda x: (x[1], x[0]))
+        return best[0], self.NODE_WIDGETS[tokens[best[0]].op_id]
 
     def get_plain_text(self) -> str:
         return self._root.to_plain_text()
@@ -388,21 +406,11 @@ class Expression(QWidget):
             for t in toks
         ]
 
-        paren_split = split_paren(list(toks))
+        paren_split = split_paren(toks)
         paren_start = len(paren_split[0]) if paren_split else None
         for i in range(len(parts) - 1, -1, -1):
-            op_id = parts[i][0]
             txt = parts[i][1]
-            if i == len(parts) - 1 and (
-                txt == Operation.OPEN_PAREN.symbol
-                or (op_id is not None and OP_BY_ID[op_id].arity == calc_native.OpArity.Binary)
-            ):
-                if op_id == calc_native.OpId.Negate:
-                    parts.pop(i)
-                else:
-                    parts.insert(i + 1, (calc_native.OpId.Negate, Operation.SUB.symbol))
-                apply_prefix(space_binary_ops(parts))
-                return
+
             if paren_start is not None and i > paren_start:
                 continue
             if txt in self._operator_symbol_values and not (
@@ -473,32 +481,27 @@ class Expression(QWidget):
             while True:  # Nested ExpressionNode conversion loop
                 changed = False
                 for seg in self._root.line_edits():
-                    slot = seg.parent()
-                    if not isinstance(slot, ExpressionSlot):
+                    parent = seg.parent()
+                    if not isinstance(parent, ExpressionSlot):
                         continue
+                    slot: ExpressionSlot = parent
 
                     text = seg.text()
 
-                    seg_tokens = list(calc_native.tokenize_string(text))
+                    seg_tokens = calc_native.tokenize_string(text)
+                    is_wrapped = wrapped_in_parens(seg_tokens)
+                    seg_toks = seg_tokens[1:-1] if is_wrapped else seg_tokens
+                    inner_text = text[1:-1] if is_wrapped else text
 
-                    # Deparenthesification
-                    if (
-                        len(seg_tokens) >= 2
-                        and getattr(seg_tokens[0], "kind", None) == calc_native.TokenKind.LParen
-                        and getattr(seg_tokens[-1], "kind", None) == calc_native.TokenKind.RParen
-                    ):
-                        seg_tokens = seg_tokens[1:-1]
-                        text = text[1:-1]
+                    seg_prefix = untokenized_prefix(inner_text, seg_toks)
 
-                    seg_prefix = untokenized_prefix(text, seg_tokens)
-                    found = self._find_node_op(seg_tokens)
+                    found = self._find_node_op(seg_toks)
                     if not found:
                         continue
 
                     op_idx, widget_class = found
-                    before_tokens = seg_tokens[:op_idx]
-                    after_tokens = seg_tokens[op_idx + 1 :]
-
+                    before_tokens = seg_toks[:op_idx]
+                    after_tokens = seg_toks[op_idx + 1 :]
                     prefix_tokens, left_tokens = split_operand(before_tokens)
                     right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
 
@@ -512,3 +515,18 @@ class Expression(QWidget):
                     break
         finally:
             self._rendering = False
+
+
+# TODO: make proper test for this expressionist approach
+#
+# problematic examples
+# (2/(5/(4/(7/5))))
+# ((1+2)*(3+4))/((5-6)/(7+8))
+# 3+4*2/(1-5)^2^3
+# 1+(2*(3+(4/(5-6))))
+# ((-3)^2)/(2+(-1)*(4/2))
+# 6/(2*(1+2))
+# (((1/2)/(3/4))/(5/6))
+# 12/(3+(4*(5-6/(7+8))))
+# (2/4)(3/4)
+# (1+(2/(3+(4/(5+6)))))*(7-(8/(9+10)))

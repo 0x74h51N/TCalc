@@ -7,6 +7,11 @@ from PySide6.QtWidgets import QLineEdit
 from tcalc.core.ops import OP_BY_ID, Operation
 from tcalc.core.utils import is_number_token
 
+OPEN_PAR = Operation.OPEN_PAREN.symbol
+CLOSE_PAR = Operation.CLOSE_PAREN.symbol
+OPEN_KIND = calc_native.TokenKind.LParen
+CLOSE_KIND = calc_native.TokenKind.RParen
+
 
 def token_text(tok: calc_native.Token) -> str | int | float:
     if tok.kind == calc_native.TokenKind.Number:
@@ -15,10 +20,10 @@ def token_text(tok: calc_native.Token) -> str | int | float:
         if tok.op_id == calc_native.OpId.Negate:
             return Operation.SUB.symbol
         return tok.symbol
-    if tok.kind == calc_native.TokenKind.LParen:
-        return Operation.OPEN_PAREN.symbol
-    if tok.kind == calc_native.TokenKind.RParen:
-        return Operation.CLOSE_PAREN.symbol
+    if tok.kind == OPEN_KIND:
+        return OPEN_PAR
+    if tok.kind == CLOSE_KIND:
+        return CLOSE_PAR
     return ""
 
 
@@ -46,14 +51,21 @@ def split_number(
         return tokens, []
 
 
-def parenter(text: str) -> str:
-    """Wrap expression in parentheses if it contains operator tokens."""
-    if not text:
-        return text
+def parenter(text_or_tokens: str | list[calc_native.Token]) -> str:
+    """Wrap expression in parentheses if it contains ops and don't wrapped parentheses."""
+    if isinstance(text_or_tokens, list):
+        toks = text_or_tokens
+        if not toks:
+            return ""
+        if wrapped_in_parens(toks):
+            return tokens_to_text(toks)
+        if any(tok.kind == calc_native.TokenKind.Op for tok in toks):
+            return f"{OPEN_PAR}{tokens_to_text(toks)}{CLOSE_PAR}"
+        return tokens_to_text(toks)
+
+    text = text_or_tokens
     toks = list(tokenize_string(text))
-    if any(tok.kind == calc_native.TokenKind.Op for tok in toks):
-        return f"({text})"
-    return text
+    return parenter(toks)
 
 
 def space_binary_ops(parts: list[tuple[calc_native.OpId | None, str]]) -> str:
@@ -75,10 +87,8 @@ def tokens_to_text(tokens: list[calc_native.Token]) -> str:
     """Convert tokens to text with proper spacing for binary operators."""
     parts: list[tuple[calc_native.OpId | None, str]] = []
     for t in tokens:
-        if t.kind == calc_native.TokenKind.Op:
-            parts.append((t.op_id, str(token_text(t))))
-        else:
-            parts.append((None, str(token_text(t))))
+        parts.append((t.op_id if t.kind == calc_native.TokenKind.Op else None, str(token_text(t))))
+
     return space_binary_ops(parts)
 
 
@@ -86,23 +96,14 @@ def split_paren(
     tokens: list[calc_native.Token], lead: bool = False
 ) -> tuple[list[calc_native.Token], list[calc_native.Token]] | None:
     """Split tokens at leading or trailing '(...)' group. Returns (extracted, rest) if lead, else (rest, extracted)."""
-    if not tokens:
-        return None
-
-    open_kind = calc_native.TokenKind.LParen
-    close_kind = calc_native.TokenKind.RParen
-    start_kind = open_kind if lead else close_kind
-
-    if tokens[0 if lead else -1].kind != start_kind:
-        return None
 
     depth = 0
     indices = range(len(tokens)) if lead else range(len(tokens) - 1, -1, -1)
     for i in indices:
         kind = tokens[i].kind
-        if kind == open_kind:
+        if kind == OPEN_KIND:
             depth += 1 if lead else -1
-        elif kind == close_kind:
+        elif kind == CLOSE_KIND:
             depth += -1 if lead else 1
         if depth == 0:
             split_at = i + 1 if lead else i
@@ -130,3 +131,21 @@ def untokenized_prefix(text: str, tokens: list[calc_native.Token]) -> str:
     if idx >= 0:
         return text[:idx]
     return ""
+
+
+def wrapped_in_parens(tokens: list[calc_native.Token]) -> bool:
+    if not tokens:
+        return False
+    if tokens[0].kind != OPEN_KIND or tokens[-1].kind != CLOSE_KIND:
+        return False
+
+    depth = 0
+    for i, t in enumerate(tokens):
+        if t.kind == OPEN_KIND:
+            depth += 1
+        elif t.kind == CLOSE_KIND:
+            depth -= 1
+        if depth == 0:
+            return i == len(tokens) - 1
+
+    return False
