@@ -113,7 +113,7 @@ def split_paren(
 def split_operand(
     tokens: list[calc_native.Token], lead: bool = False
 ) -> tuple[list[calc_native.Token], list[calc_native.Token]]:
-    """Split tokens at leading or trailing operand (paren group or number). Returns (extracted, rest) if lead, else (rest, extracted)."""
+    """Split tokens at leading or trailing operand. Returns (extracted, rest) if lead, else (rest, extracted)."""
     split = split_paren(tokens, lead)
     if split is not None:
         return split
@@ -121,26 +121,12 @@ def split_operand(
 
 
 def untokenized_prefix(text: str, tokens: list[calc_native.Token]) -> str:
-    """Find text prefix that couldn't be tokenized (e.g. leading binary op like ' + ')."""
+    """Return untokenized prefix."""
     if not tokens:
         return text
-
     first_tok = tokens[0]
-    search_strs: list[str] = []
 
-    if first_tok.kind == calc_native.TokenKind.Number:
-        search_strs = [str(first_tok.value)]
-    elif first_tok.kind == calc_native.TokenKind.Op:
-        op = OP_BY_ID.get(first_tok.op_id)
-        if op:
-            search_strs = [op.symbol] + list(op.aliases or [])
-    elif first_tok.kind == calc_native.TokenKind.LParen:
-        search_strs = [Operation.OPEN_PAREN.symbol]
-    elif first_tok.kind == calc_native.TokenKind.RParen:
-        search_strs = [Operation.CLOSE_PAREN.symbol]
-
-    for s in search_strs:
-        idx = text.find(s)
-        if idx >= 0:
-            return text[:idx]
+    idx = text.find(str(token_text(first_tok)))
+    if idx >= 0:
+        return text[:idx]
     return ""

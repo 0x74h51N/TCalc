@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Optional
 
 import calc_native
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QApplication,
@@ -229,7 +229,7 @@ class FractionWidget(ExpressionNode):
     def to_plain_text(self) -> str:
         numerator = parenter(self.numerator.to_plain_text())
         denominator = parenter(self.denominator.to_plain_text())
-        return f"({numerator}{Operation.DIV.symbol}{denominator})"
+        return f"{numerator}{Operation.DIV.symbol}{denominator}"
 
 
 class Expression(QWidget):
@@ -292,7 +292,7 @@ class Expression(QWidget):
 
         le.textChanged.connect(self._on_qt_text_changed)
         le.textChanged.connect(lambda _text, le=le: update_autowidth(le))
-        update_autowidth(le)
+        QTimer.singleShot(0, lambda: update_autowidth(le))
         return le
 
     def _on_app_focus_changed(self, _old, new) -> None:
@@ -470,31 +470,45 @@ class Expression(QWidget):
     def _add_exp_node(self) -> None:
         self._rendering = True
         try:
-            for seg in self._root.line_edits():
-                slot = seg.parent()
-                if not isinstance(slot, ExpressionSlot):
-                    continue
+            while True:  # Nested ExpressionNode conversion loop
+                changed = False
+                for seg in self._root.line_edits():
+                    slot = seg.parent()
+                    if not isinstance(slot, ExpressionSlot):
+                        continue
 
-                text = seg.text()
+                    text = seg.text()
 
-                seg_tokens = calc_native.tokenize_string(text)
-                seg_prefix = untokenized_prefix(text, seg_tokens)
+                    seg_tokens = list(calc_native.tokenize_string(text))
 
-                found = self._find_node_op(seg_tokens)
-                if not found:
-                    continue
+                    # Deparenthesification
+                    if (
+                        len(seg_tokens) >= 2
+                        and getattr(seg_tokens[0], "kind", None) == calc_native.TokenKind.LParen
+                        and getattr(seg_tokens[-1], "kind", None) == calc_native.TokenKind.RParen
+                    ):
+                        seg_tokens = seg_tokens[1:-1]
+                        text = text[1:-1]
 
-                op_idx, widget_class = found
-                before_tokens = seg_tokens[:op_idx]
-                after_tokens = seg_tokens[op_idx + 1 :]
+                    seg_prefix = untokenized_prefix(text, seg_tokens)
+                    found = self._find_node_op(seg_tokens)
+                    if not found:
+                        continue
 
-                prefix_tokens, left_tokens = split_operand(before_tokens)
-                right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
+                    op_idx, widget_class = found
+                    before_tokens = seg_tokens[:op_idx]
+                    after_tokens = seg_tokens[op_idx + 1 :]
 
-                node = widget_class(self, left_tokens, right_tokens)
-                self._insert_node(
-                    slot, seg, seg_prefix + tokens_to_text(prefix_tokens), node, suffix_tokens
-                )
-                return
+                    prefix_tokens, left_tokens = split_operand(before_tokens)
+                    right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
+
+                    node = widget_class(self, left_tokens, right_tokens)
+                    self._insert_node(
+                        slot, seg, seg_prefix + tokens_to_text(prefix_tokens), node, suffix_tokens
+                    )
+                    changed = True
+                    break
+                if not changed:
+                    break
         finally:
             self._rendering = False
