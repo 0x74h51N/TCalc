@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 
-from ...core import Operation
+from tcalc.core.ops import Operation
 
 _KEY_TO_OPERATION: list[tuple[int, Operation]] = [
     # Operators
