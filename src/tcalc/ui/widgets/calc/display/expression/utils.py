@@ -115,9 +115,28 @@ def split_operand(
     tokens: list[calc_native.Token], lead: bool = False
 ) -> tuple[list[calc_native.Token], list[calc_native.Token]]:
     """Split tokens at leading or trailing operand. Returns (extracted, rest) if lead, else (rest, extracted)."""
-    split = split_paren(tokens, lead)
-    if split is not None:
-        return split
+    if not tokens:
+        return ([], []) if lead else ([], [])
+
+    # If prefix is a function-like Op followed by '(', consume op + paren group as operand
+    if (
+        lead
+        and tokens[0].kind == calc_native.TokenKind.Op
+        and len(tokens) > 1
+        and tokens[1].kind == OPEN_KIND
+    ):
+        spec = OP_BY_ID.get(tokens[0].op_id)
+
+        if spec and spec.arity != calc_native.OpArity.Binary:
+            paren_split = split_paren(tokens[1:], lead=True)
+            if paren_split is not None:
+                ext, rest = paren_split
+                return [tokens[0]] + ext, rest
+    if (lead and tokens[0].kind == OPEN_KIND) or (not lead and tokens[-1].kind == CLOSE_KIND):
+        split = split_paren(tokens, lead)
+        if split is not None:
+            return split
+
     return split_number(tokens, lead)
 
 

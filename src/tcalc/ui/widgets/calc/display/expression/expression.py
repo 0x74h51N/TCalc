@@ -1,28 +1,30 @@
 from __future__ import annotations
 
-from enum import Enum
 from typing import Optional
 
 import calc_native
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import QTimer, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QApplication,
-    QFrame,
-    QHBoxLayout,
     QLineEdit,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 from tcalc.core.ops import Operation, get_symbols_with_aliases
 from tcalc.ui.widgets.calc.config import display_config
+from tcalc.ui.widgets.calc.display.expression.expression_node import (
+    ExpressionNode,
+    ExpressionSlot,
+    InputAlign,
+    InputKind,
+)
+from tcalc.ui.widgets.calc.display.expression.widgets import FractionWidget
 
 from .utils import (
     CLOSE_KIND,
     OPEN_KIND,
-    parenter,
     space_binary_ops,
     split_operand,
     split_paren,
@@ -32,209 +34,6 @@ from .utils import (
     update_autowidth,
     wrapped_in_parens,
 )
-
-
-class InputKind(Enum):
-    """Tag inputs as main expression or auxiliary slots."""
-
-    MAIN = "main"
-    AUX = "aux"
-
-
-class InputAlign(Enum):
-    """Predefined alignment flags for expression inputs."""
-
-    LEFT = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-    CENTER = Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
-    RIGHT = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-
-
-class ExpressionNode(QWidget):
-    """Base class for math expression widgets that can serialize to text."""
-
-    def __init__(
-        self,
-        editor: Expression,
-        left_tokens: list[calc_native.Token] | None,
-        right_tokens: list[calc_native.Token] | None,
-    ):
-        super().__init__(editor)
-        self.left_tokens = left_tokens if left_tokens is not None else []
-        self.right_tokens = right_tokens if right_tokens is not None else []
-
-        def strip_outer_parens(tokens):
-            return tokens[1:-1] if wrapped_in_parens(tokens) else tokens
-
-        self.left_tokens = strip_outer_parens(self.left_tokens)
-        self.right_tokens = strip_outer_parens(self.right_tokens)
-
-    OP_ID: calc_native.OpId | None = None
-
-    def line_edits(self) -> list[QLineEdit]:
-        return []
-
-    def to_plain_text(self) -> str:
-        return ""
-
-    def focus_default(self) -> None:
-        """Focus the default input after widget creation."""
-        edits = self.line_edits()
-        if edits:
-            edits[-1].setFocus()
-
-    def remove(self) -> None:
-        """Remove this node from its parent slot."""
-        parent = self.parent()
-        if isinstance(parent, ExpressionSlot):
-            parent.remove(self)
-        else:
-            self.deleteLater()
-
-
-class ExpressionSlot(QWidget):
-    """A horizontal slot that holds inputs and nested expression nodes."""
-
-    def __init__(self, editor: Expression, *, kind: InputKind, key: str, align: InputAlign) -> None:
-        super().__init__(editor)
-
-        self._editor = editor
-        self._kind = kind
-        self._key = key
-        self._align = align
-        self._segments: list[QWidget] = []
-
-        self.setProperty("exprSlot", True)
-        self.setProperty("exprSlotKind", kind.value)
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-
-        self._layout = QHBoxLayout(self)
-
-        self._layout.setContentsMargins(0, 0, 0, 0)
-        self._layout.setSpacing(0)
-
-        self._layout.setAlignment(self._align.value)
-
-        self.append_input()
-
-    def _input_key(self) -> str:
-        return f"{self._key}_{len(self._segments)}"
-
-    def append_input(self) -> QLineEdit:
-        le = self._editor._create_input(
-            self._input_key(), kind=self._kind, align=self._align, parent=self
-        )
-        self._layout.addWidget(le, 0, self._align.value)
-        self._segments.append(le)
-        return le
-
-    def insert_widget(self, index: int, w: QWidget) -> None:
-        self._layout.insertWidget(index, w, 0, self._align.value)
-        self._segments.insert(index, w)
-
-    def default_input(self) -> QLineEdit:
-        for seg in reversed(self._segments):
-            if isinstance(seg, QLineEdit):
-                return seg
-        return self.append_input()
-
-    def index_of(self, seg: QWidget) -> int:
-        return self._segments.index(seg)
-
-    def remove(self, seg: QWidget) -> None:
-        self._layout.removeWidget(seg)
-        seg.deleteLater()
-        self._segments.remove(seg)
-
-    def reset(self) -> QLineEdit:
-        for seg in self._segments:
-            self._layout.removeWidget(seg)
-            seg.deleteLater()
-        self._segments = []
-
-        return self.append_input()
-
-    def line_edits(self) -> list[QLineEdit]:
-        out: list[QLineEdit] = []
-        for seg in self._segments:
-            if isinstance(seg, QLineEdit):
-                out.append(seg)
-                continue
-            if isinstance(seg, ExpressionNode):
-                out.extend(seg.line_edits())
-        return out
-
-    def to_plain_text(self) -> str:
-        parts: list[str] = []
-        for seg in self._segments:
-            if isinstance(seg, QLineEdit):
-                parts.append(seg.text())
-                continue
-            if isinstance(seg, ExpressionNode):
-                parts.append(seg.to_plain_text())
-        return "".join(parts)
-
-
-class FractionWidget(ExpressionNode):
-    """UI node for a fraction with numerator and denominator slots."""
-
-    OP_ID = calc_native.OpId.Div
-
-    def __init__(
-        self,
-        editor: Expression,
-        left_tokens: list[calc_native.Token] | None = None,
-        right_tokens: list[calc_native.Token] | None = None,
-    ) -> None:
-        super().__init__(editor, left_tokens, right_tokens)
-        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
-
-        self.numerator = ExpressionSlot(
-            editor, kind=InputKind.AUX, key="numerator", align=InputAlign.CENTER
-        )
-        layout.addWidget(self.numerator, 0, Qt.AlignmentFlag.AlignHCenter)
-
-        line = QFrame(self)
-        line.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
-        line.setMinimumWidth(0)
-        line.setFrameShape(QFrame.Shape.HLine)
-        layout.addWidget(line)
-
-        self.denominator = ExpressionSlot(
-            editor, kind=InputKind.AUX, key="denominator", align=InputAlign.CENTER
-        )
-        layout.addWidget(self.denominator, 0, Qt.AlignmentFlag.AlignHCenter)
-
-        if self.left_tokens:
-            self.numerator.default_input().setText(tokens_to_text(self.left_tokens))
-        if self.right_tokens:
-            self.denominator.default_input().setText(tokens_to_text(self.right_tokens))
-
-    def line_edits(self) -> list[QLineEdit]:
-        return [*self.numerator.line_edits(), *self.denominator.line_edits()]
-
-    def focus_default(self) -> None:
-        num_input = self.numerator.default_input()
-        if not num_input.text():
-            num_input.setFocus()
-        else:
-            self.denominator.default_input().setFocus()
-
-    def to_plain_text(self) -> str:
-        # TODO: tokens-first or cached structure
-        # this setup does pointless text->token->text juggling and causes unnecessary conversions
-
-        num_text = self.numerator.to_plain_text()
-        den_text = self.denominator.to_plain_text()
-
-        num_serial = parenter(calc_native.tokenize_string(num_text))
-        den_serial = parenter(calc_native.tokenize_string(den_text))
-
-        fraction_text = f"{num_serial}{Operation.DIV.symbol}{den_serial}"
-        return parenter(fraction_text)
 
 
 class Expression(QWidget):
@@ -366,24 +165,13 @@ class Expression(QWidget):
     def backspace(self) -> None:
         """Handle backspace across slots/fractions when the current input is empty."""
         target = self._resolve_target()
-        if target.hasSelectedText() or target.cursorPosition() > 0:
-            target.backspace()
-            return
 
         slot = target.parent()
-        if not isinstance(slot, ExpressionSlot):
-            target.backspace()
-            return
-
-        idx = slot.index_of(target)
-        if not target.text() and idx > 0:
-            prev = slot._segments[idx - 1]
+        if isinstance(slot, ExpressionSlot):
+            prev = slot._segments[slot._segments.index(target) - 1]
             if isinstance(prev, ExpressionNode):
                 prev.remove()
                 self.plain_text_changed.emit(self.get_plain_text())
-                return
-            if isinstance(prev, QLineEdit):
-                self._focus_backspace(prev)
                 return
 
         target.backspace()
@@ -453,7 +241,7 @@ class Expression(QWidget):
         seg: QLineEdit,
         prefix: str,
         node: ExpressionNode,
-        suffix_tokens: list[calc_native.Token],
+        suffix_tokens: list[calc_native.Token] | str,
     ) -> None:
         """Insert a node widget after the segment and handle prefix/suffix, in the correct slot."""
         idx = slot.index_of(seg)
@@ -462,7 +250,10 @@ class Expression(QWidget):
         slot.insert_widget(idx + 1, node)
 
         if suffix_tokens:
-            suffix = tokens_to_text(suffix_tokens)
+            if isinstance(suffix_tokens, str):
+                suffix = suffix_tokens
+            else:
+                suffix = tokens_to_text(suffix_tokens)
             if idx + 2 < len(slot._segments):
                 next_seg = slot._segments[idx + 2]
                 if isinstance(next_seg, QLineEdit):
@@ -503,7 +294,21 @@ class Expression(QWidget):
                     before_tokens = seg_toks[:op_idx]
                     after_tokens = seg_toks[op_idx + 1 :]
                     prefix_tokens, left_tokens = split_operand(before_tokens)
-                    right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
+
+                    # detect raw leading '+'/'-' before the first after-token
+                    # otherwise tokenization makes this unary plus/minus
+                    leading_sign = ""
+                    if after_tokens:
+                        pref = untokenized_prefix(inner_text, after_tokens).strip()
+                        if pref and pref[-1] in [Operation.ADD.symbol, Operation.SUB.symbol]:
+                            leading_sign = pref[-1]
+
+                    right_tokens: list[calc_native.Token] | None = None
+                    suffix_tokens: list[calc_native.Token] | str
+                    if leading_sign:
+                        suffix_tokens = leading_sign + tokens_to_text(after_tokens)
+                    else:
+                        right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
 
                     node = widget_class(self, left_tokens, right_tokens)
                     self._insert_node(
@@ -517,7 +322,26 @@ class Expression(QWidget):
             self._rendering = False
 
 
-# TODO: make proper test for this expressionist approach
+# TODO: Implement proper tests
+# Use Qt Test framework for UI interaction testing
+#
+# UI Interaction Tests:
+# - Insert an ExpressionNode symbol middle of two number -> numbers should be split as left and right tokens and show in slots
+# - Insert an ExpressionNode symbol non input -> left_tokens input area should be focues
+# - Insert an ExpressionNode symbol after unary operation expression -> unary op expression should be in left_tokens slot
+# - Insert an ExpressionNode into the middle of an existing expression as like 2+4+6 -> 4/ should be empty right_token slot (focused) FractionWidget
+# - Modify different input slots after an ExpressionNode is added
+# - Verify that the computed result and displayed expression update correctly
+# - Test deletion, undo, and redo behavior for ExpressionNodes
+# - Test cursor placement and focus handling when inserting operators
+#
+# Edge-case and complex expression tests:
+# - Deeply nested expressions
+# - Operator precedence and associativity
+# - Unary operators (negative numbers)
+# - Implicit multiplication cases
+# - Division by zero and invalid expressions
+# - Test correct parenthesification for entire ExpressionNode also left and right token slots
 #
 # problematic examples
 # (2/(5/(4/(7/5))))
