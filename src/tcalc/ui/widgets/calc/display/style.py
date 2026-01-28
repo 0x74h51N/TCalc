@@ -24,6 +24,10 @@ def _build_display_stylesheet() -> str:
         selection-color: {c["selection_text"]};
     }}
 
+    QWidget[exprSlotExponent="true"] QLineEdit[exprInput="true"] {{
+        font-size: 9pt;
+    }}
+
     QWidget[exprSlot="true"][exprSlotKind="aux"] {{
         background-color: {aux_bg};
     }}
