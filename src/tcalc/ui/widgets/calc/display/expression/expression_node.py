@@ -4,14 +4,17 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 import calc_native
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
     QWidget,
 )
 
-from .utils import wrapped_in_parens
+from tcalc.ui.widgets.calc.config import display_config
+
+from .utils import update_autowidth, wrapped_in_parens
 
 if TYPE_CHECKING:
     from .expression import Expression
@@ -25,7 +28,7 @@ class InputKind(Enum):
 
 
 class InputAlign(Enum):
-    """Predefined alignment flags for expression inputs."""
+    """Predefined alignment flags for expression inputs (text alignment)."""
 
     LEFT = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
     CENTER = Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
@@ -77,7 +80,16 @@ class ExpressionNode(QWidget):
 class ExpressionSlot(QWidget):
     """A horizontal slot that holds inputs and nested expression nodes."""
 
-    def __init__(self, editor: Expression, *, kind: InputKind, key: str, align: InputAlign) -> None:
+    EXPR_PREFIX = "displayExpression_"
+
+    def __init__(
+        self,
+        editor: Expression,
+        *,
+        kind: InputKind,
+        key: str,
+        align: InputAlign,
+    ) -> None:
         super().__init__(editor)
 
         self._editor = editor
@@ -102,10 +114,30 @@ class ExpressionSlot(QWidget):
     def _input_key(self) -> str:
         return f"{self._key}_{len(self._segments)}"
 
+    def _create_input(self, key: str) -> QLineEdit:
+        """Create a new QLineEdit with proper styling and connections."""
+        le = QLineEdit("", self)
+        le.setObjectName(f"{self.EXPR_PREFIX}{key}")
+        le.setAlignment(self._align.value)
+        le.setProperty("exprInput", True)
+        le.setProperty("exprKind", self._kind.value)
+
+        base_pt = int(display_config["expression_font_size"])
+        if self._kind != InputKind.MAIN:
+            base_pt = max(8, int(base_pt * 0.7))
+
+        f = QFont()
+        f.setPointSize(base_pt)
+        le.setFont(f)
+
+        # Connect to Expression's signal handler for text changes
+        le.textChanged.connect(self._editor._on_qt_text_changed)
+        le.textChanged.connect(lambda: update_autowidth(le))
+        QTimer.singleShot(0, lambda: update_autowidth(le))
+        return le
+
     def append_input(self) -> QLineEdit:
-        le = self._editor._create_input(
-            self._input_key(), kind=self._kind, align=self._align, parent=self
-        )
+        le = self._create_input(self._input_key())
         self._layout.addWidget(le, 0, self._align.value)
         self._segments.append(le)
         return le
@@ -178,3 +210,6 @@ class ExpressionSlot(QWidget):
             if isinstance(seg, ExpressionNode):
                 parts.append(seg.to_plain_text())
         return "".join(parts)
+
+
+# TODO: Fix the alignment issue about main ExpressionSlot and so on...

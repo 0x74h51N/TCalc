@@ -4,8 +4,7 @@ from collections import deque
 from typing import Optional
 
 import calc_native
-from PySide6.QtCore import QTimer, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QApplication,
     QLineEdit,
@@ -14,7 +13,6 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.core.ops import Operation, get_symbols_with_aliases
-from tcalc.ui.widgets.calc.config import display_config
 from tcalc.ui.widgets.calc.display.expression.expression_node import (
     ExpressionNode,
     ExpressionSlot,
@@ -32,7 +30,6 @@ from .utils import (
     token_text,
     tokens_to_text,
     untokenized_prefix,
-    update_autowidth,
     wrapped_in_parens,
 )
 
@@ -42,11 +39,9 @@ class Expression(QWidget):
 
     plain_text_changed = Signal(str)
 
-    EXPR_PREFIX = "displayExpression_"
-
     NODE_WIDGETS: dict[calc_native.OpId, type[ExpressionNode]] = {
         FractionWidget.OP_ID: FractionWidget,
-        # PowWidget.OP_ID: PowWidget,  # coming soon
+        # PowWidget.OP_ID: PowWidget,
     }
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -77,28 +72,6 @@ class Expression(QWidget):
 
     def expression_inputs(self) -> list[QLineEdit]:
         return self._root.line_edits()
-
-    def _create_input(
-        self, key: str, *, kind: InputKind, align: InputAlign, parent: QWidget
-    ) -> QLineEdit:
-        le = QLineEdit("", parent)
-        le.setObjectName(f"{self.EXPR_PREFIX}{key}")
-        le.setAlignment(align.value)
-        le.setProperty("exprInput", True)
-        le.setProperty("exprKind", kind.value)
-
-        base_pt = int(display_config["expression_font_size"])
-        if kind != InputKind.MAIN:
-            base_pt = max(8, int(base_pt * 0.7))
-
-        f = QFont()
-        f.setPointSize(base_pt)
-        le.setFont(f)
-
-        le.textChanged.connect(self._on_qt_text_changed)
-        le.textChanged.connect(lambda _text, le=le: update_autowidth(le))
-        QTimer.singleShot(0, lambda: update_autowidth(le))
-        return le
 
     def _on_app_focus_changed(self, _old, new) -> None:
         if isinstance(new, QLineEdit) and self.isAncestorOf(new):
