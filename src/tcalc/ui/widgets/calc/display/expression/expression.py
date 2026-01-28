@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import deque
 from typing import Optional
 
 import calc_native
@@ -122,7 +123,7 @@ class Expression(QWidget):
     def _on_qt_text_changed(self, _text: str) -> None:
         if not self._rendering:
             self._add_exp_node()
-        self.plain_text_changed.emit(self.get_plain_text())
+            self.plain_text_changed.emit(self.get_plain_text())
 
     def _find_node_op(
         self, tokens: list[calc_native.Token]
@@ -264,61 +265,74 @@ class Expression(QWidget):
             slot.append_input()
 
         node.focus_default()
-        self.plain_text_changed.emit(self.get_plain_text())
 
     def _add_exp_node(self) -> None:
         self._rendering = True
+        self.setUpdatesEnabled(False)
         try:
-            while True:  # Nested ExpressionNode conversion loop
-                changed = False
-                for seg in self._root.line_edits():
-                    parent = seg.parent()
-                    if not isinstance(parent, ExpressionSlot):
-                        continue
-                    slot: ExpressionSlot = parent
+            pending: deque[QLineEdit] = deque(self._root.line_edits())
 
-                    text = seg.text()
+            while pending:
+                seg = pending.popleft()
 
-                    seg_tokens = calc_native.tokenize_string(text)
-                    is_wrapped = wrapped_in_parens(seg_tokens)
-                    seg_toks = seg_tokens[1:-1] if is_wrapped else seg_tokens
-                    inner_text = text[1:-1] if is_wrapped else text
+                parent = seg.parent()
+                if not isinstance(parent, ExpressionSlot):
+                    continue
+                slot: ExpressionSlot = parent
 
-                    seg_prefix = untokenized_prefix(inner_text, seg_toks)
+                text = seg.text()
 
-                    found = self._find_node_op(seg_toks)
-                    if not found:
-                        continue
+                seg_tokens = calc_native.tokenize_string(text)
+                is_wrapped = wrapped_in_parens(seg_tokens)
+                seg_toks = seg_tokens[1:-1] if is_wrapped else seg_tokens
+                inner_text = text[1:-1] if is_wrapped else text
 
-                    op_idx, widget_class = found
-                    before_tokens = seg_toks[:op_idx]
-                    after_tokens = seg_toks[op_idx + 1 :]
-                    prefix_tokens, left_tokens = split_operand(before_tokens)
+                seg_prefix = untokenized_prefix(inner_text, seg_toks)
 
-                    # detect raw leading '+'/'-' before the first after-token
-                    # otherwise tokenization makes this unary plus/minus
-                    leading_sign = ""
-                    if after_tokens:
-                        pref = untokenized_prefix(inner_text, after_tokens).strip()
-                        if pref and pref[-1] in [Operation.ADD.symbol, Operation.SUB.symbol]:
-                            leading_sign = pref[-1]
+                found = self._find_node_op(seg_toks)
+                if not found:
+                    continue
 
-                    right_tokens: list[calc_native.Token] | None = None
-                    suffix_tokens: list[calc_native.Token] | str
-                    if leading_sign:
-                        suffix_tokens = leading_sign + tokens_to_text(after_tokens)
-                    else:
-                        right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
+                op_idx, widget_class = found
+                before_tokens = seg_toks[:op_idx]
+                after_tokens = seg_toks[op_idx + 1 :]
+                prefix_tokens, left_tokens = split_operand(before_tokens)
 
-                    node = widget_class(self, left_tokens, right_tokens)
-                    self._insert_node(
-                        slot, seg, seg_prefix + tokens_to_text(prefix_tokens), node, suffix_tokens
-                    )
-                    changed = True
-                    break
-                if not changed:
-                    break
+                # detect raw leading '+'/'-' before the first after-token
+                # otherwise tokenization makes this unary plus/minus
+                leading_sign = ""
+                if after_tokens:
+                    pref = untokenized_prefix(inner_text, after_tokens).strip()
+                    if pref and pref[-1] in [Operation.ADD.symbol, Operation.SUB.symbol]:
+                        leading_sign = pref[-1]
+
+                right_tokens: list[calc_native.Token] | None = None
+                suffix_tokens: list[calc_native.Token] | str
+                if leading_sign:
+                    suffix_tokens = leading_sign + tokens_to_text(after_tokens)
+                else:
+                    right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
+
+                node = widget_class(self, left_tokens, right_tokens)
+                self._insert_node(
+                    slot, seg, seg_prefix + tokens_to_text(prefix_tokens), node, suffix_tokens
+                )
+
+                # Queue node's internal line edits (numerator, denominator, etc.)
+                pending.extend(node.line_edits())
+
+                # Re-queue prefix segment if non-empty (might have nested operators in parens)
+                if seg.text():
+                    pending.append(seg)
+
+                # Queue suffix segment if it exists
+                node_idx = slot.index_of(node)
+                if node_idx + 1 < len(slot._segments):
+                    suffix_seg = slot._segments[node_idx + 1]
+                    if isinstance(suffix_seg, QLineEdit):
+                        pending.append(suffix_seg)
         finally:
+            self.setUpdatesEnabled(True)
             self._rendering = False
 
 
@@ -353,4 +367,4 @@ class Expression(QWidget):
 # (((1/2)/(3/4))/(5/6))
 # 12/(3+(4*(5-6/(7+8))))
 # (2/4)(3/4)
-# (1+(2/(3+(4/(5+6)))))*(7-(8/(9+10)))
+# ((1+(2/(3+(4/5+6))))*(7-(8/(9+10))))/((1+(2/(3+(4/5+6))))*(7-(8/(9+10))))

@@ -230,5 +230,4 @@ jobs:
       - name: Run UI performance tests
         run: |
           . venv/bin/activate
-          export QT_QPA_PLATFORM=offscreen
-          xvfb-run --auto-servernum make py-benchmark
+          xvfb-run --auto-servernum make py-benchmark 2>&1 | grep -v "propagateSizeHints"
