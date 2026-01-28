@@ -32,7 +32,7 @@ def update_autowidth(le: QLineEdit) -> None:
     fm = le.fontMetrics()
     chars = max(1, len(le.text()))
     pad = fm.averageCharWidth()
-    le.setFixedWidth(int(fm.averageCharWidth() * chars + pad))
+    le.setFixedWidth(int(fm.averageCharWidth() * chars + pad / 2))
 
 
 def split_number(
