@@ -51,11 +51,11 @@ class FractionWidget(ExpressionNode):
         )
         layout.addWidget(self.numerator, 0, Qt.AlignmentFlag.AlignHCenter)
 
-        line = QFrame(self)
-        line.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
-        line.setMinimumWidth(0)
-        line.setFrameShape(QFrame.Shape.HLine)
-        layout.addWidget(line)
+        self.line = QFrame(self)
+        self.line.setSizePolicy(QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Fixed)
+        self.line.setMinimumWidth(0)
+        self.line.setFrameShape(QFrame.Shape.HLine)
+        layout.addWidget(self.line)
 
         self.denominator = ExpressionSlot(
             editor, kind=InputKind.AUX, key="denominator", align=InputAlign.CENTER
