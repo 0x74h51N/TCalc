@@ -26,3 +26,8 @@ repos:
         entry: make py-test PYTEST_ARGS="-ra"
         language: system
         pass_filenames: false
+      - id: py-test-ui-benchmark
+        name: py-test-ui-benchmark performance regression
+        entry: env PYTEST_ARGS="-ra --benchmark-disable" make py-benchmark
+        language: system
+        pass_filenames: false

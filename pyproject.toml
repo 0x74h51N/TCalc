@@ -31,7 +31,8 @@ dev = [
   "pre-commit>=3.7.0",
   "pybind11-stubgen>=2.5.0",
   "ruff>=0.5.0",
-  "pytest>=8.2.0"
+  "pytest>=8.2.0",
+  "pytest-benchmark>=4.0.0",
 ]
 
 [project.scripts]
@@ -81,3 +82,9 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests/py"]
+filterwarnings = [
+    "ignore::pytest_benchmark.logger.PytestBenchmarkWarning",
+]
+markers = [
+    "benchmark: performance benchmark tests",
+]

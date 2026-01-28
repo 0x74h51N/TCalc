@@ -1,10 +1,10 @@
 .PHONY: dev hooks lint lint-fix typecheck check stubs
 .PHONY: py-format py-format-check
 .PHONY: native native-configure native-build native-test native-ctest native-clean native-release
-.PHONY: py-test
+.PHONY: py-test py-test-ui py-benchmark
 
 PY := ./venv/bin/python
-PYTEST_ARGS ?= -vv -rA
+PYTEST_ARGS ?= -vv -rA -s
 
 STUBS ?= scripts/stubgen/main.py
 
@@ -27,8 +27,11 @@ typecheck:
 	$(PY) -m mypy --check-untyped-defs
 
 py-test:
-	PYTHONPATH=src $(PY) -m pytest tests/py/unit $(PYTEST_ARGS)
+	PYTHONPATH=src $(PY) -m pytest tests/py/unit/core $(PYTEST_ARGS)
 	PYTHONPATH=src $(PY) -m pytest tests/py/e2e $(PYTEST_ARGS)
+
+py-benchmark:
+	PYTHONPATH=src $(PY) -m pytest tests/py/unit/ui -m benchmark $(PYTEST_ARGS)
 
 
 NATIVE_BUILD_TYPE ?= Debug
