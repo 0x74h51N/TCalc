@@ -263,7 +263,18 @@ class Expression(QWidget):
                 seg_prefix = untokenized_prefix(inner_text, seg_toks)
 
                 found = self._find_node_op(seg_toks)
+
                 if not found:
+                    # Normalize text aliases to symbols (add -> + or floor -> ⌊)
+                    normalized = tokens_to_text(seg_toks)
+                    new_text = seg_prefix + normalized
+                    if new_text != text:
+                        cursor_pos = (
+                            seg.cursorPosition()
+                        )  # save to cursor position for middle of expression changes
+                        seg.setText(new_text)
+                        seg.setCursorPosition(min(cursor_pos + 1, len(new_text)))
+                        # TODO: implement better fix for the cursor bug, this still has an issue about text alias floo3.3 -> ⌊3.3
                     continue
 
                 op_idx, widget_class = found
