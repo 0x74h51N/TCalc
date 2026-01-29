@@ -57,7 +57,10 @@ void unit_parser(TestContext &ctx) {
 
         {.id = "negate then plus",
          .input = "-+2",
-         .expected = {{TokenKind::Op, OpId::Negate, ""}, {TokenKind::Number, OpId::Count, "2"}}},
+         .expected =
+             {{TokenKind::Op, OpId::Negate, ""},
+              {TokenKind::Op, OpId::UnaryPlus, ""},
+              {TokenKind::Number, OpId::Count, "2"}}},
 
         {.id = "func parens imag",
          .input = "sin(2i)",

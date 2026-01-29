@@ -29,6 +29,7 @@ void bind_parser(py::module_ &m) {
         .value("Pow", OpId::Pow)
         .value("Percent", OpId::Percent)
         .value("Negate", OpId::Negate)
+        .value("UnaryPlus", OpId::UnaryPlus)
         .value("Sqrt", OpId::Sqrt)
         .value("Sin", OpId::Sin)
         .value("Cos", OpId::Cos)
