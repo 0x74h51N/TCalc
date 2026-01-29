@@ -24,6 +24,9 @@ class Calculator {
     double sqrt(double a) const;
     double cbrt(double a) const;
     double root(double a, double b) const;
+    double trunc(double a) const;
+    double floor(double a) const;
+    double ceil(double a) const;
 
     // BigReal ops (real-only, extended range)
     BigReal add(const BigReal &a, const BigReal &b) const { return a + b; }
@@ -37,6 +40,9 @@ class Calculator {
     BigReal log(const BigReal &a) const;
     BigReal ln(const BigReal &a) const;
     BigReal root(const BigReal &a, const BigReal &b) const;
+    BigReal trunc(const BigReal &a) const;
+    BigReal floor(const BigReal &a) const;
+    BigReal ceil(const BigReal &a) const;
 
     // Complex ops
     Complex add(Complex a, Complex b) const { return a + b; }
