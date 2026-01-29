@@ -69,15 +69,23 @@ def parenter(text_or_tokens: str | list[calc_native.Token]) -> str:
     return parenter(toks)
 
 
+def _get_visual_node_ops() -> set[calc_native.OpId]:
+    """Lazy import to avoid circular dependency."""
+    from .expression import Expression
+
+    return set(Expression.NODE_WIDGETS.keys())
+
+
 def space_binary_ops(parts: list[tuple[calc_native.OpId | None, str]]) -> str:
-    """Insert spaces around binary operators (except division)."""
+    """Insert spaces around binary operators - except ExpressionNode visualisated ops."""
+    visual_ops = _get_visual_node_ops()
     out: list[str] = []
     for op_id, text in parts:
         if op_id is None:
             out.append(text)
             continue
         spec = OP_BY_ID[op_id]
-        if spec.arity == calc_native.OpArity.Binary and op_id != calc_native.OpId.Div:
+        if spec.arity == calc_native.OpArity.Binary and op_id not in visual_ops:
             out.append(f" {text} ")
         else:
             out.append(text)
