@@ -269,22 +269,9 @@ class Expression(QWidget):
                 op_idx, widget_class = found
                 before_tokens = seg_toks[:op_idx]
                 after_tokens = seg_toks[op_idx + 1 :]
+
                 prefix_tokens, left_tokens = split_operand(before_tokens)
-
-                # detect raw leading '+'/'-' before the first after-token
-                # otherwise tokenization makes this unary plus/minus
-                leading_sign = ""
-                if after_tokens:
-                    pref = untokenized_prefix(inner_text, after_tokens).strip()
-                    if pref and pref[-1] in [Operation.ADD.symbol, Operation.SUB.symbol]:
-                        leading_sign = pref[-1]
-
-                right_tokens: list[calc_native.Token] | None = None
-                suffix_tokens: list[calc_native.Token] | str
-                if leading_sign:
-                    suffix_tokens = leading_sign + tokens_to_text(after_tokens)
-                else:
-                    right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
+                right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
 
                 node = widget_class(self, left_tokens, right_tokens)
                 self._insert_node(

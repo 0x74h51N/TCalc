@@ -19,6 +19,8 @@ def token_text(tok: calc_native.Token) -> str | int | float:
     if tok.kind == calc_native.TokenKind.Op:
         if tok.op_id == calc_native.OpId.Negate:
             return Operation.SUB.symbol
+        if tok.op_id == calc_native.OpId.UnaryPlus:
+            return Operation.ADD.symbol
         return tok.symbol
     if tok.kind == OPEN_KIND:
         return OPEN_PAR
