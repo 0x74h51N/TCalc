@@ -54,6 +54,18 @@ long long Calculator::intdiv(double a, double b) const {
     return static_cast<long long>(a / b);
 }
 
+double Calculator::trunc(double a) const {
+    return std::trunc(a);
+}
+
+double Calculator::floor(double a) const {
+    return std::floor(a);
+}
+
+double Calculator::ceil(double a) const {
+    return std::ceil(a);
+}
+
 // -----------------
 // BigReal
 // -----------------
@@ -83,6 +95,21 @@ BigReal Calculator::mod(const BigReal &a, const BigReal &b) const {
     calc_detail::require_nonzero(b);
     using boost::multiprecision::fmod;
     return fmod(a, b);
+}
+
+BigReal Calculator::trunc(const BigReal &a) const {
+    using boost::multiprecision::trunc;
+    return trunc(a);
+}
+
+BigReal Calculator::floor(const BigReal &a) const {
+    using boost::multiprecision::floor;
+    return floor(a);
+}
+
+BigReal Calculator::ceil(const BigReal &a) const {
+    using boost::multiprecision::ceil;
+    return ceil(a);
 }
 
 // -----------------

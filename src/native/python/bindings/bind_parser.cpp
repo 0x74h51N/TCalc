@@ -57,7 +57,10 @@ void bind_parser(py::module_ &m) {
         .value("Cube", OpId::Cube)
         .value("Root", OpId::Root)
         .value("Exp", OpId::Exp)
-        .value("Pow10", OpId::Pow10);
+        .value("Pow10", OpId::Pow10)
+        .value("Trunc", OpId::Trunc)
+        .value("Floor", OpId::Floor)
+        .value("Ceil", OpId::Ceil);
 
     py::class_<Token>(
         m, "Token", "Parser token. 'value' is text for numbers; 'symbol' is only for ops.")

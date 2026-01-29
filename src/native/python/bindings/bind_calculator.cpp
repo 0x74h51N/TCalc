@@ -143,6 +143,13 @@ void bind_calculator(py::module_ &m) {
         py::arg("a"),
         py::arg("b"));
 
+    cls.def("trunc", py::overload_cast<double>(&C::trunc, py::const_), py::arg("a"));
+    cls.def("trunc", py::overload_cast<const B &>(&C::trunc, py::const_), py::arg("a"));
+    cls.def("floor", py::overload_cast<double>(&C::floor, py::const_), py::arg("a"));
+    cls.def("floor", py::overload_cast<const B &>(&C::floor, py::const_), py::arg("a"));
+    cls.def("ceil", py::overload_cast<double>(&C::ceil, py::const_), py::arg("a"));
+    cls.def("ceil", py::overload_cast<const B &>(&C::ceil, py::const_), py::arg("a"));
+
     cls.def("sqrt", py::overload_cast<double>(&C::sqrt, py::const_), py::arg("a"));
     cls.def("sqrt", py::overload_cast<Z>(&C::sqrt, py::const_), py::arg("a"));
     cls.def("sqrt", py::overload_cast<const B &>(&C::sqrt, py::const_), py::arg("a"));
