@@ -211,9 +211,9 @@ jobs:
       - name: Install system deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libxkbcommon-x11-0 libegl1 libxcb-icccm4 \
-            libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
-            libxcb-xinerama0 libxcb-xfixes0 libxcb-cursor0
+          sudo apt-get install -y xvfb libx11-xcb1 libxrender1 libxrandr2 \
+            libxkbcommon-x11-0 libegl1 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 libxcb-cursor0
 
       - name: Install python deps
         run: |
