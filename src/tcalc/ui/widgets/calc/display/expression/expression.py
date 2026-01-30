@@ -30,7 +30,6 @@ from .utils import (
     token_text,
     tokens_to_text,
     untokenized_prefix,
-    wrapped_in_parens,
 )
 
 
@@ -98,27 +97,45 @@ class Expression(QWidget):
             self._add_exp_node()
             self.plain_text_changed.emit(self.get_plain_text())
 
-    def _find_node_op(
+    def _analyze_tokens(
         self, tokens: list[calc_native.Token]
-    ) -> tuple[int, type[ExpressionNode]] | None:
-        """Find first operator that triggers a node widget. Returns (index, widget_class)."""
-        candidates: list[tuple[int, int]] = []  # (index, depth)
+    ) -> tuple[bool, list[calc_native.Token], tuple[int, type[ExpressionNode]] | None]:
+        """
+        Single-pass: check wrapping and find node op at minimum depth.
+        Returns: (is_wrapped, effective_tokens, (op_index, widget_class) or None)
+        """
+        if not tokens:
+            return False, tokens, None
+
+        potentially_wrapped = tokens[0].kind == OPEN_KIND and tokens[-1].kind == CLOSE_KIND
+
         depth = 0
-        for i, token in enumerate(tokens):
-            if token.kind == OPEN_KIND:
+        candidates = []  # (index, depth, op_id)
+        wrapping_valid = True
+
+        for i, tok in enumerate(tokens):
+            if tok.kind == OPEN_KIND:
                 depth += 1
-                continue
-            if token.kind == CLOSE_KIND:
-                depth = max(0, depth - 1)
-                continue
-            if token.kind == calc_native.TokenKind.Op and token.op_id in self.NODE_WIDGETS:
-                candidates.append((i, depth))
+            elif tok.kind == CLOSE_KIND:
+                depth -= 1
+                if potentially_wrapped and depth == 0 and i < len(tokens) - 1:
+                    wrapping_valid = False
+            elif tok.kind == calc_native.TokenKind.Op and tok.op_id in self.NODE_WIDGETS:
+                candidates.append((i, depth, tok.op_id))
+
+        is_wrapped = potentially_wrapped and wrapping_valid
+        effective_tokens = tokens[1:-1] if is_wrapped else tokens
 
         if not candidates:
-            return None
+            return is_wrapped, effective_tokens, None
 
+        # If wrapped, adjust index and depth for stripped outer paren
+        if is_wrapped:
+            candidates = [(i - 1, d - 1, op_id) for i, d, op_id in candidates]
+
+        # Find candidate at minimum depth
         best = min(candidates, key=lambda x: (x[1], x[0]))
-        return best[0], self.NODE_WIDGETS[tokens[best[0]].op_id]
+        return is_wrapped, effective_tokens, (best[0], self.NODE_WIDGETS[best[2]])
 
     def get_plain_text(self) -> str:
         return self._root.to_plain_text()
@@ -256,18 +273,11 @@ class Expression(QWidget):
                 text = seg.text()
 
                 seg_tokens = calc_native.tokenize_string(text)
-                is_wrapped = wrapped_in_parens(seg_tokens)
-                seg_toks = seg_tokens[1:-1] if is_wrapped else seg_tokens
-                inner_text = text[1:-1] if is_wrapped else text
-
-                seg_prefix = untokenized_prefix(inner_text, seg_toks)
-
-                found = self._find_node_op(seg_toks)
+                is_wrapped, seg_toks, found = self._analyze_tokens(seg_tokens)
 
                 if not found:
                     # Normalize text aliases to symbols (add -> + or floor -> ⌊)
-                    normalized = tokens_to_text(seg_toks)
-                    new_text = seg_prefix + normalized
+                    new_text = tokens_to_text(seg_tokens)
                     if new_text != text:
                         cursor_pos = (
                             seg.cursorPosition()
@@ -276,6 +286,9 @@ class Expression(QWidget):
                         seg.setCursorPosition(min(cursor_pos + 1, len(new_text)))
                         # TODO: implement better fix for the cursor bug, this still has an issue about text alias floo3.3 -> ⌊3.3
                     continue
+
+                inner_text = text[1:-1] if is_wrapped else text
+                seg_prefix = untokenized_prefix(inner_text, seg_toks)
 
                 op_idx, widget_class = found
                 before_tokens = seg_toks[:op_idx]

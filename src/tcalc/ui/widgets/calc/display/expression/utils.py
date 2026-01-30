@@ -29,6 +29,15 @@ def token_text(tok: calc_native.Token) -> str | int | float:
     return ""
 
 
+def tokens_to_text(tokens: list[calc_native.Token]) -> str:
+    """Convert tokens to text with proper spacing for binary operators."""
+    parts: list[tuple[calc_native.OpId | None, str]] = []
+    for t in tokens:
+        parts.append((t.op_id if t.kind == calc_native.TokenKind.Op else None, str(token_text(t))))
+
+    return space_binary_ops(parts)
+
+
 def update_autowidth(le: QLineEdit) -> None:
     """Resize a QLineEdit to fit its current text length."""
     fm = le.fontMetrics()
@@ -36,22 +45,6 @@ def update_autowidth(le: QLineEdit) -> None:
     margins = le.textMargins()
     pad = margins.left() + margins.right() + fm.averageCharWidth()
     le.setFixedWidth(int(text_width + pad / 2))
-
-
-def split_number(
-    tokens: list[calc_native.Token], lead: bool = False
-) -> tuple[list[calc_native.Token], list[calc_native.Token]]:
-    """Split tokens at leading or trailing number. Returns (extracted, rest) if lead, else (rest, extracted)."""
-    if not tokens:
-        return ([], []) if lead else ([], [])
-    if lead:
-        if is_number_token(tokens[0]):
-            return [tokens[0]], tokens[1:]
-        return [], tokens
-    else:
-        if is_number_token(tokens[-1]):
-            return tokens[:-1], [tokens[-1]]
-        return tokens, []
 
 
 def parenter(text_or_tokens: str | list[calc_native.Token]) -> str:
@@ -94,15 +87,6 @@ def space_binary_ops(parts: list[tuple[calc_native.OpId | None, str]]) -> str:
     return "".join(out)
 
 
-def tokens_to_text(tokens: list[calc_native.Token]) -> str:
-    """Convert tokens to text with proper spacing for binary operators."""
-    parts: list[tuple[calc_native.OpId | None, str]] = []
-    for t in tokens:
-        parts.append((t.op_id if t.kind == calc_native.TokenKind.Op else None, str(token_text(t))))
-
-    return space_binary_ops(parts)
-
-
 def split_paren(
     tokens: list[calc_native.Token], lead: bool = False
 ) -> tuple[list[calc_native.Token], list[calc_native.Token]] | None:
@@ -125,30 +109,50 @@ def split_paren(
 def split_operand(
     tokens: list[calc_native.Token], lead: bool = False
 ) -> tuple[list[calc_native.Token], list[calc_native.Token]]:
-    """Split tokens at leading or trailing operand. Returns (extracted, rest) if lead, else (rest, extracted)."""
+    """Extract leading/trailing operand from tokens."""
     if not tokens:
-        return ([], []) if lead else ([], [])
+        return [], []
 
-    # If prefix is a function-like Op followed by '(', consume op + paren group as operand
-    if (
-        lead
-        and tokens[0].kind == calc_native.TokenKind.Op
-        and len(tokens) > 1
-        and tokens[1].kind == OPEN_KIND
-    ):
-        spec = OP_BY_ID.get(tokens[0].op_id)
+    if lead:
+        first = tokens[0]
 
-        if spec and spec.arity != calc_native.OpArity.Binary:
-            paren_split = split_paren(tokens[1:], lead=True)
-            if paren_split is not None:
-                ext, rest = paren_split
-                return [tokens[0]] + ext, rest
-    if (lead and tokens[0].kind == OPEN_KIND) or (not lead and tokens[-1].kind == CLOSE_KIND):
-        split = split_paren(tokens, lead)
-        if split is not None:
-            return split
+        # func(...) - unary op followed by paren group 3/sin(45)
+        if (
+            first.kind == calc_native.TokenKind.Op
+            and len(tokens) > 1
+            and tokens[1].kind == OPEN_KIND
+        ):
+            spec = OP_BY_ID.get(first.op_id)
+            if spec and spec.arity != calc_native.OpArity.Binary:
+                paren_split = split_paren(tokens[1:], lead=True)
+                if paren_split:
+                    group, rest = paren_split
+                    return [first] + group, rest
 
-    return split_number(tokens, lead)
+        # (...) - paren group
+        if first.kind == OPEN_KIND:
+            paren_split = split_paren(tokens, lead=True)
+            if paren_split:
+                return paren_split
+
+        if is_number_token(first):
+            return [first], tokens[1:]
+
+        return [], tokens
+
+    # trailing (lead=False)
+    last = tokens[-1]
+
+    # # (...) - paren group -> (3+4)/
+    if last.kind == CLOSE_KIND:
+        paren_split = split_paren(tokens, lead=False)
+        if paren_split:
+            return paren_split
+
+    if is_number_token(last):
+        return tokens[:-1], [last]
+
+    return tokens, []
 
 
 def untokenized_prefix(text: str, tokens: list[calc_native.Token]) -> str:
