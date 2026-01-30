@@ -230,4 +230,4 @@ jobs:
       - name: Run UI performance tests
         run: |
           . venv/bin/activate
-          xvfb-run --auto-servernum make py-benchmark 2>&1 | grep -v "propagateSizeHints"
+          xvfb-run --auto-servernum make py-benchmark PYTEST_ARGS="-q --tb=line"

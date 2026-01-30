@@ -28,6 +28,6 @@ repos:
         pass_filenames: false
       - id: py-test-ui-benchmark
         name: py-test-ui-benchmark performance regression
-        entry: env PYTEST_ARGS="-q --benchmark-disable" make py-benchmark
+        entry: env PYTEST_ARGS="--tb=line -q" make py-benchmark
         language: system
         pass_filenames: false
