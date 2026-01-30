@@ -232,29 +232,36 @@ class Expression(QWidget):
         seg: QLineEdit,
         prefix: str,
         node: ExpressionNode,
-        suffix_tokens: list[calc_native.Token] | str,
+        suffix_tokens: list[calc_native.Token],
     ) -> None:
         """Insert a node widget after the segment and handle prefix/suffix, in the correct slot."""
         idx = slot.index_of(seg)
         seg.setText(prefix)
-
         slot.insert_widget(idx + 1, node)
 
-        if suffix_tokens:
-            if isinstance(suffix_tokens, str):
-                suffix = suffix_tokens
-            else:
-                suffix = tokens_to_text(suffix_tokens)
-            if idx + 2 < len(slot._segments):
-                next_seg = slot._segments[idx + 2]
-                if isinstance(next_seg, QLineEdit):
-                    next_seg.setText(suffix + next_seg.text())
-            else:
-                slot.append_input().setText(suffix)
-        elif idx + 1 == len(slot._segments) - 1:
-            slot.append_input()
+        suffix = tokens_to_text(suffix_tokens)
+        right_idx = idx + 2
+
+        if right_idx >= len(slot._segments):
+            slot.append_input().setText(suffix)
+        elif isinstance(slot._segments[right_idx], QLineEdit):
+            next_seg = slot._segments[right_idx]
+            if isinstance(next_seg, QLineEdit):
+                next_seg.setText(suffix + next_seg.text())
+        else:
+            slot.insert_input(right_idx).setText(suffix)
 
         node.focus_default()
+
+    def _normalize_text(self, seg: QLineEdit, tokens: list[calc_native.Token]) -> None:
+        """Normalize text aliases to symbols (add -> + or floor -> ⌊)."""
+        text = seg.text()
+        new_text = tokens_to_text(tokens)
+        if new_text != text:
+            cursor_pos = seg.cursorPosition()
+            seg.setText(new_text)
+            seg.setCursorPosition(min(cursor_pos + 1, len(new_text)))
+            # TODO: implement better fix for the cursor bug, this still has an issue about text alias floo3.3 -> ⌊3.3
 
     def _add_exp_node(self) -> None:
         self._rendering = True
@@ -276,15 +283,7 @@ class Expression(QWidget):
                 is_wrapped, seg_toks, found = self._analyze_tokens(seg_tokens)
 
                 if not found:
-                    # Normalize text aliases to symbols (add -> + or floor -> ⌊)
-                    new_text = tokens_to_text(seg_tokens)
-                    if new_text != text:
-                        cursor_pos = (
-                            seg.cursorPosition()
-                        )  # save to cursor position for middle of expression changes
-                        seg.setText(new_text)
-                        seg.setCursorPosition(min(cursor_pos + 1, len(new_text)))
-                        # TODO: implement better fix for the cursor bug, this still has an issue about text alias floo3.3 -> ⌊3.3
+                    self._normalize_text(seg, seg_tokens)
                     continue
 
                 inner_text = text[1:-1] if is_wrapped else text
@@ -350,5 +349,6 @@ class Expression(QWidget):
 # 6/(2*(1+2))
 # (((1/2)/(3/4))/(5/6))
 # 12/(3+(4*(5-6/(7+8))))
+# (3/4)+4/5
 # (2/4)(3/4)
 # ((1+(2/(3+(4/5+6))))*(7-(8/(9+10))))/((1+(2/(3+(4/5+6))))*(7-(8/(9+10))))

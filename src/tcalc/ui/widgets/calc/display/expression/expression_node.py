@@ -148,6 +148,12 @@ class ExpressionSlot(QWidget):
         self._layout.insertWidget(index, w, 0, self._align.value)
         self._segments.insert(index, w)
 
+    def insert_input(self, index: int) -> QLineEdit:
+        le = self._create_input(self._input_key())
+        self._layout.insertWidget(index, le, 0, self._align.value)
+        self._segments.insert(index, le)
+        return le
+
     def default_input(self) -> QLineEdit:
         for seg in reversed(self._segments):
             if isinstance(seg, QLineEdit):

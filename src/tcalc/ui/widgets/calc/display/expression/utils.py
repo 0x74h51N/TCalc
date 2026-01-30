@@ -115,20 +115,6 @@ def split_operand(
 
     if lead:
         first = tokens[0]
-
-        # func(...) - unary op followed by paren group 3/sin(45)
-        if (
-            first.kind == calc_native.TokenKind.Op
-            and len(tokens) > 1
-            and tokens[1].kind == OPEN_KIND
-        ):
-            spec = OP_BY_ID.get(first.op_id)
-            if spec and spec.arity != calc_native.OpArity.Binary:
-                paren_split = split_paren(tokens[1:], lead=True)
-                if paren_split:
-                    group, rest = paren_split
-                    return [first] + group, rest
-
         # (...) - paren group
         if first.kind == OPEN_KIND:
             paren_split = split_paren(tokens, lead=True)
