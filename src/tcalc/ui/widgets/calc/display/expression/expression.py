@@ -244,19 +244,17 @@ class Expression(QWidget):
         seg.setText(prefix)
         slot.insert_widget(idx + 1, node)
 
+        suffix = tokens_to_text(suffix_tokens)
         right_idx = idx + 2
 
-        if suffix_tokens:
-            suffix = tokens_to_text(suffix_tokens)
+        if right_idx >= len(slot._segments):
+            slot.append_input().setText(suffix)
+        else:
             next_seg = slot._segments[right_idx]
-            if right_idx >= len(slot._segments):
-                slot.append_input().setText(suffix)
-            elif isinstance(next_seg, QLineEdit):
+            if isinstance(next_seg, QLineEdit):
                 next_seg.setText(suffix + next_seg.text())
             else:
                 slot.insert_input(right_idx).setText(suffix)
-        elif right_idx >= len(slot._segments):
-            slot.append_input()
 
         node.focus_default()
 
