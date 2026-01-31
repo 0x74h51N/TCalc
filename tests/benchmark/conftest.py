@@ -36,13 +36,19 @@ def run_benchmark(
     """Run a benchmark with standard settings and threshold check.
     Threshold compares against MAX time, worst case across all rounds.
     """
+
+    def safe_func():
+        try:
+            return func()
+        except Exception as e:
+            raise RuntimeError(f"Benchmark '{name}' crashed: {e}") from e
+
     benchmark.group = group
-    benchmark.pedantic(func, rounds=rounds, warmup_rounds=WARMUP_ROUNDS)
+    benchmark.pedantic(safe_func, rounds=rounds, warmup_rounds=WARMUP_ROUNDS)
 
     if benchmark.stats is None:
         return
 
     max_ms = benchmark.stats["max"] * 1000
-
     if threshold_ms is not None:
         assert max_ms < threshold_ms, f"{name}: {max_ms:.4f}ms exceeds {threshold_ms}ms"
