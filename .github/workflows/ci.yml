@@ -196,7 +196,7 @@ jobs:
           make py-test
 
   py-test-ui:
-    name: Python UI Benchmark Tests
+    name: Benchmark Tests
     runs-on: ubuntu-latest
     needs: native-build
     steps:
@@ -227,7 +227,7 @@ jobs:
         with:
           name: native-build-debug
 
-      - name: Run UI performance tests
+      - name: Run benchmark tests
         run: |
           . venv/bin/activate
           xvfb-run --auto-servernum make py-benchmark PYTEST_ARGS="-q --tb=line"

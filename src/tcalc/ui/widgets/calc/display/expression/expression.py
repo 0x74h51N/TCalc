@@ -65,6 +65,11 @@ class Expression(QWidget):
         self._operator_symbol_values = get_symbols_with_aliases()
         self._operator_symbol_values.discard(Operation.IMAG.symbol)
 
+        node_op_ids = set(self.NODE_WIDGETS.keys())
+        self._node_op_syms: frozenset[str] = frozenset(
+            get_symbols_with_aliases(lambda spec: getattr(spec, "id", None) in node_op_ids)
+        )
+
         app = QApplication.instance()
         if isinstance(app, QApplication):
             app.focusChanged.connect(self._on_app_focus_changed)
@@ -239,17 +244,19 @@ class Expression(QWidget):
         seg.setText(prefix)
         slot.insert_widget(idx + 1, node)
 
-        suffix = tokens_to_text(suffix_tokens)
         right_idx = idx + 2
 
-        if right_idx >= len(slot._segments):
-            slot.append_input().setText(suffix)
-        elif isinstance(slot._segments[right_idx], QLineEdit):
+        if suffix_tokens:
+            suffix = tokens_to_text(suffix_tokens)
             next_seg = slot._segments[right_idx]
-            if isinstance(next_seg, QLineEdit):
+            if right_idx >= len(slot._segments):
+                slot.append_input().setText(suffix)
+            elif isinstance(next_seg, QLineEdit):
                 next_seg.setText(suffix + next_seg.text())
-        else:
-            slot.insert_input(right_idx).setText(suffix)
+            else:
+                slot.insert_input(right_idx).setText(suffix)
+        elif right_idx >= len(slot._segments):
+            slot.append_input()
 
         node.focus_default()
 
@@ -278,12 +285,16 @@ class Expression(QWidget):
                 slot: ExpressionSlot = parent
 
                 text = seg.text()
-
                 seg_tokens = calc_native.tokenize_string(text)
+
+                # Early exit: no node op symbols
+                if not any(s in text for s in self._node_op_syms):
+                    self._normalize_text(seg, seg_tokens)
+                    continue
+
                 is_wrapped, seg_toks, found = self._analyze_tokens(seg_tokens)
 
                 if not found:
-                    self._normalize_text(seg, seg_tokens)
                     continue
 
                 inner_text = text[1:-1] if is_wrapped else text

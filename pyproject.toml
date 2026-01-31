@@ -81,7 +81,7 @@ module = ["calc_native", "calc_native.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests/py"]
+testpaths = ["tests/"]
 filterwarnings = [
     "ignore::pytest_benchmark.logger.PytestBenchmarkWarning",
 ]
