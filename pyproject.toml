@@ -88,3 +88,7 @@ filterwarnings = [
 markers = [
     "benchmark: performance benchmark tests",
 ]
+addopts = "--benchmark-time-unit=ms"
+
+[tool.pytest-benchmark]
+group_by = "group"
