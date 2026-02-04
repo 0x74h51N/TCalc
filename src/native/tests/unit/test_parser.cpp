@@ -317,9 +317,70 @@ void unit_parser(TestContext &ctx) {
     for (std::size_t i = 0; i < tok_cases.size(); ++i) {
         const auto &tc = tok_cases[i];
         test_detail::with_case(ctx, std::string("tokenize :: ") + tc.id, [&] {
-            EXPECT_EQ(ctx, p::tokenize(tc.input), tc.expected);
+            EXPECT_EQ(ctx, p::tokenize(tc.input).tokens, tc.expected);
         });
     }
+
+    // Token position tests
+    test_detail::with_case(ctx, "positions :: simple expr", [&] {
+        const auto result = p::tokenize("3 + 5");
+        EXPECT_EQ(ctx, result.tokens.size(), 3UL);
+        // "3" at pos 0
+        EXPECT_EQ(ctx, result.tokens[0].start_pos, 0UL);
+        EXPECT_EQ(ctx, result.tokens[0].end_pos, 1UL);
+        // "+" at pos 2
+        EXPECT_EQ(ctx, result.tokens[1].start_pos, 2UL);
+        EXPECT_EQ(ctx, result.tokens[1].end_pos, 3UL);
+        // "5" at pos 4
+        EXPECT_EQ(ctx, result.tokens[2].start_pos, 4UL);
+        EXPECT_EQ(ctx, result.tokens[2].end_pos, 5UL);
+    });
+
+    test_detail::with_case(ctx, "positions :: frac expr", [&] {
+        const auto result = p::tokenize("\\frac{2}{3}");
+        EXPECT_EQ(ctx, result.tokens.size(), 1UL);
+        EXPECT_EQ(ctx, result.expr_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.expr_indices[0], 0UL);
+        // \frac{2}{3} spans 0-11
+        EXPECT_EQ(ctx, result.tokens[0].start_pos, 0UL);
+        EXPECT_EQ(ctx, result.tokens[0].end_pos, 11UL);
+    });
+
+    test_detail::with_case(ctx, "positions :: mixed", [&] {
+        const auto result = p::tokenize("1 + \\frac{2}{3} + 4");
+        EXPECT_EQ(ctx, result.tokens.size(), 5UL);
+        EXPECT_EQ(ctx, result.expr_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.expr_indices[0], 2UL);
+        // "1" at 0-1
+        EXPECT_EQ(ctx, result.tokens[0].start_pos, 0UL);
+        EXPECT_EQ(ctx, result.tokens[0].end_pos, 1UL);
+        // "+" at 2-3
+        EXPECT_EQ(ctx, result.tokens[1].start_pos, 2UL);
+        EXPECT_EQ(ctx, result.tokens[1].end_pos, 3UL);
+        // \frac{2}{3} at 4-15
+        EXPECT_EQ(ctx, result.tokens[2].start_pos, 4UL);
+        EXPECT_EQ(ctx, result.tokens[2].end_pos, 15UL);
+        // "+" at 16-17
+        EXPECT_EQ(ctx, result.tokens[3].start_pos, 16UL);
+        EXPECT_EQ(ctx, result.tokens[3].end_pos, 17UL);
+        // "4" at 18-19
+        EXPECT_EQ(ctx, result.tokens[4].start_pos, 18UL);
+        EXPECT_EQ(ctx, result.tokens[4].end_pos, 19UL);
+    });
+
+    test_detail::with_case(ctx, "positions :: multiple expr", [&] {
+        const auto result = p::tokenize("\\frac{1}{2} + \\pow{3}{4}");
+        EXPECT_EQ(ctx, result.tokens.size(), 3UL);
+        EXPECT_EQ(ctx, result.expr_indices.size(), 2UL);
+        EXPECT_EQ(ctx, result.expr_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.expr_indices[1], 2UL);
+        // \frac{1}{2} at 0-11
+        EXPECT_EQ(ctx, result.tokens[0].start_pos, 0UL);
+        EXPECT_EQ(ctx, result.tokens[0].end_pos, 11UL);
+        // \pow{3}{4} at 14-24
+        EXPECT_EQ(ctx, result.tokens[2].start_pos, 14UL);
+        EXPECT_EQ(ctx, result.tokens[2].end_pos, 24UL);
+    });
 
     for (std::size_t i = 0; i < norm_cases.size(); ++i) {
         const auto &tc = norm_cases[i];

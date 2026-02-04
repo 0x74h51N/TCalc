@@ -54,10 +54,6 @@ std::string_view scan_number(std::string_view s, std::size_t start, std::size_t 
     return s.substr(start, i - start);
 }
 
-} // namespace detail
-
-namespace {
-
 const OpSpec *match_op(std::string_view s, std::size_t i, std::size_t &out_len) {
     const std::string_view rest = s.substr(i);
     const OpSpec *best = nullptr;
@@ -79,17 +75,18 @@ const OpSpec *match_op(std::string_view s, std::size_t i, std::size_t &out_len) 
     return best;
 }
 
-} // namespace
-
-std::vector<Token> tokenize(std::string_view expression) {
-    std::vector<Token> tokens;
+/// Returns final expect_operand state after tokenizing
+bool tokenize_core(
+    std::string_view expression,
+    std::vector<Token> &tokens,
+    std::size_t base_offset = 0,
+    bool expect_operand = true) {
     if (expression.empty()) {
-        return tokens;
+        return expect_operand;
     }
 
     std::size_t i = 0;
     const std::size_t n = expression.size();
-    bool expect_operand = true;
 
     while (i < n) {
         const unsigned char c = static_cast<unsigned char>(expression[i]);
@@ -99,15 +96,27 @@ std::vector<Token> tokenize(std::string_view expression) {
             continue;
         }
 
+        const std::size_t tok_start = base_offset + i;
+
         if (expression[i] == '(') {
-            tokens.push_back(Token{TokenKind::LParen});
+            tokens.push_back(
+                Token{
+                    .kind = TokenKind::LParen,
+                    .start_pos = tok_start,
+                    .end_pos = tok_start + 1,
+                });
             ++i;
             expect_operand = true;
             continue;
         }
 
         if (expression[i] == ')') {
-            tokens.push_back(Token{TokenKind::RParen});
+            tokens.push_back(
+                Token{
+                    .kind = TokenKind::RParen,
+                    .start_pos = tok_start,
+                    .end_pos = tok_start + 1,
+                });
             ++i;
             expect_operand = false;
             continue;
@@ -123,7 +132,14 @@ std::vector<Token> tokenize(std::string_view expression) {
             if (spec->id == OpId::Sub && expect_operand) {
                 spec = op_spec(OpId::Negate);
             }
-            tokens.push_back(Token{TokenKind::Op, spec->id});
+
+            tokens.push_back(
+                Token{
+                    .kind = TokenKind::Op,
+                    .op_id = spec->id,
+                    .start_pos = tok_start,
+                    .end_pos = tok_start + len,
+                });
             i += len;
             expect_operand = (spec->arity != Arity::Postfix);
             continue;
@@ -134,14 +150,24 @@ std::vector<Token> tokenize(std::string_view expression) {
             const std::string_view sv = detail::scan_number(expression, i, next);
 
             if (!sv.empty()) {
-                i = next;
                 std::string number(sv);
+                std::size_t tok_end = base_offset + next;
 
-                if (i < n && (expression[i] == 'i' || expression[i] == 'I')) {
+                if (next < n && (expression[next] == 'i' || expression[next] == 'I')) {
                     number.push_back('i');
-                    ++i;
+                    ++next;
+                    tok_end = base_offset + next;
                 }
-                tokens.push_back(Token{TokenKind::Number, OpId::Count, std::move(number)});
+
+                tokens.push_back(
+                    Token{
+                        .kind = TokenKind::Number,
+                        .op_id = OpId::Count,
+                        .value = std::move(number),
+                        .start_pos = tok_start,
+                        .end_pos = tok_end,
+                    });
+                i = next;
                 expect_operand = false;
                 continue;
             }
@@ -171,15 +197,141 @@ std::vector<Token> tokenize(std::string_view expression) {
         }
 
         const std::string_view chunk = expression.substr(start, i - start);
-        tokens.push_back(Token{TokenKind::Number, OpId::Count, std::string(chunk)});
+        tokens.push_back(
+            Token{
+                .kind = TokenKind::Number,
+                .op_id = OpId::Count,
+                .value = std::string(chunk),
+                .start_pos = tok_start,
+                .end_pos = base_offset + i,
+            });
         expect_operand = false;
     }
+    return expect_operand;
+}
 
-    return tokens;
+} // namespace detail
+
+namespace {
+
+std::string_view
+extract_brace_content(std::string_view s, std::size_t start, std::size_t &out_end) {
+    if (start >= s.size() || s[start] != '{') {
+        return {};
+    }
+
+    int depth = 1;
+    std::size_t i = start + 1;
+    const std::size_t content_start = i;
+
+    while (i < s.size() && depth > 0) {
+        if (s[i] == '{') {
+            ++depth;
+        } else if (s[i] == '}') {
+            --depth;
+        }
+        ++i;
+    }
+
+    if (depth != 0) {
+        return {};
+    }
+
+    out_end = i;
+    return s.substr(content_start, i - content_start - 1);
+}
+
+struct MatchLatexArgs {
+    std::string_view s;
+    std::size_t i;
+
+    ExprKind *out_kind;
+    std::string_view *out_left;
+    std::string_view *out_right;
+    std::size_t *out_end;
+};
+constexpr std::size_t kFracLen = 5;
+constexpr std::size_t kPowLen = 4;
+bool match_latex_expr(const MatchLatexArgs &args) {
+    const std::string_view rest = args.s.substr(args.i);
+
+    std::size_t prefix_len = 0;
+
+    if (rest.starts_with("\\frac")) {
+        *args.out_kind = ExprKind::Frac;
+        prefix_len = kFracLen;
+    } else if (rest.starts_with("\\pow")) {
+        *args.out_kind = ExprKind::Pow;
+        prefix_len = kPowLen;
+    } else {
+        return false;
+    }
+
+    const std::size_t pos = args.i + prefix_len;
+
+    std::size_t after_left = 0;
+    const std::string_view left = extract_brace_content(args.s, pos, after_left);
+
+    std::size_t after_right = 0;
+    const std::string_view right = extract_brace_content(args.s, after_left, after_right);
+
+    *args.out_left = left;
+    *args.out_right = right;
+    *args.out_end = after_right;
+    return true;
+}
+
+} // namespace
+
+TokenizeResult tokenize(std::string_view s) {
+    TokenizeResult result;
+    result.tokens.reserve(s.size() / 2);
+
+    std::size_t i = 0;
+    bool expect_operand = true;
+
+    while (i < s.size()) {
+        if (s[i] == '\\') {
+            ExprKind out_kind = ExprKind::Frac;
+            std::string_view out_left{};
+            std::string_view out_right{};
+            std::size_t out_end = 0;
+
+            if (match_latex_expr({s, i, &out_kind, &out_left, &out_right, &out_end})) {
+                const std::size_t expr_idx = result.tokens.size();
+                result.expr_indices.push_back(expr_idx);
+
+                result.tokens.push_back(
+                    Token{
+                        .kind = TokenKind::Expr,
+                        .expr_kind = out_kind,
+                        .left_tokens = tokenize(out_left).tokens,
+                        .right_tokens = tokenize(out_right).tokens,
+                        .start_pos = i,
+                        .end_pos = out_end,
+                    });
+                i = out_end;
+                expect_operand = false; // Expr acts as operand, next token is operator
+                continue;
+            }
+
+            ++i;
+            continue;
+        }
+
+        const std::size_t start = i;
+        while (i < s.size() && s[i] != '\\') {
+            ++i;
+        }
+
+        expect_operand =
+            detail::tokenize_core(s.substr(start, i - start), result.tokens, start, expect_operand);
+    }
+
+    return result;
 }
 
 namespace detail {
-
 std::vector<Token> normalize(const std::vector<Token> &raw) {
     std::vector<Token> normalized;
     normalized.reserve(raw.size());
@@ -190,11 +342,13 @@ std::vector<Token> normalize(const std::vector<Token> &raw) {
 
     const auto ends_operand = [](const Token &t) -> bool {
         return t.kind == TokenKind::Number || t.kind == TokenKind::RParen ||
+               t.kind == TokenKind::Expr ||
                (t.kind == TokenKind::Op && op_spec(t.op_id)->arity == Arity::Postfix);
     };
 
     const auto starts_operand = [](const Token &t) -> bool {
         return t.kind == TokenKind::Number || t.kind == TokenKind::LParen ||
+               t.kind == TokenKind::Expr ||
                (t.kind == TokenKind::Op && op_spec(t.op_id)->arity == Arity::Unary);
     };
 
@@ -246,6 +400,7 @@ std::vector<Token> shunting_yard(const std::vector<Token> &tokens) {
     for (const Token &tok : normalized) {
         switch (tok.kind) {
         case TokenKind::Number:
+        case TokenKind::Expr:
             output.push_back(tok);
             break;
         case TokenKind::LParen:

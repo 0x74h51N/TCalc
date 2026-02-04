@@ -167,6 +167,12 @@ class CalculatorController:
                 Operation.NEGATE: lambda _: self._display.editor.handle_negate(),
                 Operation.HYP: lambda _: self._toggle_hyp(),
                 Operation.IMAG: lambda _: self._handle_digit(Operation.IMAG.symbol),
+                Operation.DIV: lambda _: self._display.editor.insert_expr_str(
+                    calc_native.ExprKind.Frac
+                ),
+                Operation.POW: lambda _: self._display.editor.insert_expr_str(
+                    calc_native.ExprKind.Pow
+                ),
             }
         )
 
@@ -196,7 +202,7 @@ class CalculatorController:
     def _can_compute_preview(self, tokens: List[calc_native.Token]) -> bool:
         if not tokens:
             return False
-        if len(tokens) == 1:
+        if len(tokens) == 1 and tokens[0].kind != calc_native.TokenKind.Expr:
             return is_number_token(tokens[0])
 
         return True

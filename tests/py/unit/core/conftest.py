@@ -173,6 +173,7 @@ class FakeNativeCalculatorError(Exception):
 class FakeTokenKind:
     Number = "number"
     Op = "op"
+    Expr = "expr"
 
 
 def _cx_sqrt(x: float) -> bool:
@@ -298,7 +299,9 @@ def fake_ops(monkeypatch) -> dict[Id, _OpDef]:
     monkeypatch.setattr(
         parser_mod, "calc_native", SimpleNamespace(TokenKind=FakeTokenKind), raising=False
     )
-    monkeypatch.setattr(parser_mod, "is_number_token", lambda tok: tok.kind == FakeTokenKind.Number)
+    monkeypatch.setattr(
+        parser_mod, "is_number_token", lambda tok: tok.token.kind == FakeTokenKind.Number
+    )
     return ops
 
 

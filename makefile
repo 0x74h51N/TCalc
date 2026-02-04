@@ -28,7 +28,11 @@ typecheck:
 
 py-test:
 	PYTHONPATH=src $(PY) -m pytest tests/py/unit $(PYTEST_ARGS)
+	PYTHONPATH=src $(PY) -m pytest tests/py/ui $(PYTEST_ARGS)
 	PYTHONPATH=src $(PY) -m pytest tests/py/e2e $(PYTEST_ARGS)
+
+py-test-ui:
+	PYTHONPATH=src $(PY) -m pytest tests/py/ui $(PYTEST_ARGS)
 
 py-benchmark:
 	PYTHONPATH=src $(PY) -m pytest tests/benchmark -m benchmark $(PYTEST_ARGS)

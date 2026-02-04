@@ -23,6 +23,16 @@ enum class TokenKind : std::uint8_t {
     LParen,
     /// Right parenthesis.
     RParen,
+    /// Compound expression (e.g., \frac{}{}, ^{}).
+    Expr,
+};
+
+/// Expression kinds for compound Expr tokens.
+enum class ExprKind : std::uint8_t {
+    /// Fraction: \frac{numerator}{denominator}
+    Frac,
+    /// Power: pow{base}{exponent}
+    Pow,
 };
 
 /// Parser token; numbers store raw text in value, ops store op_id.
@@ -36,7 +46,38 @@ struct Token {
     /// Raw number text for numeric tokens.
     Value value{};
 
-    bool operator==(const Token &) const = default;
+    /// Expression kind for Expr tokens.
+    ExprKind expr_kind = ExprKind::Frac;
+
+    /// Left operand tokens for Expr (numerator/base).
+    std::vector<Token> left_tokens{};
+
+    /// Right operand tokens for Expr (denominator/exponent).
+    std::vector<Token> right_tokens{};
+
+    /// Start position in original string (metadata, not compared in ==).
+    std::size_t start_pos = 0;
+
+    /// End position in original string (metadata, not compared in ==).
+    std::size_t end_pos = 0;
+
+    /// Semantic equality - ignores position metadata.
+    bool operator==(const Token &other) const {
+        return kind == other.kind && op_id == other.op_id && value == other.value &&
+               expr_kind == other.expr_kind && left_tokens == other.left_tokens &&
+               right_tokens == other.right_tokens;
+    }
+};
+
+/// Result of tokenization with metadata.
+struct TokenizeResult {
+    /// Token list.
+    std::vector<Token> tokens{};
+
+    /// Indices of Expr tokens in the token list.
+    std::vector<std::size_t> expr_indices{};
+
+    bool operator==(const TokenizeResult &) const = default;
 };
 
 inline std::ostream &operator<<(std::ostream &os, const Token &tok) {
@@ -45,8 +86,10 @@ inline std::ostream &operator<<(std::ostream &os, const Token &tok) {
     return os;
 }
 
-// Split an expression string into parser tokens.
-std::vector<Token> tokenize(std::string_view expression);
+/// High-level tokenizer that understands LaTeX constructs (\frac, \sqrt, ...)
+/// and produces a flat token stream suitable for shunting-yard parsing.
+/// Returns TokenizeResult with tokens and expr_indices metadata.
+TokenizeResult tokenize(std::string_view expression);
 
 // Convert tokens to RPN using precedence/associativity rules.
 std::vector<Token> shunting_yard(const std::vector<Token> &tokens);

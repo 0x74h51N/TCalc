@@ -11,14 +11,21 @@ namespace py = pybind11;
 
 void bind_parser(py::module_ &m) {
     using tcalc::ops::OpId;
+    using tcalc::parser::ExprKind;
     using tcalc::parser::Token;
+    using tcalc::parser::TokenizeResult;
     using tcalc::parser::TokenKind;
 
     py::enum_<TokenKind>(m, "TokenKind", "Token categories produced by the native tokenizer.")
         .value("Number", TokenKind::Number)
         .value("Op", TokenKind::Op)
         .value("LParen", TokenKind::LParen)
-        .value("RParen", TokenKind::RParen);
+        .value("RParen", TokenKind::RParen)
+        .value("Expr", TokenKind::Expr);
+
+    py::enum_<ExprKind>(m, "ExprKind", "Expression kinds for compound Expr tokens.")
+        .value("Frac", ExprKind::Frac)
+        .value("Pow", ExprKind::Pow);
 
     py::enum_<OpId>(
         m, "OpId", "Operation identifiers used by tokens and op_table; maps to engine methods.")
@@ -68,6 +75,11 @@ void bind_parser(py::module_ &m) {
         .def_readonly("kind", &Token::kind)
         .def_readonly("op_id", &Token::op_id)
         .def_readonly("value", &Token::value)
+        .def_readonly("expr_kind", &Token::expr_kind)
+        .def_readonly("left_tokens", &Token::left_tokens)
+        .def_readonly("right_tokens", &Token::right_tokens)
+        .def_readonly("start_pos", &Token::start_pos)
+        .def_readonly("end_pos", &Token::end_pos)
         .def_property_readonly("symbol", [](const Token &tok) {
             if (tok.kind != TokenKind::Op) {
                 return std::string();
@@ -75,6 +87,10 @@ void bind_parser(py::module_ &m) {
             const auto *spec = tcalc::ops::op_spec(tok.op_id);
             return spec ? std::string(spec->symbol) : std::string();
         });
+
+    py::class_<TokenizeResult>(m, "TokenizeResult", "Result of tokenization with metadata.")
+        .def_readonly("tokens", &TokenizeResult::tokens)
+        .def_readonly("expr_indices", &TokenizeResult::expr_indices);
 
     py::enum_<tcalc::ops::Assoc>(m, "OpAssoc", "Operator associativity.")
         .value("Left", tcalc::ops::Assoc::Left)

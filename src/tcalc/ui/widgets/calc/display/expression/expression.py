@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.core.ops import Operation, get_symbols_with_aliases
+from tcalc.core.parser import tokenize, tokenize_string
 from tcalc.ui.widgets.calc.display.expression.expression_node import (
     ExpressionNode,
     ExpressionSlot,
@@ -22,14 +23,11 @@ from tcalc.ui.widgets.calc.display.expression.expression_node import (
 from tcalc.ui.widgets.calc.display.expression.widgets import FractionWidget, PowWidget
 
 from .utils import (
-    CLOSE_KIND,
-    OPEN_KIND,
     space_binary_ops,
     split_operand,
     split_paren,
     token_text,
     tokens_to_text,
-    untokenized_prefix,
 )
 
 
@@ -41,6 +39,11 @@ class Expression(QWidget):
     NODE_WIDGETS: dict[calc_native.OpId, type[ExpressionNode]] = {
         FractionWidget.OP_ID: FractionWidget,
         PowWidget.OP_ID: PowWidget,
+    }
+
+    EXPR_KIND_MAP: dict[calc_native.ExprKind, type[ExpressionNode]] = {
+        FractionWidget.EXPR_KIND: FractionWidget,
+        PowWidget.EXPR_KIND: PowWidget,
     }
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -64,11 +67,6 @@ class Expression(QWidget):
 
         self._operator_symbol_values = get_symbols_with_aliases()
         self._operator_symbol_values.discard(Operation.IMAG.symbol)
-
-        node_op_ids = set(self.NODE_WIDGETS.keys())
-        self._node_op_syms: frozenset[str] = frozenset(
-            get_symbols_with_aliases(lambda spec: getattr(spec, "id", None) in node_op_ids)
-        )
 
         app = QApplication.instance()
         if isinstance(app, QApplication):
@@ -101,46 +99,6 @@ class Expression(QWidget):
         if not self._rendering:
             self._add_exp_node()
             self.plain_text_changed.emit(self.get_plain_text())
-
-    def _analyze_tokens(
-        self, tokens: list[calc_native.Token]
-    ) -> tuple[bool, list[calc_native.Token], tuple[int, type[ExpressionNode]] | None]:
-        """
-        Single-pass: check wrapping and find node op at minimum depth.
-        Returns: (is_wrapped, effective_tokens, (op_index, widget_class) or None)
-        """
-        if not tokens:
-            return False, tokens, None
-
-        potentially_wrapped = tokens[0].kind == OPEN_KIND and tokens[-1].kind == CLOSE_KIND
-
-        depth = 0
-        candidates = []  # (index, depth, op_id)
-        wrapping_valid = True
-
-        for i, tok in enumerate(tokens):
-            if tok.kind == OPEN_KIND:
-                depth += 1
-            elif tok.kind == CLOSE_KIND:
-                depth -= 1
-                if potentially_wrapped and depth == 0 and i < len(tokens) - 1:
-                    wrapping_valid = False
-            elif tok.kind == calc_native.TokenKind.Op and tok.op_id in self.NODE_WIDGETS:
-                candidates.append((i, depth, tok.op_id))
-
-        is_wrapped = potentially_wrapped and wrapping_valid
-        effective_tokens = tokens[1:-1] if is_wrapped else tokens
-
-        if not candidates:
-            return is_wrapped, effective_tokens, None
-
-        # If wrapped, adjust index and depth for stripped outer paren
-        if is_wrapped:
-            candidates = [(i - 1, d - 1, op_id) for i, d, op_id in candidates]
-
-        # Find candidate at minimum depth
-        best = min(candidates, key=lambda x: (x[1], x[0]))
-        return is_wrapped, effective_tokens, (best[0], self.NODE_WIDGETS[best[2]])
 
     def get_plain_text(self) -> str:
         return self._root.to_plain_text()
@@ -184,13 +142,13 @@ class Expression(QWidget):
             apply_prefix("" if prefix else Operation.SUB.symbol)
             return
 
-        toks = calc_native.tokenize_string(prefix)
+        toks = tokenize_string(prefix)
         parts = [
             (t.op_id if t.kind == calc_native.TokenKind.Op else None, str(token_text(t)))
             for t in toks
         ]
 
-        paren_split = split_paren(toks)
+        paren_split = split_paren(list(toks))
         paren_start = len(paren_split[0]) if paren_split else None
         for i in range(len(parts) - 1, -1, -1):
             txt = parts[i][1]
@@ -226,6 +184,34 @@ class Expression(QWidget):
         op_id = getattr(op._spec, "id", None)
         self.insert_text(space_binary_ops([(op_id, label)]))
 
+    def insert_expr_str(self, expr_kind: calc_native.ExprKind) -> None:
+        """Insert ExpressionNode via keystroke."""
+        target = self._resolve_target()
+        slot = target.parent()
+
+        if not isinstance(slot, ExpressionSlot):
+            return
+
+        # Split text at cursor position
+        text = target.text()
+        cursor = target.cursorPosition()
+
+        before_tokens = tokenize_string(text[:cursor])
+        after_tokens = tokenize_string(text[cursor:])
+
+        prefix_tokens, left_tokens = split_operand(before_tokens)
+        right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
+
+        widget_cls = self.EXPR_KIND_MAP.get(expr_kind)
+
+        if widget_cls is None:
+            return
+
+        node_str = f"{widget_cls.SYMBOL}{{{tokens_to_text(left_tokens)}}}{{{tokens_to_text(right_tokens)}}}"
+        target.setText(tokens_to_text(prefix_tokens) + node_str + tokens_to_text(suffix_tokens))
+
+        self.plain_text_changed.emit(self.get_plain_text())
+
     def _focus_backspace(self, le: QLineEdit) -> None:
         le.setFocus()
         le.setCursorPosition(len(le.text()))
@@ -235,26 +221,16 @@ class Expression(QWidget):
         self,
         slot: ExpressionSlot,
         seg: QLineEdit,
-        prefix: str,
+        prefix_tokens: list[calc_native.Token],
         node: ExpressionNode,
         suffix_tokens: list[calc_native.Token],
     ) -> None:
-        """Insert a node widget after the segment and handle prefix/suffix, in the correct slot."""
+        """Insert a node widget into slot: [prefix | node | suffix]."""
         idx = slot.index_of(seg)
-        seg.setText(prefix)
+
+        seg.setText(tokens_to_text(prefix_tokens))
         slot.insert_widget(idx + 1, node)
-
-        suffix = tokens_to_text(suffix_tokens)
-        right_idx = idx + 2
-
-        if right_idx >= len(slot._segments):
-            slot.append_input().setText(suffix)
-        else:
-            next_seg = slot._segments[right_idx]
-            if isinstance(next_seg, QLineEdit):
-                next_seg.setText(suffix + next_seg.text())
-            else:
-                slot.insert_input(right_idx).setText(suffix)
+        slot.insert_input(idx + 2).setText(tokens_to_text(suffix_tokens))
 
         node.focus_default()
 
@@ -264,100 +240,75 @@ class Expression(QWidget):
         new_text = tokens_to_text(tokens)
         if new_text != text:
             cursor_pos = seg.cursorPosition()
+
+            # Find new cursor by normalizing text before cursor
+            # Tokens before/at cursor determine new position
+            prefix_tokens = [t for t in tokens if t.start_pos < cursor_pos]
+            new_cursor = len(tokens_to_text(prefix_tokens))
+
             seg.setText(new_text)
-            seg.setCursorPosition(min(cursor_pos + 1, len(new_text)))
-            # TODO: implement better fix for the cursor bug, this still has an issue about text alias floo3.3 -> ⌊3.3
+            seg.setCursorPosition(min(new_cursor, len(new_text)))
 
     def _add_exp_node(self) -> None:
         self._rendering = True
         self.setUpdatesEnabled(False)
+
         try:
             pending: deque[QLineEdit] = deque(self._root.line_edits())
 
             while pending:
                 seg = pending.popleft()
-
                 parent = seg.parent()
+
                 if not isinstance(parent, ExpressionSlot):
                     continue
+
                 slot: ExpressionSlot = parent
-
                 text = seg.text()
-                seg_tokens = calc_native.tokenize_string(text)
 
-                # Early exit: no node op symbols
-                if not any(s in text for s in self._node_op_syms):
-                    self._normalize_text(seg, seg_tokens)
+                if not text:
                     continue
 
-                is_wrapped, seg_toks, found = self._analyze_tokens(seg_tokens)
+                result = tokenize(text)
 
-                if not found:
+                tokens = result.tokens
+                if not result.expr_indices:
+                    if "\\" not in text:
+                        self._normalize_text(seg, tokens)
                     continue
 
-                inner_text = text[1:-1] if is_wrapped else text
-                seg_prefix = untokenized_prefix(inner_text, seg_toks)
+                idx = result.expr_indices[0]
+                expr_tok = tokens[idx]
+                before_tokens = tokens[:idx]
+                after_tokens = tokens[idx + 1 :]
 
-                op_idx, widget_class = found
-                before_tokens = seg_toks[:op_idx]
-                after_tokens = seg_toks[op_idx + 1 :]
+                # If expr has content (pasted), use it; otherwise split from surrounding tokens
+                if expr_tok.left_tokens:
+                    prefix_tokens, left_tokens = before_tokens, expr_tok.left_tokens
+                else:
+                    prefix_tokens, left_tokens = split_operand(before_tokens)
 
-                prefix_tokens, left_tokens = split_operand(before_tokens)
-                right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
+                if expr_tok.right_tokens:
+                    right_tokens, suffix_tokens = expr_tok.right_tokens, after_tokens
+                else:
+                    right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
 
-                node = widget_class(self, left_tokens, right_tokens)
-                self._insert_node(
-                    slot, seg, seg_prefix + tokens_to_text(prefix_tokens), node, suffix_tokens
-                )
+                widget_cls = self.EXPR_KIND_MAP.get(expr_tok.expr_kind)
 
-                # Queue node's internal line edits (numerator, denominator, etc.)
+                if widget_cls is None:
+                    return
+
+                node = widget_cls(self, left_tokens, right_tokens)
+
+                self._insert_node(slot, seg, prefix_tokens, node, suffix_tokens)
+
+                # Queue node's internal inputs for nested processing
                 pending.extend(node.line_edits())
+                # Only queue suffix if it contains nested Expr (LaTeX)
+                suffix_seg = slot._segments[-1]  # _insert_node always appends suffix
+                if isinstance(suffix_seg, QLineEdit) and "\\" in suffix_seg.text():
+                    pending.append(suffix_seg)
 
-                # Re-queue prefix segment if non-empty (might have nested operators in parens)
-                if seg.text():
-                    pending.append(seg)
-
-                # Queue suffix segment if it exists
-                node_idx = slot.index_of(node)
-                if node_idx + 1 < len(slot._segments):
-                    suffix_seg = slot._segments[node_idx + 1]
-                    if isinstance(suffix_seg, QLineEdit):
-                        pending.append(suffix_seg)
         finally:
             self.setUpdatesEnabled(True)
             self._rendering = False
-
-
-# TODO: Implement proper tests
-# Use Qt Test framework for UI interaction testing
-#
-# UI Interaction Tests:
-# - Insert an ExpressionNode symbol middle of two number -> numbers should be split as left and right tokens and show in slots
-# - Insert an ExpressionNode symbol non input -> left_tokens input area should be focues
-# - Insert an ExpressionNode symbol after unary operation expression -> unary op expression should be in left_tokens slot
-# - Insert an ExpressionNode into the middle of an existing expression as like 2+4+6 -> 4/ should be empty right_token slot (focused) FractionWidget
-# - Modify different input slots after an ExpressionNode is added
-# - Verify that the computed result and displayed expression update correctly
-# - Test deletion, undo, and redo behavior for ExpressionNodes
-# - Test cursor placement and focus handling when inserting operators
-#
-# Edge-case and complex expression tests:
-# - Deeply nested expressions
-# - Operator precedence and associativity
-# - Unary operators (negative numbers)
-# - Implicit multiplication cases
-# - Division by zero and invalid expressions
-# - Test correct parenthesification for entire ExpressionNode also left and right token slots
-#
-# problematic examples
-# (2/(5/(4/(7/5))))
-# ((1+2)*(3+4))/((5-6)/(7+8))
-# 3+4*2/(1-5)^2^3
-# 1+(2*(3+(4/(5-6))))
-# ((-3)^2)/(2+(-1)*(4/2))
-# 6/(2*(1+2))
-# (((1/2)/(3/4))/(5/6))
-# 12/(3+(4*(5-6/(7+8))))
-# (3/4)+4/5
-# (2/4)(3/4)
-# ((1+(2/(3+(4/5+6))))*(7-(8/(9+10))))/((1+(2/(3+(4/5+6))))*(7-(8/(9+10))))

@@ -79,6 +79,8 @@ _UI_SPECS = (
     ("BACKSPACE", "⌫"),
     ("HYP", "hyp"),
     ("IMAG", "i"),
+    ("FRAC", "\\frac"),
+    ("POWw", "\\pow"),
 )
 
 _specs_by_name: dict[str, calc_native.OpSpec | _UIOpSpec] = {}

@@ -13,7 +13,13 @@ from .utils import is_number_token, parse_number_token
 
 
 def tokenize_string(expression: str) -> List[calc_native.Token]:
-    return list(calc_native.tokenize_string(expression))
+    """Tokenize expression and return token list."""
+    return calc_native.tokenize_string(expression).tokens
+
+
+def tokenize(expression: str) -> calc_native.TokenizeResult:
+    """Tokenize expression and return full result with metadata."""
+    return calc_native.tokenize_string(expression)
 
 
 def shunting_yard(tokens: Sequence[calc_native.Token]) -> List[calc_native.Token]:
@@ -44,6 +50,26 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
         if is_number_token(tok):
             operand_stack.append(_coerce_token(tok.value))
             continue
+
+        if tok.kind == calc_native.TokenKind.Expr:
+            try:
+                left_rpn = shunting_yard(tok.left_tokens)
+                right_rpn = shunting_yard(tok.right_tokens)
+                left_val = evaluate_rpn(left_rpn, calculator) if left_rpn else 0
+                right_val = evaluate_rpn(right_rpn, calculator) if right_rpn else 0
+
+                if tok.expr_kind == calc_native.ExprKind.Frac:
+                    result = calculator.div(left_val, right_val)
+                elif tok.expr_kind == calc_native.ExprKind.Pow:
+                    result = calculator.pow(left_val, right_val)
+                else:
+                    raise_error(ErrorKind.MALFORMED, f"Unknown expr_kind: {tok.expr_kind}")
+
+                operand_stack.append(result)
+                continue
+            except Exception as e:
+                raise_error(ErrorKind.INVALID, f"Parse expression token error: {e}")
+
         if tok.kind == calc_native.TokenKind.Op:
             spec = OP_BY_ID.get(tok.op_id)
             assert spec is not None

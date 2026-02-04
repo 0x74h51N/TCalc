@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import calc_native
 from PySide6.QtCore import Qt, QTimer
@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 
 from tcalc.ui.widgets.calc.config import display_config
 
-from .utils import update_autowidth, wrapped_in_parens
+from .utils import update_autowidth
 
 if TYPE_CHECKING:
     from .expression import Expression
@@ -51,12 +51,14 @@ class ExpressionNode(QWidget):
         self.right_tokens = right_tokens if right_tokens is not None else []
 
         def strip_outer_parens(tokens):
-            return tokens[1:-1] if wrapped_in_parens(tokens) else tokens
+            return tokens
 
         self.left_tokens = strip_outer_parens(self.left_tokens)
         self.right_tokens = strip_outer_parens(self.right_tokens)
 
-    OP_ID: calc_native.OpId | None = None
+    OP_ID: ClassVar[calc_native.OpId]
+    EXPR_KIND: ClassVar[calc_native.ExprKind]
+    SYMBOL: ClassVar[str]
 
     def line_edits(self) -> list[QLineEdit]:
         return []

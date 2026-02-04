@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import calc_native
-from calc_native import tokenize_string
 from PySide6.QtWidgets import QLineEdit
 
 from tcalc.core.ops import OP_BY_ID, Operation
@@ -12,26 +11,40 @@ CLOSE_PAR = Operation.CLOSE_PAREN.symbol
 OPEN_KIND = calc_native.TokenKind.LParen
 CLOSE_KIND = calc_native.TokenKind.RParen
 
+EXPR_SYMBOL_MAP: dict[calc_native.ExprKind, str] = {
+    calc_native.ExprKind.Frac: Operation.FRAC.symbol,
+    calc_native.ExprKind.Pow: Operation.POWw.symbol,
+}
 
-def token_text(tok: calc_native.Token) -> str | int | float:
-    if tok.kind == calc_native.TokenKind.Number:
-        return tok.value
-    if tok.kind == calc_native.TokenKind.Op:
-        if tok.op_id == calc_native.OpId.Negate:
-            return Operation.SUB.symbol
-        if tok.op_id == calc_native.OpId.UnaryPlus:
-            return Operation.ADD.symbol
-        return tok.symbol
-    if tok.kind == OPEN_KIND:
-        return OPEN_PAR
-    if tok.kind == CLOSE_KIND:
-        return CLOSE_PAR
+UNARY_OP_SYMBOL_MAP: dict[calc_native.OpId, str] = {
+    calc_native.OpId.Negate: Operation.SUB.symbol,
+    calc_native.OpId.UnaryPlus: Operation.ADD.symbol,
+}
+
+
+def token_text(tok: calc_native.Token) -> str:
+    """Convert a single token to its text representation."""
+    match tok.kind:
+        case calc_native.TokenKind.Expr:
+            symbol = EXPR_SYMBOL_MAP.get(tok.expr_kind, "")
+            left = tokens_to_text(tok.left_tokens)
+            right = tokens_to_text(tok.right_tokens)
+            return f"{symbol}{{{left}}}{{{right}}}"
+        case calc_native.TokenKind.Number:
+            return tok.value
+        case calc_native.TokenKind.Op:
+            return UNARY_OP_SYMBOL_MAP.get(tok.op_id, tok.symbol)
+        case calc_native.TokenKind.LParen:
+            return OPEN_PAR
+        case calc_native.TokenKind.RParen:
+            return CLOSE_PAR
     return ""
 
 
 def tokens_to_text(tokens: list[calc_native.Token]) -> str:
     """Convert tokens to text with proper spacing for binary operators."""
     parts: list[tuple[calc_native.OpId | None, str]] = []
+
     for t in tokens:
         parts.append((t.op_id if t.kind == calc_native.TokenKind.Op else None, str(token_text(t))))
 
@@ -45,23 +58,6 @@ def update_autowidth(le: QLineEdit) -> None:
     margins = le.textMargins()
     pad = margins.left() + margins.right() + fm.averageCharWidth()
     le.setFixedWidth(int(text_width + pad / 2))
-
-
-def parenter(text_or_tokens: str | list[calc_native.Token]) -> str:
-    """Wrap expression in parentheses if it contains ops and don't wrapped parentheses."""
-    if isinstance(text_or_tokens, list):
-        toks = text_or_tokens
-        if not toks:
-            return ""
-        if wrapped_in_parens(toks):
-            return tokens_to_text(toks)
-        if any(tok.kind == calc_native.TokenKind.Op for tok in toks):
-            return f"{OPEN_PAR}{tokens_to_text(toks)}{CLOSE_PAR}"
-        return tokens_to_text(toks)
-
-    text = text_or_tokens
-    toks = list(tokenize_string(text))
-    return parenter(toks)
 
 
 def _get_visual_node_ops() -> set[calc_native.OpId]:
@@ -139,33 +135,3 @@ def split_operand(
         return tokens[:-1], [last]
 
     return tokens, []
-
-
-def untokenized_prefix(text: str, tokens: list[calc_native.Token]) -> str:
-    """Return untokenized prefix."""
-    if not tokens:
-        return text
-    first_tok = tokens[0]
-
-    idx = text.find(str(token_text(first_tok)))
-    if idx >= 0:
-        return text[:idx]
-    return ""
-
-
-def wrapped_in_parens(tokens: list[calc_native.Token]) -> bool:
-    if not tokens:
-        return False
-    if tokens[0].kind != OPEN_KIND or tokens[-1].kind != CLOSE_KIND:
-        return False
-
-    depth = 0
-    for i, t in enumerate(tokens):
-        if t.kind == OPEN_KIND:
-            depth += 1
-        elif t.kind == CLOSE_KIND:
-            depth -= 1
-        if depth == 0:
-            return i == len(tokens) - 1
-
-    return False

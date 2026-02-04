@@ -14,10 +14,7 @@ from tcalc.ui.widgets.calc.display.expression.expression_node import (
     InputKind,
 )
 
-from .utils import (
-    parenter,
-    tokens_to_text,
-)
+from .utils import tokens_to_text
 
 if TYPE_CHECKING:
     from .expression import Expression
@@ -27,6 +24,8 @@ class FractionWidget(ExpressionNode):
     """UI node for a fraction with numerator and denominator slots."""
 
     OP_ID = calc_native.OpId.Div
+    EXPR_KIND = calc_native.ExprKind.Frac
+    SYMBOL = Operation.FRAC.symbol
 
     def __init__(
         self,
@@ -73,23 +72,18 @@ class FractionWidget(ExpressionNode):
             self.denominator.default_input().setFocus()
 
     def to_plain_text(self) -> str:
-        # TODO: tokens-first or cached structure
-        # this setup does pointless text->token->text juggling and causes unnecessary conversions
-
+        """Serialize to LaTeX-style format: \\frac{num}{den}."""
         num_text = self.numerator.to_plain_text()
         den_text = self.denominator.to_plain_text()
-
-        num_serial = parenter(calc_native.tokenize_string(num_text))
-        den_serial = parenter(calc_native.tokenize_string(den_text))
-
-        fraction_text = f"{num_serial}{Operation.DIV.symbol}{den_serial}"
-        return parenter(fraction_text)
+        return f"{Operation.FRAC.symbol}{{{num_text}}}{{{den_text}}}"
 
 
 class PowWidget(ExpressionNode):
     """UI node for power/exponent with base and exponent slots."""
 
     OP_ID = calc_native.OpId.Pow
+    EXPR_KIND = calc_native.ExprKind.Pow
+    SYMBOL = Operation.POWw.symbol
 
     def __init__(
         self,
@@ -145,11 +139,7 @@ class PowWidget(ExpressionNode):
             self.exponent.default_input().setFocus()
 
     def to_plain_text(self) -> str:
+        """Serialize to LaTeX-style format: \\pow{base}{exp}."""
         base_text = self.base.to_plain_text()
         exp_text = self.exponent.to_plain_text()
-
-        base_serial = parenter(calc_native.tokenize_string(base_text))
-        exp_serial = parenter(calc_native.tokenize_string(exp_text))
-
-        pow_text = f"{base_serial}{Operation.POW.symbol}{exp_serial}"
-        return parenter(pow_text)
+        return f"{Operation.POWw.symbol}{{{base_text}}}{{{exp_text}}}"
