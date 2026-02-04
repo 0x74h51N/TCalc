@@ -252,6 +252,7 @@ struct MatchLatexArgs {
 };
 constexpr std::size_t kFracLen = 5;
 constexpr std::size_t kPowLen = 4;
+
 bool match_latex_expr(const MatchLatexArgs &args) {
     const std::string_view rest = args.s.substr(args.i);
 
@@ -272,8 +273,16 @@ bool match_latex_expr(const MatchLatexArgs &args) {
     std::size_t after_left = 0;
     const std::string_view left = extract_brace_content(args.s, pos, after_left);
 
+    if (after_left == 0) {
+        return false;
+    }
+
     std::size_t after_right = 0;
     const std::string_view right = extract_brace_content(args.s, after_left, after_right);
+
+    if (after_right == 0) {
+        return false;
+    }
 
     *args.out_left = left;
     *args.out_right = right;
