@@ -114,48 +114,52 @@ class TestNestedExpressions:
     """Test deeply nested and complex expressions."""
 
     @pytest.mark.parametrize(
-        "expr,min_fraction_count",
+        "expr,expected_fraction_count",
         [
             ("\\frac{\\frac{1}{2}}{\\frac{3}{4}}", 3),
             ("\\frac{\\frac{\\frac{1}{2}}{\\frac{3}{4}}}{\\frac{5}{6}}", 5),
+            ("\\frac{2}{\\frac{5}{\\frac{4}{\\frac{7}{5}}}}", 4),
+            ("\\frac{3}{4}+\\frac{4}{5}", 2),
+            ("\\frac{6}{2*(1+2)}", 1),
+            ("\\frac{12}{3+(4*(5-\\frac{6}{7+8}))}", 2),
+            ("-\\frac{3}{2}", 1),
+            ("\\frac{-3}{2}", 1),
+            ("(-1) + \\frac{2}{3}", 1),
             (
                 "\\frac{\\frac{\\frac{1}{\\pow{2}{2}}}{\\frac{2}{3}}}{\\frac{5}{6}}"
                 "+"
                 "\\frac{\\frac{\\frac{1}{\\pow{2}{2}}}{\\frac{2}{3}}}{\\frac{5}{6}}",
-                8,
+                10,
             ),
         ],
     )
     def test_nested_fractions_count(
-        self, expression_widget: Expression, set_expression, expr, min_fraction_count
+        self, expression_widget: Expression, set_expression, expr, expected_fraction_count
     ):
         """Nested fractions should create expected number of FractionWidgets."""
         set_expression(expr)
 
         nodes = get_all_expression_nodes(expression_widget)
         fractions = [n for n in nodes if isinstance(n, FractionWidget)]
-        assert len(fractions) >= min_fraction_count
+        assert len(fractions) == expected_fraction_count
 
     @pytest.mark.parametrize(
-        "expr,min_pow_count",
+        "expr,expected_pow_count",
         [
             ("\\pow{2}{\\pow{3}{4}}", 2),
             ("\\pow{\\pow{2}{3}}{4}", 2),
-            (
-                "\\pow{\\pow{2}{\\pow{3}{4}}}{\\pow{5}{\\pow{6}{7}}}",
-                5,
-            ),
+            ("\\pow{\\pow{2}{\\pow{3}{4}}}{\\pow{5}{\\pow{6}{7}}}", 5),
         ],
     )
     def test_nested_pow_count(
-        self, expression_widget: Expression, set_expression, expr, min_pow_count
+        self, expression_widget: Expression, set_expression, expr, expected_pow_count
     ):
         """Nested powers should create expected number of PowWidgets."""
         set_expression(expr)
 
         nodes = get_all_expression_nodes(expression_widget)
         pows = [n for n in nodes if isinstance(n, PowWidget)]
-        assert len(pows) >= min_pow_count
+        assert len(pows) == expected_pow_count
 
     def test_two_fractions_with_add_has_plus(self, expression_widget, set_expression, qapp):
         """(\\frac{3}{4})+\\frac{4}{5} should have + operator in serialization."""
@@ -168,27 +172,37 @@ class TestMixedNodeTypes:
     """Test expressions with both fractions and powers."""
 
     @pytest.mark.parametrize(
-        "expr",
+        "expr,expected_frac,expected_pow",
         [
-            ("3+4*\\frac{2}{\\pow{(1-5)}{\\pow{2}{3}}}"),
-            ("\\frac{\\pow{(-3)}{2}}{2+(-1)*\\frac{4}{2}}"),
-            ("\\frac{\\pow{2}{3}}{\\pow{4}{5}}"),
+            ("3+4*\\frac{2}{\\pow{(1-5)}{\\pow{2}{3}}}", 1, 2),
+            ("\\frac{\\pow{(-3)}{2}}{2+(-1)*\\frac{4}{2}}", 2, 1),
+            ("\\frac{\\pow{2}{3}}{\\pow{4}{5}}", 1, 2),
+            ("\\frac{(1+2)*(3+4)}{\\frac{(5-6)}{(7+8)}}", 2, 0),
+            ("1+(2*(3+\\frac{4}{(5-6)}))", 1, 0),
+            ("\\frac{\\pow{(-3)}{2}}{2}", 1, 1),
             (
                 "\\frac{"
                 "\\pow{2}{\\frac{3}{\\pow{4}{5}}}"
                 "}"
                 "{"
                 "\\frac{\\pow{6}{7}}{\\pow{8}{\\frac{9}{10}}}"
-                "}"
+                "}",
+                4,
+                4,
             ),
         ],
     )
-    def test_mixed_expression_creates_nodes(self, expression_widget, set_expression, qapp, expr):
-        """Mixed expressions should create at least one node."""
+    def test_mixed_expression_node_count(
+        self, expression_widget, set_expression, qapp, expr, expected_frac, expected_pow
+    ):
+        """Mixed expressions should create expected number of each node type."""
         set_expression(expr)
 
         nodes = get_all_expression_nodes(expression_widget)
-        assert len(nodes) >= 1
+        fractions = [n for n in nodes if isinstance(n, FractionWidget)]
+        pows = [n for n in nodes if isinstance(n, PowWidget)]
+        assert len(fractions) == expected_frac
+        assert len(pows) == expected_pow
 
 
 class TestFocusHandling:
@@ -345,9 +359,81 @@ class TestInsertExprStr:
         target.setText("1 + 2 + 3")
         qapp.processEvents()
 
-        target.setCursorPosition(5)
+        target.setCursorPosition(5)  # After "1 + 2"
         expression_widget.insert_expr_str(calc_native.ExprKind.Frac)
         qapp.processEvents()
 
         result = expression_widget.get_plain_text()
         assert result == "1 + \\frac{2}{} + 3"
+
+    def test_frac_without_braces_creates_widget(self, expression_widget, qapp):
+        """Typing \\frac alone (without braces) should create FractionWidget."""
+        target = expression_widget._resolve_target()
+        target.setText("\\frac")
+        qapp.processEvents()
+
+        nodes = get_all_expression_nodes(expression_widget)
+        assert len(nodes) == 1
+        assert isinstance(nodes[0], FractionWidget)
+
+    def test_frac_on_empty_input_creates_empty_widget(self, expression_widget, qapp):
+        """Insert frac on empty input creates empty FractionWidget."""
+        import calc_native
+
+        expression_widget.insert_expr_str(calc_native.ExprKind.Frac)
+        qapp.processEvents()
+
+        nodes = get_all_expression_nodes(expression_widget)
+        assert len(nodes) == 1
+        assert isinstance(nodes[0], FractionWidget)
+        num, den = get_fraction_parts(nodes[0])
+        assert num == ""
+        assert den == ""
+
+
+class TestImplicitMultiplication:
+    """Test implicit multiplication cases."""
+
+    @pytest.mark.parametrize(
+        "expr,expected_fracs",
+        [
+            ("\\frac{2}{4}\\frac{3}{4}", 2),  # (2/4)(3/4) implicit mult
+            ("2\\frac{3}{4}", 1),  # 2 * 3/4
+            ("\\frac{1}{2}\\frac{3}{4}\\frac{5}{6}", 3),
+        ],
+    )
+    def test_implicit_mult_fractions(
+        self, expression_widget, set_expression, qapp, expr, expected_fracs
+    ):
+        """Implicit multiplication between fractions should create correct nodes."""
+        set_expression(expr)
+        nodes = get_all_expression_nodes(expression_widget)
+        fractions = [n for n in nodes if isinstance(n, FractionWidget)]
+        assert len(fractions) == expected_fracs
+
+
+class TestNodeRemovalDetailed:
+    """Detailed tests for node removal via backspace."""
+
+    def test_backspace_removes_fraction(self, expression_widget, set_expression, qapp):
+        """Backspace on empty input after fraction should remove it."""
+        set_expression("1 + \\frac{2}{3}")
+        qapp.processEvents()
+
+        nodes_before = get_all_expression_nodes(expression_widget)
+        assert len(nodes_before) == 1
+
+        # Find empty input after fraction and backspace
+        inputs = expression_widget.expression_inputs()
+        for inp in inputs:
+            if inp.text() == "":
+                inp.setFocus()
+                break
+        qapp.processEvents()
+
+        expression_widget.backspace()
+        qapp.processEvents()
+
+        # Node should be removed or merged
+        nodes_after = get_all_expression_nodes(expression_widget)
+        assert len(nodes_after) <= len(nodes_before)
