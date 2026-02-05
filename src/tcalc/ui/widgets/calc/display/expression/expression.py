@@ -37,11 +37,6 @@ class Expression(QWidget):
 
     plain_text_changed = Signal(str)
 
-    NODE_WIDGETS: dict[calc_native.OpId, type[ExpressionNode]] = {
-        FractionWidget.OP_ID: FractionWidget,
-        PowWidget.OP_ID: PowWidget,
-    }
-
     EXPR_KIND_MAP: dict[calc_native.ExprKind, type[ExpressionNode]] = {
         FractionWidget.EXPR_KIND: FractionWidget,
         PowWidget.EXPR_KIND: PowWidget,

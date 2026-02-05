@@ -69,7 +69,7 @@ def _get_visual_node_ops() -> set[calc_native.OpId]:
     """Lazy import to avoid circular dependency."""
     from .expression import Expression
 
-    return set(Expression.NODE_WIDGETS.keys())
+    return {cls.OP_ID for cls in Expression.EXPR_KIND_MAP.values()}
 
 
 def space_binary_ops(parts: list[tuple[calc_native.OpId | None, str]]) -> str:
