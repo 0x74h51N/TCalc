@@ -8,7 +8,7 @@ from tcalc.core.errors import ErrorKind, raise_error
 
 from .constants import CONSTANTS
 from .engine import Calculator
-from .ops import OP_BY_ID
+from .ops import OP_BY_ID, LatexExpr
 from .utils import is_number_token, parse_number_token
 
 
@@ -58,12 +58,14 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
                 left_val = evaluate_rpn(left_rpn, calculator) if left_rpn else 0
                 right_val = evaluate_rpn(right_rpn, calculator) if right_rpn else 0
 
-                if tok.expr_kind == calc_native.ExprKind.Frac:
-                    result = calculator.div(left_val, right_val)
-                elif tok.expr_kind == calc_native.ExprKind.Pow:
-                    result = calculator.pow(left_val, right_val)
+                latex_spec = LatexExpr.get(tok.expr_kind)
+                op_spec = OP_BY_ID[latex_spec.opid]
+                func = getattr(calculator, op_spec.method)
+                # Root: root(radicand, degree) = root(right, left)
+                if tok.expr_kind == calc_native.ExprKind.Root:
+                    result = func(right_val, left_val)
                 else:
-                    raise_error(ErrorKind.MALFORMED, f"Unknown expr_kind: {tok.expr_kind}")
+                    result = func(left_val, right_val)
 
                 operand_stack.append(result)
                 continue

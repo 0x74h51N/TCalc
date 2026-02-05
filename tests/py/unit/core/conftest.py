@@ -229,6 +229,29 @@ _FAKE_OPS: tuple[_OpDef, ...] = (
 _FAKE_OP_BY_ID: dict[Id, _OpDef] = {op.id: op for op in _FAKE_OPS}
 
 
+class ExprKind(Enum):
+    Frac = "frac"
+    Pow = "pow"
+    Root = "root"
+    Log = "log"
+
+
+@dataclass(frozen=True)
+class LatexExprEntry:
+    symbol: str
+    kind: ExprKind
+    opid: Id
+
+
+def latex_exprs():
+    return [
+        LatexExprEntry("\\frac", ExprKind.Frac, Id.Div),
+        LatexExprEntry("^", ExprKind.Pow, Id.Pow),
+        LatexExprEntry("\\sqrt", ExprKind.Root, Id.Root),
+        LatexExprEntry("\\log", ExprKind.Log, Id.Log),
+    ]
+
+
 def _install_fake_calc_native() -> ModuleType:
     calc_native = ModuleType("calc_native")
 
@@ -266,6 +289,11 @@ def _install_fake_calc_native() -> ModuleType:
     calc_native.Calculator = DummyCalc
     calc_native.CalculatorError = FakeNativeCalculatorError
     calc_native.Token = FakeToken
+
+    calc_native.ExprKind = ExprKind
+
+    calc_native.latex_exprs = latex_exprs
+    calc_native.LatexExprEntry = LatexExprEntry
     return calc_native
 
 
