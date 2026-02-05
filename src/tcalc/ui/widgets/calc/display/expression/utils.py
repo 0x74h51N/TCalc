@@ -3,18 +3,13 @@ from __future__ import annotations
 import calc_native
 from PySide6.QtWidgets import QLineEdit
 
-from tcalc.core.ops import OP_BY_ID, Operation
+from tcalc.core.ops import OP_BY_ID, LatexExpr, Operation
 from tcalc.core.utils import is_number_token
 
 OPEN_PAR = Operation.OPEN_PAREN.symbol
 CLOSE_PAR = Operation.CLOSE_PAREN.symbol
 OPEN_KIND = calc_native.TokenKind.LParen
 CLOSE_KIND = calc_native.TokenKind.RParen
-
-EXPR_SYMBOL_MAP: dict[calc_native.ExprKind, str] = {
-    calc_native.ExprKind.Frac: Operation.FRAC.symbol,
-    calc_native.ExprKind.Pow: Operation.POWw.symbol,
-}
 
 UNARY_OP_SYMBOL_MAP: dict[calc_native.OpId, str] = {
     calc_native.OpId.Negate: Operation.SUB.symbol,
@@ -31,7 +26,7 @@ def token_text(tok: calc_native.Token) -> str:
     """Convert a single token to its text representation."""
     match tok.kind:
         case calc_native.TokenKind.Expr:
-            symbol = EXPR_SYMBOL_MAP.get(tok.expr_kind, "")
+            symbol = LatexExpr.get(tok.expr_kind).symbol
             return format_expr_str(
                 symbol, tokens_to_text(tok.left_tokens), tokens_to_text(tok.right_tokens)
             )

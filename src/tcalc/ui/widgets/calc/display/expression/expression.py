@@ -20,7 +20,7 @@ from tcalc.ui.widgets.calc.display.expression.expression_node import (
     InputAlign,
     InputKind,
 )
-from tcalc.ui.widgets.calc.display.expression.widgets import FractionWidget, PowWidget
+from tcalc.ui.widgets.calc.display.expression.widgets import FractionWidget, PowWidget, RootWidget
 
 from .utils import (
     format_expr_str,
@@ -40,6 +40,7 @@ class Expression(QWidget):
     EXPR_KIND_MAP: dict[calc_native.ExprKind, type[ExpressionNode]] = {
         FractionWidget.EXPR_KIND: FractionWidget,
         PowWidget.EXPR_KIND: PowWidget,
+        RootWidget.EXPR_KIND: RootWidget,
     }
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:

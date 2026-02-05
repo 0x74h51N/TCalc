@@ -4,9 +4,17 @@ from typing import TYPE_CHECKING
 
 import calc_native
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QFrame, QGridLayout, QLineEdit, QSizePolicy, QVBoxLayout
+from PySide6.QtGui import QPainter, QPainterPath, QPen
+from PySide6.QtWidgets import (
+    QFrame,
+    QGridLayout,
+    QLineEdit,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
-from tcalc.core.ops import Operation
+from tcalc.core.ops import LatexExpr
 from tcalc.ui.widgets.calc.display.expression.expression_node import (
     ExpressionNode,
     ExpressionSlot,
@@ -25,7 +33,7 @@ class FractionWidget(ExpressionNode):
 
     OP_ID = calc_native.OpId.Div
     EXPR_KIND = calc_native.ExprKind.Frac
-    SYMBOL = Operation.FRAC.symbol
+    SYMBOL = LatexExpr.Frac.symbol
 
     def __init__(
         self,
@@ -80,7 +88,7 @@ class PowWidget(ExpressionNode):
 
     OP_ID = calc_native.OpId.Pow
     EXPR_KIND = calc_native.ExprKind.Pow
-    SYMBOL = Operation.POWw.symbol
+    SYMBOL = LatexExpr.Pow.symbol
 
     def __init__(
         self,
@@ -110,15 +118,12 @@ class PowWidget(ExpressionNode):
             editor,
             kind=InputKind.AUX,
             key="exponent",
-            align=InputAlign.LEFTB,
+            align=InputAlign.RIGHTB,
         )
 
         self.exponent.setProperty("exprSlotExponent", True)
 
         grid.addWidget(self.exponent, 0, 0, 1, 2, InputAlign.RIGHTB.value)
-
-        grid.setRowStretch(0, 0)
-        grid.setRowStretch(1, 1)
 
         self._left_slot = self.base
         self._right_slot = self.exponent
@@ -137,3 +142,106 @@ class PowWidget(ExpressionNode):
             base_input.setFocus()
         else:
             self.exponent.default_input().setFocus()
+
+
+class SqrtSymbol(QWidget):
+    """Custom widget that draws a scalable √ symbol."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._color = Qt.GlobalColor.white
+        self.setMinimumWidth(25)
+
+    def setColor(self, color):
+        self._color = color
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        pen = QPen(self._color)
+        pen.setWidth(2)
+        painter.setPen(pen)
+
+        w, h = self.width(), self.height()
+
+        path = QPainterPath()
+        path.moveTo(0, h * 0.35)
+        path.lineTo(w * 0.25, h * 0.35)
+        path.lineTo(w * 0.45, h)
+        path.lineTo(w, 0)
+
+        painter.drawPath(path)
+
+
+class RootWidget(ExpressionNode):
+    """UI node for root with radicand and degree slots."""
+
+    OP_ID = calc_native.OpId.Root
+    EXPR_KIND = calc_native.ExprKind.Root
+    SYMBOL = LatexExpr.Root.symbol
+
+    def __init__(
+        self,
+        editor: Expression,
+        left_tokens: list[calc_native.Token] | None = None,
+        right_tokens: list[calc_native.Token] | None = None,
+    ) -> None:
+        super().__init__(editor, left_tokens, right_tokens)
+        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+
+        grid = QGridLayout(self)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setAlignment(Qt.AlignmentFlag.AlignBottom)
+        grid.setSpacing(0)
+        grid.setVerticalSpacing(0)
+        grid.setHorizontalSpacing(0)
+
+        self.degree = ExpressionSlot(
+            editor,
+            kind=InputKind.AUX,
+            key="degree",
+            align=InputAlign.LEFTB,
+        )
+
+        self.degree.setProperty("exprSlotExponent", True)
+
+        grid.addWidget(self.degree, 0, 0, 3, 1, InputAlign.RIGHTB.value)
+
+        self.sqrt_symbol = SqrtSymbol()
+
+        grid.addWidget(self.sqrt_symbol, 2, 2, 3, 2, InputAlign.RIGHTT.value)
+        self.radicand = ExpressionSlot(
+            editor,
+            kind=InputKind.AUX,
+            key="radicand",
+            align=InputAlign.LEFT,
+        )
+        grid.addWidget(self.radicand, 2, 5, 3, 2, InputAlign.RIGHTB.value)
+
+        self.radicand.setObjectName("radicandSlot")
+        self.radicand.setContentsMargins(0, 2, 0, 0)
+
+        self._left_slot = self.degree
+        self._right_slot = self.radicand
+
+        if self.left_tokens:
+            self.degree.default_input().setText(tokens_to_text(self.left_tokens))
+        if self.right_tokens:
+            self.radicand.default_input().setText(tokens_to_text(self.right_tokens))
+
+    def line_edits(self) -> list[QLineEdit]:
+        return [*self.radicand.line_edits(), *self.degree.line_edits()]
+
+    def focus_default(self) -> None:
+        base_input = self.radicand.default_input()
+        if not base_input.text():
+            base_input.setFocus()
+        else:
+            self.degree.default_input().setFocus()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        h = self.radicand.height()
+        self.sqrt_symbol.setFixedHeight(h)

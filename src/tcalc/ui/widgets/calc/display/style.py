@@ -36,6 +36,11 @@ def _build_display_stylesheet() -> str:
         background-color: {aux_bg_focus};
     }}
 
+    QWidget#radicandSlot, QWidget#radicandSlot:focus {{
+        border-top: 2px solid {c["selection_text"]};
+    }}
+
+
     QScrollArea#displayExpression,
     QScrollArea#displayExpression QWidget#qt_scrollarea_viewport,
     QWidget#displayExpressionEditor {{
