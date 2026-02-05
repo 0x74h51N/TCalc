@@ -23,6 +23,7 @@ from tcalc.ui.widgets.calc.display.expression.expression_node import (
 from tcalc.ui.widgets.calc.display.expression.widgets import FractionWidget, PowWidget
 
 from .utils import (
+    format_expr_str,
     space_binary_ops,
     split_operand,
     split_paren,
@@ -192,23 +193,14 @@ class Expression(QWidget):
         if not isinstance(slot, ExpressionSlot):
             return
 
-        # Split text at cursor position
-        text = target.text()
-        cursor = target.cursorPosition()
-
-        before_tokens = tokenize_string(text[:cursor])
-        after_tokens = tokenize_string(text[cursor:])
-
-        prefix_tokens, left_tokens = split_operand(before_tokens)
-        right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
-
         widget_cls = self.EXPR_KIND_MAP.get(expr_kind)
-
         if widget_cls is None:
             return
 
-        node_str = f"{widget_cls.SYMBOL}{{{tokens_to_text(left_tokens)}}}{{{tokens_to_text(right_tokens)}}}"
-        target.setText(tokens_to_text(prefix_tokens) + node_str + tokens_to_text(suffix_tokens))
+        # Insert empty expr at cursor, _add_exp_node handles split_operand
+        text = target.text()
+        cursor = target.cursorPosition()
+        target.setText(text[:cursor] + format_expr_str(widget_cls.SYMBOL, "", "") + text[cursor:])
 
         self.plain_text_changed.emit(self.get_plain_text())
 

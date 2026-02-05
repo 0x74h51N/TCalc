@@ -56,6 +56,9 @@ class FractionWidget(ExpressionNode):
         )
         layout.addWidget(self.denominator, 0, Qt.AlignmentFlag.AlignHCenter)
 
+        self._left_slot = self.numerator
+        self._right_slot = self.denominator
+
         if self.left_tokens:
             self.numerator.default_input().setText(tokens_to_text(self.left_tokens))
         if self.right_tokens:
@@ -70,12 +73,6 @@ class FractionWidget(ExpressionNode):
             num_input.setFocus()
         else:
             self.denominator.default_input().setFocus()
-
-    def to_plain_text(self) -> str:
-        """Serialize to LaTeX-style format: \\frac{num}{den}."""
-        num_text = self.numerator.to_plain_text()
-        den_text = self.denominator.to_plain_text()
-        return f"{Operation.FRAC.symbol}{{{num_text}}}{{{den_text}}}"
 
 
 class PowWidget(ExpressionNode):
@@ -123,6 +120,9 @@ class PowWidget(ExpressionNode):
         grid.setRowStretch(0, 0)
         grid.setRowStretch(1, 1)
 
+        self._left_slot = self.base
+        self._right_slot = self.exponent
+
         if self.left_tokens:
             self.base.default_input().setText(tokens_to_text(self.left_tokens))
         if self.right_tokens:
@@ -137,9 +137,3 @@ class PowWidget(ExpressionNode):
             base_input.setFocus()
         else:
             self.exponent.default_input().setFocus()
-
-    def to_plain_text(self) -> str:
-        """Serialize to LaTeX-style format: \\pow{base}{exp}."""
-        base_text = self.base.to_plain_text()
-        exp_text = self.exponent.to_plain_text()
-        return f"{Operation.POWw.symbol}{{{base_text}}}{{{exp_text}}}"

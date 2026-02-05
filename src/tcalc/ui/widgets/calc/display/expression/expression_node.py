@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 
 from tcalc.ui.widgets.calc.config import display_config
 
-from .utils import update_autowidth
+from .utils import format_expr_str, update_autowidth
 
 if TYPE_CHECKING:
     from .expression import Expression
@@ -56,6 +56,9 @@ class ExpressionNode(QWidget):
         self.left_tokens = strip_outer_parens(self.left_tokens)
         self.right_tokens = strip_outer_parens(self.right_tokens)
 
+        self._left_slot: ExpressionSlot | None = None
+        self._right_slot: ExpressionSlot | None = None
+
     OP_ID: ClassVar[calc_native.OpId]
     EXPR_KIND: ClassVar[calc_native.ExprKind]
     SYMBOL: ClassVar[str]
@@ -64,7 +67,12 @@ class ExpressionNode(QWidget):
         return []
 
     def to_plain_text(self) -> str:
-        return ""
+        """Serialize to LaTeX-style format: \\symbol{left}{right}."""
+        if self._left_slot is None or self._right_slot is None:
+            return ""
+        return format_expr_str(
+            self.SYMBOL, self._left_slot.to_plain_text(), self._right_slot.to_plain_text()
+        )
 
     def focus_default(self) -> None:
         """Focus the default input after widget creation."""

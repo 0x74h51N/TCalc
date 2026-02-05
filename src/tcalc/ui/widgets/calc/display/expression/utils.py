@@ -22,14 +22,19 @@ UNARY_OP_SYMBOL_MAP: dict[calc_native.OpId, str] = {
 }
 
 
+def format_expr_str(symbol: str, left: str, right: str) -> str:
+    """Format LaTeX-style expression: \\symbol{left}{right}."""
+    return f"{symbol}{{{left}}}{{{right}}}"
+
+
 def token_text(tok: calc_native.Token) -> str:
     """Convert a single token to its text representation."""
     match tok.kind:
         case calc_native.TokenKind.Expr:
             symbol = EXPR_SYMBOL_MAP.get(tok.expr_kind, "")
-            left = tokens_to_text(tok.left_tokens)
-            right = tokens_to_text(tok.right_tokens)
-            return f"{symbol}{{{left}}}{{{right}}}"
+            return format_expr_str(
+                symbol, tokens_to_text(tok.left_tokens), tokens_to_text(tok.right_tokens)
+            )
         case calc_native.TokenKind.Number:
             return tok.value
         case calc_native.TokenKind.Op:
