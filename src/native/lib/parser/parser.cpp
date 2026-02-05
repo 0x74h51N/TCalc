@@ -270,19 +270,12 @@ bool match_latex_expr(const MatchLatexArgs &args) {
 
     const std::size_t pos = args.i + prefix_len;
 
-    std::size_t after_left = 0;
+    // Braces are optional - \frac alone is valid (empty left/right)
+    std::size_t after_left = pos;
     const std::string_view left = extract_brace_content(args.s, pos, after_left);
 
-    if (after_left == 0) {
-        return false;
-    }
-
-    std::size_t after_right = 0;
+    std::size_t after_right = after_left;
     const std::string_view right = extract_brace_content(args.s, after_left, after_right);
-
-    if (after_right == 0) {
-        return false;
-    }
 
     *args.out_left = left;
     *args.out_right = right;
