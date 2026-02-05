@@ -250,24 +250,26 @@ struct MatchLatexArgs {
     std::string_view *out_right;
     std::size_t *out_end;
 };
-constexpr std::size_t kFracLen = 5;
-constexpr std::size_t kPowLen = 4;
 
 bool match_latex_expr(const MatchLatexArgs &args) {
     const std::string_view rest = args.s.substr(args.i);
 
     std::size_t prefix_len = 0;
+    const LatexEntry *matched = nullptr;
 
-    if (rest.starts_with("\\frac")) {
-        *args.out_kind = ExprKind::Frac;
-        prefix_len = kFracLen;
-    } else if (rest.starts_with("\\pow")) {
-        *args.out_kind = ExprKind::Pow;
-        prefix_len = kPowLen;
-    } else {
+    for (const auto &entry : kLatexExprs) {
+        if (rest.starts_with(entry.symbol)) {
+            matched = &entry;
+            prefix_len = entry.symbol.size();
+            break;
+        }
+    }
+
+    if (matched == nullptr) {
         return false;
     }
 
+    *args.out_kind = matched->kind;
     const std::size_t pos = args.i + prefix_len;
 
     // Braces are optional - \frac alone is valid (empty left/right)

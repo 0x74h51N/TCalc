@@ -25,7 +25,9 @@ void bind_parser(py::module_ &m) {
 
     py::enum_<ExprKind>(m, "ExprKind", "Expression kinds for compound Expr tokens.")
         .value("Frac", ExprKind::Frac)
-        .value("Pow", ExprKind::Pow);
+        .value("Pow", ExprKind::Pow)
+        .value("Root", ExprKind::Root)
+        .value("Log", ExprKind::Log);
 
     py::enum_<OpId>(
         m, "OpId", "Operation identifiers used by tokens and op_table; maps to engine methods.")
@@ -69,6 +71,25 @@ void bind_parser(py::module_ &m) {
         .value("Trunc", OpId::Trunc)
         .value("Floor", OpId::Floor)
         .value("Ceil", OpId::Ceil);
+
+    py::class_<tcalc::parser::LatexEntry>(
+        m, "LatexEntry", "LaTeX expression mapping: symbol -> ExprKind.")
+        .def_property_readonly(
+            "symbol", [](const tcalc::parser::LatexEntry &e) { return std::string(e.symbol); })
+        .def_readonly("kind", &tcalc::parser::LatexEntry::kind)
+        .def_readonly("opid", &tcalc::parser::LatexEntry::opid);
+
+    m.def(
+        "latex_exprs",
+        []() {
+            py::list out;
+            for (const auto &entry : tcalc::parser::kLatexExprs) {
+                out.append(&entry);
+            }
+            return out;
+        },
+        "Return list of LatexEntry objects from the native LaTeX expression table.",
+        py::return_value_policy::reference);
 
     py::class_<Token>(
         m, "Token", "Parser token. 'value' is text for numbers; 'symbol' is only for ops.")

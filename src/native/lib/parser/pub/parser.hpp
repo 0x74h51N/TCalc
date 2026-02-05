@@ -31,8 +31,26 @@ enum class TokenKind : std::uint8_t {
 enum class ExprKind : std::uint8_t {
     /// Fraction: \frac{numerator}{denominator}
     Frac,
-    /// Power: pow{base}{exponent}
+    /// Power: \pow{base}{exponent}
     Pow,
+    /// Root: \root{degree}{radicand}
+    Root,
+    /// Logarithm: \log{base}{value}
+    Log,
+};
+
+/// LaTeX expression mapping: symbol -> ExprKind
+struct LatexEntry {
+    std::string_view symbol;
+    ExprKind kind;
+    OpId opid;
+};
+
+constexpr std::array kLatexExprs = {
+    LatexEntry{"\\frac", ExprKind::Frac, tcalc::ops::OpId::Div},
+    LatexEntry{"\\pow", ExprKind::Pow, tcalc::ops::OpId::Pow},
+    LatexEntry{"\\root", ExprKind::Root, tcalc::ops::OpId::Root},
+    LatexEntry{"\\log", ExprKind::Log, tcalc::ops::OpId::Log},
 };
 
 /// Parser token; numbers store raw text in value, ops store op_id.
