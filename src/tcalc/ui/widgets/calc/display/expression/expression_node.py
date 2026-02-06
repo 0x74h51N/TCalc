@@ -5,14 +5,11 @@ from typing import TYPE_CHECKING, ClassVar
 
 import calc_native
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
     QWidget,
 )
-
-from tcalc.ui.widgets.calc.config import display_config
 
 from .utils import format_expr_str, update_autowidth
 
@@ -25,6 +22,7 @@ class InputKind(Enum):
 
     MAIN = "main"
     AUX = "aux"
+    SCRIPT = "script"
 
 
 class InputAlign(Enum):
@@ -136,15 +134,6 @@ class ExpressionSlot(QWidget):
         le.setProperty("exprInput", True)
         le.setProperty("exprKind", self._kind.value)
 
-        base_pt = int(display_config["expression_font_size"])
-        if self._kind != InputKind.MAIN:
-            base_pt = max(8, int(base_pt * 0.7))
-
-        f = QFont()
-        f.setPointSize(base_pt)
-        le.setFont(f)
-
-        # Connect to Expression's signal handler for text changes
         le.textChanged.connect(self._editor._on_qt_text_changed)
         le.textChanged.connect(lambda: update_autowidth(le))
         QTimer.singleShot(0, lambda: update_autowidth(le))
@@ -159,6 +148,11 @@ class ExpressionSlot(QWidget):
     def insert_widget(self, index: int, w: QWidget) -> None:
         self._layout.insertWidget(index, w, 0, self._align.value)
         self._segments.insert(index, w)
+
+        # Propogate script kind to childs
+        if self._kind == InputKind.SCRIPT and isinstance(w, ExpressionNode):
+            for le in w.line_edits():
+                le.setProperty("exprKind", InputKind.SCRIPT.value)
 
     def insert_input(self, index: int) -> QLineEdit:
         le = self._create_input(self._input_key())

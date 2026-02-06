@@ -173,6 +173,9 @@ class CalculatorController:
                 Operation.POW: lambda _: self._display.editor.insert_expr_str(
                     calc_native.ExprKind.Pow
                 ),
+                Operation.ROOT: lambda _: self._display.editor.insert_expr_str(
+                    calc_native.ExprKind.Root
+                ),
             }
         )
 

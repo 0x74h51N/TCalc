@@ -82,50 +82,14 @@ class Display(QWidget):
         self.result_label.setText(result_text)
 
     def _update_fonts(self) -> None:
-        expr_inputs = self.editor.expression_inputs()
-        main_inputs = [le for le in expr_inputs if le.property("exprKind") == "main"]
-        aux_inputs = [le for le in expr_inputs if le.property("exprKind") != "main"]
-
-        expression_scale = font_scale_config["display_expression"]
         result_scale = font_scale_config["display_result"]
-
-        base_main = int(display_config["expression_font_size"])
-        base_aux = max(8, int(base_main * 0.85))
-
-        def append_scaled(widgets: list, base: int, scale: dict) -> None:
-            if not widgets:
-                return
-            items.append(
-                (
-                    self,
-                    tuple(widgets),
-                    base,
-                    int(scale["max_pt"]),
-                    int(scale["divisor"]),
-                )
-            )
-
-        items: list[tuple] = []
-        append_scaled(main_inputs, base_main, expression_scale)
-        append_scaled(aux_inputs, base_aux, expression_scale)
-        append_scaled(
+        apply_scaled_fonts(
+            self,
             [self.result_label],
-            display_config["result_font_size"],
-            result_scale,
+            int(result_scale["max_pt"] * 0.5),
+            int(result_scale["max_pt"]),
         )
-
-        apply_scaled_fonts(items)
-
-        def apply_height(group: list) -> None:
-            if not group:
-                return
-            min_height = int(display_config["expression_min_height"])
-            h = min_height
-            for le in group:
-                le.setFixedHeight(h)
-
-        apply_height(main_inputs)
-        apply_height(aux_inputs)
+        self.editor.update_input_fonts(self._expr_scroll)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

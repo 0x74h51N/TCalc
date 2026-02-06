@@ -168,21 +168,8 @@ class Keypad(QWidget):
     # -- Font scaling ----------------------------------------------------
     #
     def _update_button_fonts(self) -> None:
-        sample = self._buttons.get("7")
-        if sample is None:
-            return
         scale = font_scale_config["keypad_buttons"]
-        apply_scaled_fonts(
-            [
-                (
-                    sample,
-                    self._buttons.values(),
-                    int(scale["min_pt"]),
-                    int(scale["max_pt"]),
-                    int(scale["divisor"]),
-                )
-            ]
-        )
+        apply_scaled_fonts(self, self._buttons.values(), int(scale["min_pt"]), int(scale["max_pt"]))
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

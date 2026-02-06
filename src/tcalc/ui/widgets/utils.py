@@ -1,24 +1,36 @@
 from __future__ import annotations
 
-from typing import Iterable, Sequence
+from typing import Iterable
 
 from PySide6.QtWidgets import QWidget
 
-FontScaleGroup = tuple[QWidget, Iterable[QWidget], int, int, int]
+# Widget size range for font interpolation
+MIN_DIM = 100
+MAX_DIM = 500
 
 
-def _min_dim(widget: QWidget) -> int:
-    size = widget.size()
+def apply_scaled_fonts(
+    sample: QWidget,
+    targets: Iterable[QWidget],
+    min_pt: int,
+    max_pt: int,
+) -> None:
+    """Scale font size of targets between min_pt and max_pt based on sample widget size."""
+    size = sample.size()
     if not size.isValid():
-        size = widget.sizeHint()
-    return min(size.width(), size.height())
+        size = sample.sizeHint()
+    dim = min(size.width(), size.height())
 
+    if dim <= MIN_DIM:
+        point_size = min_pt
+    elif dim >= MAX_DIM:
+        point_size = max_pt
+    else:
+        # Linear interpolation between min and max
+        ratio = (dim - MIN_DIM) / (MAX_DIM - MIN_DIM)
+        point_size = int(min_pt + ratio * (max_pt - min_pt))
 
-def apply_scaled_fonts(groups: Sequence[FontScaleGroup]) -> None:
-    for sample, targets, min_pt, max_pt, divisor in groups:
-        dim = _min_dim(sample)
-        point_size = min_pt if dim <= 0 else max(min_pt, min(max_pt, dim // divisor))
-        for widget in targets:
-            font = widget.font()
-            font.setPointSize(point_size)
-            widget.setFont(font)
+    for widget in targets:
+        font = widget.font()
+        font.setPointSize(point_size)
+        widget.setFont(font)

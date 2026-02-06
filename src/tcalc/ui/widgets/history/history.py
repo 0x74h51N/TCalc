@@ -144,30 +144,18 @@ class History(QWidget):
     def _update_fonts(self) -> None:
         list_scale = font_scale["list"]
         clear_scale = font_scale["clear_button"]
+
         apply_scaled_fonts(
-            [
-                (
-                    self.list.viewport(),
-                    (self.list,),
-                    style["font_size"],
-                    int(list_scale["max_pt"]),
-                    int(list_scale["divisor"]),
-                ),
-                (
-                    self,
-                    (self._memory_label, self._memory_value),
-                    style["font_size"],
-                    int(list_scale["max_pt"]),
-                    int(list_scale["divisor"]),
-                ),
-                (
-                    self,
-                    (self.clear_button,),
-                    int(clear_scale["min_pt"]),
-                    int(clear_scale["max_pt"]),
-                    int(clear_scale["divisor"]),
-                ),
-            ]
+            self.list.viewport(), [self.list], style["font_size"], int(list_scale["max_pt"])
+        )
+        apply_scaled_fonts(
+            self,
+            [self._memory_label, self._memory_value],
+            style["font_size"],
+            int(list_scale["max_pt"]),
+        )
+        apply_scaled_fonts(
+            self, [self.clear_button], int(clear_scale["min_pt"]), int(clear_scale["max_pt"])
         )
 
         self.list.clear()

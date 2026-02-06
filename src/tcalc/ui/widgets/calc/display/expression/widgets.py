@@ -116,12 +116,10 @@ class PowWidget(ExpressionNode):
 
         self.exponent = ExpressionSlot(
             editor,
-            kind=InputKind.AUX,
+            kind=InputKind.SCRIPT,
             key="exponent",
             align=InputAlign.RIGHTB,
         )
-
-        self.exponent.setProperty("exprSlotExponent", True)
 
         grid.addWidget(self.exponent, 0, 0, 1, 2, InputAlign.RIGHTB.value)
 
@@ -200,25 +198,25 @@ class RootWidget(ExpressionNode):
 
         self.degree = ExpressionSlot(
             editor,
-            kind=InputKind.AUX,
+            kind=InputKind.SCRIPT,
             key="degree",
-            align=InputAlign.LEFTB,
+            align=InputAlign.LEFTT,
         )
 
-        self.degree.setProperty("exprSlotExponent", True)
+        self.degree.setContentsMargins(0, 0, 14, 4)
 
-        grid.addWidget(self.degree, 0, 0, 3, 1, InputAlign.RIGHTB.value)
+        grid.addWidget(self.degree, 0, 0, 3, 1, InputAlign.LEFTB.value)
 
         self.sqrt_symbol = SqrtSymbol()
 
-        grid.addWidget(self.sqrt_symbol, 2, 2, 3, 2, InputAlign.RIGHTT.value)
+        grid.addWidget(self.sqrt_symbol, 1, 0, 6, 4, InputAlign.RIGHTT.value)
         self.radicand = ExpressionSlot(
             editor,
             kind=InputKind.AUX,
             key="radicand",
             align=InputAlign.LEFT,
         )
-        grid.addWidget(self.radicand, 2, 5, 3, 2, InputAlign.RIGHTB.value)
+        grid.addWidget(self.radicand, 1, 4, 6, 2, InputAlign.RIGHTB.value)
 
         self.radicand.setObjectName("radicandSlot")
         self.radicand.setContentsMargins(0, 2, 0, 0)

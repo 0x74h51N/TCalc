@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 from tcalc.core.ops import Operation, get_symbols_with_aliases
 from tcalc.core.parser import tokenize, tokenize_string
+from tcalc.ui.widgets.calc.config import display_config, font_scale_config
 from tcalc.ui.widgets.calc.display.expression.expression_node import (
     ExpressionNode,
     ExpressionSlot,
@@ -21,6 +22,7 @@ from tcalc.ui.widgets.calc.display.expression.expression_node import (
     InputKind,
 )
 from tcalc.ui.widgets.calc.display.expression.widgets import FractionWidget, PowWidget, RootWidget
+from tcalc.ui.widgets.utils import apply_scaled_fonts
 
 from .utils import (
     format_expr_str,
@@ -29,6 +31,7 @@ from .utils import (
     split_paren,
     token_text,
     tokens_to_text,
+    update_autowidth,
 )
 
 
@@ -55,7 +58,7 @@ class Expression(QWidget):
 
         self._inputs_layout.addStretch(1)
         self._root = ExpressionSlot(
-            self, kind=InputKind.MAIN, key=InputKind.MAIN.value, align=InputAlign.RIGHT
+            self, kind=InputKind.MAIN, key=InputKind.MAIN.value, align=InputAlign.RIGHTB
         )
         self._inputs_layout.addWidget(self._root)
         self._inputs_layout.addStretch(1)
@@ -300,3 +303,17 @@ class Expression(QWidget):
         finally:
             self.setUpdatesEnabled(True)
             self._rendering = False
+
+    def update_input_fonts(self, sample: QWidget) -> None:
+        """Update font and width of all inputs based on sample widget size."""
+        base_font = int(display_config["expression_font_size"])
+
+        for le in self.expression_inputs():
+            kind_str = le.property("exprKind")
+            scale = float(display_config.get(f"scale_{kind_str}", 1.0))
+
+            min_pt = int(base_font * scale)
+            max_pt = int(font_scale_config["display_expression"]["max_pt"] * scale)
+
+            apply_scaled_fonts(sample, [le], min_pt, max_pt)
+            update_autowidth(le)
