@@ -119,11 +119,17 @@ class Expression(QWidget):
     def backspace(self) -> None:
         """Handle backspace across slots/fractions when the current input is empty."""
         target = self._resolve_target()
+        text = target.text()
+        pos = target.cursorPosition()
+
+        if pos and text[pos - 1] == " ":
+            target.setText(text[: pos - 2] + text[pos - 1 :])
+            return
 
         slot = target.parent()
         if isinstance(slot, ExpressionSlot):
             prev = slot._segments[slot._segments.index(target) - 1]
-            if isinstance(prev, ExpressionNode):
+            if not pos and isinstance(prev, ExpressionNode):
                 prev.remove()
                 self.plain_text_changed.emit(self.get_plain_text())
                 return
