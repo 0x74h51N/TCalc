@@ -218,7 +218,12 @@ jobs:
   py-test-benchmark:
     name: Benchmark Tests
     runs-on: ubuntu-24.04
-    needs: native-build
+    needs:
+      - py-test
+      - native-test
+      - py-typecheck
+      - cpp-code-check
+      - native-build
     steps:
       - uses: actions/checkout@v4
 
