@@ -63,7 +63,11 @@ class EditOperations:
 
     def _get_history_expression(self, index: int) -> Optional[str]:
         item = self._history_list.item(index)
-        return item.text().split("=")[0].strip() if item else None
+        if not item:
+            return None
+
+        text = item.text().split("=")[0]
+        return text.replace("\n", "").replace("\r", "").strip()
 
     def _set_expression(self, expression: str) -> None:
         self._display.expression.set_plain_text(expression)
