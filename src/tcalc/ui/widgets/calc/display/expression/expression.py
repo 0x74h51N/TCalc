@@ -4,7 +4,7 @@ from collections import deque
 from typing import Optional
 
 import calc_native
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import (
     QApplication,
     QLineEdit,
@@ -67,6 +67,7 @@ class Expression(QWidget):
 
         self._operator_symbol_values = get_symbols_with_aliases()
         self._operator_symbol_values.discard(Operation.IMAG.symbol)
+        self._pending_seg: Optional[QLineEdit] = None
 
         app = QApplication.instance()
         if isinstance(app, QApplication):
@@ -95,10 +96,17 @@ class Expression(QWidget):
         pos = target.cursorPosition()
         return target, text[:pos], text[pos:]
 
-    def _on_input_changed(self, seg: QLineEdit) -> None:
-        if not self._rendering:
-            self._add_exp_node(seg)
+    def _flush_exp_nodes(self):
+        if self._pending_seg:
+            self._add_exp_node(self._pending_seg)
             self.plain_text_changed.emit(self.get_plain_text())
+            self._pending_seg = None
+
+    def _on_input_changed(self, seg: QLineEdit):
+        if self._rendering:
+            return
+        self._pending_seg = seg
+        QTimer.singleShot(0, self._flush_exp_nodes)
 
     def get_plain_text(self) -> str:
         return self._root.to_plain_text()
@@ -242,7 +250,6 @@ class Expression(QWidget):
             # Tokens before/at cursor determine new position
             prefix_tokens = [t for t in tokens if t.start_pos < cursor_pos]
             new_cursor = len(tokens_to_text(prefix_tokens))
-
             seg.setText(new_text)
             seg.setCursorPosition(min(new_cursor, len(new_text)))
 
@@ -251,9 +258,9 @@ class Expression(QWidget):
         self.setUpdatesEnabled(False)
 
         try:
-            pending: deque[QLineEdit] = (
-                deque([changed]) if changed else deque(self._root.line_edits())
-            )
+            if not changed:
+                return
+            pending: deque[QLineEdit] = deque([changed])
 
             while pending:
                 seg = pending.popleft()
@@ -319,6 +326,12 @@ class Expression(QWidget):
         for le in self.expression_inputs():
             kind_str = le.property("exprKind")
             scale = float(display_config.get(f"scale_{kind_str}", 1.0))
+
+            # Propagate script kind to children
+            parent = le.parent()
+            if kind_str == InputKind.SCRIPT.value and isinstance(parent, ExpressionSlot):
+                for le in parent.line_edits():
+                    le.setProperty("exprKind", InputKind.SCRIPT.value)
 
             min_pt = int(base_font * scale)
             max_pt = int(font_scale_config["display_expression"]["max_pt"] * scale)

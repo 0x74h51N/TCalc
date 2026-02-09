@@ -12,8 +12,8 @@ os.environ.setdefault("QT_LOGGING_RULES", "*.warning=false")
 
 
 ROUNDS_DEFAULT = 100
-ROUNDS_RENDER = 30
-WARMUP_ROUNDS = 5
+ROUNDS_RENDER = 40
+WARMUP_ROUNDS = 15
 
 
 @pytest.fixture(scope="session")

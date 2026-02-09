@@ -126,6 +126,17 @@ class ExpressionSlot(QWidget):
     def _input_key(self) -> str:
         return f"{self._key}_{len(self._segments)}"
 
+    def _run_autowidth(self, le: QLineEdit) -> None:
+        le.setProperty("_aw_scheduled", False)
+        update_autowidth(le)
+
+    def schedule_autowidth(self, le: QLineEdit) -> None:
+        if le.property("_aw_scheduled"):
+            return
+
+        le.setProperty("_aw_scheduled", True)
+        QTimer.singleShot(0, lambda le=le: self._run_autowidth(le))
+
     def _create_input(self, key: str) -> QLineEdit:
         """Create a new QLineEdit with proper styling and connections."""
         le = QLineEdit("", self)
@@ -135,8 +146,8 @@ class ExpressionSlot(QWidget):
         le.setProperty("exprKind", self._kind.value)
 
         le.textChanged.connect(lambda _, seg=le: self._editor._on_input_changed(seg))
-        le.textChanged.connect(lambda: update_autowidth(le))
-        QTimer.singleShot(0, lambda: update_autowidth(le))
+        le.textChanged.connect(lambda: self.schedule_autowidth(le))
+        QTimer.singleShot(0, lambda: self.schedule_autowidth(le))
         return le
 
     def append_input(self) -> QLineEdit:
@@ -148,11 +159,6 @@ class ExpressionSlot(QWidget):
     def insert_widget(self, index: int, w: QWidget) -> None:
         self._layout.insertWidget(index, w, 0, self._align.value)
         self._segments.insert(index, w)
-
-        # Propogate script kind to childs
-        if self._kind == InputKind.SCRIPT and isinstance(w, ExpressionNode):
-            for le in w.line_edits():
-                le.setProperty("exprKind", InputKind.SCRIPT.value)
 
     def insert_input(self, index: int) -> QLineEdit:
         le = self._create_input(self._input_key())
