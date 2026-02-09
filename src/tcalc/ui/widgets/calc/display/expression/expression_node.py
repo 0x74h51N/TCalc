@@ -134,7 +134,7 @@ class ExpressionSlot(QWidget):
         le.setProperty("exprInput", True)
         le.setProperty("exprKind", self._kind.value)
 
-        le.textChanged.connect(self._editor._on_qt_text_changed)
+        le.textChanged.connect(lambda _, seg=le: self._editor._on_input_changed(seg))
         le.textChanged.connect(lambda: update_autowidth(le))
         QTimer.singleShot(0, lambda: update_autowidth(le))
         return le

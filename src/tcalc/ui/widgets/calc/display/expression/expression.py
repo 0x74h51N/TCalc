@@ -95,9 +95,9 @@ class Expression(QWidget):
         pos = target.cursorPosition()
         return target, text[:pos], text[pos:]
 
-    def _on_qt_text_changed(self, _text: str) -> None:
+    def _on_input_changed(self, seg: QLineEdit) -> None:
         if not self._rendering:
-            self._add_exp_node()
+            self._add_exp_node(seg)
             self.plain_text_changed.emit(self.get_plain_text())
 
     def get_plain_text(self) -> str:
@@ -246,12 +246,14 @@ class Expression(QWidget):
             seg.setText(new_text)
             seg.setCursorPosition(min(new_cursor, len(new_text)))
 
-    def _add_exp_node(self) -> None:
+    def _add_exp_node(self, changed: QLineEdit | None = None) -> None:
         self._rendering = True
         self.setUpdatesEnabled(False)
 
         try:
-            pending: deque[QLineEdit] = deque(self._root.line_edits())
+            pending: deque[QLineEdit] = (
+                deque([changed]) if changed else deque(self._root.line_edits())
+            )
 
             while pending:
                 seg = pending.popleft()
