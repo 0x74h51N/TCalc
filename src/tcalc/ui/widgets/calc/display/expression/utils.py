@@ -15,6 +15,7 @@ UNARY_OP_SYMBOL_MAP: dict[calc_native.OpId, str] = {
     calc_native.OpId.Negate: Operation.SUB.symbol,
     calc_native.OpId.UnaryPlus: Operation.ADD.symbol,
 }
+VISUAL_NODE_OPS: set[calc_native.OpId] | None = None
 
 
 def format_expr_str(symbol: str, left: str, right: str) -> str:
@@ -61,10 +62,12 @@ def update_autowidth(le: QLineEdit) -> None:
 
 
 def _get_visual_node_ops() -> set[calc_native.OpId]:
-    """Lazy import to avoid circular dependency."""
-    from .expression import Expression
+    global VISUAL_NODE_OPS
+    if VISUAL_NODE_OPS is None:
+        from .expression import Expression
 
-    return {cls.OP_ID for cls in Expression.EXPR_KIND_MAP.values()}
+        VISUAL_NODE_OPS = {cls.OP_ID for cls in Expression.EXPR_KIND_MAP.values()}
+    return VISUAL_NODE_OPS
 
 
 def space_binary_ops(parts: list[tuple[calc_native.OpId | None, str]]) -> str:

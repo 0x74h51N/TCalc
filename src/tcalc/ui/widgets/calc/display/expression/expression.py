@@ -341,6 +341,7 @@ class Expression(QWidget):
     def _add_exp_node(self, changed: QLineEdit | None = None) -> None:
         self._rendering = True
         self.setUpdatesEnabled(False)
+        dirty_inputs: set[QLineEdit] = set()
 
         try:
             if not changed:
@@ -392,7 +393,7 @@ class Expression(QWidget):
                 node = widget_cls(self, left_tokens, right_tokens)
 
                 self._insert_node(slot, seg, prefix_tokens, node, suffix_tokens)
-
+                dirty_inputs.update(node.line_edits())
                 # Queue node's internal inputs for nested processing
                 pending.extend(node.line_edits())
                 # Only queue suffix if it contains nested Expr (LaTeX)
@@ -403,6 +404,8 @@ class Expression(QWidget):
         finally:
             self.setUpdatesEnabled(True)
             self._rendering = False
+            for le in dirty_inputs:
+                update_autowidth(le)
 
     #
     #

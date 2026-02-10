@@ -144,9 +144,10 @@ class ExpressionSlot(QWidget):
         update_autowidth(le)
 
     def schedule_autowidth(self, le: QLineEdit) -> None:
+        if self._editor._rendering:
+            return
         if le.property("_aw_scheduled"):
             return
-
         le.setProperty("_aw_scheduled", True)
         QTimer.singleShot(0, lambda le=le: self._run_autowidth(le))
 
