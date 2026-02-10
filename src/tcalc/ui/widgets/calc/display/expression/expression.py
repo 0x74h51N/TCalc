@@ -39,6 +39,7 @@ class Expression(QWidget):
     """Expression editor widget managing inputs and serialization for math-style UI."""
 
     plain_text_changed = Signal(str)
+    input_created = Signal(object)
 
     EXPR_KIND_MAP: dict[calc_native.ExprKind, type[ExpressionNode]] = {
         FractionWidget.EXPR_KIND: FractionWidget,
@@ -73,6 +74,12 @@ class Expression(QWidget):
         if isinstance(app, QApplication):
             app.focusChanged.connect(self._on_app_focus_changed)
 
+    #
+    #
+    #
+    # ======================== Focus & Target Resolution ========================
+    #
+
     def expression_inputs(self) -> list[QLineEdit]:
         return self._root.line_edits()
 
@@ -96,17 +103,11 @@ class Expression(QWidget):
         pos = target.cursorPosition()
         return target, text[:pos], text[pos:]
 
-    def _flush_exp_nodes(self):
-        if self._pending_seg:
-            self._add_exp_node(self._pending_seg)
-            self.plain_text_changed.emit(self.get_plain_text())
-            self._pending_seg = None
-
-    def _on_input_changed(self, seg: QLineEdit):
-        if self._rendering:
-            return
-        self._pending_seg = seg
-        QTimer.singleShot(0, self._flush_exp_nodes)
+    #
+    #
+    #
+    # ================== Text I/O (get / set / insert) ========================
+    #
 
     def get_plain_text(self) -> str:
         return self._root.to_plain_text()
@@ -124,6 +125,72 @@ class Expression(QWidget):
     def insert_text(self, text: str) -> None:
         self._resolve_target().insert(text)
 
+    #
+    #
+    #
+    # ======================== Navigation ========================
+    #
+
+    def navigate_left(self) -> bool:
+        return self._navigate_horizontal(-1)
+
+    def navigate_right(self) -> bool:
+        return self._navigate_horizontal(1)
+
+    def navigate_up(self) -> bool:
+        return self._navigate_vertical(-1)
+
+    def navigate_down(self) -> bool:
+        return self._navigate_vertical(1)
+
+    def _navigate_horizontal(self, direction: int) -> bool:
+        """Move between QLineEdits in flat order when cursor is at edge."""
+        target = self._resolve_target()
+        at_edge = (
+            target.cursorPosition() == 0
+            if direction < 0
+            else target.cursorPosition() >= len(target.text())
+        )
+        if not at_edge:
+            return False
+
+        all_inputs = self._root.line_edits()
+        try:
+            idx = all_inputs.index(target)
+        except ValueError:
+            return False
+
+        nxt = idx + direction
+        if 0 <= nxt < len(all_inputs):
+            le = all_inputs[nxt]
+            le.setFocus()
+            le.setCursorPosition(len(le.text()) if direction < 0 else 0)
+            return True
+        return False
+
+    def _navigate_vertical(self, direction: int) -> bool:
+        """Climb the slot→node tree to find a vertical neighbor slot."""
+        target = self._resolve_target()
+        pos = target.cursorPosition()
+        slot = target.parent()
+        while isinstance(slot, ExpressionSlot):
+            node = slot.parent()
+            if not isinstance(node, ExpressionNode):
+                break
+            neighbor = node.slot_above(slot) if direction < 0 else node.slot_below(slot)
+            if neighbor:
+                le = neighbor.default_input()
+                le.setFocus()
+                le.setCursorPosition(min(pos, len(le.text())))
+                return True
+            slot = node.parent()
+        return False
+
+    #
+    #
+    #
+    # ================== Key Handlers ==================
+    #
     def backspace(self) -> None:
         """Handle backspace across slots/fractions when the current input is empty."""
         target = self._resolve_target()
@@ -216,6 +283,24 @@ class Expression(QWidget):
         target.setText(text[:cursor] + format_expr_str(widget_cls.SYMBOL, "", "") + text[cursor:])
 
         self.plain_text_changed.emit(self.get_plain_text())
+
+    #
+    #
+    #
+    # ================== Node Building (tokenize -> create widget -> insert) ==================
+    #
+
+    def _flush_exp_nodes(self):
+        if self._pending_seg:
+            self._add_exp_node(self._pending_seg)
+            self.plain_text_changed.emit(self.get_plain_text())
+            self._pending_seg = None
+
+    def _on_input_changed(self, seg: QLineEdit):
+        if self._rendering:
+            return
+        self._pending_seg = seg
+        QTimer.singleShot(0, self._flush_exp_nodes)
 
     def _focus_backspace(self, le: QLineEdit) -> None:
         le.setFocus()
@@ -318,6 +403,12 @@ class Expression(QWidget):
         finally:
             self.setUpdatesEnabled(True)
             self._rendering = False
+
+    #
+    #
+    #
+    # ======================== Font Scaling ==============================
+    #
 
     def update_input_fonts(self, sample: QWidget) -> None:
         """Update font and width of all inputs based on sample widget size."""

@@ -58,13 +58,20 @@ class ExpressionNode(QWidget):
 
         self._left_slot: ExpressionSlot | None = None
         self._right_slot: ExpressionSlot | None = None
+        self._top_slot: ExpressionSlot | None = None
+        self._bottom_slot: ExpressionSlot | None = None
 
     OP_ID: ClassVar[calc_native.OpId]
     EXPR_KIND: ClassVar[calc_native.ExprKind]
     SYMBOL: ClassVar[str]
 
     def line_edits(self) -> list[QLineEdit]:
-        return []
+        out = []
+        if self._left_slot:
+            out.extend(self._left_slot.line_edits())
+        if self._right_slot:
+            out.extend(self._right_slot.line_edits())
+        return out
 
     def to_plain_text(self) -> str:
         """Serialize to LaTeX-style format: \\symbol{left}{right}."""
@@ -79,6 +86,12 @@ class ExpressionNode(QWidget):
         edits = self.line_edits()
         if edits:
             edits[-1].setFocus()
+
+    def slot_above(self, current: ExpressionSlot) -> ExpressionSlot | None:
+        return self._top_slot if current is self._bottom_slot else None
+
+    def slot_below(self, current: ExpressionSlot) -> ExpressionSlot | None:
+        return self._bottom_slot if current is self._top_slot else None
 
     def remove(self) -> None:
         """Remove this node from its parent slot."""
@@ -147,6 +160,7 @@ class ExpressionSlot(QWidget):
 
         le.textChanged.connect(lambda _, seg=le: self._editor._on_input_changed(seg))
         le.textChanged.connect(lambda: self.schedule_autowidth(le))
+        self._editor.input_created.emit(le)
         QTimer.singleShot(0, lambda: self.schedule_autowidth(le))
         return le
 

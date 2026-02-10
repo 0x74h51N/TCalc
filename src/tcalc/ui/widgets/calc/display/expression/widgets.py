@@ -8,7 +8,6 @@ from PySide6.QtGui import QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
-    QLineEdit,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -66,14 +65,13 @@ class FractionWidget(ExpressionNode):
 
         self._left_slot = self.numerator
         self._right_slot = self.denominator
+        self._top_slot = self.numerator
+        self._bottom_slot = self.denominator
 
         if self.left_tokens:
             self.numerator.default_input().setText(tokens_to_text(self.left_tokens))
         if self.right_tokens:
             self.denominator.default_input().setText(tokens_to_text(self.right_tokens))
-
-    def line_edits(self) -> list[QLineEdit]:
-        return [*self.numerator.line_edits(), *self.denominator.line_edits()]
 
     def focus_default(self) -> None:
         num_input = self.numerator.default_input()
@@ -125,14 +123,12 @@ class PowWidget(ExpressionNode):
 
         self._left_slot = self.base
         self._right_slot = self.exponent
-
+        self._top_slot = self.exponent
+        self._bottom_slot = self.base
         if self.left_tokens:
             self.base.default_input().setText(tokens_to_text(self.left_tokens))
         if self.right_tokens:
             self.exponent.default_input().setText(tokens_to_text(self.right_tokens))
-
-    def line_edits(self) -> list[QLineEdit]:
-        return [*self.base.line_edits(), *self.exponent.line_edits()]
 
     def focus_default(self) -> None:
         base_input = self.base.default_input()
@@ -223,14 +219,13 @@ class RootWidget(ExpressionNode):
 
         self._left_slot = self.degree
         self._right_slot = self.radicand
+        self._top_slot = self.degree
+        self._bottom_slot = self.radicand
 
         if self.left_tokens:
             self.degree.default_input().setText(tokens_to_text(self.left_tokens))
         if self.right_tokens:
             self.radicand.default_input().setText(tokens_to_text(self.right_tokens))
-
-    def line_edits(self) -> list[QLineEdit]:
-        return [*self.radicand.line_edits(), *self.degree.line_edits()]
 
     def focus_default(self) -> None:
         base_input = self.radicand.default_input()

@@ -4,7 +4,7 @@ from PySide6.QtCore import QSize
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QMainWindow, QWidget
 
 from tcalc.app_state import CalculatorMode, get_app_state
-from tcalc.ui.keyboard.handler import KeyboardHandler
+from tcalc.ui.keyboard import KeyboardHandler
 
 from ..core import Calculator
 from .config import get_history_width_from_total, window
@@ -74,7 +74,7 @@ class MainWindow(QMainWindow):
 
         # Keyboard handler for global shortcuts
         self._keyboard_handler = KeyboardHandler(
-            self.calc_widget.display.editor.expression_inputs()[0],
+            self.calc_widget.display.editor,
             self.calc_widget.keypad,
             self.controller,
         )

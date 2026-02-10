@@ -3,45 +3,54 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QEvent, QObject, QTimer
-from PySide6.QtGui import QKeyEvent, QKeySequence
+from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QLineEdit
 
-from .keymap import get_operation_for_key
+from .keymap import OVERRIDE_SHORTCUTS, get_expression_action_for_key, get_operation_for_key
 
 if TYPE_CHECKING:
     from tcalc.ui.controller import CalculatorController
+    from tcalc.ui.widgets.calc.display.expression import Expression
     from tcalc.ui.widgets.calc.keypad.keypad import Keypad
 
 
-class _ShortcutOverrideFilter(QObject):
-    def __init__(self, target: QLineEdit):
-        super().__init__(target)
-        self._target = target
+class KeyboardHandler(QObject):
+    def __init__(self, editor: Expression, keypad: Keypad, controller: CalculatorController):
+        super().__init__(editor)
+        self._editor = editor
+        self._keypad = keypad
+        self._controller = controller
+
+        for le in self._editor.expression_inputs():
+            le.installEventFilter(self)
+
+        self._editor.input_created.connect(self._on_input_created)
+
+    def _on_input_created(self, le: QLineEdit):
+        le.installEventFilter(self)
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-        if obj is self._target and event.type() == QEvent.Type.ShortcutOverride:
-            if isinstance(event, QKeyEvent) and (
-                event.matches(QKeySequence.StandardKey.Undo)
-                or event.matches(QKeySequence.StandardKey.Redo)
-                or event.matches(QKeySequence.StandardKey.Cut)
-                or event.matches(QKeySequence.StandardKey.Copy)
-            ):
+        if isinstance(event, QKeyEvent):
+            if event.type() == QEvent.Type.ShortcutOverride:
+                return self._handle_shortcut_override(event)
+            if event.type() == QEvent.Type.KeyPress:
+                return self.handle_key_press(event)
+        return False
+
+    def _handle_shortcut_override(self, event: QKeyEvent) -> bool:
+        for sk in OVERRIDE_SHORTCUTS:
+            if event.matches(sk):
                 event.ignore()
                 return True
         return False
 
-
-class KeyboardHandler:
-    def __init__(
-        self, expression_input: QLineEdit, keypad: Keypad, controller: CalculatorController
-    ):
-        self._expression_input = expression_input
-        self._keypad = keypad
-        self._controller = controller
-        self._shortcut_override_filter = _ShortcutOverrideFilter(self._expression_input)
-        self._expression_input.installEventFilter(self._shortcut_override_filter)
-
     def handle_key_press(self, event: QKeyEvent) -> bool:
+        expr_action = get_expression_action_for_key(event.key())
+
+        if expr_action:
+            bound = expr_action.__get__(self._editor, type(self._editor))
+            return bound()
+
         result = get_operation_for_key(event.key())
         if result:
             label, operation = result

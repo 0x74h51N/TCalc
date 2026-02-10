@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence
 
 from tcalc.core.ops import Operation
+from tcalc.ui.widgets.calc.display.expression.expression import Expression
 
 _KEY_TO_OPERATION: list[tuple[int, Operation]] = [
     # Operators
@@ -28,6 +30,20 @@ _SPECIAL_LABEL_KEYS: dict[int, tuple[str, Operation]] = {
     int(Qt.Key.Key_Comma): (".", Operation.DOT),
 }
 
+EXPRESSION_KEY_MAP = {
+    int(Qt.Key.Key_Left): Expression.navigate_left,
+    int(Qt.Key.Key_Right): Expression.navigate_right,
+    int(Qt.Key.Key_Up): Expression.navigate_up,
+    int(Qt.Key.Key_Down): Expression.navigate_down,
+}
+
+OVERRIDE_SHORTCUTS = (
+    QKeySequence.StandardKey.Undo,
+    QKeySequence.StandardKey.Redo,
+    QKeySequence.StandardKey.Cut,
+    QKeySequence.StandardKey.Copy,
+)
+
 
 def _build_key_map() -> dict[int, tuple[str, Operation]]:
     key_map: dict[int, tuple[str, Operation]] = {}
@@ -48,3 +64,7 @@ KEY_MAP: dict[int, tuple[str, Operation]] = _build_key_map()
 
 def get_operation_for_key(key: int) -> tuple[str, Operation] | None:
     return KEY_MAP.get(key)
+
+
+def get_expression_action_for_key(key: int):
+    return EXPRESSION_KEY_MAP.get(key)
