@@ -22,3 +22,5 @@ calc_native*.so
 *.log
 
 stubs/
+
+*memray*

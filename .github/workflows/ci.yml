@@ -256,3 +256,8 @@ jobs:
         run: |
           . venv/bin/activate
           xvfb-run --auto-servernum make py-benchmark PYTEST_ARGS="-q --tb=line"
+
+      - name: Run malloc tests
+        run: |
+          . venv/bin/activate
+          xvfb-run --auto-servernum make py-mem-profile PYTEST_ARGS="-q --tb=line"

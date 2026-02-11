@@ -35,8 +35,16 @@ py-test-ui:
 	PYTHONPATH=src $(PY) -m pytest tests/py/ui $(PYTEST_ARGS)
 
 py-benchmark:
-	PYTHONPATH=src $(PY) -m pytest tests/benchmark -m benchmark $(PYTEST_ARGS)
+	PYTHONPATH=src $(PY) -m pytest tests/benchmark -m benchmark -k "not test_malloc" $(PYTEST_ARGS)
 
+py-mem-profile:
+	./scripts/malloc profile
+
+py-mem-flame:
+	./scripts/malloc flame
+
+py-mem-tree:
+	./scripts/malloc tree
 
 NATIVE_BUILD_TYPE ?= Debug
 NATIVE_TEST_ARGS ?= --quiet
