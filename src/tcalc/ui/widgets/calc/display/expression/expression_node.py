@@ -35,6 +35,8 @@ class InputAlign(Enum):
     LEFTB = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom
     RIGHTT = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop
     LEFTT = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+    BOTTOM = Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom
+    TOP = Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop
 
 
 class ExpressionNode(QWidget):
@@ -64,6 +66,9 @@ class ExpressionNode(QWidget):
     OP_ID: ClassVar[calc_native.OpId]
     EXPR_KIND: ClassVar[calc_native.ExprKind]
     SYMBOL: ClassVar[str]
+
+    def anchor_y(self) -> int:
+        return self.height() // 2
 
     def line_edits(self) -> list[QLineEdit]:
         out = []
@@ -137,11 +142,16 @@ class ExpressionSlot(QWidget):
 
         self.append_input()
 
+        self._margin_scheduled = False
+
     def _input_key(self) -> str:
         return f"{self._key}_{len(self._segments)}"
 
     def _run_autowidth(self, le: QLineEdit) -> None:
-        le.setProperty("_aw_scheduled", False)
+        try:
+            le.setProperty("_aw_scheduled", False)
+        except RuntimeError:
+            return
         update_autowidth(le)
 
     def schedule_autowidth(self, le: QLineEdit) -> None:
@@ -220,6 +230,7 @@ class ExpressionSlot(QWidget):
         self._layout.removeWidget(seg)
         seg.deleteLater()
         self._segments.remove(seg)
+
         if isinstance(seg, QLineEdit):
             self._direct_edits.remove(seg)
 
@@ -227,6 +238,9 @@ class ExpressionSlot(QWidget):
         for seg in self._segments:
             self._layout.removeWidget(seg)
             seg.deleteLater()
+        for le in self._direct_edits:
+            self._layout.removeWidget(le)
+            le.deleteLater()
         self._segments = []
         self._direct_edits = []
 
@@ -252,5 +266,65 @@ class ExpressionSlot(QWidget):
                 parts.append(seg.to_plain_text())
         return "".join(parts)
 
+    def _update_segment_margins(self) -> None:
+        """
+        Align all segments in this slot to a common anchor_y position.
 
-# TODO: Fix the alignment issue about main ExpressionSlot and so on...
+        Each segment (QLineEdit or ExpressionNode) defines its own
+        vertical reference position via anchor_y() or text midpoint.
+
+        This method computes the maximum anchor_y among all segments
+        and applies a top margin offset so that:
+
+            own_anchor_y + top_margin == max_anchor_y
+
+        This ensures that all segments share the same visual
+        reference Y position inside the horizontal layout.
+        """
+        max_anchor = 0
+
+        for seg in self._segments:
+            if isinstance(seg, ExpressionNode):
+                a = seg.anchor_y()
+            elif isinstance(seg, QLineEdit):
+                a = seg.fontMetrics().height() // 2
+            else:
+                continue
+            if a > max_anchor:
+                max_anchor = a
+
+        for seg in self._segments:
+            if isinstance(seg, ExpressionNode):
+                own_anchor = seg.anchor_y()
+                top = max(0, max_anchor - own_anchor)
+                if seg.contentsMargins().top() != top:
+                    seg.setContentsMargins(0, top, 0, 0)
+            elif isinstance(seg, QLineEdit):
+                own_anchor = seg.fontMetrics().height() // 2
+                top = max(0, max_anchor - own_anchor)
+                if seg.textMargins().top() != top:
+                    seg.setTextMargins(0, top, 0, 0)
+        # TODO: Optimize margin update logic
+
+    def _schedule_margin_update(self) -> None:
+        """Update margins after first frame render."""
+
+        if self._margin_scheduled:
+            return
+        self._margin_scheduled = True
+        QTimer.singleShot(0, self._do_margin_update)
+
+    def _do_margin_update(self) -> None:
+        self._margin_scheduled = False
+        self._update_segment_margins()
+
+        # Propagate margin child to parent
+        node = self.parent()
+        if isinstance(node, ExpressionNode):
+            parent_slot = node.parent()
+            if isinstance(parent_slot, ExpressionSlot):
+                parent_slot._schedule_margin_update()
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._schedule_margin_update()

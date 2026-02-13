@@ -4,6 +4,7 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QWidget
 
 from tcalc.theme import get_theme
+from tcalc.ui.widgets.calc.display.expression.widgets import RootWidget
 
 from ..config import display_config
 
@@ -33,7 +34,7 @@ def _build_display_stylesheet() -> str:
     }}
 
     QWidget#radicandSlot, QWidget#radicandSlot:focus {{
-        border-top: 2px solid {c["selection_text"]};
+        border-top: {RootWidget.BORDER_WIDTH}px solid {c["selection_text"]};
     }}
 
 

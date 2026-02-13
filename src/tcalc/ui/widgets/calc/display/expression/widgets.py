@@ -48,7 +48,7 @@ class FractionWidget(ExpressionNode):
         layout.setSpacing(0)
 
         self.numerator = ExpressionSlot(
-            editor, kind=InputKind.AUX, key="numerator", align=InputAlign.CENTER
+            editor, kind=InputKind.AUX, key="numerator", align=InputAlign.TOP
         )
         layout.addWidget(self.numerator, 0, Qt.AlignmentFlag.AlignHCenter)
 
@@ -59,8 +59,9 @@ class FractionWidget(ExpressionNode):
         layout.addWidget(self.line)
 
         self.denominator = ExpressionSlot(
-            editor, kind=InputKind.AUX, key="denominator", align=InputAlign.CENTER
+            editor, kind=InputKind.AUX, key="denominator", align=InputAlign.TOP
         )
+
         layout.addWidget(self.denominator, 0, Qt.AlignmentFlag.AlignHCenter)
 
         self._left_slot = self.numerator
@@ -72,6 +73,9 @@ class FractionWidget(ExpressionNode):
             self.numerator.default_input().setText(tokens_to_text(self.left_tokens))
         if self.right_tokens:
             self.denominator.default_input().setText(tokens_to_text(self.right_tokens))
+
+    def anchor_y(self) -> int:
+        return self.numerator.height() - self.line.height() // 2
 
     def focus_default(self) -> None:
         num_input = self.numerator.default_input()
@@ -119,7 +123,7 @@ class PowWidget(ExpressionNode):
             align=InputAlign.RIGHTB,
         )
 
-        grid.addWidget(self.exponent, 0, 0, 1, 2, InputAlign.RIGHTB.value)
+        grid.addWidget(self.exponent, 0, 1, 1, 2, InputAlign.RIGHTB.value)
 
         self._left_slot = self.base
         self._right_slot = self.exponent
@@ -129,6 +133,9 @@ class PowWidget(ExpressionNode):
             self.base.default_input().setText(tokens_to_text(self.left_tokens))
         if self.right_tokens:
             self.exponent.default_input().setText(tokens_to_text(self.right_tokens))
+
+    def anchor_y(self) -> int:
+        return self.exponent.height() + self.base.height() // 2
 
     def focus_default(self) -> None:
         base_input = self.base.default_input()
@@ -176,6 +183,11 @@ class RootWidget(ExpressionNode):
     EXPR_KIND = calc_native.ExprKind.Root
     SYMBOL = LatexExpr.Root.symbol
 
+    BORDER_WIDTH = 2
+    BORDER_PADDING = 2
+    DEGREE_RIGHT_MARGIN = 14
+    DEGREE_BOTTOM_MARGIN = 4
+
     def __init__(
         self,
         editor: Expression,
@@ -199,7 +211,7 @@ class RootWidget(ExpressionNode):
             align=InputAlign.LEFTT,
         )
 
-        self.degree.setContentsMargins(0, 0, 14, 4)
+        self.degree.setContentsMargins(0, 0, self.DEGREE_RIGHT_MARGIN, self.DEGREE_BOTTOM_MARGIN)
 
         grid.addWidget(self.degree, 0, 0, 3, 1, InputAlign.LEFTB.value)
 
@@ -215,7 +227,7 @@ class RootWidget(ExpressionNode):
         grid.addWidget(self.radicand, 1, 4, 6, 2, InputAlign.RIGHTB.value)
 
         self.radicand.setObjectName("radicandSlot")
-        self.radicand.setContentsMargins(0, 2, 0, 0)
+        self.radicand.setContentsMargins(0, self.BORDER_PADDING, 0, 0)
 
         self._left_slot = self.degree
         self._right_slot = self.radicand
@@ -226,6 +238,9 @@ class RootWidget(ExpressionNode):
             self.degree.default_input().setText(tokens_to_text(self.left_tokens))
         if self.right_tokens:
             self.radicand.default_input().setText(tokens_to_text(self.right_tokens))
+
+    def anchor_y(self) -> int:
+        return self.degree.height() + self.radicand.height() // 2
 
     def focus_default(self) -> None:
         base_input = self.radicand.default_input()

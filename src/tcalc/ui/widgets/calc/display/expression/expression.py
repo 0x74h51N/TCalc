@@ -59,7 +59,7 @@ class Expression(QWidget):
 
         self._inputs_layout.addStretch(1)
         self._root = ExpressionSlot(
-            self, kind=InputKind.MAIN, key=InputKind.MAIN.value, align=InputAlign.RIGHTB
+            self, kind=InputKind.MAIN, key=InputKind.MAIN.value, align=InputAlign.RIGHTT
         )
         self._inputs_layout.addWidget(self._root)
         self._inputs_layout.addStretch(1)
