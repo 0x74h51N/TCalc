@@ -83,9 +83,9 @@ class ExpressionNode(QWidget):
 
     def focus_default(self) -> None:
         """Focus the default input after widget creation."""
-        edits = self.line_edits()
-        if edits:
-            edits[-1].setFocus()
+        slot = self._right_slot or self._left_slot
+        if slot:
+            slot.default_input().setFocus()
 
     def slot_above(self, current: ExpressionSlot) -> ExpressionSlot | None:
         return self._top_slot if current is self._bottom_slot else None
@@ -122,6 +122,7 @@ class ExpressionSlot(QWidget):
         self._key = key
         self._align = align
         self._segments: list[QWidget] = []
+        self._direct_edits: list[QLineEdit] = []
 
         self.setProperty("exprSlot", True)
         self.setProperty("exprSlotKind", kind.value)
@@ -169,6 +170,7 @@ class ExpressionSlot(QWidget):
         le = self._create_input(self._input_key())
         self._layout.addWidget(le, 0, self._align.value)
         self._segments.append(le)
+        self._direct_edits.append(le)
         return le
 
     def insert_widget(self, index: int, w: QWidget) -> None:
@@ -179,12 +181,12 @@ class ExpressionSlot(QWidget):
         le = self._create_input(self._input_key())
         self._layout.insertWidget(index, le, 0, self._align.value)
         self._segments.insert(index, le)
+        self._direct_edits.append(le)
         return le
 
     def default_input(self) -> QLineEdit:
-        for seg in reversed(self._segments):
-            if isinstance(seg, QLineEdit):
-                return seg
+        if self._direct_edits:
+            return self._direct_edits[-1]
         return self.append_input()
 
     def index_of(self, seg: QWidget) -> int:
@@ -206,6 +208,7 @@ class ExpressionSlot(QWidget):
             right.deleteLater()
             self._layout.removeWidget(seg)
             seg.deleteLater()
+            self._direct_edits.remove(right)
             # update segments: remove right then node
             self._segments.pop(idx + 1)
             self._segments.pop(idx)
@@ -217,12 +220,15 @@ class ExpressionSlot(QWidget):
         self._layout.removeWidget(seg)
         seg.deleteLater()
         self._segments.remove(seg)
+        if isinstance(seg, QLineEdit):
+            self._direct_edits.remove(seg)
 
     def reset(self) -> QLineEdit:
         for seg in self._segments:
             self._layout.removeWidget(seg)
             seg.deleteLater()
         self._segments = []
+        self._direct_edits = []
 
         return self.append_input()
 
