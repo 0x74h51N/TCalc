@@ -5,7 +5,7 @@ from typing import Dict
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction
 
-from .shortcuts import DEFAULT_ACTION_SHORTCUTS, ShortcutId
+from .keymap import DEFAULT_ACTION_SHORTCUTS, ShortcutId
 
 
 class ShortcutManager:
