@@ -8,12 +8,20 @@
 #include "internal/test_helpers.hpp"
 #include "parser/pub/parser.hpp"
 
+namespace p = tcalc::parser;
+namespace o = tcalc::ops;
 namespace {
 
-using tcalc::ops::OpId;
-using tcalc::parser::Token;
-using tcalc::parser::TokenKind;
-
+using o::OpId;
+using p::ExprKind;
+using p::ExprToken;
+using p::NumberToken;
+using p::OpToken;
+using p::ParenKind;
+using p::ParenToken;
+using p::ParenType;
+using p::Token;
+using p::TokenKind;
 struct NoStream {
     int v;
 };
@@ -53,23 +61,28 @@ void unit_helpers(TestContext &ctx) {
     });
 
     TEST_CASE(ctx, "print :: token", {
-        const Token number{TokenKind::Number, OpId::Count, "2"};
-        const Token add{TokenKind::Op, OpId::Add, ""};
-        const Token lparen{TokenKind::LParen, OpId::Count, ""};
-        EXPECT_EQ(
-            ctx,
-            printed(number),
-            "Token{kind=Number, op_id=Count, value=\"" + number.value + "\"}");
+        const Token number{
+            .kind = TokenKind::Number, .data = NumberToken{"2"}, .start_pos = 0, .end_pos = 1};
+
+        const Token add{
+            .kind = TokenKind::Op, .data = OpToken{OpId::Add}, .start_pos = 1, .end_pos = 2};
+
+        const Token lparen{
+            .kind = TokenKind::Paren,
+            .data = ParenToken{ParenType::Open, ParenKind::Paren},
+            .start_pos = 2,
+            .end_pos = 3};
+
+        EXPECT_EQ(ctx, printed(number), "Token{kind=Number, value=\"2\"}");
+
         EXPECT_EQ(
             ctx,
             printed(std::vector<Token>{number, add, lparen}),
             "[\n"
-            "  " +
-                ("Token{kind=Number, op_id=Count, value=\"" + number.value + "\"}") +
-                ",\n"
-                "  Token{kind=Op, op_id=add(+), value=\"\"},\n"
-                "  Token{kind=LParen, op_id=Count, value=\"\"}\n"
-                "]");
+            "  Token{kind=Number, value=\"2\"},\n"
+            "  Token{kind=Op, op_id=add(+)},\n"
+            "  Token{kind=LParen, type=0, kind=0}\n"
+            "]");
     });
 
     TEST_CASE(ctx, "approx :: double true", { EXPECT_TRUE(ctx, approx(1.0, 1.0 + 1e-13)); });

@@ -8,19 +8,25 @@
 #include "parser/pub/parser.hpp"
 
 namespace py = pybind11;
+namespace p = tcalc::parser;
 
 void bind_parser(py::module_ &m) {
+    using p::ExprKind;
+    using p::ExprToken;
+    using p::NumberToken;
+    using p::OpToken;
+    using p::ParenKind;
+    using p::ParenToken;
+    using p::ParenType;
+    using p::Token;
+    using p::TokenizeResult;
+    using p::TokenKind;
     using tcalc::ops::OpId;
-    using tcalc::parser::ExprKind;
-    using tcalc::parser::Token;
-    using tcalc::parser::TokenizeResult;
-    using tcalc::parser::TokenKind;
 
     py::enum_<TokenKind>(m, "TokenKind", "Token categories produced by the native tokenizer.")
         .value("Number", TokenKind::Number)
         .value("Op", TokenKind::Op)
-        .value("LParen", TokenKind::LParen)
-        .value("RParen", TokenKind::RParen)
+        .value("Paren", TokenKind::Paren)
         .value("Expr", TokenKind::Expr);
 
     py::enum_<ExprKind>(m, "ExprKind", "Expression kinds for compound Expr tokens.")
@@ -28,6 +34,20 @@ void bind_parser(py::module_ &m) {
         .value("Pow", ExprKind::Pow)
         .value("Root", ExprKind::Root)
         .value("Log", ExprKind::Log);
+
+    py::enum_<ParenType>(m, "ParenType")
+        .value("Open", ParenType::Open)
+        .value("Close", ParenType::Close);
+
+    py::enum_<ParenKind>(m, "ParenKind")
+        .value("Paren", ParenKind::Paren)
+        .value("Brace", ParenKind::Brace)
+        .value("Bracket", ParenKind::Bracket);
+
+    py::class_<tcalc::parser::Paren>(m, "Paren")
+        .def_readonly("symbol", &tcalc::parser::Paren::symbol)
+        .def_readonly("type", &tcalc::parser::Paren::type)
+        .def_readonly("kind", &tcalc::parser::Paren::kind);
 
     py::enum_<OpId>(
         m, "OpId", "Operation identifiers used by tokens and op_table; maps to engine methods.")
@@ -91,23 +111,73 @@ void bind_parser(py::module_ &m) {
         "Return list of LatexEntry objects from the native LaTeX expression table.",
         py::return_value_policy::reference);
 
-    py::class_<Token>(
-        m, "Token", "Parser token. 'value' is text for numbers; 'symbol' is only for ops.")
-        .def_readonly("kind", &Token::kind)
-        .def_readonly("op_id", &Token::op_id)
-        .def_readonly("value", &Token::value)
-        .def_readonly("expr_kind", &Token::expr_kind)
-        .def_readonly("left_tokens", &Token::left_tokens)
-        .def_readonly("right_tokens", &Token::right_tokens)
-        .def_readonly("start_pos", &Token::start_pos)
-        .def_readonly("end_pos", &Token::end_pos)
-        .def_property_readonly("symbol", [](const Token &tok) {
-            if (tok.kind != TokenKind::Op) {
-                return std::string();
+    m.def(
+        "parentheses",
+        []() {
+            py::list out;
+            for (auto &p : tcalc::parser::kParens) {
+                out.append(&p);
             }
-            const auto *spec = tcalc::ops::op_spec(tok.op_id);
-            return spec ? std::string(spec->symbol) : std::string();
+            return out;
+        },
+        "Return list of native Paren objects",
+        py::return_value_policy::reference);
+
+    // NumberToken
+    py::class_<NumberToken>(m, "NumberToken").def_readonly("value", &NumberToken::value);
+
+    // OpToken
+    py::class_<OpToken>(m, "OpToken").def_readonly("op_id", &OpToken::op_id);
+
+    // ParenToken
+    py::class_<ParenToken>(m, "ParenToken")
+        .def_readonly("type", &ParenToken::type)
+        .def_readonly("kind", &ParenToken::kind)
+        .def_property_readonly("symbol", [](const ParenToken &p) -> std::string {
+            for (auto &paren : tcalc::parser::kParens) {
+                if (paren.type == p.type && paren.kind == p.kind)
+                    return std::string(paren.symbol);
+            }
+            return "";
         });
+
+    py::class_<ExprToken> ExprToken_(m, "ExprToken");
+
+    auto Token_ = py::class_<Token>(m, "Token")
+                      .def_readonly("kind", &Token::kind)
+                      .def_readonly("start_pos", &Token::start_pos)
+                      .def_readonly("end_pos", &Token::end_pos);
+
+    def_readonly_ref(Token_, "data", &Token::data)
+
+        .def_property_readonly(
+            "data",
+            [](const Token &tok) -> py::object {
+                return std::visit([](auto &&v) -> py::object { return py::cast(v); }, tok.data);
+            })
+
+        // ---- Typed accessors ----
+
+        .def("as_number", &token_as<NumberToken>, py::return_value_policy::reference_internal)
+
+        .def("as_op", &token_as<OpToken>, py::return_value_policy::reference_internal)
+
+        .def("as_paren", &token_as<ParenToken>, py::return_value_policy::reference_internal)
+
+        .def("as_expr", &token_as<ExprToken>, py::return_value_policy::reference_internal)
+
+        .def_property_readonly("symbol", [](const Token &tok) -> std::string {
+            if (auto p = token_as<OpToken>(tok)) {
+                const auto *spec = tcalc::ops::op_spec(p->op_id);
+                return spec ? std::string(spec->symbol) : "";
+            }
+            return "";
+        });
+
+    // ExprToken
+    ExprToken_.def_readonly("kind", &ExprToken::kind);
+    def_readonly_ref(ExprToken_, "left", &ExprToken::left);
+    def_readonly_ref(ExprToken_, "right", &ExprToken::right);
 
     py::class_<TokenizeResult>(m, "TokenizeResult", "Result of tokenization with metadata.")
         .def_readonly("tokens", &TokenizeResult::tokens)
