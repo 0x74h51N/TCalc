@@ -143,7 +143,7 @@ def test_pow_exponent_is_int_after_parser_number_coercion() -> None:
     from tcalc.core import parser as parser_mod
 
     tokens = parser_mod.tokenize_string("2^3")
-    number_literals = [t.value for t in tokens if t.kind == calc_native.TokenKind.Number]
+    number_literals = [t.as_number().value for t in tokens if t.as_number() is not None]
     assert len(number_literals) >= 2
 
     exponent = parser_mod._coerce_token(number_literals[-1])
@@ -151,7 +151,7 @@ def test_pow_exponent_is_int_after_parser_number_coercion() -> None:
     assert isinstance(exponent, int)
 
     tokens = parser_mod.tokenize_string("2^3.0")
-    number_literals = [t.value for t in tokens if t.kind == calc_native.TokenKind.Number]
+    number_literals = [t.as_number().value for t in tokens if t.as_number() is not None]
     exponent = parser_mod._coerce_token(number_literals[-1])
     assert exponent == pytest.approx(3.0)
     assert isinstance(exponent, float)

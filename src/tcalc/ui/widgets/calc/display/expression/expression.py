@@ -224,13 +224,14 @@ class Expression(QWidget):
             return
 
         toks = tokenize_string(prefix)
-        parts = [
-            (t.op_id if t.kind == calc_native.TokenKind.Op else None, str(token_text(t)))
-            for t in toks
-        ]
+        parts = []
+        for t in toks:
+            op = t.as_op()
+            parts.append((op.op_id if op else None, str(token_text(t))))
 
         paren_split = split_paren(list(toks))
         paren_start = len(paren_split[0]) if paren_split else None
+
         for i in range(len(parts) - 1, -1, -1):
             txt = parts[i][1]
 
@@ -334,6 +335,7 @@ class Expression(QWidget):
             # Find new cursor by normalizing text before cursor
             # Tokens before/at cursor determine new position
             prefix_tokens = [t for t in tokens if t.start_pos < cursor_pos]
+
             new_cursor = len(tokens_to_text(prefix_tokens))
             seg.setText(new_text)
             seg.setCursorPosition(min(new_cursor, len(new_text)))
@@ -370,22 +372,22 @@ class Expression(QWidget):
                     continue
 
                 idx = result.expr_indices[0]
-                expr_tok = tokens[idx]
+                expr_tok = tokens[idx].as_expr()
                 before_tokens = tokens[:idx]
                 after_tokens = tokens[idx + 1 :]
 
                 # If expr has content (pasted), use it; otherwise split from surrounding tokens
-                if expr_tok.left_tokens:
-                    prefix_tokens, left_tokens = before_tokens, expr_tok.left_tokens
+                if expr_tok.left:
+                    prefix_tokens, left_tokens = before_tokens, expr_tok.left
                 else:
                     prefix_tokens, left_tokens = split_operand(before_tokens)
 
-                if expr_tok.right_tokens:
-                    right_tokens, suffix_tokens = expr_tok.right_tokens, after_tokens
+                if expr_tok.right:
+                    right_tokens, suffix_tokens = expr_tok.right, after_tokens
                 else:
                     right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
 
-                widget_cls = self.EXPR_KIND_MAP.get(expr_tok.expr_kind)
+                widget_cls = self.EXPR_KIND_MAP.get(expr_tok.kind)
 
                 if widget_cls is None:
                     return

@@ -1,15 +1,12 @@
 from __future__ import annotations
 
+from collections import defaultdict
+
 import calc_native
 from PySide6.QtWidgets import QLineEdit
 
 from tcalc.core.ops import OP_BY_ID, LatexExpr, Operation
 from tcalc.core.utils import is_number_token
-
-OPEN_PAR = Operation.OPEN_PAREN.symbol
-CLOSE_PAR = Operation.CLOSE_PAREN.symbol
-OPEN_KIND = calc_native.TokenKind.LParen
-CLOSE_KIND = calc_native.TokenKind.RParen
 
 UNARY_OP_SYMBOL_MAP: dict[calc_native.OpId, str] = {
     calc_native.OpId.Negate: Operation.SUB.symbol,
@@ -25,20 +22,19 @@ def format_expr_str(symbol: str, left: str, right: str) -> str:
 
 def token_text(tok: calc_native.Token) -> str:
     """Convert a single token to its text representation."""
-    match tok.kind:
-        case calc_native.TokenKind.Expr:
-            symbol = LatexExpr.get(tok.expr_kind).symbol
+    match tok.data:
+        case calc_native.ExprToken():
+            symbol = LatexExpr.get(tok.data.kind).symbol
             return format_expr_str(
-                symbol, tokens_to_text(tok.left_tokens), tokens_to_text(tok.right_tokens)
+                symbol, tokens_to_text(tok.data.left), tokens_to_text(tok.data.right)
             )
-        case calc_native.TokenKind.Number:
-            return tok.value
-        case calc_native.TokenKind.Op:
-            return UNARY_OP_SYMBOL_MAP.get(tok.op_id, tok.symbol)
-        case calc_native.TokenKind.LParen:
-            return OPEN_PAR
-        case calc_native.TokenKind.RParen:
-            return CLOSE_PAR
+        case calc_native.NumberToken():
+            return tok.data.value
+        case calc_native.OpToken():
+            return UNARY_OP_SYMBOL_MAP.get(tok.data.op_id, tok.symbol)
+        case calc_native.ParenToken():
+            return tok.data.symbol
+
     return ""
 
 
@@ -47,7 +43,9 @@ def tokens_to_text(tokens: list[calc_native.Token]) -> str:
     parts: list[tuple[calc_native.OpId | None, str]] = []
 
     for t in tokens:
-        parts.append((t.op_id if t.kind == calc_native.TokenKind.Op else None, str(token_text(t))))
+        parts.append(
+            (t.data.op_id if isinstance(t.data, calc_native.OpToken) else None, str(token_text(t)))
+        )
 
     return space_binary_ops(parts)
 
@@ -86,22 +84,41 @@ def space_binary_ops(parts: list[tuple[calc_native.OpId | None, str]]) -> str:
     return "".join(out)
 
 
-def split_paren(
-    tokens: list[calc_native.Token], lead: bool = False
-) -> tuple[list[calc_native.Token], list[calc_native.Token]] | None:
-    """Split tokens at leading or trailing '(...)' group. Returns (extracted, rest) if lead, else (rest, extracted)."""
+def split_paren(tokens: list[calc_native.Token], lead: bool = True):
+    """Split tokens at a balanced paren group (matching ParenKind), tracking all types."""
 
-    depth = 0
+    if not tokens:
+        return None
+
     indices = range(len(tokens)) if lead else range(len(tokens) - 1, -1, -1)
+
+    depths: dict[calc_native.ParenKind, int] = defaultdict(int)
+    opening_index: int | None = None
+    opening_kind: calc_native.ParenKind | None = None
+
     for i in indices:
-        kind = tokens[i].kind
-        if kind == OPEN_KIND:
-            depth += 1 if lead else -1
-        elif kind == CLOSE_KIND:
-            depth += -1 if lead else 1
-        if depth == 0:
+        tok = tokens[i]
+        if tok.kind != calc_native.TokenKind.Paren:
+            continue
+        if not isinstance(tok.data, calc_native.ParenToken):
+            continue
+
+        ptype = tok.data.type
+        pkind = tok.data.kind
+
+        if sum(depths.values()) == 0 and ptype == calc_native.ParenType.Open:
+            opening_index = i
+            opening_kind = pkind
+
+        if ptype == calc_native.ParenType.Open:
+            depths[pkind] += 1
+        elif ptype == calc_native.ParenType.Close:
+            depths[pkind] -= 1
+
+        if opening_index is not None and opening_kind is not None and depths[opening_kind] == 0:
             split_at = i + 1 if lead else i
-            return tokens[:split_at], tokens[split_at:]
+            return tokens[opening_index:split_at], tokens[:opening_index] + tokens[split_at:]
+
     return None
 
 
@@ -115,7 +132,10 @@ def split_operand(
     if lead:
         first = tokens[0]
         # (...) - paren group
-        if first.kind == OPEN_KIND:
+        if (
+            isinstance(first.data, calc_native.ParenToken)
+            and first.data.type == calc_native.ParenType.Open
+        ):
             paren_split = split_paren(tokens, lead=True)
             if paren_split:
                 return paren_split
@@ -129,7 +149,10 @@ def split_operand(
     last = tokens[-1]
 
     # # (...) - paren group -> (3+4)/
-    if last.kind == CLOSE_KIND:
+    if (
+        isinstance(last.data, calc_native.ParenToken)
+        and last.data.type == calc_native.ParenType.Close
+    ):
         paren_split = split_paren(tokens, lead=False)
         if paren_split:
             return paren_split

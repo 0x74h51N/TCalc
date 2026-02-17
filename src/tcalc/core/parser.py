@@ -48,21 +48,22 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
 
     for tok in rpn_tokens:
         if is_number_token(tok):
-            operand_stack.append(_coerce_token(tok.value))
+            operand_stack.append(_coerce_token(tok.data.value))
             continue
 
         if tok.kind == calc_native.TokenKind.Expr:
             try:
-                left_rpn = shunting_yard(tok.left_tokens)
-                right_rpn = shunting_yard(tok.right_tokens)
+                expr_tok = tok.as_expr()
+                left_rpn = shunting_yard(expr_tok.left)
+                right_rpn = shunting_yard(expr_tok.right)
                 left_val = evaluate_rpn(left_rpn, calculator) if left_rpn else 0
                 right_val = evaluate_rpn(right_rpn, calculator) if right_rpn else 0
 
-                latex_spec = LatexExpr.get(tok.expr_kind)
+                latex_spec = LatexExpr.get(expr_tok.kind)
                 op_spec = OP_BY_ID[latex_spec.opid]
                 func = getattr(calculator, op_spec.method)
                 # Root: root(radicand, degree) = root(right, left)
-                if tok.expr_kind == calc_native.ExprKind.Root:
+                if expr_tok.kind == calc_native.ExprKind.Root:
                     result = func(right_val, left_val)
                 else:
                     result = func(left_val, right_val)
@@ -73,7 +74,8 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
                 raise_error(ErrorKind.INVALID, f"Parse expression token error: {e}")
 
         if tok.kind == calc_native.TokenKind.Op:
-            spec = OP_BY_ID.get(tok.op_id)
+            op_tok = tok.as_op()
+            spec = OP_BY_ID.get(op_tok.op_id)
             assert spec is not None
             val_a = _pop_operand(operand_stack)
             func = getattr(calculator, spec.method, None)

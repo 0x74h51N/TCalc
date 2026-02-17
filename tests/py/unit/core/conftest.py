@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from enum import Enum
 from types import ModuleType, SimpleNamespace
-from typing import Callable
+from typing import Callable, List, Optional
 
 import pytest
 
@@ -13,8 +13,25 @@ import pytest
 @dataclass(frozen=True)
 class FakeToken:
     kind: object
-    op_id: object | None = None
-    value: object | None = None
+    value: Optional[object] = None
+    op_id: Optional[object] = None
+    left: Optional[List["FakeToken"]] = None
+    right: Optional[List["FakeToken"]] = None
+    expr_kind: Optional[object] = None
+
+    @property
+    def data(self):
+        if self.kind == FakeTokenKind.Number:
+            return type("Data", (), {"value": self.value})()
+        if self.kind == FakeTokenKind.Op:
+            return type("Data", (), {"op_id": self.op_id})()
+        return None
+
+    def as_number(self) -> Optional["FakeToken"]:
+        return self if self.kind == FakeTokenKind.Number else None
+
+    def as_op(self) -> Optional["FakeToken"]:
+        return self if self.kind == FakeTokenKind.Op else None
 
 
 class FakeArity(Enum):
@@ -307,11 +324,11 @@ def dummy_calc() -> DummyCalc:
 
 
 @pytest.fixture
-def token_factory() -> tuple[Callable[[object], FakeToken], Callable[[object], FakeToken]]:
-    def num(value: object) -> FakeToken:
+def token_factory():
+    def num(value):
         return FakeToken(FakeTokenKind.Number, value=value)
 
-    def op(op_id: object) -> FakeToken:
+    def op(op_id):
         return FakeToken(FakeTokenKind.Op, op_id=op_id)
 
     return num, op
