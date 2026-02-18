@@ -35,6 +35,31 @@ EXPRESSIONS = {
 THRESHOLDS_MS = {"simple": 1, "medium": 2, "complex": 5, "heavy": 10, "sick": 50}
 
 
+# Parenthesized / LaTeX expressions — stresses paren matching & recursive tokenize
+PAREN_EXPRESSIONS = {
+    "paren_simple": "(2 + 3) * 4",
+    "paren_medium": "((1+2)*(3+4)) / ((5-6)+(7*8))",
+    "paren_complex": "[(34+5)*(4*{3+5})+4] - [{2+1}*(7-3)]",
+    "paren_heavy": (
+        "[(34+5)*(4*{\\frac{4}{3*5}})+4]"
+        " + ((1+2)*(3+4))/((5-6)/(7*8))"
+        " - [\\frac{100}{\\sqrt{25}} + {3*\\frac{7}{2}}]"
+        " + sin(cos(45)) * (2^3)"
+    ),
+    "paren_sick": (
+        "[(34+5)*(4*{\\frac{4}{{3*5}}})+4]"
+        " + {\\frac{\\frac{1}{2}}{\\frac{3}{4}}}"
+        " * [((1+2)*(3+4))/((5-6)/(7*8))]"
+        " - \\sqrt{\\frac{144}{\\frac{12}{1}}}"
+        " + [{\\frac{sin(30)}{cos(60)}} * (tan(45) + 1)]"
+        " / ((2^3^2) - {\\frac{100}{\\sqrt{25}}})"
+        " - \\sqrt{\\frac{144}{\\frac{12}{1}}}"
+        " + [{\\frac{sin(30)}{cos(60)}} * (tan(45) + 1)]"
+        " / ((2^3^2) - {\\frac{100}{\\sqrt{25}}})"
+    ),
+}
+
+
 def _make_pipeline_func(expr: str):
     calc = Calculator()
 
@@ -84,5 +109,19 @@ def test_shunting_yard_benchmark(benchmark, name: str):
         benchmark,
         _make_shunting_func(EXPRESSIONS[name]),
         group="Shunting Yard",
+        name=name,
+    )
+
+
+@pytest.mark.benchmark
+@pytest.mark.parametrize(
+    "name",
+    ["paren_simple", "paren_medium", "paren_complex", "paren_heavy", "paren_sick"],
+)
+def test_tokenize_paren_benchmark(benchmark, name: str):
+    run_benchmark(
+        benchmark,
+        _make_tokenize_func(PAREN_EXPRESSIONS[name]),
+        group="Tokenize Paren/LaTeX",
         name=name,
     )

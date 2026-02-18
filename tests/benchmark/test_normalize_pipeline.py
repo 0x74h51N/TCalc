@@ -1,10 +1,7 @@
 """Normalize benchmark tests.
 
 Tests the REAL normalize pipeline through Expression widget.
-Text input → controller → apply_normalized_text flow.
-
-NOTE: Expressions avoid /, ^, sqrt, pow, div operators
-to bypass ExpressionNode render and test ONLY normalization cost.
+Text input -> controller -> Expression -> Calc_native::tokenize -> apply_normalized_text flow.
 """
 
 from __future__ import annotations
