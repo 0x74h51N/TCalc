@@ -24,3 +24,4 @@ calc_native*.so
 stubs/
 
 *memray*
+*flamegraph*

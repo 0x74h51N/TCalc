@@ -35,6 +35,7 @@ dev = [
   "pytest-benchmark>=4.0.0",
   "pytest-qt>=4.4.0",
   "pytest-memray>=1.7.0",
+  "pyinstrument>=4.1.0"
 ]
 
 [project.scripts]

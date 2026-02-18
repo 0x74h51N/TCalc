@@ -122,6 +122,6 @@ def test_tokenize_paren_benchmark(benchmark, name: str):
     run_benchmark(
         benchmark,
         _make_tokenize_func(PAREN_EXPRESSIONS[name]),
-        group="Tokenize Paren/LaTeX",
+        group="Tokenize Paren-LaTeX",
         name=name,
     )
