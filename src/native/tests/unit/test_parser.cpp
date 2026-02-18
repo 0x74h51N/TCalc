@@ -867,4 +867,79 @@ void unit_parser(TestContext &ctx) {
             EXPECT_EQ(ctx, p::shunting_yard(tc.input), tc.expected);
         });
     }
+
+    //  match_parens
+
+    const auto pair_of = [](const std::vector<Token> &toks, std::size_t idx) -> std::size_t {
+        return std::get<ParenToken>(toks[idx].data).pair_idx;
+    };
+
+    test_detail::with_case(ctx, "match_parens :: simple parens", [&] {
+        // (1+2) → tokens: ( 1 + 2 )   indices: 0 1 2 3 4
+        auto result = p::tokenize("(1+2)");
+        EXPECT_EQ(ctx, pair_of(result.tokens, 0), 4UL);
+        EXPECT_EQ(ctx, pair_of(result.tokens, 4), 0UL);
+    });
+
+    test_detail::with_case(ctx, "match_parens :: nested same kind", [&] {
+        // ((1)) → ( ( 1 ) )   indices: 0 1 2 3 4
+        auto result = p::tokenize("((1))");
+        EXPECT_EQ(ctx, pair_of(result.tokens, 0), 4UL);
+        EXPECT_EQ(ctx, pair_of(result.tokens, 1), 3UL);
+        EXPECT_EQ(ctx, pair_of(result.tokens, 3), 1UL);
+        EXPECT_EQ(ctx, pair_of(result.tokens, 4), 0UL);
+    });
+
+    test_detail::with_case(ctx, "match_parens :: mixed kinds nested", [&] {
+        // ({[1]}) → ( { [ 1 ] } )   indices: 0 1 2 3 4 5 6
+        auto result = p::tokenize("({[1]})");
+        EXPECT_EQ(ctx, pair_of(result.tokens, 0), 6UL); // ( <-> )
+        EXPECT_EQ(ctx, pair_of(result.tokens, 1), 5UL); // { <-> }
+        EXPECT_EQ(ctx, pair_of(result.tokens, 2), 4UL); // [ <-> ]
+        EXPECT_EQ(ctx, pair_of(result.tokens, 4), 2UL);
+        EXPECT_EQ(ctx, pair_of(result.tokens, 5), 1UL);
+        EXPECT_EQ(ctx, pair_of(result.tokens, 6), 0UL);
+    });
+
+    test_detail::with_case(ctx, "match_parens :: sequential groups", [&] {
+        // (1)+(2) → ( 1 ) + ( 2 )   indices: 0 1 2 3 4 5 6
+        auto result = p::tokenize("(1)+(2)");
+        EXPECT_EQ(ctx, pair_of(result.tokens, 0), 2UL);
+        EXPECT_EQ(ctx, pair_of(result.tokens, 2), 0UL);
+        EXPECT_EQ(ctx, pair_of(result.tokens, 4), 6UL);
+        EXPECT_EQ(ctx, pair_of(result.tokens, 6), 4UL);
+    });
+
+    test_detail::with_case(ctx, "match_parens :: unmatched open", [&] {
+        // (1+2 → ( 1 + 2
+        auto result = p::tokenize("(1+2");
+        EXPECT_EQ(ctx, pair_of(result.tokens, 0), p::kNoMatch);
+    });
+
+    test_detail::with_case(ctx, "match_parens :: unmatched close", [&] {
+        // 1+2) → 1 + 2 )
+        auto result = p::tokenize("1+2)");
+        EXPECT_EQ(ctx, pair_of(result.tokens, 3), p::kNoMatch);
+    });
+
+    test_detail::with_case(ctx, "match_parens :: complex expression", [&] {
+        // [(34+5)*(4*{3+5})+4]
+        // [  (  34 +  5  )  *  (  4  *  {  3  +  5  }  )  +  4  ]
+        // 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18
+        auto result = p::tokenize("[(34+5)*(4*{3+5})+4]");
+        EXPECT_EQ(ctx, pair_of(result.tokens, 0), 18UL); // [ <-> ]
+        EXPECT_EQ(ctx, pair_of(result.tokens, 1), 5UL);  // ( <-> )
+        EXPECT_EQ(ctx, pair_of(result.tokens, 5), 1UL);
+        EXPECT_EQ(ctx, pair_of(result.tokens, 7), 15UL);  // ( <-> )
+        EXPECT_EQ(ctx, pair_of(result.tokens, 10), 14UL); // { <-> }
+        EXPECT_EQ(ctx, pair_of(result.tokens, 14), 10UL);
+        EXPECT_EQ(ctx, pair_of(result.tokens, 15), 7UL);
+        EXPECT_EQ(ctx, pair_of(result.tokens, 18), 0UL);
+    });
+
+    test_detail::with_case(ctx, "match_parens :: no parens", [&] {
+        auto result = p::tokenize("1+2");
+        // No paren tokens, nothing to check — just ensure no crash.
+        EXPECT_EQ(ctx, result.tokens.size(), 3UL);
+    });
 }
