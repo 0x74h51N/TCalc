@@ -191,6 +191,7 @@ class FakeTokenKind:
     Number = "number"
     Op = "op"
     Expr = "expr"
+    Paren = "paren"
 
 
 def _cx_sqrt(x: float) -> bool:
