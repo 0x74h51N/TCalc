@@ -8,12 +8,15 @@ from PySide6.QtGui import QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
+    QHBoxLayout,
+    QLineEdit,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
 from tcalc.core.ops import LatexExpr
+from tcalc.ui.components.math_primitives import CurlyBrace, RoundParen, SquareBracket
 from tcalc.ui.widgets.calc.display.expression.expression_node import (
     ExpressionNode,
     ExpressionSlot,
@@ -253,3 +256,170 @@ class RootWidget(ExpressionNode):
         super().resizeEvent(event)
         h = self.radicand.height()
         self.sqrt_symbol.setFixedHeight(h)
+
+
+class ParenWidget(ExpressionNode):
+    """Base class for parenthesis widgets."""
+
+    SYMBOL = None
+    PAREN_KIND: calc_native.ParenKind
+
+    def __init__(
+        self,
+        editor: Expression,
+        open_token: calc_native.ParenToken,
+        inner_tokens: list[calc_native.Token],
+        close_token: calc_native.ParenToken | None = None,
+    ) -> None:
+        super().__init__(editor, None, None)
+        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+
+        self._editor = editor
+        self._open_token = open_token
+        self._close_token = close_token
+        self._paren_kind = open_token.kind
+
+        close_symbol = close_token.symbol if close_token is not None else None
+        self._left_slot: ExpressionSlot = ExpressionSlot(
+            editor,
+            kind=InputKind.AUX,
+            key="midSlot",
+            align=InputAlign.TOP,
+            paren=(open_token.symbol, close_symbol),
+        )
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(self._left_slot, 0, Qt.AlignmentFlag.AlignHCenter)
+
+        self._left_slot.default_input().setText(tokens_to_text(inner_tokens))
+
+        self._open_glyph: QWidget | None = self._create_open()
+        if self._open_glyph is not None:
+            self._left_slot.insert_widget(0, self._open_glyph)
+
+        self._close_glyph: QWidget | None = None
+        if close_token is not None:
+            self._attach_close_glyph()
+
+        self._left_slot._on_node_removed = self._on_inner_node_removed
+
+    def _create_open(self) -> QWidget | None:
+        """Return the opening glyph widget, or *None* to draw nothing."""
+        return None
+
+    def _create_close(self) -> QWidget | None:
+        """Return the closing glyph widget, or *None* to draw nothing."""
+        return None
+
+    # Public API
+
+    def set_close(self, close_token: calc_native.ParenToken) -> None:
+        """Attach a close paren that was typed later in a different segment."""
+        self._close_token = close_token
+        self._left_slot._paren = (self._open_token.symbol, close_token.symbol)
+        if self._close_glyph is None:
+            self._attach_close_glyph()
+
+    def to_plain_text(self) -> str:
+        return self._left_slot.to_plain_text()
+
+    def focus_default(self) -> None:
+        le = self._left_slot.default_input()
+        if not le.text():
+            le.setFocus()
+
+    def remove(self) -> None:
+        """Remove close glyph if there is."""
+        if self._close_glyph is not None:
+            self._detach_close_glyph()
+            self._editor._pending_parens.setdefault(self._paren_kind, []).append(self)
+            return
+
+        self._dissolve()
+
+    def _dissolve(self) -> None:
+        """Remove this ParenWidget, writing its content back as plain text."""
+        stack = self._editor._pending_parens.get(self._paren_kind)
+        if stack and self in stack:
+            stack.remove(self)
+            if not stack:
+                del self._editor._pending_parens[self._paren_kind]
+
+        plain = self.to_plain_text()
+
+        parent = self.parent()
+        if isinstance(parent, ExpressionSlot):
+            idx = parent._segments.index(self)
+            left = parent._segments[idx - 1] if idx > 0 else None
+            if isinstance(left, QLineEdit):
+                cursor = len(left.text())
+                left.setText(left.text() + plain)
+                parent.remove(self)
+                left.setFocus()
+                left.setCursorPosition(cursor + len(plain))
+                return
+
+        super().remove()
+
+    def _on_inner_node_removed(self) -> None:
+        """Called when an ExpressionNode is removed from the inner slot."""
+        has_inner_node = any(isinstance(s, ExpressionNode) for s in self._left_slot._segments)
+        if not has_inner_node:
+            self._dissolve()
+
+    # Internal
+
+    def _attach_close_glyph(self) -> None:
+        if self._close_token is None:
+            return
+        self._close_glyph = self._create_close()
+        if self._close_glyph is not None:
+            self._left_slot.insert_widget(len(self._left_slot._segments), self._close_glyph)
+
+    def _detach_close_glyph(self) -> None:
+        if self._close_glyph is None:
+            return
+        self._left_slot._layout.removeWidget(self._close_glyph)
+        self._left_slot._segments.remove(self._close_glyph)
+        self._close_glyph.deleteLater()
+        self._close_glyph = None
+        self._close_token = None
+        self._left_slot._paren = (self._open_token.symbol, None)
+
+
+class BraceWidget(ParenWidget):
+    """Curly-brace parenthesis: ``{ … }``."""
+
+    PAREN_KIND = calc_native.ParenKind.Brace
+
+    def _create_open(self) -> QWidget:
+        return CurlyBrace(self._left_slot, True)
+
+    def _create_close(self) -> QWidget:
+        return CurlyBrace(self._left_slot, False)
+
+
+class RoundParenWidget(ParenWidget):
+    """Round parenthesis: ``( … )``."""
+
+    PAREN_KIND = calc_native.ParenKind.Paren
+
+    def _create_open(self) -> QWidget:
+        return RoundParen(self._left_slot, True)
+
+    def _create_close(self) -> QWidget:
+        return RoundParen(self._left_slot, False)
+
+
+class BracketWidget(ParenWidget):
+    """Square bracket: ``[ … ]``."""
+
+    PAREN_KIND = calc_native.ParenKind.Bracket
+
+    def _create_open(self) -> QWidget:
+        return SquareBracket(self._left_slot, True)
+
+    def _create_close(self) -> QWidget:
+        return SquareBracket(self._left_slot, False)
