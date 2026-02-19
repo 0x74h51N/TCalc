@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import pytest
+from PySide6.QtWidgets import QLineEdit
 
 from tcalc.core.ops import Operation
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
 from tcalc.ui.widgets.calc.display.expression.expression_node import ExpressionNode
-from tcalc.ui.widgets.calc.display.expression.widgets import FractionWidget, PowWidget
+from tcalc.ui.widgets.calc.display.expression.widgets import FractionWidget, ParenWidget, PowWidget
 
 DIV_SYM = Operation.DIV.symbol
 POW_SYM = Operation.POW.symbol
@@ -26,14 +27,10 @@ def _collect_nodes(container, nodes: list[ExpressionNode]) -> None:
             if isinstance(seg, ExpressionNode):
                 nodes.append(seg)
             _collect_nodes(seg, nodes)
-    if hasattr(container, "numerator"):
-        _collect_nodes(container.numerator, nodes)
-    if hasattr(container, "denominator"):
-        _collect_nodes(container.denominator, nodes)
-    if hasattr(container, "base"):
-        _collect_nodes(container.base, nodes)
-    if hasattr(container, "exponent"):
-        _collect_nodes(container.exponent, nodes)
+    for attr in ("_left_slot", "_right_slot"):
+        slot = getattr(container, attr, None)
+        if slot is not None:
+            _collect_nodes(slot, nodes)
 
 
 def get_fraction_parts(fraction: FractionWidget) -> tuple[str, str]:
@@ -412,6 +409,174 @@ class TestImplicitMultiplication:
         assert len(fractions) == expected_fracs
 
 
+class TestHandleNegate:
+    """Test handle_negate toggling unary minus based on cursor position."""
+
+    def _negate_at(self, expression_widget, qapp, text: str, cursor_pos: int) -> str:
+        """Set text in root input, position cursor, call handle_negate, return result."""
+        target = expression_widget._resolve_target()
+        target.setText(text)
+        target.setCursorPosition(cursor_pos)
+        qapp.processEvents()
+        expression_widget.handle_negate()
+        qapp.processEvents()
+        return target.text()
+
+    @pytest.mark.parametrize(
+        "text,cursor,expected",
+        [
+            # Simple number: 4| -> -4|
+            ("4", 1, "-4"),
+            # Toggle back: -4| -> 4|
+            ("-4", 2, "4"),
+            # After binary op: 4+6| -> 4+-6|
+            ("4 + 6", 5, "4 + -6"),
+            # Unclosed paren treated as normal: (4+6| -> (4+-6| (no closed group)
+            ("(4 + 6", 6, "(4 + -6"),
+            # Closed paren group: (4+6)| -> -(4+6)|
+            ("(4 + 6)", 7, "-(4 + 6)"),
+            # Toggle back closed paren group: -(4+6)| -> (4+6)|
+            ("-(4 + 6)", 8, "(4 + 6)"),
+            # Empty input: | -> -|
+            ("", 0, "-"),
+            # Just minus: -| -> |
+            ("-", 1, ""),
+            # Cursor mid-expression: 3(4|+3) — implicit mul, negate 4
+            ("3(4 + 3)", 4, "3(-4 + 3)"),
+            # Negate at start of inner content: 3(|4+3) — negate the operand after open paren
+            ("3(4 + 3)", 2, "3(-4 + 3)"),
+            # Number after operator: 2+3| -> 2+-3|
+            ("2 + 3", 5, "2 + -3"),
+            # Negate closed paren after operator: 2+(3+4)| -> 2+-(3+4)|
+            ("2 + (3 + 4)", 11, "2 + -(3 + 4)"),
+        ],
+    )
+    def test_negate_flat_text(self, expression_widget, qapp, text, cursor, expected):
+        """handle_negate on flat text (no ExpressionNodes) with cursor positioning."""
+        result = self._negate_at(expression_widget, qapp, text, cursor)
+        assert result == expected, (
+            f"negate({text!r}, cursor={cursor}) -> {result!r}, expected {expected!r}"
+        )
+
+    def test_negate_inside_fraction_numerator(self, expression_widget, set_expression, qapp):
+        """Negate inside a fraction numerator: \\frac{3}{4} -> \\frac{-3}{4}."""
+        set_expression("\\frac{3}{4}")
+
+        nodes = get_all_expression_nodes(expression_widget)
+        assert len(nodes) == 1
+        frac = nodes[0]
+        assert isinstance(frac, FractionWidget)
+
+        num_input = frac.numerator.line_edits()[0]
+        num_input.setFocus()
+        num_input.setCursorPosition(len(num_input.text()))
+        qapp.processEvents()
+
+        expression_widget.handle_negate()
+        qapp.processEvents()
+
+        assert num_input.text() == "-3"
+
+    def test_negate_inside_fraction_denominator(self, expression_widget, set_expression, qapp):
+        """Negate inside a fraction denominator: \\frac{3}{4} -> \\frac{3}{-4}."""
+        set_expression("\\frac{3}{4}")
+
+        nodes = get_all_expression_nodes(expression_widget)
+        frac = nodes[0]
+        assert isinstance(frac, FractionWidget)
+
+        den_input = frac.denominator.line_edits()[0]
+        den_input.setFocus()
+        den_input.setCursorPosition(len(den_input.text()))
+        qapp.processEvents()
+
+        expression_widget.handle_negate()
+        qapp.processEvents()
+
+        assert den_input.text() == "-4"
+
+    def test_negate_cursor_after_fraction(self, expression_widget, set_expression, qapp):
+        """Negate with cursor on empty input after fraction inserts '-' in the segment before the node."""
+        set_expression("1 + \\frac{2}{3}")
+        qapp.processEvents()
+
+        # Root segments: [QLineEdit("1 + "), FractionWidget, QLineEdit("")]
+        root = expression_widget._root
+        segs = root._segments
+        after_input = segs[-1]
+        assert isinstance(after_input, QLineEdit)
+        assert after_input.text() == ""
+
+        before_input = segs[0]
+        assert isinstance(before_input, QLineEdit)
+        assert before_input.text() == "1 + "
+
+        after_input.setFocus()
+        after_input.setCursorPosition(0)
+        qapp.processEvents()
+
+        expression_widget.handle_negate()
+        qapp.processEvents()
+
+        # '-' appended to the segment before the fraction
+        assert before_input.text() == "1 + -"
+
+    def test_negate_cursor_after_fraction_toggle_back(
+        self, expression_widget, set_expression, qapp
+    ):
+        """Negate twice on empty input after fraction removes the '-' again."""
+        set_expression("1 + \\frac{2}{3}")
+        qapp.processEvents()
+
+        root = expression_widget._root
+        segs = root._segments
+        after_input = segs[-1]
+        before_input = segs[0]
+
+        after_input.setFocus()
+        after_input.setCursorPosition(0)
+        qapp.processEvents()
+
+        # First negate: insert '-'
+        expression_widget.handle_negate()
+        qapp.processEvents()
+        assert before_input.text() == "1 + -"
+
+        # Second negate: remove '-'
+        expression_widget.handle_negate()
+        qapp.processEvents()
+        assert before_input.text() == "1 + "
+
+    def test_negate_cursor_between_two_fractions(self, expression_widget, set_expression, qapp):
+        """Negate with cursor between two fractions uses the QLineEdit between them."""
+        set_expression("\\frac{1}{2}\\frac{3}{4}")
+        qapp.processEvents()
+
+        # Root segments: [QLineEdit(""), Frac, QLineEdit(""), Frac, QLineEdit("")]
+        root = expression_widget._root
+        segs = root._segments
+
+        # Find the middle QLineEdit (between the two fractions)
+        mid_input = segs[2]
+        assert isinstance(mid_input, QLineEdit)
+        assert mid_input.text() == ""
+
+        # The QLineEdit before the first fraction
+        first_input = segs[0]
+        assert isinstance(first_input, QLineEdit)
+
+        mid_input.setFocus()
+        mid_input.setCursorPosition(0)
+        qapp.processEvents()
+
+        expression_widget.handle_negate()
+        qapp.processEvents()
+
+        # '-' inserted into the middle QLineEdit itself (it IS a QLineEdit, cursor prefix empty,
+        # prev segment is first Frac → walk back to segs[0])
+        assert first_input.text() == "-"
+
+
 class TestNodeRemovalDetailed:
     """Detailed tests for node removal via backspace."""
 
@@ -437,3 +602,91 @@ class TestNodeRemovalDetailed:
         # Node should be removed or merged
         nodes_after = get_all_expression_nodes(expression_widget)
         assert len(nodes_after) <= len(nodes_before)
+
+
+class TestParenWidget:
+    """Test ParenWidget creation and close-paren matching across segments."""
+
+    def test_paste_brace_frac_creates_paren_widget(self, expression_widget, set_expression, qapp):
+        """Pasting {\\frac{3}{4}} should create ParenWidget wrapping FractionWidget."""
+        set_expression("{\\frac{3}{4}}")
+
+        nodes = get_all_expression_nodes(expression_widget)
+        paren_nodes = [n for n in nodes if isinstance(n, ParenWidget)]
+        frac_nodes = [n for n in nodes if isinstance(n, FractionWidget)]
+        assert len(paren_nodes) == 1, f"Expected 1 ParenWidget, got {len(paren_nodes)}"
+        assert len(frac_nodes) == 1, f"Expected 1 FractionWidget, got {len(frac_nodes)}"
+
+        result = expression_widget.get_plain_text()
+        assert "\\frac{3}{4}" in result
+
+    def test_sequential_brace_frac_creates_paren_widget(self, expression_widget, qapp):
+        """Sequential typing: { then \\frac then 3,4 then } → ParenWidget + FractionWidget."""
+        import calc_native
+
+        # Step 1: type open brace
+        target = expression_widget._resolve_target()
+        target.setText("{")
+        target.setCursorPosition(1)
+        qapp.processEvents()
+
+        # Step 2: press frac key — inserts \frac{}{} at cursor
+        expression_widget.insert_expr_str(calc_native.ExprKind.Frac)
+        qapp.processEvents()
+
+        # At this point we should have a ParenWidget (open, no close) with FractionWidget inside
+        nodes = get_all_expression_nodes(expression_widget)
+        paren_nodes = [n for n in nodes if isinstance(n, ParenWidget)]
+        assert len(paren_nodes) >= 1, "ParenWidget should be created after { + \\frac"
+
+        # The ParenWidget should be pending (no close yet)
+        assert len(expression_widget._pending_parens) == 1
+
+        # Step 3: type 3 in numerator, 4 in denominator
+        frac_nodes = [n for n in nodes if isinstance(n, FractionWidget)]
+        assert len(frac_nodes) == 1
+        frac = frac_nodes[0]
+
+        frac.numerator.default_input().setText("3")
+        qapp.processEvents()
+        frac.denominator.default_input().setText("4")
+        qapp.processEvents()
+
+        # Step 4: find the suffix input (after ParenWidget in parent slot) and type }
+        # The ParenWidget's parent slot has segments: [..., ParenWidget, QLineEdit("")]
+        parent_slot = paren_nodes[0].parent()
+        seg_idx = parent_slot._segments.index(paren_nodes[0])
+        suffix_input = parent_slot._segments[seg_idx + 1]
+        assert isinstance(suffix_input, QLineEdit)
+
+        suffix_input.setText("}")
+        qapp.processEvents()
+
+        # Pending should be cleared
+        assert len(expression_widget._pending_parens) == 0, "Close brace should match pending open"
+
+        # ParenWidget should now have close brace
+        assert paren_nodes[0]._close_token is not None, "ParenWidget should have close token"
+
+        # Verify serialization
+        result = expression_widget.get_plain_text()
+        assert "\\frac{3}{4}" in result
+
+    def test_pending_parens_cleared_on_reset(self, expression_widget, qapp):
+        """set_plain_text should clear pending parens state."""
+        import calc_native
+
+        target = expression_widget._resolve_target()
+        target.setText("{")
+        target.setCursorPosition(1)
+        qapp.processEvents()
+
+        expression_widget.insert_expr_str(calc_native.ExprKind.Frac)
+        qapp.processEvents()
+
+        assert len(expression_widget._pending_parens) >= 1
+
+        expression_widget.set_plain_text("5")
+        qapp.processEvents()
+
+        assert len(expression_widget._pending_parens) == 0
