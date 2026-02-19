@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <optional>
 #include <variant>
 #include "parser/pub/ops.hpp"
 
@@ -15,23 +16,45 @@ struct Token;
 using tcalc::ops::OpId;
 using Value = std::string;
 
-enum class ParenType : uint8_t { Open, Close };
+inline constexpr std::array<std::array<char, 3>, 2> kSymbolTable = {
+    {{'(', '{', '['}, {')', '}', ']'}}};
 
-enum class ParenKind : uint8_t { Paren, Brace, Bracket };
+enum class ParenType : std::uint8_t { Open = 0, Close = 1 };
+
+enum class ParenKind : std::uint8_t { Paren = 0, Brace = 1, Bracket = 2 };
 
 struct Paren {
-    std::string_view symbol;
     ParenType type;
     ParenKind kind;
 };
+inline constexpr std::size_t kAsciiTableSize = 256;
 
-constexpr std::array kParens = {
-    Paren{"(", ParenType::Open, ParenKind::Paren},
-    Paren{")", ParenType::Close, ParenKind::Paren},
-    Paren{"{", ParenType::Open, ParenKind::Brace},
-    Paren{"}", ParenType::Close, ParenKind::Brace},
-    Paren{"[", ParenType::Open, ParenKind::Bracket},
-    Paren{"]", ParenType::Close, ParenKind::Bracket}};
+inline constexpr std::array<std::optional<Paren>, kAsciiTableSize> make_paren_table() {
+    std::array<std::optional<Paren>, kAsciiTableSize> table{};
+
+    table['('] = Paren{ParenType::Open, ParenKind::Paren};
+    table[')'] = Paren{ParenType::Close, ParenKind::Paren};
+
+    table['{'] = Paren{ParenType::Open, ParenKind::Brace};
+    table['}'] = Paren{ParenType::Close, ParenKind::Brace};
+
+    table['['] = Paren{ParenType::Open, ParenKind::Bracket};
+    table[']'] = Paren{ParenType::Close, ParenKind::Bracket};
+
+    return table;
+}
+
+inline constexpr auto kParenTable = make_paren_table();
+
+/// Lookup paren by character from kParens table.
+inline constexpr std::optional<Paren> match_paren(char c) {
+    return kParenTable[static_cast<unsigned char>(c)];
+}
+
+/// Return the symbol character for a paren type+kind pair.
+inline constexpr char paren_symbol(ParenType type, ParenKind kind) {
+    return kSymbolTable[static_cast<int>(type)][static_cast<int>(kind)];
+}
 
 enum class TokenKind : std::uint8_t { Number, Op, Paren, Expr };
 
@@ -76,10 +99,18 @@ struct OpToken {
     bool operator==(const OpToken &) const = default;
 };
 
+/// npos sentinel for unmatched parentheses.
+inline constexpr std::size_t kNoMatch = static_cast<std::size_t>(-1);
+
 struct ParenToken {
     ParenType type;
     ParenKind kind;
-    bool operator==(const ParenToken &) const = default;
+    /// Token index of the matching open/close counterpart.
+    /// Set by match_parens(); kNoMatch if unmatched.
+    std::size_t pair_idx = kNoMatch;
+
+    /// Semantic equality: type + kind only (pair_idx is metadata).
+    bool operator==(const ParenToken &o) const { return type == o.type && kind == o.kind; }
 };
 
 struct ExprToken {
@@ -101,6 +132,7 @@ struct Token {
 struct TokenizeResult {
     std::vector<Token> tokens{};
     std::vector<std::size_t> expr_indices{};
+    std::vector<std::size_t> paren_indices{};
     bool operator==(const TokenizeResult &) const = default;
 };
 

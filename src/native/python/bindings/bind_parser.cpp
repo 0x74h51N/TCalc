@@ -44,11 +44,6 @@ void bind_parser(py::module_ &m) {
         .value("Brace", ParenKind::Brace)
         .value("Bracket", ParenKind::Bracket);
 
-    py::class_<tcalc::parser::Paren>(m, "Paren")
-        .def_readonly("symbol", &tcalc::parser::Paren::symbol)
-        .def_readonly("type", &tcalc::parser::Paren::type)
-        .def_readonly("kind", &tcalc::parser::Paren::kind);
-
     py::enum_<OpId>(
         m, "OpId", "Operation identifiers used by tokens and op_table; maps to engine methods.")
         .value("Add", OpId::Add)
@@ -111,18 +106,6 @@ void bind_parser(py::module_ &m) {
         "Return list of LatexEntry objects from the native LaTeX expression table.",
         py::return_value_policy::reference);
 
-    m.def(
-        "parentheses",
-        []() {
-            py::list out;
-            for (auto &p : tcalc::parser::kParens) {
-                out.append(&p);
-            }
-            return out;
-        },
-        "Return list of native Paren objects",
-        py::return_value_policy::reference);
-
     // NumberToken
     py::class_<NumberToken>(m, "NumberToken").def_readonly("value", &NumberToken::value);
 
@@ -133,12 +116,9 @@ void bind_parser(py::module_ &m) {
     py::class_<ParenToken>(m, "ParenToken")
         .def_readonly("type", &ParenToken::type)
         .def_readonly("kind", &ParenToken::kind)
+        .def_readonly("pair_idx", &ParenToken::pair_idx)
         .def_property_readonly("symbol", [](const ParenToken &p) -> std::string {
-            for (auto &paren : tcalc::parser::kParens) {
-                if (paren.type == p.type && paren.kind == p.kind)
-                    return std::string(paren.symbol);
-            }
-            return "";
+            return std::string(1, tcalc::parser::paren_symbol(p.type, p.kind));
         });
 
     py::class_<ExprToken> ExprToken_(m, "ExprToken");
@@ -181,7 +161,8 @@ void bind_parser(py::module_ &m) {
 
     py::class_<TokenizeResult>(m, "TokenizeResult", "Result of tokenization with metadata.")
         .def_readonly("tokens", &TokenizeResult::tokens)
-        .def_readonly("expr_indices", &TokenizeResult::expr_indices);
+        .def_readonly("expr_indices", &TokenizeResult::expr_indices)
+        .def_readonly("paren_indices", &TokenizeResult::paren_indices);
 
     py::enum_<tcalc::ops::Assoc>(m, "OpAssoc", "Operator associativity.")
         .value("Left", tcalc::ops::Assoc::Left)
@@ -234,6 +215,8 @@ void bind_parser(py::module_ &m) {
         },
         "Return list of OpSpec objects from the native operation table.",
         py::return_value_policy::reference);
+
+    m.attr("PAREN_NO_MATCH") = tcalc::parser::kNoMatch;
 
     m.def("tokenize_string", &tcalc::parser::tokenize, py::arg("expression"));
     m.def("shunting_yard", &tcalc::parser::shunting_yard, py::arg("tokens"));
