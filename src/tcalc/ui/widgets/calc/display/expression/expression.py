@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.core.ops import Operation, get_symbols_with_aliases
-from tcalc.core.parser import tokenize, tokenize_string
+from tcalc.core.parser import tokenize
 from tcalc.ui.widgets.calc.config import display_config, font_scale_config
 from tcalc.ui.widgets.calc.display.expression.expression_node import (
     ExpressionNode,
@@ -21,15 +21,21 @@ from tcalc.ui.widgets.calc.display.expression.expression_node import (
     InputAlign,
     InputKind,
 )
-from tcalc.ui.widgets.calc.display.expression.widgets import FractionWidget, PowWidget, RootWidget
+from tcalc.ui.widgets.calc.display.expression.widgets import (
+    BraceWidget,
+    BracketWidget,
+    FractionWidget,
+    ParenWidget,
+    PowWidget,
+    RootWidget,
+    RoundParenWidget,
+)
 from tcalc.ui.widgets.utils import apply_scaled_fonts
 
 from .utils import (
     format_expr_str,
     space_binary_ops,
     split_operand,
-    split_paren,
-    token_text,
     tokens_to_text,
     update_autowidth,
 )
@@ -45,6 +51,12 @@ class Expression(QWidget):
         FractionWidget.EXPR_KIND: FractionWidget,
         PowWidget.EXPR_KIND: PowWidget,
         RootWidget.EXPR_KIND: RootWidget,
+    }
+
+    PAREN_KIND_MAP: dict[calc_native.ParenKind, type[ParenWidget]] = {
+        BraceWidget.PAREN_KIND: BraceWidget,
+        RoundParenWidget.PAREN_KIND: RoundParenWidget,
+        BracketWidget.PAREN_KIND: BracketWidget,
     }
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -69,6 +81,7 @@ class Expression(QWidget):
         self._operator_symbol_values = get_symbols_with_aliases()
         self._operator_symbol_values.discard(Operation.IMAG.symbol)
         self._pending_seg: Optional[QLineEdit] = None
+        self._pending_parens: dict[calc_native.ParenKind, list[ParenWidget]] = {}
 
         app = QApplication.instance()
         if isinstance(app, QApplication):
@@ -114,6 +127,7 @@ class Expression(QWidget):
 
     def set_plain_text(self, text: str) -> None:
         le = self._root.reset()
+        self._pending_parens.clear()
         self._last_focused = le
         le.setFocus()
 
@@ -211,50 +225,82 @@ class Expression(QWidget):
 
         target.backspace()
 
+    def _find_prev_line_edit(self, target: QLineEdit) -> QLineEdit | None:
+        """Walk backwards through parent slot segments to find a QLineEdit before *target*.
+
+        Skips over consecutive ExpressionNode segments finds the first last QLineEdit."""
+        slot = target.parent()
+        if not isinstance(slot, ExpressionSlot):
+            return None
+        segs = slot._segments
+        try:
+            idx = segs.index(target)
+        except ValueError:
+            return None
+        for i in range(idx - 1, -1, -1):
+            seg = segs[i]
+            if isinstance(seg, QLineEdit):
+                return seg
+        return None
+
     def handle_negate(self) -> None:
-        """Toggle unary minus for the current token sequence."""
+        """Toggle unary minus for the operand at the cursor position."""
         target, prefix, suffix = self._split_target_at_cursor()
+        minus = Operation.SUB.symbol
 
-        def apply_prefix(new_prefix: str) -> None:
-            target.setText(new_prefix + suffix)
-            target.setCursorPosition(len(new_prefix))
-
-        if prefix in ("", Operation.SUB.symbol):
-            apply_prefix("" if prefix else Operation.SUB.symbol)
-            return
-
-        toks = tokenize_string(prefix)
-        parts = []
-        for t in toks:
-            op = t.as_op()
-            parts.append((op.op_id if op else None, str(token_text(t))))
-
-        paren_split = split_paren(list(toks))
-        paren_start = len(paren_split[0]) if paren_split else None
-
-        for i in range(len(parts) - 1, -1, -1):
-            txt = parts[i][1]
-
-            if paren_start is not None and i > paren_start:
-                continue
-            if txt in self._operator_symbol_values and not (
-                paren_start is not None and i == paren_start and txt == Operation.OPEN_PAREN.symbol
-            ):
-                continue
-
-            unary_prev = (
-                i > 0
-                and parts[i - 1][1] == Operation.SUB.symbol
-                and (i == 1 or parts[i - 2][1] in self._operator_symbol_values)
-            )
-
-            if unary_prev:
-                parts.pop(i - 1)
+        # prefix empty: look at previous segments
+        if not prefix:
+            prev = self._find_prev_line_edit(target)
+            if prev is not None:
+                # Toggle minus at the end of the previous QLineEdit
+                txt = prev.text()
+                if txt.endswith(minus):
+                    prev.setText(txt[: -len(minus)])
+                else:
+                    prev.setText(txt + minus)
+                return
+            # No previous segment — toggle bare minus in current target
+            if suffix.startswith(minus):
+                suffix = suffix[len(minus) :]
             else:
-                parts.insert(i, (calc_native.OpId.Negate, Operation.SUB.symbol))
-
-            apply_prefix(space_binary_ops(parts))
+                suffix = minus + suffix
+            target.setText(suffix)
+            target.setCursorPosition(0 if suffix != minus else len(minus))
             return
+
+        # bare minus only
+        if prefix == minus and not suffix:
+            target.setText("")
+            target.setCursorPosition(0)
+            return
+
+        # tokenize prefix, find trailing operand
+        toks = tokenize(prefix).tokens
+        pre_toks, operand_toks = split_operand(toks)
+
+        if operand_toks:
+            op_start = operand_toks[0].start_pos
+            # Check for existing unary minus right before the operand
+            if (
+                pre_toks
+                and isinstance(pre_toks[-1].data, calc_native.OpToken)
+                and pre_toks[-1].data.op_id == calc_native.OpId.Negate
+            ):
+                # Remove the negate
+                new_prefix = prefix[: pre_toks[-1].start_pos] + prefix[op_start:]
+            else:
+                # Insert negate
+                new_prefix = prefix[:op_start] + minus + prefix[op_start:]
+        else:
+            # No trailing operand — toggle minus at the start of suffix
+            if suffix.startswith(minus):
+                suffix = suffix[len(minus) :]
+            else:
+                suffix = minus + suffix
+            new_prefix = prefix
+
+        target.setText(new_prefix + suffix)
+        target.setCursorPosition(len(new_prefix))
 
     def apply_key(self, label: str, op: Operation) -> None:
         """Insert operator text."""
@@ -281,7 +327,10 @@ class Expression(QWidget):
         # Insert empty expr at cursor, _add_exp_node handles split_operand
         text = target.text()
         cursor = target.cursorPosition()
-        target.setText(text[:cursor] + format_expr_str(widget_cls.SYMBOL, "", "") + text[cursor:])
+        symbol = widget_cls.SYMBOL
+        if symbol is None:
+            return
+        target.setText(text[:cursor] + format_expr_str(symbol, "", "") + text[cursor:])
 
         self.plain_text_changed.emit(self.get_plain_text())
 
@@ -364,35 +413,81 @@ class Expression(QWidget):
                     continue
 
                 result = tokenize(text)
-
                 tokens = result.tokens
+
+                # Close-paren path: match against a pending open ParenWidget
+                if not result.expr_indices and self._pending_parens:
+                    if self._try_close_paren(seg, tokens):
+                        continue
+
                 if not result.expr_indices:
                     if "\\" not in text:
                         self._normalize_text(seg, tokens)
                     continue
 
-                idx = result.expr_indices[0]
-                expr_tok = tokens[idx].as_expr()
-                before_tokens = tokens[:idx]
-                after_tokens = tokens[idx + 1 :]
+                no_match = calc_native.PAREN_NO_MATCH
+                paren_first = result.paren_indices[0] if result.paren_indices else None
+                expr_first = result.expr_indices[0]
 
-                # If expr has content (pasted), use it; otherwise split from surrounding tokens
-                if expr_tok.left:
-                    prefix_tokens, left_tokens = before_tokens, expr_tok.left
+                # Paren path: open paren before the first expr token
+                # with a registered widget class in PAREN_KIND_MAP.
+                open_paren_tok: calc_native.ParenToken | None = None
+                paren_cls: type[ParenWidget] | None = None
+                if paren_first is not None and paren_first < expr_first:
+                    _ptok = tokens[paren_first].as_paren()
+                    paren_cls = self.PAREN_KIND_MAP.get(_ptok.kind)
+                    if paren_cls is not None:
+                        open_paren_tok = _ptok
+
+                if open_paren_tok is not None and paren_cls is not None:
+                    assert paren_first is not None
+                    pair = open_paren_tok.pair_idx
+                    has_close = pair != no_match and pair > expr_first
+
+                    if has_close:
+                        paren_end = pair + 1
+                        close_tok = tokens[pair].as_paren()
+                    else:
+                        paren_end = len(tokens)
+                        close_tok = None
+
+                    prefix_tokens = tokens[:paren_first]
+                    inner_tokens = tokens[paren_first + 1 : paren_end - (1 if has_close else 0)]
+                    suffix_tokens = tokens[paren_end:] if has_close else []
+
+                    paren_node = paren_cls(self, open_paren_tok, inner_tokens, close_tok)
+
+                    if not has_close:
+                        self._pending_parens.setdefault(open_paren_tok.kind, []).append(paren_node)
+
+                    node: ExpressionNode = paren_node
+
+                # Expr path: LaTeX expression (e.g. \frac, \pow)
                 else:
-                    prefix_tokens, left_tokens = split_operand(before_tokens)
+                    idx = expr_first
+                    expr_tok = tokens[idx].as_expr()
+                    before_tokens = tokens[:idx]
+                    after_tokens = tokens[idx + 1 :]
 
-                if expr_tok.right:
-                    right_tokens, suffix_tokens = expr_tok.right, after_tokens
-                else:
-                    right_tokens, suffix_tokens = split_operand(after_tokens, lead=True)
+                    # If expr has content (pasted), use it; otherwise split from surrounding tokens
+                    if expr_tok.left:
+                        prefix_tokens, left_tokens = before_tokens, expr_tok.left
+                    else:
+                        prefix_tokens, left_tokens = split_operand(before_tokens)
 
-                widget_cls = self.EXPR_KIND_MAP.get(expr_tok.kind)
+                    if expr_tok.right:
+                        right_tokens, suffix_tokens = expr_tok.right, after_tokens
+                    else:
+                        right_tokens, suffix_tokens = split_operand(
+                            after_tokens, lead=True, base_offset=idx + 1
+                        )
 
-                if widget_cls is None:
-                    return
+                    widget_cls = self.EXPR_KIND_MAP.get(expr_tok.kind)
 
-                node = widget_cls(self, left_tokens, right_tokens)
+                    if widget_cls is None:
+                        return
+
+                    node = widget_cls(self, left_tokens, right_tokens)
 
                 self._insert_node(slot, seg, prefix_tokens, node, suffix_tokens)
                 dirty_inputs.update(node.line_edits())
@@ -408,6 +503,33 @@ class Expression(QWidget):
             self._rendering = False
             for le in dirty_inputs:
                 update_autowidth(le)
+
+    def _try_close_paren(self, seg: QLineEdit, tokens: list[calc_native.Token]) -> bool:
+        """Check if the first token is a close paren that matches a pending open.
+
+        If matched: send close to the ParenWidget, strip close from segment text.
+        Returns True if a match was consumed.
+        """
+        if not tokens:
+            return False
+
+        first = tokens[0]
+        if not isinstance(first.data, calc_native.ParenToken):
+            return False
+        if first.data.type != calc_native.ParenType.Close:
+            return False
+
+        stack = self._pending_parens.get(first.data.kind)
+        if not stack:
+            return False
+
+        pw = stack.pop()
+        if not stack:
+            del self._pending_parens[first.data.kind]
+
+        pw.set_close(first.data)
+        seg.setText(tokens_to_text(tokens[1:]))
+        return True
 
     #
     #

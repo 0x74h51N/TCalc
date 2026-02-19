@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from collections import defaultdict
-
 import calc_native
 from PySide6.QtWidgets import QLineEdit
 
@@ -84,50 +82,18 @@ def space_binary_ops(parts: list[tuple[calc_native.OpId | None, str]]) -> str:
     return "".join(out)
 
 
-def split_paren(tokens: list[calc_native.Token], lead: bool = True):
-    """Split tokens at a balanced paren group (matching ParenKind), tracking all types."""
-
-    if not tokens:
-        return None
-
-    indices = range(len(tokens)) if lead else range(len(tokens) - 1, -1, -1)
-
-    depths: dict[calc_native.ParenKind, int] = defaultdict(int)
-    opening_index: int | None = None
-    opening_kind: calc_native.ParenKind | None = None
-
-    for i in indices:
-        tok = tokens[i]
-        if tok.kind != calc_native.TokenKind.Paren:
-            continue
-        if not isinstance(tok.data, calc_native.ParenToken):
-            continue
-
-        ptype = tok.data.type
-        pkind = tok.data.kind
-
-        if sum(depths.values()) == 0 and ptype == calc_native.ParenType.Open:
-            opening_index = i
-            opening_kind = pkind
-
-        if ptype == calc_native.ParenType.Open:
-            depths[pkind] += 1
-        elif ptype == calc_native.ParenType.Close:
-            depths[pkind] -= 1
-
-        if opening_index is not None and opening_kind is not None and depths[opening_kind] == 0:
-            split_at = i + 1 if lead else i
-            return tokens[opening_index:split_at], tokens[:opening_index] + tokens[split_at:]
-
-    return None
-
-
 def split_operand(
-    tokens: list[calc_native.Token], lead: bool = False
+    tokens: list[calc_native.Token], lead: bool = False, base_offset: int = 0
 ) -> tuple[list[calc_native.Token], list[calc_native.Token]]:
-    """Extract leading/trailing operand from tokens."""
+    """Extract leading/trailing operand from tokens.
+
+    base_offset: index offset of tokens[0] in the original token list.
+    Used to convert pair_idx (absolute) to a local index within this slice.
+    """
     if not tokens:
         return [], []
+
+    no_match = calc_native.PAREN_NO_MATCH
 
     if lead:
         first = tokens[0]
@@ -136,9 +102,14 @@ def split_operand(
             isinstance(first.data, calc_native.ParenToken)
             and first.data.type == calc_native.ParenType.Open
         ):
-            paren_split = split_paren(tokens, lead=True)
-            if paren_split:
-                return paren_split
+            pair = first.data.pair_idx
+            if pair != no_match:
+                local_end = pair - base_offset + 1
+            else:
+                local_end = len(tokens)
+            operand = tokens[:local_end]
+            suffix = tokens[local_end:]
+            return operand, suffix
 
         if is_number_token(first):
             return [first], tokens[1:]
@@ -148,14 +119,19 @@ def split_operand(
     # trailing (lead=False)
     last = tokens[-1]
 
-    # # (...) - paren group -> (3+4)/
+    # (...) - paren group -> (3+4)/
     if (
         isinstance(last.data, calc_native.ParenToken)
         and last.data.type == calc_native.ParenType.Close
     ):
-        paren_split = split_paren(tokens, lead=False)
-        if paren_split:
-            return paren_split
+        pair = last.data.pair_idx
+        if pair != no_match:
+            local_start = pair - base_offset
+        else:
+            local_start = 0
+        operand = tokens[local_start:]
+        prefix = tokens[:local_start]
+        return prefix, operand
 
     if is_number_token(last):
         return tokens[:-1], [last]
