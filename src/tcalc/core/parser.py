@@ -51,6 +51,10 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
             operand_stack.append(_coerce_token(tok.data.value))
             continue
 
+        # Stray parens left by shunting_yard (unclosed groups) -> skip at
+        if tok.kind == calc_native.TokenKind.Paren:
+            continue
+
         if tok.kind == calc_native.TokenKind.Expr:
             try:
                 expr_tok = tok.as_expr()
