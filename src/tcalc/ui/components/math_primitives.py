@@ -41,7 +41,7 @@ class MathPrimitive(QWidget):
 
 class SqrtSymbol(MathPrimitive):
     def __init__(self, parent=None):
-        super().__init__(parent)
+        super().__init__()
         self.setMinimumWidth(25)
         self._pen_width = 2.0
 
@@ -54,9 +54,10 @@ class SqrtSymbol(MathPrimitive):
         return path
 
 
-class CurlyBrace(MathPrimitive):
-    WIDTH = 12
-    WRAP_PADDING = 4
+class ParenGlyph(MathPrimitive):
+    """Base for opening/closing paren glyphs with automatic mirroring."""
+
+    WIDTH = 10
 
     def __init__(self, parent: QWidget, opening: bool) -> None:
         super().__init__(parent)
@@ -65,9 +66,21 @@ class CurlyBrace(MathPrimitive):
         self.setFixedWidth(self.WIDTH)
         self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
 
+    def _build_opening(self, w: float, h: float) -> QPainterPath:
+        raise NotImplementedError
+
     def build_path(self, w: float, h: float) -> QPainterPath:
-        inner_h = h + self.WRAP_PADDING
-        mid_y = inner_h / 2
+        path = self._build_opening(w, h)
+        if not self._opening:
+            path = QTransform(-1, 0, 0, 1, w, 0).map(path)
+        return path
+
+
+class CurlyBrace(ParenGlyph):
+    WIDTH = 12
+
+    def _build_opening(self, w: float, h: float) -> QPainterPath:
+        mid_y = h / 2
         r = min(w * 0.8, h * 0.15)
 
         path = QPainterPath()
@@ -78,9 +91,28 @@ class CurlyBrace(MathPrimitive):
         path.quadTo(w * 0.3, mid_y, w * 0.3, mid_y + r)
         path.lineTo(w * 0.3, h - r)
         path.quadTo(w * 0.3, h, w, h)
+        return path
 
-        if not self._opening:
-            mirror = QTransform(-1, 0, 0, 1, w, 0)
-            path = mirror.map(path)
 
+class RoundParen(ParenGlyph):
+    WIDTH = 8
+
+    def _build_opening(self, w: float, h: float) -> QPainterPath:
+        p = self._pen_width
+        path = QPainterPath()
+        path.moveTo(w, 0)
+        path.quadTo(p, h * 0.25, p, h * 0.5)
+        path.quadTo(p, h * 0.75, w, h)
+        return path
+
+
+class SquareBracket(ParenGlyph):
+    WIDTH = 8
+
+    def _build_opening(self, w: float, h: float) -> QPainterPath:
+        path = QPainterPath()
+        path.moveTo(w, 0)
+        path.lineTo(w * 0.3, 0)
+        path.lineTo(w * 0.3, h)
+        path.lineTo(w, h)
         return path
