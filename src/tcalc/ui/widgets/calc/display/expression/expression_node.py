@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Callable, ClassVar
 
 import calc_native
 from PySide6.QtCore import Qt, QTimer
@@ -10,6 +10,8 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QWidget,
 )
+
+from tcalc.ui.components.math_primitives import ParenGlyph
 
 from .utils import format_expr_str, update_autowidth
 
@@ -52,12 +54,6 @@ class ExpressionNode(QWidget):
         self.left_tokens = left_tokens if left_tokens is not None else []
         self.right_tokens = right_tokens if right_tokens is not None else []
 
-        def strip_outer_parens(tokens):
-            return tokens
-
-        self.left_tokens = strip_outer_parens(self.left_tokens)
-        self.right_tokens = strip_outer_parens(self.right_tokens)
-
         self._left_slot: ExpressionSlot | None = None
         self._right_slot: ExpressionSlot | None = None
         self._top_slot: ExpressionSlot | None = None
@@ -65,7 +61,7 @@ class ExpressionNode(QWidget):
 
     OP_ID: ClassVar[calc_native.OpId]
     EXPR_KIND: ClassVar[calc_native.ExprKind]
-    SYMBOL: ClassVar[str]
+    SYMBOL: ClassVar[str | None] = None
 
     def anchor_y(self) -> int:
         return self.height() // 2
@@ -80,10 +76,20 @@ class ExpressionNode(QWidget):
 
     def to_plain_text(self) -> str:
         """Serialize to LaTeX-style format: \\symbol{left}{right}."""
+        # unary / paren node
+        if not self.SYMBOL:
+            if self._left_slot is None:
+                return ""
+            return self._left_slot.to_plain_text()
+
+        # binary node
         if self._left_slot is None or self._right_slot is None:
             return ""
+
         return format_expr_str(
-            self.SYMBOL, self._left_slot.to_plain_text(), self._right_slot.to_plain_text()
+            self.SYMBOL,
+            self._left_slot.to_plain_text(),
+            self._right_slot.to_plain_text(),
         )
 
     def focus_default(self) -> None:
@@ -119,6 +125,7 @@ class ExpressionSlot(QWidget):
         kind: InputKind,
         key: str,
         align: InputAlign,
+        paren: tuple[str, str | None] | None = None,
     ) -> None:
         super().__init__(editor)
 
@@ -126,6 +133,7 @@ class ExpressionSlot(QWidget):
         self._kind = kind
         self._key = key
         self._align = align
+        self._paren = paren  # (open_symbol, close_symbol) or None
         self._segments: list[QWidget] = []
         self._direct_edits: list[QLineEdit] = []
 
@@ -143,6 +151,7 @@ class ExpressionSlot(QWidget):
         self.append_input()
 
         self._margin_scheduled = False
+        self._on_node_removed: Callable[[], None] | None = None
 
     def _input_key(self) -> str:
         return f"{self._key}_{len(self._segments)}"
@@ -224,6 +233,8 @@ class ExpressionSlot(QWidget):
             self._segments.pop(idx)
             left.setFocus()
             left.setCursorPosition(len(left_text))
+            if self._on_node_removed:
+                self._on_node_removed()
             return
 
         # fallback: simple removal
@@ -233,6 +244,9 @@ class ExpressionSlot(QWidget):
 
         if isinstance(seg, QLineEdit):
             self._direct_edits.remove(seg)
+
+        if self._on_node_removed:
+            self._on_node_removed()
 
     def reset(self) -> QLineEdit:
         for seg in self._segments:
@@ -251,8 +265,7 @@ class ExpressionSlot(QWidget):
         for seg in self._segments:
             if isinstance(seg, QLineEdit):
                 out.append(seg)
-                continue
-            if isinstance(seg, ExpressionNode):
+            elif isinstance(seg, (ExpressionNode, ExpressionSlot)):
                 out.extend(seg.line_edits())
         return out
 
@@ -261,10 +274,14 @@ class ExpressionSlot(QWidget):
         for seg in self._segments:
             if isinstance(seg, QLineEdit):
                 parts.append(seg.text())
-                continue
-            if isinstance(seg, ExpressionNode):
+            elif isinstance(seg, (ExpressionNode, ExpressionSlot)):
                 parts.append(seg.to_plain_text())
-        return "".join(parts)
+        inner = "".join(parts)
+        if self._paren is not None:
+            open_par = self._paren[0]
+            close_par = self._paren[1] or ""
+            return open_par + inner + close_par
+        return inner
 
     def _update_segment_margins(self) -> None:
         """
@@ -282,20 +299,33 @@ class ExpressionSlot(QWidget):
         reference Y position inside the horizontal layout.
         """
         max_anchor = 0
+        max_below = 0
 
         for seg in self._segments:
             if isinstance(seg, ExpressionNode):
                 a = seg.anchor_y()
+                b = seg.height() - a
+            elif isinstance(seg, ExpressionSlot):
+                a = seg.height() // 2
+                b = seg.height() - a
             elif isinstance(seg, QLineEdit):
                 a = seg.fontMetrics().height() // 2
+                b = a
             else:
                 continue
             if a > max_anchor:
                 max_anchor = a
+            if b > max_below:
+                max_below = b
 
         for seg in self._segments:
             if isinstance(seg, ExpressionNode):
                 own_anchor = seg.anchor_y()
+                top = max(0, max_anchor - own_anchor)
+                if seg.contentsMargins().top() != top:
+                    seg.setContentsMargins(0, top, 0, 0)
+            elif isinstance(seg, ExpressionSlot):
+                own_anchor = seg.height() // 2
                 top = max(0, max_anchor - own_anchor)
                 if seg.contentsMargins().top() != top:
                     seg.setContentsMargins(0, top, 0, 0)
@@ -304,7 +334,8 @@ class ExpressionSlot(QWidget):
                 top = max(0, max_anchor - own_anchor)
                 if seg.textMargins().top() != top:
                     seg.setTextMargins(0, top, 0, 0)
-        # TODO: Optimize margin update logic
+            elif isinstance(seg, ParenGlyph):
+                seg.setFixedHeight(max_anchor + max_below)
 
     def _schedule_margin_update(self) -> None:
         """Update margins after first frame render."""
