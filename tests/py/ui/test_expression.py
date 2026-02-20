@@ -672,6 +672,44 @@ class TestParenWidget:
         result = expression_widget.get_plain_text()
         assert "\\frac{3}{4}" in result
 
+    @pytest.mark.parametrize(
+        "expr,expected_paren,expected_frac,expected_pow",
+        [
+            ("{\\frac{2}{3}+\\frac{5}{6}}", 1, 2, 0),
+            ("{\\frac{1}{2}+\\frac{3}{4}+\\frac{5}{6}}", 1, 3, 0),
+            ("{\\pow{2}{3}+\\frac{5}{6}}", 1, 1, 1),
+            ("{\\frac{\\frac{1}{2}}{3}+\\frac{5}{6}}", 1, 3, 0),
+            ("{\\pow{2}{3}+\\pow{4}{5}}", 1, 0, 2),
+            ("{\\frac{1}{2}+\\pow{3}{4}+\\frac{5}{6}}", 1, 2, 1),
+        ],
+    )
+    def test_paste_multi_node_inside_paren(
+        self,
+        expression_widget,
+        set_expression,
+        qapp,
+        expr,
+        expected_paren,
+        expected_frac,
+        expected_pow,
+    ):
+        """Pasting expression with multiple ExpressionNodes inside braces should render all of them."""
+        set_expression(expr)
+
+        nodes = get_all_expression_nodes(expression_widget)
+        paren_nodes = [n for n in nodes if isinstance(n, ParenWidget)]
+        frac_nodes = [n for n in nodes if isinstance(n, FractionWidget)]
+        pow_nodes = [n for n in nodes if isinstance(n, PowWidget)]
+        assert len(paren_nodes) == expected_paren, (
+            f"{expr}: expected {expected_paren} ParenWidget, got {len(paren_nodes)}"
+        )
+        assert len(frac_nodes) == expected_frac, (
+            f"{expr}: expected {expected_frac} FractionWidget, got {len(frac_nodes)}"
+        )
+        assert len(pow_nodes) == expected_pow, (
+            f"{expr}: expected {expected_pow} PowWidget, got {len(pow_nodes)}"
+        )
+
     def test_pending_parens_cleared_on_reset(self, expression_widget, qapp):
         """set_plain_text should clear pending parens state."""
         import calc_native

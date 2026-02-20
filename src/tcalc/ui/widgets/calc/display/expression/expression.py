@@ -364,15 +364,17 @@ class Expression(QWidget):
         prefix_tokens: list[calc_native.Token],
         node: ExpressionNode,
         suffix_tokens: list[calc_native.Token],
-    ) -> None:
+    ) -> QLineEdit:
         """Insert a node widget into slot: [prefix | node | suffix]."""
         idx = slot.index_of(seg)
 
         seg.setText(tokens_to_text(prefix_tokens))
         slot.insert_widget(idx + 1, node)
-        slot.insert_input(idx + 2).setText(tokens_to_text(suffix_tokens))
+        suffix_le = slot.insert_input(idx + 2)
+        suffix_le.setText(tokens_to_text(suffix_tokens))
 
         node.focus_default()
+        return suffix_le
 
     def _normalize_text(self, seg: QLineEdit, tokens: list[calc_native.Token]) -> None:
         """Normalize text aliases to symbols (add -> + or floor -> ⌊)."""
@@ -433,7 +435,9 @@ class Expression(QWidget):
                 # with a registered widget class in PAREN_KIND_MAP.
                 open_paren_tok: calc_native.ParenToken | None = None
                 paren_cls: type[ParenWidget] | None = None
-                if paren_first is not None and paren_first < expr_first:
+                if (
+                    paren_first is not None and paren_first < expr_first
+                ):  # If paren start before LaTeX to cover it
                     _ptok = tokens[paren_first].as_paren()
                     paren_cls = self.PAREN_KIND_MAP.get(_ptok.kind)
                     if paren_cls is not None:
@@ -442,7 +446,7 @@ class Expression(QWidget):
                 if open_paren_tok is not None and paren_cls is not None:
                     assert paren_first is not None
                     pair = open_paren_tok.pair_idx
-                    has_close = pair != no_match and pair > expr_first
+                    has_close = pair != no_match
 
                     if has_close:
                         paren_end = pair + 1
@@ -489,12 +493,11 @@ class Expression(QWidget):
 
                     node = widget_cls(self, left_tokens, right_tokens)
 
-                self._insert_node(slot, seg, prefix_tokens, node, suffix_tokens)
+                suffix_seg = self._insert_node(slot, seg, prefix_tokens, node, suffix_tokens)
                 dirty_inputs.update(node.line_edits())
                 # Queue node's internal inputs for nested processing
                 pending.extend(node.line_edits())
-                # Only queue suffix if it contains nested Expr (LaTeX)
-                suffix_seg = slot._segments[-1]  # _insert_node always appends suffix
+
                 if isinstance(suffix_seg, QLineEdit) and "\\" in suffix_seg.text():
                     pending.append(suffix_seg)
 
