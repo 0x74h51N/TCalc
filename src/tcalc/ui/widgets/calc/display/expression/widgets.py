@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING
 
 import calc_native
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -16,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.core.ops import LatexExpr
-from tcalc.ui.components.math_primitives import CurlyBrace, RoundParen, SquareBracket
+from tcalc.ui.components.math_primitives import CurlyBrace, RoundParen, SqrtSymbol, SquareBracket
 from tcalc.ui.widgets.calc.display.expression.expression_node import (
     ExpressionNode,
     ExpressionSlot,
@@ -117,7 +116,7 @@ class PowWidget(ExpressionNode):
             align=InputAlign.LEFT,
         )
 
-        grid.addWidget(self.base, 1, 0, 1, 1, InputAlign.LEFTB.value)
+        grid.addWidget(self.base, 1, 0, 1, 2, InputAlign.RIGHT.value)
 
         self.exponent = ExpressionSlot(
             editor,
@@ -126,7 +125,7 @@ class PowWidget(ExpressionNode):
             align=InputAlign.RIGHTB,
         )
 
-        grid.addWidget(self.exponent, 0, 1, 1, 2, InputAlign.RIGHTB.value)
+        grid.addWidget(self.exponent, 0, 1, 1, 2, InputAlign.RIGHT.value)
 
         self._left_slot = self.base
         self._right_slot = self.exponent
@@ -148,37 +147,6 @@ class PowWidget(ExpressionNode):
             self.exponent.default_input().setFocus()
 
 
-class SqrtSymbol(QWidget):
-    """Custom widget that draws a scalable √ symbol."""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self._color = Qt.GlobalColor.white
-        self.setMinimumWidth(25)
-
-    def setColor(self, color):
-        self._color = color
-        self.update()
-
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-
-        pen = QPen(self._color)
-        pen.setWidth(2)
-        painter.setPen(pen)
-
-        w, h = self.width(), self.height()
-
-        path = QPainterPath()
-        path.moveTo(0, h * 0.35)
-        path.lineTo(w * 0.25, h * 0.35)
-        path.lineTo(w * 0.45, h)
-        path.lineTo(w, 0)
-
-        painter.drawPath(path)
-
-
 class RootWidget(ExpressionNode):
     """UI node for root with radicand and degree slots."""
 
@@ -188,8 +156,7 @@ class RootWidget(ExpressionNode):
 
     BORDER_WIDTH = 2
     BORDER_PADDING = 2
-    DEGREE_RIGHT_MARGIN = 14
-    DEGREE_BOTTOM_MARGIN = 4
+    DEGREE_RIGHT_MARGIN = 16
 
     def __init__(
         self,
@@ -214,20 +181,20 @@ class RootWidget(ExpressionNode):
             align=InputAlign.LEFTT,
         )
 
-        self.degree.setContentsMargins(0, 0, self.DEGREE_RIGHT_MARGIN, self.DEGREE_BOTTOM_MARGIN)
+        self.degree.setContentsMargins(0, 0, self.DEGREE_RIGHT_MARGIN, 0)
 
         grid.addWidget(self.degree, 0, 0, 3, 1, InputAlign.LEFTB.value)
 
-        self.sqrt_symbol = SqrtSymbol()
+        self.sqrt_symbol = SqrtSymbol(grid)
 
-        grid.addWidget(self.sqrt_symbol, 1, 0, 6, 4, InputAlign.RIGHTT.value)
+        grid.addWidget(self.sqrt_symbol, 2, 0, 3, 4, InputAlign.RIGHT.value)
         self.radicand = ExpressionSlot(
             editor,
             kind=InputKind.AUX,
             key="radicand",
-            align=InputAlign.LEFT,
+            align=InputAlign.LEFTT,
         )
-        grid.addWidget(self.radicand, 1, 4, 6, 2, InputAlign.RIGHTB.value)
+        grid.addWidget(self.radicand, 2, 4, 3, 2, InputAlign.RIGHTB.value)
 
         self.radicand.setObjectName("radicandSlot")
         self.radicand.setContentsMargins(0, self.BORDER_PADDING, 0, 0)
@@ -242,8 +209,10 @@ class RootWidget(ExpressionNode):
         if self.right_tokens:
             self.radicand.default_input().setText(tokens_to_text(self.right_tokens))
 
+        self.dHeight = self.degree.height()
+
     def anchor_y(self) -> int:
-        return self.degree.height() + self.radicand.height() // 2
+        return self.radicand.height() // 2 + self.degree.height() // 2
 
     def focus_default(self) -> None:
         base_input = self.radicand.default_input()
@@ -254,7 +223,7 @@ class RootWidget(ExpressionNode):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        h = self.radicand.height()
+        h = self.radicand.sizeHint().height()
         self.sqrt_symbol.setFixedHeight(h)
 
 
@@ -356,9 +325,10 @@ class ParenWidget(ExpressionNode):
             if isinstance(left, QLineEdit):
                 cursor = len(left.text())
                 left.setText(left.text() + plain)
-                parent.remove(self)
                 left.setFocus()
-                left.setCursorPosition(cursor + len(plain))
+                left.setCursorPosition(cursor)
+                self._editor._last_focused = left
+                parent.remove(self)
                 return
 
         super().remove()

@@ -29,7 +29,7 @@ def _build_display_stylesheet() -> str:
         background-color: {aux_bg};
     }}
 
-    QWidget[exprSlot="true"][exprSlotKind="aux"] QLineEdit[exprKind="aux"]:focus {{
+    QWidget[exprSlot="true"][exprSlotKind="aux"] QLineEdit[exprKind="aux"]:focus, QWidget[exprSlot="true"][exprSlotKind="script"] QLineEdit[exprKind="script"]:focus {{
         background-color: {aux_bg_focus};
     }}
 
