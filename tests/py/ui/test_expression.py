@@ -710,6 +710,64 @@ class TestParenWidget:
             f"{expr}: expected {expected_pow} PowWidget, got {len(pow_nodes)}"
         )
 
+    @pytest.mark.parametrize(
+        "initial_expr,paren_char,expected_paren,expected_frac,expected_pow",
+        [
+            # Single frac wrapped in braces
+            ("\\frac{2}{3}", "{", 1, 1, 0),
+            # Single pow wrapped in braces
+            ("\\pow{2}{3}", "{", 1, 0, 1),
+            # Two fracs: { typed before first wraps both
+            ("\\frac{2}{3}+\\frac{5}{6}", "{", 1, 2, 0),
+            # Mixed: frac + pow wrapped
+            ("\\frac{2}{3}+\\pow{4}{5}", "{", 1, 1, 1),
+            # Prefix text before open paren: "1+{" wraps adjacent node
+            ("1+\\frac{2}{3}", "{", 1, 1, 0),
+        ],
+    )
+    def test_open_paren_wraps_adjacent_nodes(
+        self,
+        expression_widget,
+        set_expression,
+        qapp,
+        initial_expr,
+        paren_char,
+        expected_paren,
+        expected_frac,
+        expected_pow,
+    ):
+        """Typing open paren in prefix segment wraps adjacent ExpressionNodes."""
+        set_expression(initial_expr)
+        qapp.processEvents()
+
+        # Find the first QLineEdit in root (prefix segment before the first node)
+        root = expression_widget._root
+        prefix_input = root._segments[0]
+        assert isinstance(prefix_input, QLineEdit)
+
+        # Type open paren at end of prefix
+        prefix_input.setText(prefix_input.text() + paren_char)
+        qapp.processEvents()
+
+        nodes = get_all_expression_nodes(expression_widget)
+        paren_nodes = [n for n in nodes if isinstance(n, ParenWidget)]
+        frac_nodes = [n for n in nodes if isinstance(n, FractionWidget)]
+        pow_nodes = [n for n in nodes if isinstance(n, PowWidget)]
+        assert len(paren_nodes) == expected_paren, (
+            f"expected {expected_paren} ParenWidget, got {len(paren_nodes)}"
+        )
+        assert len(frac_nodes) == expected_frac, (
+            f"expected {expected_frac} FractionWidget, got {len(frac_nodes)}"
+        )
+        assert len(pow_nodes) == expected_pow, (
+            f"expected {expected_pow} PowWidget, got {len(pow_nodes)}"
+        )
+
+        # ParenWidget should be pending (no close yet)
+        assert len(expression_widget._pending_parens) >= 1, (
+            "Open paren without close should be pending"
+        )
+
     def test_pending_parens_cleared_on_reset(self, expression_widget, qapp):
         """set_plain_text should clear pending parens state."""
         import calc_native

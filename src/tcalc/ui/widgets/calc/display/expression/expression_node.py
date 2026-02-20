@@ -211,6 +211,27 @@ class ExpressionSlot(QWidget):
     def index_of(self, seg: QWidget) -> int:
         return self._segments.index(seg)
 
+    def serialize_segments(self, segs: list[QWidget]) -> str:
+        """Return the plain-text representation of *segs*."""
+        parts: list[str] = []
+        for s in segs:
+            if isinstance(s, QLineEdit):
+                parts.append(s.text())
+            elif isinstance(s, (ExpressionNode, ExpressionSlot)):
+                parts.append(s.to_plain_text())
+        return "".join(parts)
+
+    def remove_segments(self, segs: list[QWidget]) -> None:
+        """Remove a list of segments from this slot, destroying each widget."""
+        for s in reversed(segs):
+            if s not in self._segments:
+                continue
+            self._layout.removeWidget(s)
+            self._segments.remove(s)
+            if isinstance(s, QLineEdit) and s in self._direct_edits:
+                self._direct_edits.remove(s)
+            s.deleteLater()
+
     def remove(self, seg: QWidget) -> None:
         if seg not in self._segments:
             return

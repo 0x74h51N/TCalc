@@ -423,6 +423,10 @@ class Expression(QWidget):
                         continue
 
                 if not result.expr_indices:
+                    if self._try_wrap_adjacent(seg, slot, tokens):
+                        pending.append(seg)
+                        continue
+
                     if "\\" not in text:
                         self._normalize_text(seg, tokens)
                     continue
@@ -507,6 +511,35 @@ class Expression(QWidget):
             for le in dirty_inputs:
                 update_autowidth(le)
 
+    def _try_wrap_adjacent(
+        self,
+        seg: QLineEdit,
+        slot: ExpressionSlot,
+        tokens: list[calc_native.Token],
+    ) -> bool:
+        """Absorb right-hand siblings into *seg* when it ends with an open paren.
+
+        Returns True if siblings were absorbed so the caller re-queues *seg*.
+        """
+        if not tokens:
+            return False
+        last = tokens[-1]
+
+        if not isinstance(last.data, calc_native.ParenToken):
+            return False
+        if last.data.type != calc_native.ParenType.Open:
+            return False
+
+        seg_idx = slot.index_of(seg)
+        right = slot._segments[seg_idx + 1 :]
+        if not any(isinstance(s, ExpressionNode) for s in right):
+            return False
+
+        absorbed = slot.serialize_segments(right)
+        slot.remove_segments(right)
+        seg.setText(seg.text() + absorbed)
+        return True
+
     def _try_close_paren(self, seg: QLineEdit, tokens: list[calc_native.Token]) -> bool:
         """Check if the first token is a close paren that matches a pending open.
 
@@ -516,7 +549,7 @@ class Expression(QWidget):
         if not tokens:
             return False
 
-        first = tokens[0]
+        first = tokens[-1]
         if not isinstance(first.data, calc_native.ParenToken):
             return False
         if first.data.type != calc_native.ParenType.Close:
@@ -531,7 +564,7 @@ class Expression(QWidget):
             del self._pending_parens[first.data.kind]
 
         pw.set_close(first.data)
-        seg.setText(tokens_to_text(tokens[1:]))
+        seg.setText(tokens_to_text(tokens[:-1]))
         return True
 
     #
