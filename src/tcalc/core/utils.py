@@ -50,3 +50,21 @@ def parse_number_token(s: str) -> int | float | complex | calc_native.BigReal:
 
 def is_int_like(v: float, eps: float = 1e-12) -> bool:
     return math.isfinite(v) and abs(v - round(v)) <= eps
+
+
+def debug_tokens(tokens: list[calc_native.Token]):
+    out = []
+    for t in tokens:
+        kind = t.kind.name
+        if isinstance(t.data, calc_native.ParenToken):
+            val = t.data.symbol
+        elif isinstance(t.data, calc_native.NumberToken):
+            val = t.data.value
+        elif isinstance(t.data, calc_native.OpToken):
+            val = t.symbol
+        elif isinstance(t.data, calc_native.ExprToken):
+            val = f"Expr({t.data.kind.name})"
+        else:
+            val = str(t)
+        out.append(f"{kind}: {val}")
+    print("DEBUG TOKENS ->", out)

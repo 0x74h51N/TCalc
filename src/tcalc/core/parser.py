@@ -8,12 +8,18 @@ from tcalc.core.errors import ErrorKind, raise_error
 
 from .constants import CONSTANTS
 from .engine import Calculator
-from .ops import OP_BY_ID
+from .ops import OP_BY_ID, LatexExpr
 from .utils import is_number_token, parse_number_token
 
 
 def tokenize_string(expression: str) -> List[calc_native.Token]:
-    return list(calc_native.tokenize_string(expression))
+    """Tokenize expression and return token list."""
+    return calc_native.tokenize_string(expression).tokens
+
+
+def tokenize(expression: str) -> calc_native.TokenizeResult:
+    """Tokenize expression and return full result with metadata."""
+    return calc_native.tokenize_string(expression)
 
 
 def shunting_yard(tokens: Sequence[calc_native.Token]) -> List[calc_native.Token]:
@@ -42,10 +48,38 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
 
     for tok in rpn_tokens:
         if is_number_token(tok):
-            operand_stack.append(_coerce_token(tok.value))
+            operand_stack.append(_coerce_token(tok.data.value))
             continue
+
+        # Stray parens left by shunting_yard (unclosed groups) -> skip at
+        if tok.kind == calc_native.TokenKind.Paren:
+            continue
+
+        if tok.kind == calc_native.TokenKind.Expr:
+            try:
+                expr_tok = tok.as_expr()
+                left_rpn = shunting_yard(expr_tok.left)
+                right_rpn = shunting_yard(expr_tok.right)
+                left_val = evaluate_rpn(left_rpn, calculator) if left_rpn else 0
+                right_val = evaluate_rpn(right_rpn, calculator) if right_rpn else 0
+
+                latex_spec = LatexExpr.get(expr_tok.kind)
+                op_spec = OP_BY_ID[latex_spec.opid]
+                func = getattr(calculator, op_spec.method)
+                # Root: root(radicand, degree) = root(right, left)
+                if expr_tok.kind == calc_native.ExprKind.Root:
+                    result = func(right_val, left_val)
+                else:
+                    result = func(left_val, right_val)
+
+                operand_stack.append(result)
+                continue
+            except Exception as e:
+                raise_error(ErrorKind.INVALID, f"Parse expression token error: {e}")
+
         if tok.kind == calc_native.TokenKind.Op:
-            spec = OP_BY_ID.get(tok.op_id)
+            op_tok = tok.as_op()
+            spec = OP_BY_ID.get(op_tok.op_id)
             assert spec is not None
             val_a = _pop_operand(operand_stack)
             func = getattr(calculator, spec.method, None)

@@ -80,6 +80,9 @@ class Calculator:
     def negate(self, a):
         return self.sub(0, a)
 
+    def unaryplus(self, a):
+        return a
+
     def percent(self, a):
         return self.div(a, 100)
 

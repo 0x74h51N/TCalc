@@ -166,3 +166,34 @@ def get_symbols_with_aliases(
         symbols.add(op.symbol)
         symbols.update(op.aliases)
     return symbols
+
+
+@dataclass(frozen=True)
+class LatexExprSpec:
+    """LaTeX expression specification."""
+
+    symbol: str
+    kind: calc_native.ExprKind
+    opid: calc_native.OpId
+
+
+class LatexExpr:
+    """LaTeX expressions namespace with typed class attributes."""
+
+    Frac: LatexExprSpec
+    Pow: LatexExprSpec
+    Root: LatexExprSpec
+    Log: LatexExprSpec
+
+    @classmethod
+    def get(cls, kind: calc_native.ExprKind) -> LatexExprSpec:
+        """Get spec by ExprKind."""
+        return getattr(cls, kind.name)
+
+
+for _entry in calc_native.latex_exprs():
+    setattr(
+        LatexExpr,
+        _entry.kind.name,
+        LatexExprSpec(symbol=_entry.symbol, kind=_entry.kind, opid=_entry.opid),
+    )

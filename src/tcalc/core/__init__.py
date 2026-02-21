@@ -5,7 +5,7 @@ from .ops import (
     Operation,
     get_symbols_with_aliases,
 )
-from .parser import evaluate_tokens, tokenize_string
+from .parser import evaluate_tokens, tokenize, tokenize_string
 
 __all__ = [
     "Calculator",
@@ -13,6 +13,7 @@ __all__ = [
     "Operation",
     "get_symbols_with_aliases",
     "evaluate_tokens",
+    "tokenize",
     "tokenize_string",
     "CONSTANTS",
 ]

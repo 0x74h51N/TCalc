@@ -14,9 +14,11 @@ def build_rpn(op_ids, token_factory, rpn_spec):
     tokens = []
     for kind in it:
         if kind == "num":
-            tokens.append(num(next(it)))
+            value = next(it)
+            tokens.append(num(value).as_number())
         elif kind == "op":
-            tokens.append(op(getattr(op_ids, next(it))))
+            op_id = next(it)
+            tokens.append(op(getattr(op_ids, op_id)).as_op())
         else:
             raise AssertionError(f"Unknown rpn kind: {kind!r}")
     return tokens

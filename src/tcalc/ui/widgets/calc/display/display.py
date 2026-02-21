@@ -7,11 +7,12 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFrame,
     QLabel,
-    QLineEdit,
-    QSizePolicy,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
+
+from tcalc.ui.widgets.calc.display.expression import Expression
 
 from ...utils import apply_scaled_fonts
 from ..config import display_config, font_scale_config
@@ -34,26 +35,26 @@ class Display(QWidget):
         )
         layout.setSpacing(display_config["spacing"])
 
-        # Apply background styling
-        apply_display_style(self)
+        self.editor = Expression(self)
+        self.editor.setObjectName("displayExpressionEditor")
+        self.expression = self.editor
 
-        # Exp display
-        self.expression_label = QLineEdit("", self)
-        self.expression_label.setObjectName("displayExpression")
-        self.expression_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        # Keyboard + editor
+        self.editor.plain_text_changed.connect(self._on_expression_changed)
+        self.editor.plain_text_changed.connect(self._update_fonts)
 
-        small_font = QFont()
-        small_font.setPointSize(display_config["expression_font_size"])
+        self._expr_scroll = QScrollArea(self)
+        self._expr_scroll.setObjectName("displayExpression")
+        self._expr_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._expr_scroll.setWidgetResizable(True)
+        self._expr_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._expr_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._expr_scroll.setWidget(self.editor)
 
-        self.expression_label.setFont(small_font)
-        self.expression_label.setAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+        layout.addWidget(self._expr_scroll)
+        self.editor.plain_text_changed.connect(
+            lambda _text: QTimer.singleShot(0, self._scroll_expression_to_end)
         )
-
-        # Keyboard signal
-        self.expression_label.textChanged.connect(self._on_expression_changed)
-
-        layout.addWidget(self.expression_label)
 
         line = QFrame(self)
         line.setObjectName("displayDivider")
@@ -61,7 +62,6 @@ class Display(QWidget):
         line.setFrameShadow(QFrame.Shadow.Sunken)
         layout.addWidget(line)
 
-        # Res display
         self.result_label = QLabel("0", self)
         self.result_label.setObjectName("displayResult")
 
@@ -73,45 +73,23 @@ class Display(QWidget):
         self.result_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(self.result_label)
 
+        apply_display_style(self)
+
         self._update_fonts()
         QTimer.singleShot(0, self._update_fonts)
 
     def update_res(self, result_text: str) -> None:
         self.result_label.setText(result_text)
 
-    def update_expr(self, expression_text: str) -> None:
-        new_text = expression_text
-        if self.expression_label.text() == new_text:
-            return
-        else:
-            self.expression_label.setText(expression_text)
-
     def _update_fonts(self) -> None:
-        expression_scale = font_scale_config["display_expression"]
         result_scale = font_scale_config["display_result"]
         apply_scaled_fonts(
-            [
-                (
-                    self,
-                    (self.expression_label,),
-                    display_config["expression_font_size"],
-                    int(expression_scale["max_pt"]),
-                    int(expression_scale["divisor"]),
-                ),
-                (
-                    self,
-                    (self.result_label,),
-                    display_config["result_font_size"],
-                    int(result_scale["max_pt"]),
-                    int(result_scale["divisor"]),
-                ),
-            ]
+            self,
+            [self.result_label],
+            int(result_scale["max_pt"] * 0.5),
+            int(result_scale["max_pt"]),
         )
-        fm = self.expression_label.fontMetrics()
-        height_factor = float(display_config["expression_height_factor"])
-        min_height = int(display_config["expression_min_height"])
-        expression_height = max(min_height, int(fm.height() * height_factor))
-        self.expression_label.setFixedHeight(expression_height)
+        self.editor.update_input_fonts(self._expr_scroll)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -119,3 +97,9 @@ class Display(QWidget):
 
     def _on_expression_changed(self, text: str) -> None:
         self.expression_changed.emit(text)
+
+    def _scroll_expression_to_end(self) -> None:
+        h = self._expr_scroll.horizontalScrollBar()
+        v = self._expr_scroll.verticalScrollBar()
+        h.setValue(h.maximum())
+        v.setValue(v.maximum())

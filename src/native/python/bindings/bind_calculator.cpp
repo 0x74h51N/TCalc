@@ -20,7 +20,11 @@ void bind_calculator(py::module_ &m) {
 
     cls.def(
         "add", py::overload_cast<double, double>(&C::add, py::const_), py::arg("a"), py::arg("b"));
-    cls.def("add", py::overload_cast<Z, Z>(&C::add, py::const_), py::arg("a"), py::arg("b"));
+    cls.def(
+        "add",
+        py::overload_cast<Z, Z>(&C::add, py::const_),
+        py::arg("a").noconvert(),
+        py::arg("b").noconvert());
     cls.def(
         "add",
         py::overload_cast<const B &, const B &>(&C::add, py::const_),
@@ -34,7 +38,11 @@ void bind_calculator(py::module_ &m) {
 
     cls.def(
         "sub", py::overload_cast<double, double>(&C::sub, py::const_), py::arg("a"), py::arg("b"));
-    cls.def("sub", py::overload_cast<Z, Z>(&C::sub, py::const_), py::arg("a"), py::arg("b"));
+    cls.def(
+        "sub",
+        py::overload_cast<Z, Z>(&C::sub, py::const_),
+        py::arg("a").noconvert(),
+        py::arg("b").noconvert());
     cls.def(
         "sub",
         py::overload_cast<const B &, const B &>(&C::sub, py::const_),
@@ -54,7 +62,11 @@ void bind_calculator(py::module_ &m) {
         },
         py::arg("a"),
         py::arg("b"));
-    cls.def("mul", py::overload_cast<Z, Z>(&C::mul, py::const_), py::arg("a"), py::arg("b"));
+    cls.def(
+        "mul",
+        py::overload_cast<Z, Z>(&C::mul, py::const_),
+        py::arg("a").noconvert(),
+        py::arg("b").noconvert());
     cls.def(
         "mul",
         py::overload_cast<const B &, const B &>(&C::mul, py::const_),
@@ -74,7 +86,11 @@ void bind_calculator(py::module_ &m) {
         },
         py::arg("a"),
         py::arg("b"));
-    cls.def("div", py::overload_cast<Z, Z>(&C::div, py::const_), py::arg("a"), py::arg("b"));
+    cls.def(
+        "div",
+        py::overload_cast<Z, Z>(&C::div, py::const_),
+        py::arg("a").noconvert(),
+        py::arg("b").noconvert());
     cls.def(
         "div",
         py::overload_cast<const B &, const B &>(&C::div, py::const_),
@@ -129,7 +145,11 @@ void bind_calculator(py::module_ &m) {
         },
         py::arg("a"),
         py::arg("b"));
-    cls.def("pow", py::overload_cast<Z, Z>(&C::pow, py::const_), py::arg("a"), py::arg("b"));
+    cls.def(
+        "pow",
+        py::overload_cast<Z, Z>(&C::pow, py::const_),
+        py::arg("a").noconvert(),
+        py::arg("b").noconvert());
 
     cls.def(
         "pow",
@@ -151,7 +171,7 @@ void bind_calculator(py::module_ &m) {
     cls.def("ceil", py::overload_cast<const B &>(&C::ceil, py::const_), py::arg("a"));
 
     cls.def("sqrt", py::overload_cast<double>(&C::sqrt, py::const_), py::arg("a"));
-    cls.def("sqrt", py::overload_cast<Z>(&C::sqrt, py::const_), py::arg("a"));
+    cls.def("sqrt", py::overload_cast<Z>(&C::sqrt, py::const_), py::arg("a").noconvert());
     cls.def("sqrt", py::overload_cast<const B &>(&C::sqrt, py::const_), py::arg("a"));
     cls.def("sqrt", py::overload_cast<const BC &>(&C::sqrt, py::const_), py::arg("a"));
 
@@ -162,7 +182,11 @@ void bind_calculator(py::module_ &m) {
         py::arg("a"),
         py::arg("b"));
 
-    cls.def("root", py::overload_cast<Z, Z>(&C::root, py::const_), py::arg("a"), py::arg("b"));
+    cls.def(
+        "root",
+        py::overload_cast<Z, Z>(&C::root, py::const_),
+        py::arg("a").noconvert(),
+        py::arg("b").noconvert());
     cls.def(
         "root",
         py::overload_cast<const B &, const B &>(&C::root, py::const_),
@@ -176,7 +200,11 @@ void bind_calculator(py::module_ &m) {
 
     cls.def(
         "sin", py::overload_cast<double, U>(&C::sin, py::const_), py::arg("a"), py::arg("unit"));
-    cls.def("sin", py::overload_cast<Z, U>(&C::sin, py::const_), py::arg("a"), py::arg("unit"));
+    cls.def(
+        "sin",
+        py::overload_cast<Z, U>(&C::sin, py::const_),
+        py::arg("a").noconvert(),
+        py::arg("unit"));
     cls.def(
         "sin", py::overload_cast<const B &, U>(&C::sin, py::const_), py::arg("a"), py::arg("unit"));
     cls.def(
@@ -186,7 +214,11 @@ void bind_calculator(py::module_ &m) {
         py::arg("unit"));
     cls.def(
         "cos", py::overload_cast<double, U>(&C::cos, py::const_), py::arg("a"), py::arg("unit"));
-    cls.def("cos", py::overload_cast<Z, U>(&C::cos, py::const_), py::arg("a"), py::arg("unit"));
+    cls.def(
+        "cos",
+        py::overload_cast<Z, U>(&C::cos, py::const_),
+        py::arg("a").noconvert(),
+        py::arg("unit"));
     cls.def(
         "cos", py::overload_cast<const B &, U>(&C::cos, py::const_), py::arg("a"), py::arg("unit"));
     cls.def(
@@ -196,7 +228,11 @@ void bind_calculator(py::module_ &m) {
         py::arg("unit"));
     cls.def(
         "tan", py::overload_cast<double, U>(&C::tan, py::const_), py::arg("a"), py::arg("unit"));
-    cls.def("tan", py::overload_cast<Z, U>(&C::tan, py::const_), py::arg("a"), py::arg("unit"));
+    cls.def(
+        "tan",
+        py::overload_cast<Z, U>(&C::tan, py::const_),
+        py::arg("a").noconvert(),
+        py::arg("unit"));
     cls.def(
         "tan", py::overload_cast<const B &, U>(&C::tan, py::const_), py::arg("a"), py::arg("unit"));
     cls.def(
@@ -206,43 +242,59 @@ void bind_calculator(py::module_ &m) {
         py::arg("unit"));
 
     cls.def("sinh", py::overload_cast<double>(&C::sinh, py::const_), py::arg("a"));
-    cls.def("sinh", py::overload_cast<Z>(&C::sinh, py::const_), py::arg("a"));
+    cls.def("sinh", py::overload_cast<Z>(&C::sinh, py::const_), py::arg("a").noconvert());
     cls.def("cosh", py::overload_cast<double>(&C::cosh, py::const_), py::arg("a"));
-    cls.def("cosh", py::overload_cast<Z>(&C::cosh, py::const_), py::arg("a"));
+    cls.def("cosh", py::overload_cast<Z>(&C::cosh, py::const_), py::arg("a").noconvert());
     cls.def("tanh", py::overload_cast<double>(&C::tanh, py::const_), py::arg("a"));
-    cls.def("tanh", py::overload_cast<Z>(&C::tanh, py::const_), py::arg("a"));
+    cls.def("tanh", py::overload_cast<Z>(&C::tanh, py::const_), py::arg("a").noconvert());
 
     cls.def(
         "asin", py::overload_cast<double, U>(&C::asin, py::const_), py::arg("a"), py::arg("unit"));
-    cls.def("asin", py::overload_cast<Z, U>(&C::asin, py::const_), py::arg("a"), py::arg("unit"));
+    cls.def(
+        "asin",
+        py::overload_cast<Z, U>(&C::asin, py::const_),
+        py::arg("a").noconvert(),
+        py::arg("unit"));
     cls.def(
         "acos", py::overload_cast<double, U>(&C::acos, py::const_), py::arg("a"), py::arg("unit"));
-    cls.def("acos", py::overload_cast<Z, U>(&C::acos, py::const_), py::arg("a"), py::arg("unit"));
+    cls.def(
+        "acos",
+        py::overload_cast<Z, U>(&C::acos, py::const_),
+        py::arg("a").noconvert(),
+        py::arg("unit"));
     cls.def(
         "atan", py::overload_cast<double, U>(&C::atan, py::const_), py::arg("a"), py::arg("unit"));
-    cls.def("atan", py::overload_cast<Z, U>(&C::atan, py::const_), py::arg("a"), py::arg("unit"));
+    cls.def(
+        "atan",
+        py::overload_cast<Z, U>(&C::atan, py::const_),
+        py::arg("a").noconvert(),
+        py::arg("unit"));
 
     cls.def("asinh", py::overload_cast<double>(&C::asinh, py::const_), py::arg("a"));
-    cls.def("asinh", py::overload_cast<Z>(&C::asinh, py::const_), py::arg("a"));
+    cls.def("asinh", py::overload_cast<Z>(&C::asinh, py::const_), py::arg("a").noconvert());
     cls.def("acosh", py::overload_cast<double>(&C::acosh, py::const_), py::arg("a"));
-    cls.def("acosh", py::overload_cast<Z>(&C::acosh, py::const_), py::arg("a"));
+    cls.def("acosh", py::overload_cast<Z>(&C::acosh, py::const_), py::arg("a").noconvert());
     cls.def("atanh", py::overload_cast<double>(&C::atanh, py::const_), py::arg("a"));
-    cls.def("atanh", py::overload_cast<Z>(&C::atanh, py::const_), py::arg("a"));
+    cls.def("atanh", py::overload_cast<Z>(&C::atanh, py::const_), py::arg("a").noconvert());
 
     cls.def(
         "polar",
         py::overload_cast<double, U>(&C::polar, py::const_),
         py::arg("a"),
         py::arg("unit"));
-    cls.def("polar", py::overload_cast<Z, U>(&C::polar, py::const_), py::arg("a"), py::arg("unit"));
+    cls.def(
+        "polar",
+        py::overload_cast<Z, U>(&C::polar, py::const_),
+        py::arg("a").noconvert(),
+        py::arg("unit"));
 
     cls.def("log", py::overload_cast<double>(&C::log, py::const_), py::arg("a"));
-    cls.def("log", py::overload_cast<Z>(&C::log, py::const_), py::arg("a"));
+    cls.def("log", py::overload_cast<Z>(&C::log, py::const_), py::arg("a").noconvert());
     cls.def("log", py::overload_cast<const B &>(&C::log, py::const_), py::arg("a"));
     cls.def("log", py::overload_cast<const BC &>(&C::log, py::const_), py::arg("a"));
 
     cls.def("ln", py::overload_cast<double>(&C::ln, py::const_), py::arg("a"));
-    cls.def("ln", py::overload_cast<Z>(&C::ln, py::const_), py::arg("a"));
+    cls.def("ln", py::overload_cast<Z>(&C::ln, py::const_), py::arg("a").noconvert());
     cls.def("ln", py::overload_cast<const B &>(&C::ln, py::const_), py::arg("a"));
     cls.def("ln", py::overload_cast<const BC &>(&C::ln, py::const_), py::arg("a"));
 

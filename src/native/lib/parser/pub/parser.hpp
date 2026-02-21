@@ -5,48 +5,191 @@
 #include <string>
 #include <string_view>
 #include <vector>
-
+#include <optional>
+#include <variant>
 #include "parser/pub/ops.hpp"
 
 namespace tcalc::parser {
 
+struct Token;
+
 using tcalc::ops::OpId;
 using Value = std::string;
 
-/// Token categories produced by the tokenizer.
-enum class TokenKind : std::uint8_t {
-    /// Numeric literal or constant token.
-    Number,
-    /// Operator token (OpId is set).
-    Op,
-    /// Left parenthesis.
-    LParen,
-    /// Right parenthesis.
-    RParen,
+inline constexpr std::array<std::array<char, 3>, 2> kSymbolTable = {
+    {{'(', '{', '['}, {')', '}', ']'}}};
+
+enum class ParenType : std::uint8_t { Open = 0, Close = 1 };
+
+enum class ParenKind : std::uint8_t { Paren = 0, Brace = 1, Bracket = 2 };
+
+struct Paren {
+    ParenType type;
+    ParenKind kind;
+};
+inline constexpr std::size_t kAsciiTableSize = 256;
+
+inline constexpr std::array<std::optional<Paren>, kAsciiTableSize> make_paren_table() {
+    std::array<std::optional<Paren>, kAsciiTableSize> table{};
+
+    table['('] = Paren{ParenType::Open, ParenKind::Paren};
+    table[')'] = Paren{ParenType::Close, ParenKind::Paren};
+
+    table['{'] = Paren{ParenType::Open, ParenKind::Brace};
+    table['}'] = Paren{ParenType::Close, ParenKind::Brace};
+
+    table['['] = Paren{ParenType::Open, ParenKind::Bracket};
+    table[']'] = Paren{ParenType::Close, ParenKind::Bracket};
+
+    return table;
+}
+
+inline constexpr auto kParenTable = make_paren_table();
+
+/// Lookup paren by character from kParens table.
+inline constexpr std::optional<Paren> match_paren(char c) {
+    return kParenTable[static_cast<unsigned char>(c)];
+}
+
+/// Return the symbol character for a paren type+kind pair.
+inline constexpr char paren_symbol(ParenType type, ParenKind kind) {
+    return kSymbolTable[static_cast<int>(type)][static_cast<int>(kind)];
+}
+
+enum class TokenKind : std::uint8_t { Number, Op, Paren, Expr };
+
+/// Expression kinds for compound Expr tokens.
+enum class ExprKind : std::uint8_t {
+    /// Fraction:
+    /// \frac{numerator}{denominator}
+    Frac,
+    /// Power:
+    /// \pow{base}{exponent}
+    Pow,
+    /// Root:
+    /// \root{degree}{radicand}
+    Root,
+    /// Logarithm:
+    /// \log{base}{value}
+    Log,
 };
 
-/// Parser token; numbers store raw text in value, ops store op_id.
+/// LaTeX expression mapping: symbol -> ExprKind
+struct LatexEntry {
+    std::string_view symbol;
+    ExprKind kind;
+    OpId opid;
+};
+
+constexpr std::array kLatexExprs = {
+    LatexEntry{"\\frac", ExprKind::Frac, tcalc::ops::OpId::Div},
+    LatexEntry{"\\pow", ExprKind::Pow, tcalc::ops::OpId::Pow},
+    LatexEntry{"\\root", ExprKind::Root, tcalc::ops::OpId::Root},
+    LatexEntry{"\\log", ExprKind::Log, tcalc::ops::OpId::Log}};
+
+/// Parser token;
+/// numbers store raw text in value, ops store op_id.
+struct NumberToken {
+    std::string value;
+    bool operator==(const NumberToken &) const = default;
+};
+
+struct OpToken {
+    OpId op_id;
+    bool operator==(const OpToken &) const = default;
+};
+
+/// npos sentinel for unmatched parentheses.
+inline constexpr std::size_t kNoMatch = static_cast<std::size_t>(-1);
+
+struct ParenToken {
+    ParenType type;
+    ParenKind kind;
+    /// Token index of the matching open/close counterpart.
+    /// Set by match_parens(); kNoMatch if unmatched.
+    std::size_t pair_idx = kNoMatch;
+
+    /// Semantic equality: type + kind only (pair_idx is metadata).
+    bool operator==(const ParenToken &o) const { return type == o.type && kind == o.kind; }
+};
+
+struct ExprToken {
+    ExprKind kind;
+    std::vector<Token> left;
+    std::vector<Token> right;
+    bool operator==(const ExprToken &) const = default;
+};
+
+using TokenData = std::variant<NumberToken, OpToken, ParenToken, ExprToken>;
+
 struct Token {
-    /// Token category.
     TokenKind kind;
+    TokenData data;
+    std::size_t start_pos = 0;
+    std::size_t end_pos = 0;
+};
 
-    /// Operator id for op tokens, Count for non-ops.
-    OpId op_id = OpId::Count;
-
-    /// Raw number text for numeric tokens.
-    Value value{};
-
-    bool operator==(const Token &) const = default;
+struct TokenizeResult {
+    std::vector<Token> tokens{};
+    std::vector<std::size_t> expr_indices{};
+    std::vector<std::size_t> paren_indices{};
+    bool operator==(const TokenizeResult &) const = default;
 };
 
 inline std::ostream &operator<<(std::ostream &os, const Token &tok) {
-    os << "Token{kind=" << static_cast<int>(tok.kind) << ", op_id=" << static_cast<int>(tok.op_id)
-       << ", value=\"" << tok.value << "\"}";
+    os << "Token{kind=" << static_cast<int>(tok.kind) << ", ";
+    std::visit(
+        [&](auto &&t) {
+            using T = std::decay_t<decltype(t)>;
+            if constexpr (std::is_same_v<T, NumberToken>)
+                os << "value=\"" << t.value << "\"";
+            else if constexpr (std::is_same_v<T, OpToken>)
+                os << "op_id=" << static_cast<int>(t.op_id);
+            else if constexpr (std::is_same_v<T, ParenToken>) {
+                os << "paren_type=" << static_cast<int>(t.type)
+                   << ", paren_kind=" << static_cast<int>(t.kind);
+            } else if constexpr (std::is_same_v<T, ExprToken>) {
+                os << "expr_kind=" << static_cast<int>(t.kind) << ", left.size=" << t.left.size()
+                   << ", right.size=" << t.right.size();
+            }
+        },
+        tok.data);
+    os << "}";
     return os;
 }
 
-// Split an expression string into parser tokens.
-std::vector<Token> tokenize(std::string_view expression);
+inline bool operator==(const Token &a, const Token &b) {
+    if (a.kind != b.kind)
+        return false;
+
+    if (a.data.index() != b.data.index())
+        return false;
+
+    return std::visit(
+        [&](const auto &lhs) -> bool {
+            using T = std::decay_t<decltype(lhs)>;
+            const auto *rhs = std::get_if<T>(&b.data);
+            if (!rhs)
+                return false;
+
+            if constexpr (std::is_same_v<T, NumberToken>) {
+                return lhs.value == rhs->value;
+            } else if constexpr (std::is_same_v<T, OpToken>) {
+                return lhs.op_id == rhs->op_id;
+            } else if constexpr (std::is_same_v<T, ParenToken>) {
+                return lhs.type == rhs->type && lhs.kind == rhs->kind;
+            } else if constexpr (std::is_same_v<T, ExprToken>) {
+                return lhs.kind == rhs->kind && lhs.left == rhs->left && lhs.right == rhs->right;
+            }
+            return false;
+        },
+        a.data);
+}
+
+/// High-level tokenizer that understands LaTeX constructs (\frac, \sqrt, ...) and produces a flat
+/// token stream suitable for shunting-yard parsing. Returns TokenizeResult with tokens and
+/// expr_indices metadata.
+TokenizeResult tokenize(std::string_view expression);
 
 // Convert tokens to RPN using precedence/associativity rules.
 std::vector<Token> shunting_yard(const std::vector<Token> &tokens);

@@ -1,10 +1,10 @@
 .PHONY: dev hooks lint lint-fix typecheck check stubs
 .PHONY: py-format py-format-check
 .PHONY: native native-configure native-build native-test native-ctest native-clean native-release
-.PHONY: py-test
+.PHONY: py-test py-test-ui py-benchmark
 
 PY := ./venv/bin/python
-PYTEST_ARGS ?= -vv -rA
+PYTEST_ARGS ?= -vv -rA -s
 
 STUBS ?= scripts/stubgen/main.py
 
@@ -28,8 +28,23 @@ typecheck:
 
 py-test:
 	PYTHONPATH=src $(PY) -m pytest tests/py/unit $(PYTEST_ARGS)
+	PYTHONPATH=src $(PY) -m pytest tests/py/ui $(PYTEST_ARGS)
 	PYTHONPATH=src $(PY) -m pytest tests/py/e2e $(PYTEST_ARGS)
 
+py-test-ui:
+	PYTHONPATH=src $(PY) -m pytest tests/py/ui $(PYTEST_ARGS)
+
+py-benchmark:
+	PYTHONPATH=src $(PY) -m pytest tests/benchmark -m benchmark -k "not test_malloc" $(PYTEST_ARGS)
+
+py-mem-profile:
+	./scripts/malloc profile
+
+py-mem-flame:
+	./scripts/malloc flame
+
+py-mem-tree:
+	./scripts/malloc tree
 
 NATIVE_BUILD_TYPE ?= Debug
 NATIVE_TEST_ARGS ?= --quiet

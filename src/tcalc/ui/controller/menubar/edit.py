@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
 from PySide6.QtWidgets import QApplication
 
@@ -13,6 +13,42 @@ if TYPE_CHECKING:
 
 
 class EditOperations:
+    def _do_history_op(self, delta: int, reset_on_end: bool = False) -> None:
+        count = self._history_list.count()
+        idx = self.app_state.history_index
+        if not count:
+            return
+        if idx == -1:
+            if delta < 0:
+                self.app_state.redo_cached_exprs = self._display.expression.get_plain_text()
+                idx = count - 1
+            else:
+                return
+        else:
+            idx = max(0, idx + delta)
+        if idx >= count:
+            self._set_expression(self.app_state.redo_cached_exprs)
+            if reset_on_end:
+                self.reset_navigation()
+            self.app_state.history_index = idx
+            return
+        self.app_state.history_index = idx
+        self._history.highlight_item(idx)
+        expr = self._get_history_expression(idx)
+        if expr:
+            self._set_expression(expr)
+
+    def _do_clip(self, action: str, after: Optional[Callable[[], None]] = None) -> None:
+        exprs = self._display.expression.expression_inputs()
+        cleaned = clean_for_expression(self._display.result_label.text())
+        for expr in exprs:
+            if expr.hasSelectedText():
+                getattr(expr, action)()
+                return
+        self.clipboard.setText(cleaned)
+        if after:
+            after()
+
     def __init__(self, window: MainWindow):
         self.window = window
         self.clipboard = QApplication.clipboard()
@@ -23,72 +59,42 @@ class EditOperations:
         return self.window.calc_widget.display
 
     @property
+    def _history(self):
+        return self.window.history
+
+    @property
     def _history_list(self):
-        return self.window.history.list
+        return self._history.list
 
     def _get_history_expression(self, index: int) -> Optional[str]:
         item = self._history_list.item(index)
-        return item.text().split("=")[0].strip() if item else None
+        if not item:
+            return None
+
+        text = item.text().split("=")[0]
+        return text.replace("\n", "").replace("\r", "").strip()
 
     def _set_expression(self, expression: str) -> None:
-        self._display.update_expr(expression)
+        self._display.expression.set_plain_text(expression)
 
     def copy(self) -> None:
-        expr = self._display.expression_label
-
-        if expr.hasFocus() and expr.hasSelectedText():
-            expr.copy()
-            return
-        cleaned = clean_for_expression(self._display.result_label.text())
-        self.clipboard.setText(cleaned)
+        self._do_clip("copy")
 
     def cut(self) -> None:
-        expr = self._display.expression_label
-
-        if expr.hasFocus() and expr.hasSelectedText():
-            expr.cut()
-            return
-        self.copy()
-        self._display.update_res("")
+        self._do_clip("cut", after=lambda: self._display.update_res(""))
 
     def paste(self) -> None:
         cleaned = clean_for_expression(self.clipboard.text())
-        self._display.expression_label.insert(cleaned)
-        self._display.expression_label.setFocus()
+        self._display.expression.set_plain_text(cleaned)
 
     def undo(self) -> None:
-        history_count = self._history_list.count()
-        if history_count == 0:
-            return
-
-        if self.app_state.history_index == -1:
-            self.app_state.redo_cached_exprs = self._display.expression_label.text()
-            self.app_state.history_index = history_count - 1
-        else:
-            self.app_state.history_index -= 1
-            if self.app_state.history_index < 0:
-                self.app_state.history_index = 0
-                return
-
-        expression = self._get_history_expression(self.app_state.history_index)
-        if expression:
-            self._set_expression(expression)
+        self._do_history_op(-1)
 
     def redo(self) -> None:
-        if self.app_state.history_index == -1:
-            return
-
-        self.app_state.history_index += 1
-
-        if self.app_state.history_index >= self._history_list.count():
-            self._set_expression(self.app_state.redo_cached_exprs)
-            self.reset_navigation()
-        else:
-            expression = self._get_history_expression(self.app_state.history_index)
-            if expression:
-                self._set_expression(expression)
+        self._do_history_op(1, reset_on_end=True)
 
     def reset_navigation(self) -> None:
         """Reset undo/redo navigation"""
         self.app_state.history_index = -1
         self.app_state.redo_cached_exprs = ""
+        self._history.clear_highlight()

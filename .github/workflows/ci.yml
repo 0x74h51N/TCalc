@@ -8,21 +8,22 @@ on:
 jobs:
   cpp-format-check:
     name: C++ Format Check (clang-format)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
       - name: Install clang-format
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-format
+          sudo apt-get install -y clang-format-20
+          sudo ln -sf /usr/bin/clang-format-20 /usr/bin/clang-format
 
       - name: Run format check
         run: make cpp-format-check
 
   py-format-check:
     name: Python Format Check (ruff)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -47,7 +48,7 @@ jobs:
 
   native-build:
     name: Native Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -81,7 +82,7 @@ jobs:
 
   cpp-code-check:
     name: C++ Code Quality (clang-tidy)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: native-build
     steps:
       - uses: actions/checkout@v4
@@ -117,7 +118,7 @@ jobs:
 
   py-typecheck:
     name: Python Type Check (mypy)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: native-build
     steps:
       - uses: actions/checkout@v4
@@ -148,7 +149,7 @@ jobs:
 
   native-test:
     name: Native Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: native-build
     steps:
       - uses: actions/checkout@v4
@@ -167,7 +168,7 @@ jobs:
 
   py-test:
     name: Python Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: native-build
     steps:
       - uses: actions/checkout@v4
@@ -177,6 +178,25 @@ jobs:
           python-version: "3.13"
           cache: "pip"
           cache-dependency-path: "pyproject.toml"
+
+      - name: Install Qt system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libegl1 \
+            libgl1 \
+            libx11-xcb1 \
+            libxrender1 \
+            libxrandr2 \
+            libxkbcommon-x11-0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-xinerama0 \
+            libxcb-xfixes0 \
+            libxcb-cursor0
 
       - name: Install python deps
         run: |
@@ -194,3 +214,50 @@ jobs:
         run: |
           . venv/bin/activate
           make py-test
+
+  py-test-benchmark:
+    name: Benchmark Tests
+    runs-on: ubuntu-24.04
+    needs:
+      - py-test
+      - native-test
+      - py-typecheck
+      - cpp-code-check
+      - native-build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: "pyproject.toml"
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libx11-xcb1 libxrender1 libxrandr2 \
+            libxkbcommon-x11-0 libegl1 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0 libxcb-cursor0
+
+      - name: Install python deps
+        run: |
+          python -m venv venv
+          . venv/bin/activate
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Download native build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: native-build-debug
+
+      - name: Run benchmark tests
+        run: |
+          . venv/bin/activate
+          xvfb-run --auto-servernum make py-benchmark PYTEST_ARGS="-q --tb=line"
+
+      - name: Run malloc tests
+        run: |
+          . venv/bin/activate
+          xvfb-run --auto-servernum make py-mem-profile PYTEST_ARGS="-q --tb=line"

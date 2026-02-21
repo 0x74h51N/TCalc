@@ -30,8 +30,12 @@ dev = [
   "mypy>=1.10.0",
   "pre-commit>=3.7.0",
   "pybind11-stubgen>=2.5.0",
-  "ruff>=0.5.0",
-  "pytest>=8.2.0"
+  "ruff==0.15.0",
+  "pytest>=8.2.0",
+  "pytest-benchmark>=4.0.0",
+  "pytest-qt>=4.4.0",
+  "pytest-memray>=1.7.0",
+  "pyinstrument>=4.1.0"
 ]
 
 [project.scripts]
@@ -80,4 +84,14 @@ module = ["calc_native", "calc_native.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests/py"]
+testpaths = ["tests/"]
+filterwarnings = [
+    "ignore::pytest_benchmark.logger.PytestBenchmarkWarning",
+]
+markers = [
+    "benchmark: performance benchmark tests",
+]
+addopts = "--benchmark-time-unit=ms"
+
+[tool.pytest-benchmark]
+group_by = "group"

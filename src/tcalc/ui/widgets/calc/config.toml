@@ -4,19 +4,24 @@ spacing = 6
 divider_height = 1
 
 # Font sizes
-expression_font_size = 11
-result_font_size = 15
+expression_font_size = 14
+result_font_size = 16
 
 # Expression line sizing
 # Height is computed as: fontMetrics.height * expression_height_factor
 # and clamped to be at least expression_min_height.
 expression_height_factor = 1.8
-expression_min_height = 28
+expression_min_height = 30
+
+# Font/height scale ratios by input kind (relative to MAIN)
+scale_main = 1.0
+scale_aux = 1.0
+scale_script = 0.5
 
 [layout]
 # CalcWidget layout stretch ratios
-display_stretch = 3
-keypad_stretch = 7
+display_stretch = 5
+keypad_stretch = 5
 
 # Divider between display/topbar/keypad
 divider_line_width = 1
@@ -67,14 +72,11 @@ science_grid_stretch = 4
 column_split = 3
 
 [font_scale.display_expression]
-max_pt = 20
-divisor = 14
+max_pt = 26
 
 [font_scale.display_result]
-max_pt = 28
-divisor = 8
+max_pt = 30
 
 [font_scale.keypad_buttons]
-min_pt = 9
-max_pt = 18
-divisor = 5
+min_pt = 4
+max_pt = 20

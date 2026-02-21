@@ -20,6 +20,7 @@ enum class OpId : std::uint8_t {
     Pow,
     Percent,
     Negate,
+    UnaryPlus,
 
     Sqrt,
     Sin,
@@ -188,6 +189,16 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {"negate"},
         .method = "negate",
+        .flags = Flags::None,
+    },
+    OpSpec{
+        .id = OpId::UnaryPlus,
+        .symbol = "u+",
+        .precedence = 3,
+        .associativity = Assoc::Right,
+        .arity = Arity::Unary,
+        .aliases = {"plus"},
+        .method = "unaryplus",
         .flags = Flags::None,
     },
 

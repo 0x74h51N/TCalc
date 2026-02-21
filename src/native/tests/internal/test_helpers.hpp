@@ -279,41 +279,77 @@ template <typename T> inline void print_value(std::ostream &os, const T &v) {
     }
 }
 
-inline std::string_view token_kind_name(tcalc::parser::TokenKind kind) {
-    static constexpr std::array<std::string_view, 4> kNames{"Number", "Op", "LParen", "RParen"};
-    const auto idx = static_cast<std::size_t>(kind);
-    if (idx >= kNames.size()) {
+inline std::string_view token_kind_name(
+    tcalc::parser::TokenKind kind,
+    tcalc::parser::ParenKind pk = tcalc::parser::ParenKind::Paren,
+    tcalc::parser::ParenType pt = tcalc::parser::ParenType::Open) {
+    switch (kind) {
+    case tcalc::parser::TokenKind::Number:
+        return "Number";
+    case tcalc::parser::TokenKind::Op:
+        return "Op";
+    case tcalc::parser::TokenKind::Expr:
+        return "Expr";
+    case tcalc::parser::TokenKind::Paren:
+        switch (pk) {
+        case tcalc::parser::ParenKind::Paren:
+            return (pt == tcalc::parser::ParenType::Open) ? "LParen" : "RParen";
+        case tcalc::parser::ParenKind::Brace:
+            return (pt == tcalc::parser::ParenType::Open) ? "LBrace" : "RBrace";
+        case tcalc::parser::ParenKind::Bracket:
+            return (pt == tcalc::parser::ParenType::Open) ? "LBracket" : "RBracket";
+        default:
+            return "<unknown-paren>";
+        }
+    default:
         return "<unknown>";
     }
-    return kNames[idx];
 }
 
 inline std::string_view op_id_name(tcalc::ops::OpId id) {
-    using tcalc::ops::OpId;
-    if (id == OpId::Count) {
-        return "Count";
-    }
-    const auto *spec = tcalc::ops::op_spec(id);
-    if (spec == nullptr) {
-        return "<unknown>";
-    }
-    return spec->method;
+    if (id == tcalc::ops::OpId::Count)
+        return "<none>";
+    if (const auto *spec = tcalc::ops::op_spec(id))
+        return spec->method;
+    return "<unknown>";
 }
 
 inline void print_value(std::ostream &os, const tcalc::parser::Token &tok) {
-    os << "Token{kind=" << token_kind_name(tok.kind) << ", op_id=" << op_id_name(tok.op_id);
+    os << "Token{kind=";
 
-    if (tok.kind == tcalc::parser::TokenKind::Op && tok.op_id != tcalc::ops::OpId::Count) {
-        if (const auto *spec = tcalc::ops::op_spec(tok.op_id)) {
-            os << "(";
-            print_value(os, spec->symbol);
-            os << ")";
-        }
+    if (tok.kind == tcalc::parser::TokenKind::Paren) {
+        const auto &p = std::get<tcalc::parser::ParenToken>(tok.data);
+        os << token_kind_name(tok.kind, p.kind, p.type);
+    } else {
+        os << token_kind_name(tok.kind);
     }
 
-    os << ", value=\"";
-    print_value(os, tok.value);
-    os << "\"}";
+    os << ", ";
+
+    std::visit(
+        [&](auto &&t) {
+            using T = std::decay_t<decltype(t)>;
+            if constexpr (std::is_same_v<T, tcalc::parser::NumberToken>) {
+                os << "value=\"" << t.value << "\"";
+            } else if constexpr (std::is_same_v<T, tcalc::parser::OpToken>) {
+                os << "op_id=" << op_id_name(t.op_id);
+                if (t.op_id != tcalc::ops::OpId::Count) {
+                    if (const auto *spec = tcalc::ops::op_spec(t.op_id)) {
+                        os << "(";
+                        print_value(os, spec->symbol);
+                        os << ")";
+                    }
+                }
+            } else if constexpr (std::is_same_v<T, tcalc::parser::ParenToken>) {
+                os << "type=" << static_cast<int>(t.type) << ", kind=" << static_cast<int>(t.kind);
+            } else if constexpr (std::is_same_v<T, tcalc::parser::ExprToken>) {
+                os << "expr_kind=" << static_cast<int>(t.kind) << ", left.size=" << t.left.size()
+                   << ", right.size=" << t.right.size();
+            }
+        },
+        tok.data);
+
+    os << "}";
 }
 
 inline void print_value(std::ostream &os, const std::vector<tcalc::parser::Token> &values) {

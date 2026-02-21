@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+: "${PY:=./venv/bin/python}"
+: "${MEMRAY_STACKS:=100}"
+: "${MEMRAY_ARGS:=-v}"
+: "${MEMRAY_BIN_DIR:=./.memray}"
+: "${MEMRAY_BIN_PREFIX:=memray}"
+: "${TEST_DIR:=./tests/benchmark/test_malloc.py}"
+
+
+
+PYTEST_MEMRAY=(
+	-m pytest "$TEST_DIR"
+	-m benchmark --memray --native
+	--stacks "$MEMRAY_STACKS"
+	--memray-bin-path="$MEMRAY_BIN_DIR"
+	--memray-bin-prefix="$MEMRAY_BIN_PREFIX"
+	-p no:benchmark -o "addopts="
+)
+
+pick_dumb() {
+	no_dumb="No dumbs found. Run profile first."
+	if [[ ! -d "$MEMRAY_BIN_DIR" ]]; then
+		echo "$no_dumb" >&2
+		exit 1
+	fi
+
+	files=("$MEMRAY_BIN_DIR/$MEMRAY_BIN_PREFIX"-*.bin)
+	
+	if [[ ${#files[@]} -eq 0 || ! -f "${files[0]}" ]]; then
+		echo "$no_dumb" >&2
+		exit 1
+	fi
+	{
+		echo "Dumps:"
+		echo ""
+		for i in $(seq 1 ${#files[@]}); do
+			name=$(basename "${files[$((i-1))]}" .bin | sed 's/.*test_malloc.py-//')
+			echo "	$i)	$name"
+		done
+	
+		echo ""
+		printf "Select [1-%d]: "  ${#files[@]}
+	} >&2
+
+	read -r choice
+	idx=$((choice - 1))
+
+	if [[ $idx -lt 0 || $idx -ge ${#files[@]} ]]; then
+		echo "Invalid selection"
+		exit 1
+	fi
+
+	echo "${files[$idx]}"
+}
+
+
+cmd_profile() {
+	PYTHONPATH=src:stubs $PY "${PYTEST_MEMRAY[@]}" $MEMRAY_ARGS
+}
+
+cmd_flame() {
+	local file
+	file=$(pick_dumb)	
+	html_file="${file}.html"
+
+	rm -f "$html_file"
+
+	$PY -m memray flamegraph "$file" -o "$html_file"
+
+	if command -v xdg-open &>/dev/null; then
+		xdg-open "$html_file"
+	elif command -v open &>/dev/null; then 
+		open "$html_file"
+	else
+		echo "Flamegraph created at $MEMRAY_BIN_DIR/$html_file. Open it in your browser."
+	fi
+}
+
+cmd_tree() {
+	local file
+	file=$(pick_dumb)
+	$PY -m memray tree "$file"
+}
+
+
+case "${1:-}" in
+	profile) 	cmd_profile ;;
+	flame) 		cmd_flame ;;
+	tree) 		cmd_tree ;;
+	*) 			cmd_profile ;;
+esac

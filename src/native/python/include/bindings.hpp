@@ -4,6 +4,10 @@
 
 #include <cmath>
 #include <utility>
+#include "parser/pub/parser.hpp"
+
+namespace py = pybind11;
+namespace p = tcalc::parser;
 
 // Python binding declarations for calculator native extension
 void bind_bigreal(pybind11::module_ &m);
@@ -38,4 +42,28 @@ template <typename BigFn> inline pybind11::object promote_inf_to_big(double r, B
         return pybind11::float_(r);
     }
     return pybind11::cast(std::forward<BigFn>(big_fn)());
+}
+
+template <typename Class, typename Member>
+py::class_<Class> &def_readonly_ref(py::class_<Class> &c, const char *name, Member Class::*member) {
+    c.def_property_readonly(
+        name,
+        [member](Class &self) -> const Member & { return self.*member; },
+        py::return_value_policy::reference_internal);
+
+    return c;
+}
+template <typename Class, typename T>
+py::class_<Class> &
+def_readonly_ref(py::class_<Class> &c, const char *name, std::vector<T> Class::*member) {
+    c.def_property_readonly(
+        name,
+        [member](Class &self) -> const std::vector<T> & { return self.*member; },
+        py::return_value_policy::reference_internal);
+
+    return c;
+}
+
+template <typename T> const T *token_as(const p::Token &tok) {
+    return std::get_if<T>(&tok.data);
 }

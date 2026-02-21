@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from enum import Enum
 from types import ModuleType, SimpleNamespace
-from typing import Callable
+from typing import Callable, List, Optional
 
 import pytest
 
@@ -13,8 +13,25 @@ import pytest
 @dataclass(frozen=True)
 class FakeToken:
     kind: object
-    op_id: object | None = None
-    value: object | None = None
+    value: Optional[object] = None
+    op_id: Optional[object] = None
+    left: Optional[List["FakeToken"]] = None
+    right: Optional[List["FakeToken"]] = None
+    expr_kind: Optional[object] = None
+
+    @property
+    def data(self):
+        if self.kind == FakeTokenKind.Number:
+            return type("Data", (), {"value": self.value})()
+        if self.kind == FakeTokenKind.Op:
+            return type("Data", (), {"op_id": self.op_id})()
+        return None
+
+    def as_number(self) -> Optional["FakeToken"]:
+        return self if self.kind == FakeTokenKind.Number else None
+
+    def as_op(self) -> Optional["FakeToken"]:
+        return self if self.kind == FakeTokenKind.Op else None
 
 
 class FakeArity(Enum):
@@ -173,6 +190,8 @@ class FakeNativeCalculatorError(Exception):
 class FakeTokenKind:
     Number = "number"
     Op = "op"
+    Expr = "expr"
+    Paren = "paren"
 
 
 def _cx_sqrt(x: float) -> bool:
@@ -228,6 +247,29 @@ _FAKE_OPS: tuple[_OpDef, ...] = (
 _FAKE_OP_BY_ID: dict[Id, _OpDef] = {op.id: op for op in _FAKE_OPS}
 
 
+class ExprKind(Enum):
+    Frac = "frac"
+    Pow = "pow"
+    Root = "root"
+    Log = "log"
+
+
+@dataclass(frozen=True)
+class LatexExprEntry:
+    symbol: str
+    kind: ExprKind
+    opid: Id
+
+
+def latex_exprs():
+    return [
+        LatexExprEntry("\\frac", ExprKind.Frac, Id.Div),
+        LatexExprEntry("^", ExprKind.Pow, Id.Pow),
+        LatexExprEntry("\\sqrt", ExprKind.Root, Id.Root),
+        LatexExprEntry("\\log", ExprKind.Log, Id.Log),
+    ]
+
+
 def _install_fake_calc_native() -> ModuleType:
     calc_native = ModuleType("calc_native")
 
@@ -265,6 +307,11 @@ def _install_fake_calc_native() -> ModuleType:
     calc_native.Calculator = DummyCalc
     calc_native.CalculatorError = FakeNativeCalculatorError
     calc_native.Token = FakeToken
+
+    calc_native.ExprKind = ExprKind
+
+    calc_native.latex_exprs = latex_exprs
+    calc_native.LatexExprEntry = LatexExprEntry
     return calc_native
 
 
@@ -278,11 +325,11 @@ def dummy_calc() -> DummyCalc:
 
 
 @pytest.fixture
-def token_factory() -> tuple[Callable[[object], FakeToken], Callable[[object], FakeToken]]:
-    def num(value: object) -> FakeToken:
+def token_factory():
+    def num(value):
         return FakeToken(FakeTokenKind.Number, value=value)
 
-    def op(op_id: object) -> FakeToken:
+    def op(op_id):
         return FakeToken(FakeTokenKind.Op, op_id=op_id)
 
     return num, op
@@ -298,7 +345,9 @@ def fake_ops(monkeypatch) -> dict[Id, _OpDef]:
     monkeypatch.setattr(
         parser_mod, "calc_native", SimpleNamespace(TokenKind=FakeTokenKind), raising=False
     )
-    monkeypatch.setattr(parser_mod, "is_number_token", lambda tok: tok.kind == FakeTokenKind.Number)
+    monkeypatch.setattr(
+        parser_mod, "is_number_token", lambda tok: tok.token.kind == FakeTokenKind.Number
+    )
     return ops
 
 
