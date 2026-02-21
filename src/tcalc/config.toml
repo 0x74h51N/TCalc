@@ -36,6 +36,10 @@ border_default = "#111111"
 border_light = "#444957"
 border_focus = "#5a606d"
 
+# Status colors
+status_warn = "#e0a828"
+status_error = "#d94040"
+
 # Selection colors
 selection_background = "#3a3d47"
 selection_text = "#ffffff"

@@ -3,10 +3,12 @@ from typing import Optional
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QColor, QIcon
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
     QListWidget,
+    QListWidgetItem,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
@@ -15,7 +17,9 @@ from PySide6.QtWidgets import (
 
 from tcalc.app_state import CalculatorMode
 from tcalc.theme import get_theme
+from tcalc.ui.widgets.common.utils import Align
 
+from ..common import Toaster, ToastLevel
 from ..utils import apply_scaled_fonts
 from .config import font_scale, layout_config, style
 from .storage import clear_history_file, load_history, save_history
@@ -73,6 +77,8 @@ class History(QWidget):
 
         self.list = QListWidget()
         apply_history_style(self.list)
+
+        self.list.itemClicked.connect(self._copy_item_to_clipboard)
         self.main_layout.addWidget(self.list)
 
         self.divider = QFrame(self)
@@ -91,6 +97,8 @@ class History(QWidget):
         button_container.addWidget(self.clear_button, int(layout_config["clear_button_stretch"]))
 
         self.main_layout.addLayout(button_container)
+
+        self._toaster = Toaster(self, horizontal=Align.LEFT)
 
         self.reload_from_storage(mode)
 
@@ -125,6 +133,29 @@ class History(QWidget):
         last_item = self.list.item(self.list.count() - 1)
         if last_item:
             last_item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            last_item.setData(Qt.ItemDataRole.UserRole, expression)
+
+    def _copy_item_to_clipboard(self, item: QListWidgetItem) -> None:
+        """Copy the original expression to clipboard when an item is clicked."""
+        raw: str = item.data(Qt.ItemDataRole.UserRole)
+
+        expression: str = raw.split("=")[0].replace("\n", "").replace("\r", "").strip()
+        clipboard = QApplication.clipboard()
+        if clipboard:
+            clipboard.setText(expression)
+            self._toaster.show_toast("Copied!", ToastLevel.INFO)
+
+    def highlight_item(self, index: int) -> None:
+        """Highlight the item at the given index, scrolling it into view."""
+        if 0 <= index < self.list.count():
+            self.list.setCurrentRow(index)
+            self.list.scrollToItem(self.list.item(index))
+        else:
+            self.list.setCurrentRow(-1)
+
+    def clear_highlight(self) -> None:
+        """Remove any selection highlight from the list."""
+        self.list.setCurrentRow(-1)
 
     def update_history(self, expression: str) -> None:
         """Add expression to history and save to storage."""

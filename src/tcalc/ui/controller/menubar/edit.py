@@ -33,6 +33,7 @@ class EditOperations:
             self.app_state.history_index = idx
             return
         self.app_state.history_index = idx
+        self._history.highlight_item(idx)
         expr = self._get_history_expression(idx)
         if expr:
             self._set_expression(expr)
@@ -58,8 +59,12 @@ class EditOperations:
         return self.window.calc_widget.display
 
     @property
+    def _history(self):
+        return self.window.history
+
+    @property
     def _history_list(self):
-        return self.window.history.list
+        return self._history.list
 
     def _get_history_expression(self, index: int) -> Optional[str]:
         item = self._history_list.item(index)
@@ -92,3 +97,4 @@ class EditOperations:
         """Reset undo/redo navigation"""
         self.app_state.history_index = -1
         self.app_state.redo_cached_exprs = ""
+        self._history.clear_highlight()
