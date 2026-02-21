@@ -158,7 +158,7 @@ class Expression(QWidget):
         return self._navigate_vertical(1)
 
     def _navigate_horizontal(self, direction: int) -> bool:
-        """Move between QLineEdits in flat order when cursor is at edge."""
+        """Move between segments horizontally, climbing the tree when needed."""
         target = self._resolve_target()
         at_edge = (
             target.cursorPosition() == 0
@@ -168,18 +168,38 @@ class Expression(QWidget):
         if not at_edge:
             return False
 
-        all_inputs = self._root.line_edits()
-        try:
-            idx = all_inputs.index(target)
-        except ValueError:
-            return False
-
-        nxt = idx + direction
-        if 0 <= nxt < len(all_inputs):
-            le = all_inputs[nxt]
-            le.setFocus()
-            le.setCursorPosition(len(le.text()) if direction < 0 else 0)
-            return True
+        current: QWidget = target
+        slot = target.parent()
+        while isinstance(slot, ExpressionSlot):
+            idx = slot.index_of(current)
+            nxt = idx + direction
+            if 0 <= nxt < len(slot._segments):
+                seg = slot._segments[nxt]
+                if isinstance(seg, QLineEdit):
+                    seg.setFocus()
+                    seg.setCursorPosition(len(seg.text()) if direction < 0 else 0)
+                    return True
+                if isinstance(seg, ExpressionNode):
+                    entering = (
+                        (seg._left_slot or seg._right_slot)
+                        if direction > 0
+                        else (seg._right_slot or seg._left_slot)
+                    )
+                    if entering and entering._direct_edits:
+                        le = (
+                            entering._direct_edits[0]
+                            if direction > 0
+                            else entering._direct_edits[-1]
+                        )
+                        le.setFocus()
+                        le.setCursorPosition(0 if direction > 0 else len(le.text()))
+                    return True
+            # No sibling here climb up: slot's parent node -> current
+            node = slot.parent()
+            if not isinstance(node, ExpressionNode):
+                break
+            current = node
+            slot = node.parent()
         return False
 
     def _navigate_vertical(self, direction: int) -> bool:
