@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
 
 from tcalc.core.ops import Operation, get_symbols_with_aliases
 from tcalc.core.parser import tokenize
+from tcalc.ui.components.math_primitives import ParenGlyph
 from tcalc.ui.widgets.calc.config import display_config, font_scale_config
 from tcalc.ui.widgets.calc.display.expression.expression_node import (
     ExpressionNode,
@@ -236,12 +237,35 @@ class Expression(QWidget):
             return
 
         slot = target.parent()
-        if isinstance(slot, ExpressionSlot):
-            prev = slot._segments[slot._segments.index(target) - 1]
-            if not pos and isinstance(prev, ExpressionNode):
-                prev.remove()
+        if isinstance(slot, ExpressionSlot) and not pos and not text:
+            node = slot.parent()
+            if (
+                isinstance(node, ExpressionNode)
+                and slot is node._right_slot
+                and len(slot._segments) == 1
+            ):
+                node.dissolve()
                 self.plain_text_changed.emit(self.get_plain_text())
                 return
+
+        if isinstance(slot, ExpressionSlot) and not pos:
+            idx = slot._segments.index(target)
+            if idx > 0:
+                prev = slot._segments[idx - 1]
+                if isinstance(prev, ParenWidget):
+                    prev.remove(prev._close_glyph)
+                    self.plain_text_changed.emit(self.get_plain_text())
+                    return
+                if isinstance(prev, ParenGlyph):
+                    slot.remove(prev)
+                    self.plain_text_changed.emit(self.get_plain_text())
+                    return
+                if isinstance(prev, ExpressionNode):
+                    self.navigate_left()
+                    return
+                if isinstance(prev, QLineEdit):
+                    self._focus_backspace(prev)
+                    return
 
         target.backspace()
 
@@ -395,6 +419,7 @@ class Expression(QWidget):
 
         node.focus_default()
         return suffix_le
+        # TODO: Fix the unnecessary new prefix segment creation -> This related w/ExpressionNode.dissolve cursor position bug
 
     def _normalize_text(self, seg: QLineEdit, tokens: list[calc_native.Token]) -> None:
         """Normalize text aliases to symbols (add -> + or floor -> ⌊)."""
@@ -483,7 +508,7 @@ class Expression(QWidget):
                     inner_tokens = tokens[paren_first + 1 : paren_end - (1 if has_close else 0)]
                     suffix_tokens = tokens[paren_end:] if has_close else []
 
-                    paren_node = paren_cls(self, open_paren_tok, inner_tokens, close_tok)
+                    paren_node = paren_cls(self, inner_tokens, open_paren_tok, close_tok)
 
                     if not has_close:
                         self._pending_parens.setdefault(open_paren_tok.kind, []).append(paren_node)
@@ -549,6 +574,16 @@ class Expression(QWidget):
             return False
         if last.data.type != calc_native.ParenType.Open:
             return False
+
+        # Reattach to a pending ParenWidget that lost its open glyph
+        stack = self._pending_parens.get(last.data.kind)
+        if stack:
+            pw = stack.pop()
+            if not stack:
+                del self._pending_parens[last.data.kind]
+            pw.set_open(last.data)
+            seg.setText(tokens_to_text(tokens[:-1]))
+            return True
 
         seg_idx = slot.index_of(seg)
         right = slot._segments[seg_idx + 1 :]

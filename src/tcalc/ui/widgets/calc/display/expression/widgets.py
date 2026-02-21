@@ -8,7 +8,6 @@ from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QHBoxLayout,
-    QLineEdit,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -183,18 +182,18 @@ class RootWidget(ExpressionNode):
 
         self.degree.setContentsMargins(0, 0, self.DEGREE_RIGHT_MARGIN, 0)
 
-        grid.addWidget(self.degree, 0, 0, 3, 1, InputAlign.LEFTB.value)
+        grid.addWidget(self.degree, 0, 0, 2, 1, InputAlign.LEFTB.value)
 
         self.sqrt_symbol = SqrtSymbol(grid)
 
-        grid.addWidget(self.sqrt_symbol, 2, 0, 3, 4, InputAlign.RIGHT.value)
+        grid.addWidget(self.sqrt_symbol, 2, 0, 2, 4, InputAlign.RIGHT.value)
         self.radicand = ExpressionSlot(
             editor,
             kind=InputKind.AUX,
             key="radicand",
             align=InputAlign.LEFTT,
         )
-        grid.addWidget(self.radicand, 2, 4, 3, 2, InputAlign.RIGHTB.value)
+        grid.addWidget(self.radicand, 2, 4, 2, 2, InputAlign.RIGHTB.value)
 
         self.radicand.setObjectName("radicandSlot")
         self.radicand.setContentsMargins(0, self.BORDER_PADDING, 0, 0)
@@ -212,7 +211,11 @@ class RootWidget(ExpressionNode):
         self.dHeight = self.degree.height()
 
     def anchor_y(self) -> int:
-        return self.radicand.height() // 2 + self.degree.height() // 2
+        return (
+            self.radicand.height()
+            if self.degree.height() < self.dHeight
+            else self.degree.height() + self.radicand.height() // 2
+        )
 
     def focus_default(self) -> None:
         base_input = self.radicand.default_input()
@@ -236,8 +239,8 @@ class ParenWidget(ExpressionNode):
     def __init__(
         self,
         editor: Expression,
-        open_token: calc_native.ParenToken,
         inner_tokens: list[calc_native.Token],
+        open_token: calc_native.ParenToken | None = None,
         close_token: calc_native.ParenToken | None = None,
     ) -> None:
         super().__init__(editor, None, None)
@@ -246,7 +249,11 @@ class ParenWidget(ExpressionNode):
         self._editor = editor
         self._open_token = open_token
         self._close_token = close_token
-        self._paren_kind = open_token.kind
+        if open_token is not None:
+            self._paren_kind = open_token.kind
+            open_symbol = open_token.symbol
+        elif close_token is not None:
+            self._paren_kind = close_token.kind
 
         close_symbol = close_token.symbol if close_token is not None else None
         self._left_slot: ExpressionSlot = ExpressionSlot(
@@ -254,7 +261,7 @@ class ParenWidget(ExpressionNode):
             kind=InputKind.AUX,
             key="midSlot",
             align=InputAlign.TOP,
-            paren=(open_token.symbol, close_symbol),
+            paren=(open_symbol, close_symbol),
         )
 
         layout = QHBoxLayout(self)
@@ -272,8 +279,6 @@ class ParenWidget(ExpressionNode):
         if close_token is not None:
             self._attach_close_glyph()
 
-        self._left_slot._on_node_removed = self._on_inner_node_removed
-
     def _create_open(self) -> QWidget | None:
         """Return the opening glyph widget, or *None* to draw nothing."""
         return None
@@ -284,12 +289,25 @@ class ParenWidget(ExpressionNode):
 
     # Public API
 
+    def set_open(self, open_token: calc_native.ParenToken) -> None:
+        """Reattach an open paren that was typed after the glyph was removed."""
+        self._open_token = open_token
+        close_sym = self._close_token.symbol if self._close_token else None
+        self._left_slot._paren = (open_token.symbol, close_sym)
+        if self._open_glyph is None:
+            self._open_glyph = self._create_open()
+            if self._open_glyph is not None:
+                self._left_slot.insert_widget(0, self._open_glyph)
+
     def set_close(self, close_token: calc_native.ParenToken) -> None:
         """Attach a close paren that was typed later in a different segment."""
         self._close_token = close_token
-        self._left_slot._paren = (self._open_token.symbol, close_token.symbol)
+        open_sym = self._open_token.symbol if self._open_token else None
+        self._left_slot._paren = (open_sym, close_token.symbol)
         if self._close_glyph is None:
-            self._attach_close_glyph()
+            self._close_glyph = self._create_close()
+            if self._close_glyph is not None:
+                self._left_slot.insert_widget(len(self._left_slot._segments), self._close_glyph)
 
     def to_plain_text(self) -> str:
         return self._left_slot.to_plain_text()
@@ -299,45 +317,29 @@ class ParenWidget(ExpressionNode):
         if not le.text():
             le.setFocus()
 
-    def remove(self) -> None:
-        """Remove close glyph if there is."""
-        if self._close_glyph is not None:
+    def remove(self, glyph: QWidget | None = None) -> None:
+        """Remove one glyph. If both gone, dissolve."""
+        if glyph is self._open_glyph:
+            self._detach_open_glyph()
+        elif glyph is self._close_glyph:
             self._detach_close_glyph()
+
+        if self._open_glyph is None and self._close_glyph is None:
+            self._dissolve()
+        else:
             self._editor._pending_parens.setdefault(self._paren_kind, []).append(self)
-            return
 
-        self._dissolve()
-
-    def _dissolve(self) -> None:
-        """Remove this ParenWidget, writing its content back as plain text."""
+    def _dissolve(self, has_node: bool = True) -> None:
+        """Serialize inner content, remove this ParenWidget, write text back."""
         stack = self._editor._pending_parens.get(self._paren_kind)
         if stack and self in stack:
             stack.remove(self)
             if not stack:
                 del self._editor._pending_parens[self._paren_kind]
-
-        plain = self.to_plain_text()
-
-        parent = self.parent()
-        if isinstance(parent, ExpressionSlot):
-            idx = parent._segments.index(self)
-            left = parent._segments[idx - 1] if idx > 0 else None
-            if isinstance(left, QLineEdit):
-                cursor = len(left.text())
-                left.setText(left.text() + plain)
-                left.setFocus()
-                left.setCursorPosition(cursor)
-                self._editor._last_focused = left
-                parent.remove(self)
-                return
+        if has_node:
+            super().dissolve()
 
         super().remove()
-
-    def _on_inner_node_removed(self) -> None:
-        """Called when an ExpressionNode is removed from the inner slot."""
-        has_inner_node = any(isinstance(s, ExpressionNode) for s in self._left_slot._segments)
-        if not has_inner_node:
-            self._dissolve()
 
     # Internal
 
@@ -348,6 +350,16 @@ class ParenWidget(ExpressionNode):
         if self._close_glyph is not None:
             self._left_slot.insert_widget(len(self._left_slot._segments), self._close_glyph)
 
+    def _detach_open_glyph(self) -> None:
+        if self._open_glyph is None:
+            return
+        self._left_slot._layout.removeWidget(self._open_glyph)
+        self._left_slot._segments.remove(self._open_glyph)
+        self._open_glyph.deleteLater()
+        self._open_glyph = None
+        self._open_token = None
+        self._left_slot._paren = (self._close_token.symbol, None) if self._close_token else None
+
     def _detach_close_glyph(self) -> None:
         if self._close_glyph is None:
             return
@@ -356,7 +368,7 @@ class ParenWidget(ExpressionNode):
         self._close_glyph.deleteLater()
         self._close_glyph = None
         self._close_token = None
-        self._left_slot._paren = (self._open_token.symbol, None)
+        self._left_slot._paren = (self._open_token.symbol, None) if self._open_token else None
 
 
 class BraceWidget(ParenWidget):

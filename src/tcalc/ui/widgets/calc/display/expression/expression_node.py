@@ -51,6 +51,7 @@ class ExpressionNode(QWidget):
         right_tokens: list[calc_native.Token] | None,
     ):
         super().__init__(editor)
+        self._editor = editor
         self.left_tokens = left_tokens if left_tokens is not None else []
         self.right_tokens = right_tokens if right_tokens is not None else []
 
@@ -104,6 +105,37 @@ class ExpressionNode(QWidget):
     def slot_below(self, current: ExpressionSlot) -> ExpressionSlot | None:
         return self._bottom_slot if current is self._top_slot else None
 
+    def dissolve(self) -> None:
+        """Dissolve this node: serialize _left_slot, remove node, write text back."""
+        from .widgets import ParenWidget
+
+        parent = self.parent()
+        if not isinstance(parent, ExpressionSlot):
+            return
+
+        left_text = self._left_slot.to_plain_text() if self._left_slot else ""
+        parent.remove(self)
+
+        focus = self._editor._last_focused
+        if focus is None or not isinstance(focus, QLineEdit):
+            focus = parent.default_input()
+        cursor = focus.cursorPosition()
+        focus.setText(focus.text()[:cursor] + left_text + focus.text()[cursor:])
+        focus.setCursorPosition(cursor + len(left_text))
+
+        # If parent slot is a ParenWidget with no inner nodes left, dissolve it too
+        paren = parent.parent()
+        if isinstance(paren, ParenWidget) and not any(
+            isinstance(s, ExpressionNode) for s in parent._segments
+        ):
+            plain = paren.to_plain_text()
+            paren._dissolve(False)
+            target = self._editor._last_focused
+            if target and isinstance(target, QLineEdit):
+                cur = target.cursorPosition()
+                target.setText(target.text()[:cur] + plain + target.text()[cur:])
+                target.setCursorPosition(cur + len(left_text) + 1)
+
     def remove(self) -> None:
         """Remove this node from its parent slot."""
         parent = self.parent()
@@ -125,7 +157,7 @@ class ExpressionSlot(QWidget):
         kind: InputKind,
         key: str,
         align: InputAlign,
-        paren: tuple[str, str | None] | None = None,
+        paren: tuple[str | None, str | None] | None = None,
     ) -> None:
         super().__init__(editor)
 
@@ -238,9 +270,19 @@ class ExpressionSlot(QWidget):
 
         idx = self._segments.index(seg)
 
+        left = self._segments[idx - 1] if idx > 0 else None
+
+        # Paren glyph: delegate to the owning ParenWidget
+        if isinstance(seg, ParenGlyph):
+            from .widgets import ParenWidget
+
+            node = self.parent()
+            if isinstance(node, ParenWidget):
+                node.remove(seg)
+            return
+
         # If node with QLineEdit neighbors, merge them into one and remove node+right
-        left = self._segments[idx - 1]
-        right = self._segments[idx + 1]
+        right = self._segments[idx + 1] if idx + 1 < len(self._segments) else None
         if isinstance(left, QLineEdit) and isinstance(right, QLineEdit):
             left_text = left.text()
             left.setText(left_text + right.text())
@@ -299,7 +341,7 @@ class ExpressionSlot(QWidget):
                 parts.append(seg.to_plain_text())
         inner = "".join(parts)
         if self._paren is not None:
-            open_par = self._paren[0]
+            open_par = self._paren[0] or ""
             close_par = self._paren[1] or ""
             return open_par + inner + close_par
         return inner
