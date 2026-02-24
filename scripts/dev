@@ -3,7 +3,6 @@ set -e
 
 echo "== Calculator Dev Mode (auto-restart) =="
 
-
 # entr check
 # -----------------------------
 if ! command -v entr >/dev/null 2>&1; then
@@ -58,9 +57,8 @@ make native-test NATIVE_TEST_ARGS=""
 echo "Generating ops stubs"
 python scripts/stubgen/main.py
 
-
 echo "Auto-restart enabled"
 
 # Hot reload
 # -----------------------------
-find src -name "*.py" | entr -r python -m tcalc
+find src -name "*.py" | entr -r python -m tcalc --debug

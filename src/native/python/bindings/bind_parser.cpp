@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/typing.h>
 
 #include <string>
 
@@ -206,8 +207,8 @@ void bind_parser(py::module_ &m) {
 
     m.def(
         "op_table",
-        []() {
-            py::list out;
+        []() -> py::typing::List<tcalc::ops::OpSpec> {
+            py::typing::List<tcalc::ops::OpSpec> out;
             for (const auto &op : tcalc::ops::kOps) {
                 out.append(&op);
             }
