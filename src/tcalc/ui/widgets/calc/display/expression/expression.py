@@ -227,7 +227,8 @@ class Expression(QWidget):
         pos = target.cursorPosition()
 
         if pos and text[pos - 1] == " ":
-            target.setText(text[: pos - 2] + text[pos - 1 :])
+            target.setCursorPosition(pos - 1)
+            target.backspace()
             return
 
         slot = target.parent()
@@ -412,7 +413,14 @@ class Expression(QWidget):
 
         node.focus_default()
         return suffix_le
-        # TODO: Fix the unnecessary new prefix segment creation -> This related w/ExpressionNode.dissolve cursor position bug
+
+    def _seg_after_node(self, seg: QLineEdit) -> bool:
+        """Check if the segment immediately follows an ExpressionNode in its slot."""
+        slot = seg.parent()
+        if not isinstance(slot, ExpressionSlot):
+            return False
+        idx = slot.index_of(seg)
+        return idx > 0 and isinstance(slot._segments[idx - 1], ExpressionNode)
 
     def _normalize_text(self, seg: QLineEdit, tokens: list[calc_native.Token]) -> None:
         """Normalize text aliases to symbols (add -> + or floor -> ⌊)."""
