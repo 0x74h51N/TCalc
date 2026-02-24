@@ -83,6 +83,13 @@ ignore_missing_imports = true
 module = ["calc_native", "calc_native.*"]
 ignore_missing_imports = true
 
+[tool.pyright]
+stubPath = "stubs"
+pythonVersion = "3.11"
+venvPath = "."
+venv = "venv"
+extraPaths = ["src"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests/"]
 filterwarnings = [
