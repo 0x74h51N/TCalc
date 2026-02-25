@@ -406,11 +406,12 @@ class Expression(QWidget):
         """Insert a node widget into slot: [prefix | node | suffix]."""
         idx = slot.index_of(seg)
 
-        seg.setText(calc_native.tokens_to_text(prefix_tokens))
+        seg.setText(calc_native.tokens_to_text(prefix_tokens, self._seg_after_node(seg)))
+        seg.setObjectName("prefix")
         slot.insert_widget(idx + 1, node)
         suffix_le = slot.insert_input(idx + 2)
-        suffix_le.setText(calc_native.tokens_to_text(suffix_tokens))
-
+        suffix_le.setText(calc_native.tokens_to_text(suffix_tokens, True))
+        suffix_le.setObjectName("suffix")
         node.focus_default()
         return suffix_le
 
@@ -425,7 +426,7 @@ class Expression(QWidget):
     def _normalize_text(self, seg: QLineEdit, tokens: list[calc_native.Token]) -> None:
         """Normalize text aliases to symbols (add -> + or floor -> ⌊)."""
         text = seg.text()
-        new_text = calc_native.tokens_to_text(tokens)
+        new_text = calc_native.tokens_to_text(tokens, self._seg_after_node(seg))
         if new_text != text:
             cursor_pos = seg.cursorPosition()
 

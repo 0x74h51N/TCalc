@@ -530,12 +530,18 @@ constexpr std::string_view unary_display_symbol(ops::OpId id) {
 }
 
 /// Should this op get spaces around it?
-inline bool needs_spacing(ops::OpId op_id) {
+inline bool needs_spacing(ops::OpId op_id, const bool &after_node) {
     const auto *spec = ops::op_spec(op_id);
     if (spec == nullptr) {
         return false;
     }
-    return spec->arity == ops::Arity::Binary;
+    if (spec->arity == ops::Arity::Binary) {
+        return true;
+    }
+    if (op_id == ops::OpId::Negate || op_id == ops::OpId::UnaryPlus) {
+        return after_node;
+    }
+    return false;
 }
 
 } // namespace
@@ -583,8 +589,8 @@ std::string token_text(const Token &tok) {
         tok.data);
 }
 
-std::string space_binary_op(ops::OpId op_id, const std::string &text) {
-    if (needs_spacing(op_id)) {
+std::string space_binary_op(ops::OpId op_id, const std::string &text, const bool &after_node) {
+    if (needs_spacing(op_id, after_node)) {
         std::string out;
         out.reserve(text.size() + 2);
         out.push_back(' ');
@@ -595,14 +601,14 @@ std::string space_binary_op(ops::OpId op_id, const std::string &text) {
     return text;
 }
 
-std::string tokens_to_text(const std::vector<Token> &tokens) {
+std::string tokens_to_text(const std::vector<Token> &tokens, const bool &after_node) {
     std::string out;
     out.reserve(tokens.size() * 4);
 
     for (const auto &tok : tokens) {
         if (tok.kind == TokenKind::Op) {
             const auto &op = std::get<OpToken>(tok.data);
-            out.append(space_binary_op(op.op_id, token_text(tok)));
+            out.append(space_binary_op(op.op_id, token_text(tok), after_node));
         } else {
             out.append(token_text(tok));
         }

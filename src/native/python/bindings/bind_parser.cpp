@@ -242,6 +242,7 @@ void bind_parser(py::module_ &m) {
         "tokens_to_text",
         &tcalc::parser::tokens_to_text,
         py::arg("tokens"),
+        py::arg("after_node") = false,
         "Convert a token list to display text with proper binary-op spacing.");
 
     m.def(
@@ -249,5 +250,6 @@ void bind_parser(py::module_ &m) {
         &tcalc::parser::space_binary_op,
         py::arg("op_id"),
         py::arg("text"),
+        py::arg("after_node") = false,
         "Format a single operator with binary-op spacing if applicable.");
 }

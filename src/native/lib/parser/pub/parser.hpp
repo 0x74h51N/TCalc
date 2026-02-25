@@ -214,9 +214,9 @@ std::string token_text(const Token &tok);
 
 /// Convert a token list to display text in a single pass.
 /// Binary operators get spaces around them.
-std::string tokens_to_text(const std::vector<Token> &tokens);
+std::string tokens_to_text(const std::vector<Token> &tokens, const bool &after_node = false);
 
 /// Format a single (op_id, text) pair with binary-op spacing if applicable.
-std::string space_binary_op(ops::OpId op_id, const std::string &text);
+std::string space_binary_op(ops::OpId op_id, const std::string &text, const bool &after_node);
 
 } // namespace tcalc::parser
