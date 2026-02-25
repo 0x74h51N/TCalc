@@ -1001,4 +1001,104 @@ void unit_parser(TestContext &ctx) {
         EXPECT_EQ(ctx, result.paren_indices.size(), 0UL);
         EXPECT_EQ(ctx, result.expr_indices.size(), 1UL);
     });
+
+    // =========================================================================
+    // tokens_to_text
+    // =========================================================================
+
+    test_detail::with_case(ctx, "tokens_to_text :: simple binary", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Number, NumberToken{"2"}},
+            {TokenKind::Op, OpToken{OpId::Add}},
+            {TokenKind::Number, NumberToken{"3"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("2 + 3"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: leading negate", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Op, OpToken{OpId::Negate}},
+            {TokenKind::Number, NumberToken{"5"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("-5"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: binary then negate", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Number, NumberToken{"1"}},
+            {TokenKind::Op, OpToken{OpId::Add}},
+            {TokenKind::Op, OpToken{OpId::Negate}},
+            {TokenKind::Number, NumberToken{"2"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("1 + -2"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: unary plus no after_node", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Op, OpToken{OpId::UnaryPlus}},
+            {TokenKind::Number, NumberToken{"3"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("+3"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: unary plus with after_node", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Op, OpToken{OpId::UnaryPlus}},
+            {TokenKind::Number, NumberToken{"3"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string(" + 3"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: negate with after_node", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Op, OpToken{OpId::Negate}},
+            {TokenKind::Number, NumberToken{"3"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string(" - 3"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: after_node only affects first token", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Number, NumberToken{"3"}},
+            {TokenKind::Op, OpToken{OpId::Add}},
+            {TokenKind::Number, NumberToken{"5"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string("3 + 5"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: parens preserved", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Paren, ParenToken{ParenType::Open, ParenKind::Paren}},
+            {TokenKind::Number, NumberToken{"1"}},
+            {TokenKind::Op, OpToken{OpId::Add}},
+            {TokenKind::Number, NumberToken{"2"}},
+            {TokenKind::Paren, ParenToken{ParenType::Close, ParenKind::Paren}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("(1 + 2)"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: frac round-trip", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Expr,
+             ExprToken{
+                 .kind = ExprKind::Frac,
+                 .left = {{TokenKind::Number, NumberToken{"2"}}},
+                 .right = {{TokenKind::Number, NumberToken{"3"}}},
+             }},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("\\frac{2}{3}"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: postfix no spacing", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Number, NumberToken{"5"}},
+            {TokenKind::Op, OpToken{OpId::Fact}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("5!"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: empty", [&] {
+        std::vector<Token> empty;
+        EXPECT_EQ(ctx, p::tokens_to_text(empty), std::string(""));
+    });
 }
