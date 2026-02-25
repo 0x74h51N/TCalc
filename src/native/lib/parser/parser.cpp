@@ -119,7 +119,7 @@ bool tokenize_core(
             auto &stack = paren_stacks[static_cast<std::size_t>(p->kind)];
 
             if (p->type == ParenType::Open) {
-                result.paren_indices.push_back(tok_idx);
+                result.open_paren_indices.push_back(tok_idx);
                 tokens.push_back(
                     Token{
                         .kind = TokenKind::Paren,
@@ -128,6 +128,7 @@ bool tokenize_core(
                         .end_pos = tok_start + 1});
                 stack.push_back(tok_idx);
             } else {
+                result.close_paren_indices.push_back(tok_idx);
                 std::size_t pair = kNoMatch;
                 if (!stack.empty()) {
                     pair = stack.back();

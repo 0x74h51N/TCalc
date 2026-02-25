@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import Optional
+from typing import Generator, Optional
 
 import calc_native
 from PySide6.QtCore import QTimer, Signal
@@ -152,6 +152,39 @@ class Expression(QWidget):
     def navigate_down(self) -> bool:
         return self._navigate_vertical(1)
 
+    def _iter_line_edits(
+        self, start_seg: QLineEdit, direction: int
+    ) -> Generator[QLineEdit, None, None]:
+        """
+        Iter line edits between parent widgets
+        Direction: 1 (Forward/Right), -1 (Backward/Left)
+        """
+        current: QWidget = start_seg
+        slot = start_seg.parent()
+
+        while isinstance(slot, ExpressionSlot):
+            segments = slot._segments
+            idx = slot.index_of(current)
+
+            indices = range(idx + 1, len(segments)) if direction > 0 else range(idx - 1, -1, -1)
+
+            for i in indices:
+                seg = segments[i]
+                if isinstance(seg, QLineEdit):
+                    yield seg
+                elif isinstance(seg, ExpressionNode):
+                    node_inputs = seg.line_edits()
+                    if direction < 0:
+                        node_inputs.reverse()
+                    for le in node_inputs:
+                        yield le
+
+            node = slot.parent()
+            if not isinstance(node, ExpressionNode):
+                break
+            current = node
+            slot = node.parent()
+
     def _navigate_horizontal(self, direction: int) -> bool:
         """Move between segments horizontally, climbing the tree when needed."""
         target = self._resolve_target()
@@ -160,41 +193,15 @@ class Expression(QWidget):
             if direction < 0
             else target.cursorPosition() >= len(target.text())
         )
+
         if not at_edge:
             return False
 
-        current: QWidget = target
-        slot = target.parent()
-        while isinstance(slot, ExpressionSlot):
-            idx = slot.index_of(current)
-            nxt = idx + direction
-            if 0 <= nxt < len(slot._segments):
-                seg = slot._segments[nxt]
-                if isinstance(seg, QLineEdit):
-                    seg.setFocus()
-                    seg.setCursorPosition(len(seg.text()) if direction < 0 else 0)
-                    return True
-                if isinstance(seg, ExpressionNode):
-                    entering = (
-                        (seg._left_slot or seg._right_slot)
-                        if direction > 0
-                        else (seg._right_slot or seg._left_slot)
-                    )
-                    if entering and entering._direct_edits:
-                        le = (
-                            entering._direct_edits[0]
-                            if direction > 0
-                            else entering._direct_edits[-1]
-                        )
-                        le.setFocus()
-                        le.setCursorPosition(0 if direction > 0 else len(le.text()))
-                    return True
-            # No sibling here climb up: slot's parent node -> current
-            node = slot.parent()
-            if not isinstance(node, ExpressionNode):
-                break
-            current = node
-            slot = node.parent()
+        nxt = next(self._iter_line_edits(target, direction), None)
+        if nxt:
+            nxt.setFocus()
+            nxt.setCursorPosition(0 if direction > 0 else len(nxt.text()))
+            return True
         return False
 
     def _navigate_vertical(self, direction: int) -> bool:
@@ -466,7 +473,7 @@ class Expression(QWidget):
 
                 # Close-paren path: match against a pending open ParenWidget
                 if not result.expr_indices and self._pending_parens:
-                    if self._try_close_paren(seg, tokens):
+                    if self._try_close_paren(seg, result):
                         continue
 
                 if not result.expr_indices:
@@ -479,7 +486,7 @@ class Expression(QWidget):
                     continue
 
                 no_match = calc_native.PAREN_NO_MATCH
-                paren_first = result.paren_indices[0] if result.paren_indices else None
+                paren_first = result.open_paren_indices[0] if result.open_paren_indices else None
                 expr_first = result.expr_indices[0]
 
                 # Paren path: open paren before the first expr token
@@ -597,33 +604,45 @@ class Expression(QWidget):
         seg.setText(seg.text() + absorbed)
         return True
 
-    def _try_close_paren(self, seg: QLineEdit, tokens: list[calc_native.Token]) -> bool:
-        """Check if the first token is a close paren that matches a pending open.
+    def _try_close_paren(self, seg: QLineEdit, result: calc_native.TokenizeResult) -> bool:
+        """Check if any token is a close paren that matches a pending open.
 
-        If matched: send close to the ParenWidget, strip close from segment text.
-        Returns True if a match was consumed.
+        If matched: close the ParenWidget, split the segment text around the paren,
+        and move the trailing text to the next available input.
         """
-        if not tokens:
+
+        paren_ind = result.close_paren_indices
+        tokens = result.tokens
+
+        if not paren_ind:
             return False
 
-        first = tokens[-1]
-        if not isinstance(first.data, calc_native.ParenToken):
-            return False
-        if first.data.type != calc_native.ParenType.Close:
-            return False
+        for idx in paren_ind:
+            par = tokens[idx].as_paren()
+            stack = self._pending_parens.get(par.kind)
 
-        stack = self._pending_parens.get(first.data.kind)
-        if not stack:
-            return False
+            if par.type != calc_native.ParenType.Close or not stack:
+                continue
 
-        pw = stack.pop()
-        if not stack:
-            del self._pending_parens[first.data.kind]
+            pw = stack.pop()
+            if not stack:
+                self._pending_parens.pop(par.kind)
 
-        pw.set_close(first.data)
-        inner_suffix = tokens[:-1]
-        seg.setText(calc_native.tokens_to_text(inner_suffix, self._seg_after_node(seg)))
-        return True
+            pw.set_close(par)
+
+            before_text = calc_native.tokens_to_text(tokens[:idx], self._seg_after_node(seg))
+            after_text = calc_native.tokens_to_text(tokens[idx + 1 :], True)
+
+            seg.setText(before_text)
+
+            suffix_seg = next(self._iter_line_edits(seg, 1), None)
+            if suffix_seg:
+                suffix_seg.setText(after_text + suffix_seg.text())
+
+            return True
+            # TODO: Add some tests about this func...
+
+        return False
 
     #
     #

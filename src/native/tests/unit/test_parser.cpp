@@ -947,58 +947,67 @@ void unit_parser(TestContext &ctx) {
 
     test_detail::with_case(ctx, "paren_indices :: no parens", [&] {
         auto result = p::tokenize("1+2");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 0UL);
+        EXPECT_EQ(ctx, result.close_paren_indices.size(), 0UL);
     });
 
     test_detail::with_case(ctx, "paren_indices :: simple parens", [&] {
         // (1+2) -> ( 1 + 2 )
         // Only open paren at index 0
         auto result = p::tokenize("(1+2)");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 1UL);
-        EXPECT_EQ(ctx, result.paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.close_paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.close_paren_indices[0], 4UL);
     });
 
     test_detail::with_case(ctx, "paren_indices :: nested", [&] {
         // ((1)) -> ( ( 1 ) )
         // Open parens at 0 and 1
-        auto result = p::tokenize("((1))");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 2UL);
-        EXPECT_EQ(ctx, result.paren_indices[0], 0UL);
-        EXPECT_EQ(ctx, result.paren_indices[1], 1UL);
+        auto result = p::tokenize("((1");
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 2UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[1], 1UL);
+        EXPECT_EQ(ctx, result.close_paren_indices.size(), 0UL);
     });
 
     test_detail::with_case(ctx, "paren_indices :: mixed kinds", [&] {
         // ({[1]}) -> ( { [ 1 ] } )
         // Open parens at 0, 1, 2
         auto result = p::tokenize("({[1]})");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 3UL);
-        EXPECT_EQ(ctx, result.paren_indices[0], 0UL);
-        EXPECT_EQ(ctx, result.paren_indices[1], 1UL);
-        EXPECT_EQ(ctx, result.paren_indices[2], 2UL);
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 3UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[1], 1UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[2], 2UL);
     });
 
     test_detail::with_case(ctx, "paren_indices :: sequential groups", [&] {
         // (1)+(2) -> ( 1 ) + ( 2 )
         // Open parens at 0 and 4
-        auto result = p::tokenize("(1)+(2)");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 2UL);
-        EXPECT_EQ(ctx, result.paren_indices[0], 0UL);
-        EXPECT_EQ(ctx, result.paren_indices[1], 4UL);
+        auto result = p::tokenize("(1+(2)");
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 2UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[1], 3UL);
+        EXPECT_EQ(ctx, result.close_paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.close_paren_indices[0], 5UL);
     });
 
     test_detail::with_case(ctx, "paren_indices :: with expr", [&] {
         // {\\frac{1}{2}} -> { \frac{1}{2} }   tokens: { Expr }
         // Open brace at 0
         auto result = p::tokenize("{\\frac{1}{2}}");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 1UL);
-        EXPECT_EQ(ctx, result.paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.close_paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.close_paren_indices[0], 2UL);
         EXPECT_EQ(ctx, result.expr_indices.size(), 1UL);
         EXPECT_EQ(ctx, result.expr_indices[0], 1UL);
     });
 
     test_detail::with_case(ctx, "paren_indices :: expr only no parens", [&] {
         auto result = p::tokenize("\\frac{1}{2}");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 0UL);
+        EXPECT_EQ(ctx, result.close_paren_indices.size(), 0UL);
         EXPECT_EQ(ctx, result.expr_indices.size(), 1UL);
     });
 

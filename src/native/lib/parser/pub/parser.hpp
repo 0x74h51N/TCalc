@@ -132,7 +132,8 @@ struct Token {
 struct TokenizeResult {
     std::vector<Token> tokens{};
     std::vector<std::size_t> expr_indices{};
-    std::vector<std::size_t> paren_indices{};
+    std::vector<std::size_t> open_paren_indices{};
+    std::vector<std::size_t> close_paren_indices{};
     bool operator==(const TokenizeResult &) const = default;
 };
 

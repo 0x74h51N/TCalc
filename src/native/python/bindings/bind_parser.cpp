@@ -163,7 +163,8 @@ void bind_parser(py::module_ &m) {
     py::class_<TokenizeResult>(m, "TokenizeResult", "Result of tokenization with metadata.")
         .def_readonly("tokens", &TokenizeResult::tokens)
         .def_readonly("expr_indices", &TokenizeResult::expr_indices)
-        .def_readonly("paren_indices", &TokenizeResult::paren_indices);
+        .def_readonly("open_paren_indices", &TokenizeResult::open_paren_indices)
+        .def_readonly("close_paren_indices", &TokenizeResult::close_paren_indices);
 
     py::enum_<tcalc::ops::Assoc>(m, "OpAssoc", "Operator associativity.")
         .value("Left", tcalc::ops::Assoc::Left)
