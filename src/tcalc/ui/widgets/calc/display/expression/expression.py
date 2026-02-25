@@ -33,13 +33,7 @@ from tcalc.ui.widgets.calc.display.expression.widgets import (
 )
 from tcalc.ui.widgets.utils import apply_scaled_fonts
 
-from .utils import (
-    format_expr_str,
-    space_binary_ops,
-    split_operand,
-    tokens_to_text,
-    update_autowidth,
-)
+from .utils import space_binary_ops, split_operand, update_autowidth
 
 
 class Expression(QWidget):
@@ -354,7 +348,7 @@ class Expression(QWidget):
             return
 
         op_id = getattr(op._spec, "id", None)
-        self.insert_text(space_binary_ops([(op_id, label)]))
+        self.insert_text(space_binary_ops(op_id, label))
 
     def insert_expr_str(self, expr_kind: calc_native.ExprKind) -> None:
         """Insert ExpressionNode via keystroke."""
@@ -371,10 +365,9 @@ class Expression(QWidget):
         # Insert empty expr at cursor, _add_exp_node handles split_operand
         text = target.text()
         cursor = target.cursorPosition()
-        symbol = widget_cls.SYMBOL
-        if symbol is None:
-            return
-        target.setText(text[:cursor] + format_expr_str(symbol, "", "") + text[cursor:])
+        target.setText(
+            text[:cursor] + calc_native.format_expr_str(expr_kind, "", "") + text[cursor:]
+        )
 
         self.plain_text_changed.emit(self.get_plain_text())
 
@@ -412,10 +405,10 @@ class Expression(QWidget):
         """Insert a node widget into slot: [prefix | node | suffix]."""
         idx = slot.index_of(seg)
 
-        seg.setText(tokens_to_text(prefix_tokens))
+        seg.setText(calc_native.tokens_to_text(prefix_tokens))
         slot.insert_widget(idx + 1, node)
         suffix_le = slot.insert_input(idx + 2)
-        suffix_le.setText(tokens_to_text(suffix_tokens))
+        suffix_le.setText(calc_native.tokens_to_text(suffix_tokens))
 
         node.focus_default()
         return suffix_le
@@ -424,7 +417,7 @@ class Expression(QWidget):
     def _normalize_text(self, seg: QLineEdit, tokens: list[calc_native.Token]) -> None:
         """Normalize text aliases to symbols (add -> + or floor -> ⌊)."""
         text = seg.text()
-        new_text = tokens_to_text(tokens)
+        new_text = calc_native.tokens_to_text(tokens)
         if new_text != text:
             cursor_pos = seg.cursorPosition()
 
@@ -432,7 +425,7 @@ class Expression(QWidget):
             # Tokens before/at cursor determine new position
             prefix_tokens = [t for t in tokens if t.start_pos < cursor_pos]
 
-            new_cursor = len(tokens_to_text(prefix_tokens))
+            new_cursor = len(calc_native.tokens_to_text(prefix_tokens))
             seg.setText(new_text)
             seg.setCursorPosition(min(new_cursor, len(new_text)))
 
@@ -582,7 +575,7 @@ class Expression(QWidget):
             if not stack:
                 del self._pending_parens[last.data.kind]
             pw.set_open(last.data)
-            seg.setText(tokens_to_text(tokens[:-1]))
+            seg.setText(calc_native.tokens_to_text(tokens[:-1]))
             return True
 
         seg_idx = slot.index_of(seg)
@@ -619,7 +612,7 @@ class Expression(QWidget):
             del self._pending_parens[first.data.kind]
 
         pw.set_close(first.data)
-        seg.setText(tokens_to_text(tokens[:-1]))
+        seg.setText(calc_native.tokens_to_text(tokens[:-1]))
         return True
 
     #

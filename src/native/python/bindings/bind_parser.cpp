@@ -220,4 +220,33 @@ void bind_parser(py::module_ &m) {
 
     m.def("tokenize_string", &tcalc::parser::tokenize, py::arg("expression"));
     m.def("shunting_yard", &tcalc::parser::shunting_yard, py::arg("tokens"));
+
+    // format_expr_str / token_text / tokens_to_text / space_binary_op
+
+    m.def(
+        "format_expr_str",
+        &tcalc::parser::format_expr_str,
+        py::arg("kind"),
+        py::arg("left"),
+        py::arg("right"),
+        "Format a LaTeX expression string: \\\\symbol{left}{right}.");
+
+    m.def(
+        "token_text",
+        &tcalc::parser::token_text,
+        py::arg("token"),
+        "Convert a single token to its display text representation.");
+
+    m.def(
+        "tokens_to_text",
+        &tcalc::parser::tokens_to_text,
+        py::arg("tokens"),
+        "Convert a token list to display text with proper binary-op spacing.");
+
+    m.def(
+        "space_binary_op",
+        &tcalc::parser::space_binary_op,
+        py::arg("op_id"),
+        py::arg("text"),
+        "Format a single operator with binary-op spacing if applicable.");
 }

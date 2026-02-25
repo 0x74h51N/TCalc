@@ -194,4 +194,29 @@ TokenizeResult tokenize(std::string_view expression);
 // Convert tokens to RPN using precedence/associativity rules.
 std::vector<Token> shunting_yard(const std::vector<Token> &tokens);
 
+/// Compile-time lookup table: ExprKind -> LaTeX symbol.
+consteval auto build_latex_symbols() {
+    constexpr auto count = static_cast<std::size_t>(ExprKind::Log) + 1;
+    std::array<std::string_view, count> table{};
+    for (const auto &entry : kLatexExprs) {
+        table[static_cast<std::size_t>(entry.kind)] = entry.symbol;
+    }
+    return table;
+}
+
+inline constexpr auto kLatexSymbols = build_latex_symbols();
+
+/// Format a LaTeX expression string: \symbol{left}{right}.
+std::string format_expr_str(ExprKind kind, std::string_view left, std::string_view right);
+
+/// Convert a single token to its display text representation.
+std::string token_text(const Token &tok);
+
+/// Convert a token list to display text in a single pass.
+/// Binary operators get spaces around them.
+std::string tokens_to_text(const std::vector<Token> &tokens);
+
+/// Format a single (op_id, text) pair with binary-op spacing if applicable.
+std::string space_binary_op(ops::OpId op_id, const std::string &text);
+
 } // namespace tcalc::parser
