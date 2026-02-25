@@ -22,8 +22,6 @@ from tcalc.ui.widgets.calc.display.expression.expression_node import (
     InputKind,
 )
 
-from .utils import tokens_to_text
-
 if TYPE_CHECKING:
     from .expression import Expression
 
@@ -71,9 +69,9 @@ class FractionWidget(ExpressionNode):
         self._bottom_slot = self.denominator
 
         if self.left_tokens:
-            self.numerator.default_input().setText(tokens_to_text(self.left_tokens))
+            self.numerator.default_input().setText(calc_native.tokens_to_text(self.left_tokens))
         if self.right_tokens:
-            self.denominator.default_input().setText(tokens_to_text(self.right_tokens))
+            self.denominator.default_input().setText(calc_native.tokens_to_text(self.right_tokens))
 
     def anchor_y(self) -> int:
         return self.numerator.height() - self.line.height() // 2
@@ -131,9 +129,9 @@ class PowWidget(ExpressionNode):
         self._top_slot = self.exponent
         self._bottom_slot = self.base
         if self.left_tokens:
-            self.base.default_input().setText(tokens_to_text(self.left_tokens))
+            self.base.default_input().setText(calc_native.tokens_to_text(self.left_tokens))
         if self.right_tokens:
-            self.exponent.default_input().setText(tokens_to_text(self.right_tokens))
+            self.exponent.default_input().setText(calc_native.tokens_to_text(self.right_tokens))
 
     def anchor_y(self) -> int:
         return self.exponent.height() + self.base.height() // 2
@@ -204,9 +202,9 @@ class RootWidget(ExpressionNode):
         self._bottom_slot = self.radicand
 
         if self.left_tokens:
-            self.degree.default_input().setText(tokens_to_text(self.left_tokens))
+            self.degree.default_input().setText(calc_native.tokens_to_text(self.left_tokens))
         if self.right_tokens:
-            self.radicand.default_input().setText(tokens_to_text(self.right_tokens))
+            self.radicand.default_input().setText(calc_native.tokens_to_text(self.right_tokens))
 
         self.dHeight = self.degree.height()
 
@@ -269,7 +267,7 @@ class ParenWidget(ExpressionNode):
         layout.setSpacing(0)
         layout.addWidget(self._left_slot, 0, Qt.AlignmentFlag.AlignHCenter)
 
-        self._left_slot.default_input().setText(tokens_to_text(inner_tokens))
+        self._left_slot.default_input().setText(calc_native.tokens_to_text(inner_tokens))
 
         self._open_glyph: QWidget | None = self._create_open()
         if self._open_glyph is not None:

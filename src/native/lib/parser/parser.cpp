@@ -505,4 +505,110 @@ std::vector<Token> shunting_yard(const std::vector<Token> &tokens) {
     return output;
 }
 
+// =============================================================================
+// Text transformations
+//
+//
+//  token_text
+//  tokens_to_text
+//  space_binary_op
+// =============================================================================
+
+namespace {
+
+/// Display symbol for unary ops whose internal symbol (u-, u+) differs from
+/// what the user sees (-, +).
+constexpr std::string_view unary_display_symbol(ops::OpId id) {
+    switch (id) {
+    case ops::OpId::Negate:
+        return ops::op_spec(ops::OpId::Sub)->symbol;
+    case ops::OpId::UnaryPlus:
+        return ops::op_spec(ops::OpId::Add)->symbol;
+    default:
+        return {};
+    }
+}
+
+/// Should this op get spaces around it?
+inline bool needs_spacing(ops::OpId op_id) {
+    const auto *spec = ops::op_spec(op_id);
+    if (spec == nullptr) {
+        return false;
+    }
+    return spec->arity == ops::Arity::Binary;
+}
+
+} // namespace
+
+std::string format_expr_str(ExprKind kind, std::string_view left, std::string_view right) {
+    constexpr char open = paren_symbol(ParenType::Open, ParenKind::Brace);
+    constexpr char close = paren_symbol(ParenType::Close, ParenKind::Brace);
+    const auto sym = kLatexSymbols[static_cast<std::size_t>(kind)];
+
+    std::string out;
+    out.reserve(sym.size() + left.size() + right.size() + 4);
+    out.append(sym);
+    out.push_back(open);
+    out.append(left);
+    out.push_back(close);
+    out.push_back(open);
+    out.append(right);
+    out.push_back(close);
+    return out;
+}
+
+std::string token_text(const Token &tok) {
+    return std::visit(
+        [](const auto &data) -> std::string {
+            using T = std::decay_t<decltype(data)>;
+
+            if constexpr (std::is_same_v<T, ExprToken>) {
+                return format_expr_str(
+                    data.kind, tokens_to_text(data.left), tokens_to_text(data.right));
+            } else if constexpr (std::is_same_v<T, NumberToken>) {
+                return data.value;
+            } else if constexpr (std::is_same_v<T, OpToken>) {
+                const auto display = unary_display_symbol(data.op_id);
+                if (!display.empty()) {
+                    return std::string(display);
+                }
+                const auto *spec = ops::op_spec(data.op_id);
+                return spec ? std::string(spec->symbol) : std::string{};
+            } else if constexpr (std::is_same_v<T, ParenToken>) {
+                return std::string(1, paren_symbol(data.type, data.kind));
+            }
+
+            return {};
+        },
+        tok.data);
+}
+
+std::string space_binary_op(ops::OpId op_id, const std::string &text) {
+    if (needs_spacing(op_id)) {
+        std::string out;
+        out.reserve(text.size() + 2);
+        out.push_back(' ');
+        out.append(text);
+        out.push_back(' ');
+        return out;
+    }
+    return text;
+}
+
+std::string tokens_to_text(const std::vector<Token> &tokens) {
+    std::string out;
+    out.reserve(tokens.size() * 4);
+
+    for (const auto &tok : tokens) {
+        if (tok.kind == TokenKind::Op) {
+            const auto &op = std::get<OpToken>(tok.data);
+            out.append(space_binary_op(op.op_id, token_text(tok)));
+        } else {
+            out.append(token_text(tok));
+        }
+    }
+
+    return out;
+}
+
 } // namespace tcalc::parser

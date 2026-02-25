@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 
 from tcalc.ui.components.math_primitives import ParenGlyph
 
-from .utils import format_expr_str, update_autowidth
+from .utils import update_autowidth
 
 if TYPE_CHECKING:
     from .expression import Expression
@@ -87,8 +87,8 @@ class ExpressionNode(QWidget):
         if self._left_slot is None or self._right_slot is None:
             return ""
 
-        return format_expr_str(
-            self.SYMBOL,
+        return calc_native.format_expr_str(
+            self.EXPR_KIND,
             self._left_slot.to_plain_text(),
             self._right_slot.to_plain_text(),
         )
