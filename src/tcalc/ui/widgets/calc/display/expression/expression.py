@@ -621,7 +621,8 @@ class Expression(QWidget):
             del self._pending_parens[first.data.kind]
 
         pw.set_close(first.data)
-        seg.setText(calc_native.tokens_to_text(tokens[:-1]))
+        inner_suffix = tokens[:-1]
+        seg.setText(calc_native.tokens_to_text(inner_suffix, self._seg_after_node(seg)))
         return True
 
     #
