@@ -119,7 +119,7 @@ bool tokenize_core(
             auto &stack = paren_stacks[static_cast<std::size_t>(p->kind)];
 
             if (p->type == ParenType::Open) {
-                result.paren_indices.push_back(tok_idx);
+                result.open_paren_indices.push_back(tok_idx);
                 tokens.push_back(
                     Token{
                         .kind = TokenKind::Paren,
@@ -128,6 +128,7 @@ bool tokenize_core(
                         .end_pos = tok_start + 1});
                 stack.push_back(tok_idx);
             } else {
+                result.close_paren_indices.push_back(tok_idx);
                 std::size_t pair = kNoMatch;
                 if (!stack.empty()) {
                     pair = stack.back();
@@ -529,13 +530,13 @@ constexpr std::string_view unary_display_symbol(ops::OpId id) {
     }
 }
 
-/// Should this op get spaces around it?
-inline bool needs_spacing(ops::OpId op_id) {
+inline bool is_binary_op(ops::OpId op_id) {
     const auto *spec = ops::op_spec(op_id);
-    if (spec == nullptr) {
-        return false;
-    }
-    return spec->arity == ops::Arity::Binary;
+    return spec != nullptr && spec->arity == ops::Arity::Binary;
+}
+
+inline bool is_unary_as_binary(ops::OpId op_id) {
+    return op_id == ops::OpId::Negate || op_id == ops::OpId::UnaryPlus;
 }
 
 } // namespace
@@ -583,8 +584,8 @@ std::string token_text(const Token &tok) {
         tok.data);
 }
 
-std::string space_binary_op(ops::OpId op_id, const std::string &text) {
-    if (needs_spacing(op_id)) {
+std::string space_binary_op(ops::OpId op_id, const std::string &text, const bool &after_node) {
+    if (is_binary_op(op_id) || (after_node && is_unary_as_binary(op_id))) {
         std::string out;
         out.reserve(text.size() + 2);
         out.push_back(' ');
@@ -595,14 +596,18 @@ std::string space_binary_op(ops::OpId op_id, const std::string &text) {
     return text;
 }
 
-std::string tokens_to_text(const std::vector<Token> &tokens) {
+std::string tokens_to_text(const std::vector<Token> &tokens, const bool &after_node) {
     std::string out;
     out.reserve(tokens.size() * 4);
 
-    for (const auto &tok : tokens) {
+    for (std::size_t i = 0; i < tokens.size(); ++i) {
+        const auto &tok = tokens[i];
+
         if (tok.kind == TokenKind::Op) {
             const auto &op = std::get<OpToken>(tok.data);
-            out.append(space_binary_op(op.op_id, token_text(tok)));
+            // after_node only matters for the first token
+            const bool node_ctx = i == 0 && after_node;
+            out.append(space_binary_op(op.op_id, token_text(tok), node_ctx));
         } else {
             out.append(token_text(tok));
         }

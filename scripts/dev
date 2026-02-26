@@ -109,4 +109,4 @@ echo "Auto-restart enabled"
 
 # Hot reload
 # -----------------------------
-find src -name "*.py" | entr -r python -m tcalc
+find src -name "*.py" | entr -r python -m tcalc --debug

@@ -52,6 +52,7 @@ class _UIOpSpec:
     """Minimal OpSpec-compatible wrapper for UI-only operations."""
 
     symbol: str
+    id: calc_native.OpId | None = None
     arity: None = None
     aliases: tuple[str, ...] = ()
     big_supported: bool = False
@@ -115,7 +116,7 @@ class OperationBase(str, Enum):
         return self._spec.arity
 
     @property
-    def aliases(self) -> tuple[str, ...]:
+    def aliases(self) -> list[str] | tuple[str, ...]:
         """Alternative symbols for this operation."""
         return self._spec.aliases
 
@@ -137,7 +138,10 @@ class OperationBase(str, Enum):
     @property
     def cx(self) -> Callable[..., bool] | None:
         """Complex promotion rule for this operation."""
-        return PROMO_RULES_BY_ID.get(self._spec.id)
+        op_id = self._spec.id
+        if op_id is None:
+            return None
+        return PROMO_RULES_BY_ID.get(op_id)
 
     @property
     def method(self) -> str:

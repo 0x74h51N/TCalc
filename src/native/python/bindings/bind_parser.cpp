@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/typing.h>
 
 #include <string>
 
@@ -162,7 +163,8 @@ void bind_parser(py::module_ &m) {
     py::class_<TokenizeResult>(m, "TokenizeResult", "Result of tokenization with metadata.")
         .def_readonly("tokens", &TokenizeResult::tokens)
         .def_readonly("expr_indices", &TokenizeResult::expr_indices)
-        .def_readonly("paren_indices", &TokenizeResult::paren_indices);
+        .def_readonly("open_paren_indices", &TokenizeResult::open_paren_indices)
+        .def_readonly("close_paren_indices", &TokenizeResult::close_paren_indices);
 
     py::enum_<tcalc::ops::Assoc>(m, "OpAssoc", "Operator associativity.")
         .value("Left", tcalc::ops::Assoc::Left)
@@ -206,8 +208,8 @@ void bind_parser(py::module_ &m) {
 
     m.def(
         "op_table",
-        []() {
-            py::list out;
+        []() -> py::typing::List<tcalc::ops::OpSpec> {
+            py::typing::List<tcalc::ops::OpSpec> out;
             for (const auto &op : tcalc::ops::kOps) {
                 out.append(&op);
             }
@@ -241,6 +243,7 @@ void bind_parser(py::module_ &m) {
         "tokens_to_text",
         &tcalc::parser::tokens_to_text,
         py::arg("tokens"),
+        py::arg("after_node") = false,
         "Convert a token list to display text with proper binary-op spacing.");
 
     m.def(
@@ -248,5 +251,6 @@ void bind_parser(py::module_ &m) {
         &tcalc::parser::space_binary_op,
         py::arg("op_id"),
         py::arg("text"),
+        py::arg("after_node") = false,
         "Format a single operator with binary-op spacing if applicable.");
 }
