@@ -3,35 +3,83 @@ set -e
 
 echo "== Calculator Dev Mode (auto-restart) =="
 
-# entr check
+# check OSTYPE
 # -----------------------------
-if ! command -v entr >/dev/null 2>&1; then
-  echo "entr not installed, installing..."
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  OS="macos"
+elif [ -f /etc/fedora-release ]; then
+  OS="fedora"
+elif [ -f /etc/debian_version ]; then
+  OS="ubuntu"
+fi
 
-  if command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y entr
-  elif command -v apt >/dev/null 2>&1; then
-    sudo apt install -y entr
-  elif command -v brew >/dev/null 2>&1; then
-    brew install entr
+# --- Helper ---
+check_and_ins() {
+  local cmd=$1
+  local pkg=$2
+  [[ -z "$pkg" ]] && pkg=$cmd
+
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "$cmd not installed, installing $pkg..."
+    case $OS in
+    "fedora") sudo dnf install -y "$pkg" ;;
+    "ubuntu") sudo apt update && sudo apt install -y "$pkg" ;;
+    "macos") brew install "$pkg" ;;
+    esac
   else
-    echo "No supported package manager found. Install entr manually."
-    exit 1
+    echo "$cmd ready to use"
   fi
-else
-  echo "entr ready to use"
+}
+
+# Native deps check
+# -----------------------------
+
+check_and_ins "cmake"
+check_and_ins "ninja"
+
+if [[ "$OS" == "fedora" ]]; then
+  check_and_ins "g++" "gcc-c++"
+elif [[ "$OS" == "ubuntu" ]]; then
+  check_and_ins "g++" "g++"
+elif [[ "$OS" == "macos" ]]; then
+  if ! xcode-select -p >/dev/null 2>&1; then
+    echo "Installing Xcode Command Line Tools..."
+    xcode-select --install
+  else
+    echo "Xcode CLI tools ready"
+  fi
+fi
+
+# Boost headers
+if [[ "$OS" == "fedora" ]]; then
+  check_and_ins "boost" "boost-devel"
+elif [[ "$OS" == "ubuntu" ]]; then
+  check_and_ins "boost" "libboost-dev"
+elif [[ "$OS" == "macos" ]]; then
+  check_and_ins "boost"
+fi
+
+check_and_ins "entr"
+
+# Python + devel check
+# -----------------------------
+check_and_ins "python3" "python3"
+if [[ "$OS" == "fedora" ]]; then
+  check_and_ins "python3-config" "python3-devel"
+elif [[ "$OS" == "ubuntu" ]]; then
+  check_and_ins "python3-config" "python3-dev"
 fi
 
 # venv check
 # -----------------------------
-if [ ! -d "venv" ]; then
+if [ ! -d ".venv" ]; then
   echo "Creating venv..."
-  python -m venv venv
+  python3 -m venv .venv
+else
+  echo "venv ready"
 fi
 
-# venv
-# -----------------------------
-source venv/bin/activate
+source .venv/bin/activate
 
 # dependencies
 # -----------------------------
