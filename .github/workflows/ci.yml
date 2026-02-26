@@ -35,15 +35,15 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m venv venv
-          . venv/bin/activate
+          python -m venv .venv
+          . .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -e .
           pip install ruff
 
       - name: Run ruff checks
         run: |
-          . venv/bin/activate
+          . .venv/bin/activate
           make py-lint
 
   native-build:
@@ -61,12 +61,12 @@ jobs:
       - name: Install build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build g++ libboost-dev python3-dev
+          sudo apt-get install -y cmake ninja-build g++ libboost-dev
 
       - name: Build native (Debug) and generate stubs
         run: |
-          python -m venv venv
-          . venv/bin/activate
+          python -m venv .venv
+          . .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
           make native-build NATIVE_BUILD_TYPE=Debug
@@ -99,8 +99,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-tidy cmake ninja-build g++ libboost-dev python3-dev
-          python -m venv venv
-          . venv/bin/activate
+          python -m venv .venv
+          . .venv/bin/activate
           python -m pip install --upgrade pip
           pip install pybind11
 
@@ -113,7 +113,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
-          . venv/bin/activate
+          . .venv/bin/activate
           make cpp-tidy-diff BASE_REF=origin/${{ github.base_ref }}
 
   py-typecheck:
@@ -131,8 +131,8 @@ jobs:
 
       - name: Install python deps
         run: |
-          python -m venv venv
-          . venv/bin/activate
+          python -m venv .venv
+          . .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
           pip install mypy
@@ -144,7 +144,7 @@ jobs:
 
       - name: Run mypy
         run: |
-          . venv/bin/activate
+          . .venv/bin/activate
           make typecheck
 
   native-test:
@@ -200,8 +200,8 @@ jobs:
 
       - name: Install python deps
         run: |
-          python -m venv venv
-          . venv/bin/activate
+          python -m venv .venv
+          . .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
@@ -212,7 +212,7 @@ jobs:
 
       - name: Run py-tests
         run: |
-          . venv/bin/activate
+          . .venv/bin/activate
           make py-test
 
   py-test-benchmark:
@@ -242,8 +242,8 @@ jobs:
 
       - name: Install python deps
         run: |
-          python -m venv venv
-          . venv/bin/activate
+          python -m venv .venv
+          . .venv/bin/activate
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
@@ -254,10 +254,10 @@ jobs:
 
       - name: Run benchmark tests
         run: |
-          . venv/bin/activate
+          . .venv/bin/activate
           xvfb-run --auto-servernum make py-benchmark PYTEST_ARGS="-q --tb=line"
 
       - name: Run malloc tests
         run: |
-          . venv/bin/activate
+          . .venv/bin/activate
           xvfb-run --auto-servernum make py-mem-profile PYTEST_ARGS="-q --tb=line"
