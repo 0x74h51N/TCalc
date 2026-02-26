@@ -947,58 +947,167 @@ void unit_parser(TestContext &ctx) {
 
     test_detail::with_case(ctx, "paren_indices :: no parens", [&] {
         auto result = p::tokenize("1+2");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 0UL);
+        EXPECT_EQ(ctx, result.close_paren_indices.size(), 0UL);
     });
 
     test_detail::with_case(ctx, "paren_indices :: simple parens", [&] {
         // (1+2) -> ( 1 + 2 )
         // Only open paren at index 0
         auto result = p::tokenize("(1+2)");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 1UL);
-        EXPECT_EQ(ctx, result.paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.close_paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.close_paren_indices[0], 4UL);
     });
 
     test_detail::with_case(ctx, "paren_indices :: nested", [&] {
         // ((1)) -> ( ( 1 ) )
         // Open parens at 0 and 1
-        auto result = p::tokenize("((1))");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 2UL);
-        EXPECT_EQ(ctx, result.paren_indices[0], 0UL);
-        EXPECT_EQ(ctx, result.paren_indices[1], 1UL);
+        auto result = p::tokenize("((1");
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 2UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[1], 1UL);
+        EXPECT_EQ(ctx, result.close_paren_indices.size(), 0UL);
     });
 
     test_detail::with_case(ctx, "paren_indices :: mixed kinds", [&] {
         // ({[1]}) -> ( { [ 1 ] } )
         // Open parens at 0, 1, 2
         auto result = p::tokenize("({[1]})");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 3UL);
-        EXPECT_EQ(ctx, result.paren_indices[0], 0UL);
-        EXPECT_EQ(ctx, result.paren_indices[1], 1UL);
-        EXPECT_EQ(ctx, result.paren_indices[2], 2UL);
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 3UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[1], 1UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[2], 2UL);
     });
 
     test_detail::with_case(ctx, "paren_indices :: sequential groups", [&] {
         // (1)+(2) -> ( 1 ) + ( 2 )
         // Open parens at 0 and 4
-        auto result = p::tokenize("(1)+(2)");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 2UL);
-        EXPECT_EQ(ctx, result.paren_indices[0], 0UL);
-        EXPECT_EQ(ctx, result.paren_indices[1], 4UL);
+        auto result = p::tokenize("(1+(2)");
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 2UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[1], 3UL);
+        EXPECT_EQ(ctx, result.close_paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.close_paren_indices[0], 5UL);
     });
 
     test_detail::with_case(ctx, "paren_indices :: with expr", [&] {
         // {\\frac{1}{2}} -> { \frac{1}{2} }   tokens: { Expr }
         // Open brace at 0
         auto result = p::tokenize("{\\frac{1}{2}}");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 1UL);
-        EXPECT_EQ(ctx, result.paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.open_paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.close_paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.close_paren_indices[0], 2UL);
         EXPECT_EQ(ctx, result.expr_indices.size(), 1UL);
         EXPECT_EQ(ctx, result.expr_indices[0], 1UL);
     });
 
     test_detail::with_case(ctx, "paren_indices :: expr only no parens", [&] {
         auto result = p::tokenize("\\frac{1}{2}");
-        EXPECT_EQ(ctx, result.paren_indices.size(), 0UL);
+        EXPECT_EQ(ctx, result.open_paren_indices.size(), 0UL);
+        EXPECT_EQ(ctx, result.close_paren_indices.size(), 0UL);
         EXPECT_EQ(ctx, result.expr_indices.size(), 1UL);
+    });
+
+    // =========================================================================
+    // tokens_to_text
+    // =========================================================================
+
+    test_detail::with_case(ctx, "tokens_to_text :: simple binary", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Number, NumberToken{"2"}},
+            {TokenKind::Op, OpToken{OpId::Add}},
+            {TokenKind::Number, NumberToken{"3"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("2 + 3"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: leading negate", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Op, OpToken{OpId::Negate}},
+            {TokenKind::Number, NumberToken{"5"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("-5"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: binary then negate", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Number, NumberToken{"1"}},
+            {TokenKind::Op, OpToken{OpId::Add}},
+            {TokenKind::Op, OpToken{OpId::Negate}},
+            {TokenKind::Number, NumberToken{"2"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("1 + -2"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: unary plus no after_node", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Op, OpToken{OpId::UnaryPlus}},
+            {TokenKind::Number, NumberToken{"3"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("+3"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: unary plus with after_node", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Op, OpToken{OpId::UnaryPlus}},
+            {TokenKind::Number, NumberToken{"3"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string(" + 3"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: negate with after_node", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Op, OpToken{OpId::Negate}},
+            {TokenKind::Number, NumberToken{"3"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string(" - 3"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: after_node only affects first token", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Number, NumberToken{"3"}},
+            {TokenKind::Op, OpToken{OpId::Add}},
+            {TokenKind::Number, NumberToken{"5"}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string("3 + 5"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: parens preserved", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Paren, ParenToken{ParenType::Open, ParenKind::Paren}},
+            {TokenKind::Number, NumberToken{"1"}},
+            {TokenKind::Op, OpToken{OpId::Add}},
+            {TokenKind::Number, NumberToken{"2"}},
+            {TokenKind::Paren, ParenToken{ParenType::Close, ParenKind::Paren}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("(1 + 2)"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: frac round-trip", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Expr,
+             ExprToken{
+                 .kind = ExprKind::Frac,
+                 .left = {{TokenKind::Number, NumberToken{"2"}}},
+                 .right = {{TokenKind::Number, NumberToken{"3"}}},
+             }},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("\\frac{2}{3}"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: postfix no spacing", [&] {
+        std::vector<Token> toks = {
+            {TokenKind::Number, NumberToken{"5"}},
+            {TokenKind::Op, OpToken{OpId::Fact}},
+        };
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("5!"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: empty", [&] {
+        std::vector<Token> empty;
+        EXPECT_EQ(ctx, p::tokens_to_text(empty), std::string(""));
     });
 }

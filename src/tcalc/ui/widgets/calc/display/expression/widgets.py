@@ -249,15 +249,16 @@ class ParenWidget(ExpressionNode):
         self._close_token = close_token
         if open_token is not None:
             self._paren_kind = open_token.kind
-            open_symbol = open_token.symbol
         elif close_token is not None:
             self._paren_kind = close_token.kind
 
+        open_symbol = open_token.symbol if open_token is not None else None
         close_symbol = close_token.symbol if close_token is not None else None
+
         self._left_slot: ExpressionSlot = ExpressionSlot(
             editor,
             kind=InputKind.AUX,
-            key="midSlot",
+            key="innerSlot",
             align=InputAlign.TOP,
             paren=(open_symbol, close_symbol),
         )
@@ -269,9 +270,11 @@ class ParenWidget(ExpressionNode):
 
         self._left_slot.default_input().setText(calc_native.tokens_to_text(inner_tokens))
 
-        self._open_glyph: QWidget | None = self._create_open()
-        if self._open_glyph is not None:
-            self._left_slot.insert_widget(0, self._open_glyph)
+        self._open_glyph: QWidget | None = None
+        if open_token is not None:
+            self._open_glyph = self._create_open()
+            if self._open_glyph is not None:
+                self._left_slot.insert_widget(0, self._open_glyph)
 
         self._close_glyph: QWidget | None = None
         if close_token is not None:
@@ -289,7 +292,7 @@ class ParenWidget(ExpressionNode):
 
     def set_open(self, open_token: calc_native.ParenToken) -> None:
         """Reattach an open paren that was typed after the glyph was removed."""
-        self._open_token = open_token
+
         close_sym = self._close_token.symbol if self._close_token else None
         self._left_slot._paren = (open_token.symbol, close_sym)
         if self._open_glyph is None:
@@ -356,7 +359,7 @@ class ParenWidget(ExpressionNode):
         self._open_glyph.deleteLater()
         self._open_glyph = None
         self._open_token = None
-        self._left_slot._paren = (self._close_token.symbol, None) if self._close_token else None
+        self._left_slot._paren = (None, self._close_token.symbol) if self._close_token else None
 
     def _detach_close_glyph(self) -> None:
         if self._close_glyph is None:
