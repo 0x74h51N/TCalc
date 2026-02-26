@@ -76,7 +76,7 @@ jobs:
         with:
           name: native-build-debug
           path: |
-            build/native
+            src/native/build/native
             stubs
             src/calc_native*.so
 
@@ -161,7 +161,7 @@ jobs:
 
       - name: Fix native test permissions
         run: |
-          chmod +x build/native/native_tests || true
+          chmod +x src/native/build/native/native_tests || true
 
       - name: Run native tests (ctest)
         run: make native-ctest NATIVE_TEST_ARGS=--verbose
