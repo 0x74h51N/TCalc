@@ -2,9 +2,9 @@
 .PHONY: cpp-format cpp-format-check cpp-tidy cpp-tidy-diff
 
 ROOT := ../..
-BUILD_DIR := $(ROOT)/build/native
+BUILD_DIR := build/native
 BUILD_TYPE ?= Debug
-PYTHON := $(ROOT)/venv/bin/python
+PYTHON := $(ROOT)/.venv/bin/python
 TEST_ARGS ?= --quiet
 STUBS_DIR := $(ROOT)/stubs
 

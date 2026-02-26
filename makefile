@@ -3,7 +3,7 @@
 .PHONY: native native-configure native-build native-test native-ctest native-clean native-release
 .PHONY: py-test py-test-ui py-benchmark
 
-PY := ./venv/bin/python
+PY := ./.venv/bin/python
 PYTEST_ARGS ?= -vv -rA -s
 
 STUBS ?= scripts/stubgen/main.py
