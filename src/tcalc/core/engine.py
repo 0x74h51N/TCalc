@@ -23,8 +23,9 @@ except ImportError:  # pragma: no cover
     )
     raise
 
+from tcalc.errors import ErrorKind, raise_error
+
 from .constants import E
-from .errors import ErrorKind, raise_error
 from .ops import Operation
 
 

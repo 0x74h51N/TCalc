@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from pathlib import Path
 from typing import List
 
@@ -9,6 +10,8 @@ from PySide6.QtCore import QStandardPaths
 from tcalc.app_state import CalculatorMode
 
 from .config import storage_config
+
+_log = logging.getLogger("tcalc.ui.history.storage")
 
 
 def _get_data_dir() -> Path:
@@ -31,6 +34,7 @@ def load_history(mode: CalculatorMode) -> List[str]:
             data = json.load(f)
             return data.get("history", [])
     except (json.JSONDecodeError, IOError):
+        _log.debug("Failed to load history file: %s", history_file, exc_info=True)
         return []
 
 
@@ -47,8 +51,7 @@ def save_history(history: List[str], mode: CalculatorMode) -> None:
         with open(history_file, "w", encoding="utf-8") as f:
             json.dump({"history": history}, f, ensure_ascii=False, indent=2)
     except IOError:
-        print("History storage write error: ", IOError)
-        pass
+        _log.debug("History storage write error: %s", history_file, exc_info=True)
 
 
 def clear_history_file(mode: CalculatorMode) -> None:
@@ -59,4 +62,4 @@ def clear_history_file(mode: CalculatorMode) -> None:
         with open(history_file, "w", encoding="utf-8") as f:
             json.dump({"history": []}, f)
     except IOError:
-        pass
+        _log.debug("Failed to clear history file: %s", history_file, exc_info=True)

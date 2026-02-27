@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from typing import TYPE_CHECKING, Callable, ClassVar
 
@@ -21,6 +22,8 @@ from PySide6.QtWidgets import (
 from tcalc.ui.components.math_primitives import ParenGlyph
 
 from .utils import update_autowidth
+
+_log = logging.getLogger("tcalc.ui.expression_node")
 
 if TYPE_CHECKING:
     from .expression import Expression
@@ -199,6 +202,7 @@ class ExpressionSlot(QWidget):
         try:
             le.setProperty("_aw_scheduled", False)
         except RuntimeError:
+            _log.debug("_run_autowidth: widget already deleted")
             return
         update_autowidth(le)
 

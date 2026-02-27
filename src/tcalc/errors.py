@@ -1,5 +1,8 @@
 import logging
 from enum import Enum
+from typing import NoReturn
+
+_log = logging.getLogger("tcalc.errors")
 
 
 class CalculatorError(Exception):
@@ -18,10 +21,10 @@ class Error(CalculatorError):
     pass
 
 
-def raise_error(kind: ErrorKind, detail: object | None = None) -> None:
+def raise_error(kind: ErrorKind, detail: object | None = None) -> NoReturn:
     message = kind.value
     if detail:
-        logging.error("%s: %s", message, detail)
+        _log.debug("%s: %s", message, detail)
     else:
-        logging.error("%s", message)
+        _log.debug("%s", message)
     raise Error(message)

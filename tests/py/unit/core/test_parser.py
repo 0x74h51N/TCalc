@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from tcalc.core import errors
+from tcalc import errors
 from tcalc.core import parser as parser_mod
 
 param = pytest.param
