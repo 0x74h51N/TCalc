@@ -484,14 +484,12 @@ class Expression(QWidget):
 
                 # Close-paren path: match against a pending open ParenWidget
                 if not result.expr_indices and self._pending_parens:
-                    if self._try_close_paren(seg, result):
+                    if self._try_close_paren(seg, result, slot, pending):
                         continue
 
                 if not result.expr_indices:
-                    if self._try_wrap_adjacent(seg, slot, tokens):
-                        pending.append(seg)
+                    if self._try_open_paren(seg, result, slot, pending):
                         continue
-
                     if "\\" not in text:
                         self._normalize_text(seg, tokens)
                     continue
@@ -502,6 +500,8 @@ class Expression(QWidget):
 
                 # Paren path: open paren before the first expr token
                 # with a registered widget class in PAREN_KIND_MAP.
+                # This flow works for paren and latex expression render at same time
+                # Otherwise parentheses catch by _try_open_paren and _try_close_paren
                 open_paren_tok: calc_native.ParenToken | None = None
                 paren_cls: type[ParenWidget] | None = None
                 if (
@@ -578,46 +578,55 @@ class Expression(QWidget):
             for le in dirty_inputs:
                 update_autowidth(le)
 
-    def _try_wrap_adjacent(
+    def _try_open_paren(
         self,
         seg: QLineEdit,
+        result: calc_native.TokenizeResult,
         slot: ExpressionSlot,
-        tokens: list[calc_native.Token],
+        pending: deque[QLineEdit],
     ) -> bool:
-        """Absorb right-hand siblings into *seg* when it ends with an open paren.
+        """Check if any token is an open paren with right-hand ExpressionNodes.
 
-        Returns True if siblings were absorbed so the caller re-queues *seg*.
+        If matched: create a ParenWidget, split the segment text around the paren,
+        and absorb the trailing siblings into the new node.
         """
-        if not tokens:
-            return False
-        last = tokens[-1]
-
-        if not isinstance(last.data, calc_native.ParenToken):
-            return False
-        if last.data.type != calc_native.ParenType.Open:
+        if not result.open_paren_indices:
             return False
 
-        # Reattach to a pending ParenWidget that lost its open glyph
-        stack = self._pending_parens.get(last.data.kind)
-        if stack:
-            pw = stack.pop()
-            if not stack:
-                del self._pending_parens[last.data.kind]
-            pw.set_open(last.data)
-            seg.setText(calc_native.tokens_to_text(tokens[:-1]))
-            return True
+        tokens = result.tokens
+        idx = result.open_paren_indices[0]
+        par = tokens[idx].as_paren()
 
-        seg_idx = slot.index_of(seg)
-        right = slot._segments[seg_idx + 1 :]
-        if not any(isinstance(s, ExpressionNode) for s in right):
+        if par.type != calc_native.ParenType.Open:
             return False
 
-        absorbed = slot.serialize_segments(right)
-        slot.remove_segments(right)
-        seg.setText(seg.text() + absorbed)
+        paren_cls = self.PAREN_KIND_MAP.get(par.kind)
+        if paren_cls is None:
+            return False
+
+        before_text, after_text, absorbed = self._split_seg(seg, tokens, idx, slot)
+        if not absorbed:
+            return False
+
+        paren_node = paren_cls(self, [], par, None)
+        self._pending_parens.setdefault(par.kind, []).append(paren_node)
+
+        inner_input = paren_node._left_slot.default_input()
+        inner_input.setText(after_text)
+
+        seg.setText(before_text)
+        slot.insert_widget(slot.index_of(seg) + 1, paren_node)
+        pending.extend(paren_node.line_edits())
+
         return True
 
-    def _try_close_paren(self, seg: QLineEdit, result: calc_native.TokenizeResult) -> bool:
+    def _try_close_paren(
+        self,
+        seg: QLineEdit,
+        result: calc_native.TokenizeResult,
+        slot: ExpressionSlot,
+        pending: deque[QLineEdit],
+    ) -> bool:
         """Check if any token is a close paren that matches a pending open.
 
         If matched: close the ParenWidget, split the segment text around the paren,
@@ -641,21 +650,37 @@ class Expression(QWidget):
             if not stack:
                 self._pending_parens.pop(par.kind)
 
-            pw.set_close(par)
+            before_text, after_text, absorbed = self._split_seg(seg, tokens, idx, slot)
 
-            before_text = calc_native.tokens_to_text(tokens[:idx], self._seg_after_node(seg))
-            after_text = calc_native.tokens_to_text(tokens[idx + 1 :], True)
+            pw.set_close(par)
 
             seg.setText(before_text)
 
             suffix_seg = next(self._iter_line_edits(seg, 1), None)
             if suffix_seg:
                 suffix_seg.setText(after_text + suffix_seg.text())
+                if absorbed:
+                    pending.append(suffix_seg)
 
             return True
-            # TODO: Add some tests about this func...
 
         return False
+
+    def _split_seg(
+        self, seg: QLineEdit, tokens: list[calc_native.Token], idx: int, slot: ExpressionSlot
+    ) -> tuple[str, str, bool]:
+        before_text = calc_native.tokens_to_text(tokens[:idx], self._seg_after_node(seg))
+        after_text = calc_native.tokens_to_text(tokens[idx + 1 :], True)
+
+        seg_idx = slot.index_of(seg)
+        right = slot._segments[seg_idx + 1 :]
+
+        absorbed = any(isinstance(s, ExpressionNode) for s in right)
+        if absorbed:
+            after_text += slot.serialize_segments(right)
+            slot.remove_segments(right)
+
+        return (before_text, after_text, absorbed)
 
     #
     #
