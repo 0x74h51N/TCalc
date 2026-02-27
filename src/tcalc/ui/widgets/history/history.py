@@ -1,3 +1,10 @@
+#
+#
+#
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
 from typing import Optional
 
 from PySide6.QtCore import Qt, QTimer
