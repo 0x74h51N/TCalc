@@ -6,6 +6,7 @@
 #
 from __future__ import annotations
 
+import logging
 from typing import Callable, Dict, List, Optional, Sequence
 
 import calc_native
@@ -20,6 +21,8 @@ from tcalc.ui.widgets.calc import Display, TopBar
 from ...core import Calculator, evaluate_tokens, tokenize_string
 from ..widgets.calc.topbar.defins import MEMORY_KEYS, MemoryKey
 from .utils import apply_hyp_variant, clean_for_expression, format_result
+
+_log = logging.getLogger("tcalc.ui.controller")
 
 
 class CalculatorController:
@@ -206,7 +209,7 @@ class CalculatorController:
             return evaluate_tokens(tokens, calculator)
         except Exception as exc:
             self._error_text = str(exc)
-            print("Evalute token native error: ", exc)
+            _log.debug("Evaluate token native error: %s", exc)
 
     def _can_compute_preview(self, tokens: List[calc_native.Token]) -> bool:
         if not tokens:

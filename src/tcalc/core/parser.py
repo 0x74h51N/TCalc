@@ -11,7 +11,7 @@ from typing import Iterable, List, Sequence
 
 import calc_native
 
-from tcalc.core.errors import ErrorKind, raise_error
+from tcalc.errors import ErrorKind, raise_error
 
 from .constants import CONSTANTS
 from .engine import Calculator

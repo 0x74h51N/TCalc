@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import deque
 from typing import Generator, Optional
 
@@ -41,6 +42,8 @@ from tcalc.ui.widgets.calc.display.expression.widgets import (
 from tcalc.ui.widgets.utils import apply_scaled_fonts
 
 from .utils import space_binary_ops, split_operand, update_autowidth
+
+_log = logging.getLogger("tcalc.ui.expression")
 
 
 class Expression(QWidget):
@@ -289,6 +292,7 @@ class Expression(QWidget):
         try:
             idx = segs.index(target)
         except ValueError:
+            _log.debug("_find_prev_line_edit: target not found in segments")
             return None
         for i in range(idx - 1, -1, -1):
             seg = segs[i]
@@ -566,6 +570,8 @@ class Expression(QWidget):
                 if isinstance(suffix_seg, QLineEdit) and "\\" in suffix_seg.text():
                     pending.append(suffix_seg)
 
+        except Exception:
+            _log.debug("_add_exp_node failed", exc_info=True)
         finally:
             self.setUpdatesEnabled(True)
             self._rendering = False
