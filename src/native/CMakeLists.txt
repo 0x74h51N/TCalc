@@ -1,3 +1,6 @@
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 cmake_minimum_required(VERSION 3.24)
 
 project(tcalc_native LANGUAGES CXX)

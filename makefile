@@ -12,6 +12,9 @@ stub-gen:
 	make -C src/native stub-gen ROOT=$(CURDIR)
 	PYTHONPATH=$(CURDIR)/src $(PY) $(STUBS)
 
+install:
+	./scripts/install-deps
+
 dev:
 	./scripts/dev
 
