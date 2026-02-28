@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QWidget,
 )
+from shiboken6 import isValid
 
 from tcalc.ui.components.math_primitives import ParenGlyph
 
@@ -254,18 +255,36 @@ class ExpressionSlot(QWidget):
     def index_of(self, seg: QWidget) -> int:
         return self._segments.index(seg)
 
-    def serialize_segments(self, segs: list[QWidget]) -> str:
-        """Return the plain-text representation of *segs*."""
-        parts: list[str] = []
-        for s in segs:
-            if isinstance(s, QLineEdit):
-                parts.append(s.text())
-            elif isinstance(s, (ExpressionNode, ExpressionSlot)):
-                parts.append(s.to_plain_text())
-        return "".join(parts)
+    def adopt_segments(self, segments: list[QWidget]) -> None:
+        if (
+            segments
+            and isinstance(segments[0], QLineEdit)
+            and self._segments
+            and isinstance(self._segments[-1], QLineEdit)
+        ):
+            target = self._segments[-1]
+            cur_pos = len(target.text())
+            target.setText(target.text() + segments[0].text())
+            segments[0].deleteLater()
+            segments = segments[1:]
+            target.setFocus()
+            target.setCursorPosition(cur_pos)
+        for w in segments:
+            self.insert_widget(len(self._segments), w)
+            if isinstance(w, QLineEdit):
+                self._direct_edits.append(w)
 
-    def remove_segments(self, segs: list[QWidget]) -> None:
-        """Remove a list of segments from this slot, destroying each widget."""
+    def detach_right_of(self, seg: QWidget) -> list[QWidget]:
+        idx = self.index_of(seg)
+        right = self._segments[idx + 1 :]
+        if not right:
+            return []
+        detached = list(right)
+        self.remove_segments(right, False)
+        return detached
+
+    def remove_segments(self, segs: list[QWidget], delete: bool = True) -> None:
+        """Remove a list of segments from this slot, optionally destroying each widget."""
         for s in reversed(segs):
             if s not in self._segments:
                 continue
@@ -273,7 +292,8 @@ class ExpressionSlot(QWidget):
             self._segments.remove(s)
             if isinstance(s, QLineEdit) and s in self._direct_edits:
                 self._direct_edits.remove(s)
-            s.deleteLater()
+            if delete:
+                s.deleteLater()
 
     def remove(self, seg: QWidget) -> None:
         if seg not in self._segments:
@@ -420,6 +440,8 @@ class ExpressionSlot(QWidget):
         QTimer.singleShot(0, self._do_margin_update)
 
     def _do_margin_update(self) -> None:
+        if not isValid(self):
+            return
         self._margin_scheduled = False
         self._update_segment_margins()
 
