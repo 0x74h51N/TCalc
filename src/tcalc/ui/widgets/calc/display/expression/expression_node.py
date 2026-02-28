@@ -76,7 +76,7 @@ class ExpressionNode(QWidget):
     SYMBOL: ClassVar[str | None] = None
 
     def anchor_y(self) -> int:
-        return self.height() // 2
+        return (self.height() - self.contentsMargins().top()) // 2
 
     def line_edits(self) -> list[QLineEdit]:
         out = []
@@ -135,6 +135,7 @@ class ExpressionNode(QWidget):
         focus.setCursorPosition(cursor + len(left_text))
 
         # If parent slot is a ParenWidget with no inner nodes left, dissolve it too
+        # TODO: write proper test about paren remove/dissolve
         paren = parent.parent()
         if isinstance(paren, ParenWidget) and not any(
             isinstance(s, ExpressionNode) for s in parent._segments
@@ -392,16 +393,19 @@ class ExpressionSlot(QWidget):
         This ensures that all segments share the same visual
         reference Y position inside the horizontal layout.
         """
+        # TODO: Write proper test abut this
         max_anchor = 0
         max_below = 0
 
         for seg in self._segments:
             if isinstance(seg, ExpressionNode):
                 a = seg.anchor_y()
-                b = seg.height() - a
+                b = seg.height() - seg.contentsMargins().top() - a
             elif isinstance(seg, ExpressionSlot):
-                a = seg.height() // 2
-                b = seg.height() - a
+                top_margin = seg.contentsMargins().top()
+                h = seg.height() - top_margin
+                a = h // 2
+                b = h - a
             elif isinstance(seg, QLineEdit):
                 a = seg.fontMetrics().height() // 2
                 b = a
@@ -419,9 +423,11 @@ class ExpressionSlot(QWidget):
                 if seg.contentsMargins().top() != top:
                     seg.setContentsMargins(0, top, 0, 0)
             elif isinstance(seg, ExpressionSlot):
-                own_anchor = seg.height() // 2
+                top_margin = seg.contentsMargins().top()
+                h = seg.height() - top_margin
+                own_anchor = h // 2
                 top = max(0, max_anchor - own_anchor)
-                if seg.contentsMargins().top() != top:
+                if top_margin != top:
                     seg.setContentsMargins(0, top, 0, 0)
             elif isinstance(seg, QLineEdit):
                 own_anchor = seg.fontMetrics().height() // 2
@@ -442,8 +448,8 @@ class ExpressionSlot(QWidget):
     def _do_margin_update(self) -> None:
         if not isValid(self):
             return
-        self._margin_scheduled = False
         self._update_segment_margins()
+        self._margin_scheduled = False
 
         # Propagate margin child to parent
         node = self.parent()
