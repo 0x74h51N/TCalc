@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QWidget,
 )
+from shiboken6 import isValid
 
 from tcalc.ui.components.math_primitives import ParenGlyph
 
@@ -75,7 +76,7 @@ class ExpressionNode(QWidget):
     SYMBOL: ClassVar[str | None] = None
 
     def anchor_y(self) -> int:
-        return self.height() // 2
+        return (self.height() - self.contentsMargins().top()) // 2
 
     def line_edits(self) -> list[QLineEdit]:
         out = []
@@ -134,6 +135,7 @@ class ExpressionNode(QWidget):
         focus.setCursorPosition(cursor + len(left_text))
 
         # If parent slot is a ParenWidget with no inner nodes left, dissolve it too
+        # TODO: write proper test about paren remove/dissolve
         paren = parent.parent()
         if isinstance(paren, ParenWidget) and not any(
             isinstance(s, ExpressionNode) for s in parent._segments
@@ -254,18 +256,36 @@ class ExpressionSlot(QWidget):
     def index_of(self, seg: QWidget) -> int:
         return self._segments.index(seg)
 
-    def serialize_segments(self, segs: list[QWidget]) -> str:
-        """Return the plain-text representation of *segs*."""
-        parts: list[str] = []
-        for s in segs:
-            if isinstance(s, QLineEdit):
-                parts.append(s.text())
-            elif isinstance(s, (ExpressionNode, ExpressionSlot)):
-                parts.append(s.to_plain_text())
-        return "".join(parts)
+    def adopt_segments(self, segments: list[QWidget]) -> None:
+        if (
+            segments
+            and isinstance(segments[0], QLineEdit)
+            and self._segments
+            and isinstance(self._segments[-1], QLineEdit)
+        ):
+            target = self._segments[-1]
+            cur_pos = len(target.text())
+            target.setText(target.text() + segments[0].text())
+            segments[0].deleteLater()
+            segments = segments[1:]
+            target.setFocus()
+            target.setCursorPosition(cur_pos)
+        for w in segments:
+            self.insert_widget(len(self._segments), w)
+            if isinstance(w, QLineEdit):
+                self._direct_edits.append(w)
 
-    def remove_segments(self, segs: list[QWidget]) -> None:
-        """Remove a list of segments from this slot, destroying each widget."""
+    def detach_right_of(self, seg: QWidget) -> list[QWidget]:
+        idx = self.index_of(seg)
+        right = self._segments[idx + 1 :]
+        if not right:
+            return []
+        detached = list(right)
+        self.remove_segments(right, False)
+        return detached
+
+    def remove_segments(self, segs: list[QWidget], delete: bool = True) -> None:
+        """Remove a list of segments from this slot, optionally destroying each widget."""
         for s in reversed(segs):
             if s not in self._segments:
                 continue
@@ -273,7 +293,8 @@ class ExpressionSlot(QWidget):
             self._segments.remove(s)
             if isinstance(s, QLineEdit) and s in self._direct_edits:
                 self._direct_edits.remove(s)
-            s.deleteLater()
+            if delete:
+                s.deleteLater()
 
     def remove(self, seg: QWidget) -> None:
         if seg not in self._segments:
@@ -372,16 +393,19 @@ class ExpressionSlot(QWidget):
         This ensures that all segments share the same visual
         reference Y position inside the horizontal layout.
         """
+        # TODO: Write proper test abut this
         max_anchor = 0
         max_below = 0
 
         for seg in self._segments:
             if isinstance(seg, ExpressionNode):
                 a = seg.anchor_y()
-                b = seg.height() - a
+                b = seg.height() - seg.contentsMargins().top() - a
             elif isinstance(seg, ExpressionSlot):
-                a = seg.height() // 2
-                b = seg.height() - a
+                top_margin = seg.contentsMargins().top()
+                h = seg.height() - top_margin
+                a = h // 2
+                b = h - a
             elif isinstance(seg, QLineEdit):
                 a = seg.fontMetrics().height() // 2
                 b = a
@@ -399,9 +423,11 @@ class ExpressionSlot(QWidget):
                 if seg.contentsMargins().top() != top:
                     seg.setContentsMargins(0, top, 0, 0)
             elif isinstance(seg, ExpressionSlot):
-                own_anchor = seg.height() // 2
+                top_margin = seg.contentsMargins().top()
+                h = seg.height() - top_margin
+                own_anchor = h // 2
                 top = max(0, max_anchor - own_anchor)
-                if seg.contentsMargins().top() != top:
+                if top_margin != top:
                     seg.setContentsMargins(0, top, 0, 0)
             elif isinstance(seg, QLineEdit):
                 own_anchor = seg.fontMetrics().height() // 2
@@ -420,8 +446,10 @@ class ExpressionSlot(QWidget):
         QTimer.singleShot(0, self._do_margin_update)
 
     def _do_margin_update(self) -> None:
-        self._margin_scheduled = False
+        if not isValid(self):
+            return
         self._update_segment_margins()
+        self._margin_scheduled = False
 
         # Propagate margin child to parent
         node = self.parent()

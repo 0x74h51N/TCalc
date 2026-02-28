@@ -313,9 +313,7 @@ class ParenWidget(ExpressionNode):
         open_sym = self._open_token.symbol if self._open_token else None
         self._left_slot._paren = (open_sym, close_token.symbol)
         if self._close_glyph is None:
-            self._close_glyph = self._create_close()
-            if self._close_glyph is not None:
-                self._left_slot.insert_widget(len(self._left_slot._segments), self._close_glyph)
+            self._attach_close_glyph()
 
     def to_plain_text(self) -> str:
         return self._left_slot.to_plain_text()
@@ -331,6 +329,12 @@ class ParenWidget(ExpressionNode):
             self._detach_open_glyph()
         elif glyph is self._close_glyph:
             self._detach_close_glyph()
+            parent = self.parent()
+            if isinstance(parent, ExpressionSlot):
+                detached = parent.detach_right_of(self)
+                if detached:
+                    self.adopt_segments(detached)
+                parent.append_input()
 
         if self._open_glyph is None and self._close_glyph is None:
             self._dissolve()
@@ -348,6 +352,9 @@ class ParenWidget(ExpressionNode):
             super().dissolve()
 
         super().remove()
+
+    def adopt_segments(self, segments: list[QWidget]) -> None:
+        self._left_slot.adopt_segments(segments)
 
     # Internal
 
