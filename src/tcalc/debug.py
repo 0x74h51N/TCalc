@@ -1,10 +1,24 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Generic, Literal, TypeVar
 
 import calc_native
-from PySide6.QtWidgets import QLineEdit, QWidget
+from PySide6.QtWidgets import QLineEdit
+
+from tcalc.ui.components.math_primitives import ParenGlyph
+from tcalc.ui.widgets.calc.display.expression.expression import Expression
+from tcalc.ui.widgets.calc.display.expression.expression_node import (
+    ExpressionNode,
+    ExpressionSlot,
+)
+from tcalc.ui.widgets.calc.display.expression.widgets import (
+    FractionWidget,
+    ParenWidget,
+    PowWidget,
+    RootWidget,
+)
 
 if TYPE_CHECKING:
     from tcalc.ui.widgets.calc.display.expression.expression_node import (
@@ -33,54 +47,177 @@ def debug_tokens(tokens: list[calc_native.Token]) -> None:
     _log.debug("TOKENS -> %s", out)
 
 
-def dump_expression_tree(root: ExpressionSlot, get_plain_text: str) -> None:
-    """Walk and log the full expression widget tree."""
-    from tcalc.ui.widgets.calc.display.expression.expression_node import (
-        ExpressionNode,
-        ExpressionSlot,
-    )
+#
+#
+# Expression Debugger
+# ===================================================
+_W = TypeVar("_W", bound=ExpressionNode)
 
-    counts: dict[str, int] = {"slots": 0, "nodes": 0, "edits": 0}
-    lines: list[str] = []
 
-    def _walk(widget: QWidget, depth: int = 0) -> None:
+@dataclass
+class SegInfo:
+    """One segment inside a SlotInfo."""
+
+    kind: Literal["edit", "node", "glyph"]
+    text: str | None = None  # QLineEdit text (kind=="edit")
+    name: str | None = None  # QLineEdit objectName, stripped (kind=="edit")
+    node: NodeInfo | None = None  # nested node  (kind=="node")
+    glyph_cls: str | None = None  # e.g. "CurlyBrace" (kind=="glyph")
+
+    def _fmt(self, index: int, indent: str) -> str:
+        if self.kind == "edit":
+            display = repr(self.text) if self.text else '""'
+            return f"{indent}  [{index}] QLineEdit({self.name}) {display}"
+        if self.kind == "node":
+            return f"{indent}  [{index}] ->"
+        # glyph
+        return f"{indent}  [{index}] {self.glyph_cls}"
+
+
+@dataclass
+class SlotInfo:
+    """Snapshot of one ExpressionSlot."""
+
+    key: str
+    paren: tuple[str | None, str | None] | None
+    segments: list[SegInfo] = field(default_factory=list)
+
+    @property
+    def edit_count(self) -> int:
+        return sum(1 for s in self.segments if s.kind == "edit")
+
+    @property
+    def node_count(self) -> int:
+        return sum(1 for s in self.segments if s.kind == "node")
+
+    @property
+    def glyph_count(self) -> int:
+        return sum(1 for s in self.segments if s.kind == "glyph")
+
+    @property
+    def nodes(self) -> list[NodeInfo]:
+        return [s.node for s in self.segments if s.kind == "node" and s.node]
+
+    def _fmt(self, depth: int) -> list[str]:
         indent = "  " * depth
-        if isinstance(widget, ExpressionSlot):
-            counts["slots"] += 1
-            paren_info = f"  paren={widget._paren}" if widget._paren else ""
-            lines.append(
-                f"{indent}Slot[{widget._key}] segments={len(widget._segments)}{paren_info}"
-            )
-            for i, seg in enumerate(widget._segments):
-                if isinstance(seg, QLineEdit):
-                    counts["edits"] += 1
-                    name = seg.objectName().removeprefix("displayExpression_")
-                    text = seg.text()
-                    display = repr(text) if text else '""'
-                    lines.append(f"{indent}  [{i}] QLineEdit({name}) {display}")
-                elif isinstance(seg, ExpressionNode):
-                    lines.append(f"{indent}  [{i}] ->")
-                    _walk(seg, depth + 1)
-                else:
-                    lines.append(f"{indent}  [{i}] {type(seg).__name__}")
+        paren_info = f"  paren={self.paren}" if self.paren else ""
+        lines = [f"{indent}Slot[{self.key}] segments={len(self.segments)}{paren_info}"]
+        for i, seg in enumerate(self.segments):
+            lines.append(seg._fmt(i, indent))
+            if seg.kind == "node" and seg.node:
+                lines.extend(seg.node._fmt(depth + 1))
+        return lines
 
-        elif isinstance(widget, ExpressionNode):
-            counts["nodes"] += 1
-            cls_name = type(widget).__name__
-            lines.append(f"{indent}Node<{cls_name}>")
-            if widget._left_slot:
-                _walk(widget._left_slot, depth + 1)
-            if widget._right_slot:
-                _walk(widget._right_slot, depth + 1)
 
-        else:
-            lines.append(f"{indent}{type(widget).__name__}")
+@dataclass
+class NodeInfo(Generic[_W]):
+    """Snapshot of one ExpressionNode."""
 
-    _walk(root)
+    widget: _W
+    cls_name: str
+    paren_kind: calc_native.ParenKind | None = None
+    has_open: bool | None = None  # only for ParenWidget
+    has_close: bool | None = None  # only for ParenWidget
+    slots: list[SlotInfo] = field(default_factory=list)
 
-    sep = "=" * 42
-    header = f"{sep}[Expression Tree] slots={counts['slots']}  nodes={counts['nodes']}  edits={counts['edits']}{sep}"
-    _log.info(header)
-    for line in lines:
+    def _fmt(self, depth: int) -> list[str]:
+        indent = "  " * depth
+        lines = [f"{indent}Node<{self.cls_name}>"]
+        for slot in self.slots:
+            lines.extend(slot._fmt(depth + 1))
+        return lines
+
+
+@dataclass
+class TreeInfo:
+    """Full snapshot of an Expression widget's render tree."""
+
+    root: SlotInfo
+    plain_text: str
+
+    all_nodes: list[NodeInfo] = field(default_factory=list)
+    all_slots: list[SlotInfo] = field(default_factory=list)
+    all_edits: list[SegInfo] = field(default_factory=list)
+
+    @property
+    def parens(self) -> list[NodeInfo[ParenWidget]]:
+        return [n for n in self.all_nodes if isinstance(n.widget, ParenWidget)]
+
+    @property
+    def fracs(self) -> list[NodeInfo[FractionWidget]]:
+        return [n for n in self.all_nodes if isinstance(n.widget, FractionWidget)]
+
+    @property
+    def pows(self) -> list[NodeInfo[PowWidget]]:
+        return [n for n in self.all_nodes if isinstance(n.widget, PowWidget)]
+
+    @property
+    def roots(self) -> list[NodeInfo[RootWidget]]:
+        return [n for n in self.all_nodes if isinstance(n.widget, RootWidget)]
+
+    def __str__(self) -> str:
+        sep = "=" * 42
+        header = (
+            f"{sep}[Expression Tree] "
+            f"slots={len(self.all_slots)}  "
+            f"nodes={len(self.all_nodes)}  "
+            f"edits={len(self.all_edits)}"
+            f"{sep}"
+        )
+        lines = [header]
+        lines.extend(self.root._fmt(0))
+        lines.append(f"[plain_text] {self.plain_text!r}")
+        return "\n".join(lines)
+
+
+def snapshot_tree(widget: Expression) -> TreeInfo:
+    """Walk the expression tree and return a structured TreeInfo snapshot."""
+    info = TreeInfo(root=SlotInfo(key="", paren=None), plain_text=widget.get_plain_text())
+
+    def _walk_slot(slot: ExpressionSlot) -> SlotInfo:
+        si = SlotInfo(key=slot._key, paren=slot._paren)
+        info.all_slots.append(si)
+        for seg in slot._segments:
+            if isinstance(seg, QLineEdit):
+                name = seg.objectName().removeprefix("displayExpression_")
+                ei = SegInfo(kind="edit", text=seg.text(), name=name)
+                si.segments.append(ei)
+                info.all_edits.append(ei)
+            elif isinstance(seg, ExpressionNode):
+                ni = _walk_node(seg)
+                si.segments.append(SegInfo(kind="node", node=ni))
+            elif isinstance(seg, ParenGlyph):
+                si.segments.append(SegInfo(kind="glyph", glyph_cls=type(seg).__name__))
+            else:
+                si.segments.append(SegInfo(kind="glyph", glyph_cls=type(seg).__name__))
+        return si
+
+    def _walk_node(node: ExpressionNode) -> NodeInfo:
+        ni: NodeInfo = NodeInfo(
+            widget=node,
+            cls_name=type(node).__name__,
+        )
+        info.all_nodes.append(ni)
+        if isinstance(node, ParenWidget):
+            ni.paren_kind = node.PAREN_KIND
+            ni.has_open = node._open_token is not None
+            ni.has_close = node._close_token is not None
+        for slot in (node._left_slot, node._right_slot):
+            if slot is not None:
+                ni.slots.append(_walk_slot(slot))
+        return ni
+
+    info.root = _walk_slot(widget._root)
+    return info
+
+
+#
+# Expression Debug logger
+def dump_expression_tree(root: ExpressionSlot, plain_text: str) -> None:
+    """Snapshot the tree from a root slot and log it."""
+
+    editor = root._editor
+    info = snapshot_tree(editor)
+
+    for line in str(info).splitlines():
         _log.info(line)
-    _log.info("[plain_text] %r", get_plain_text)
