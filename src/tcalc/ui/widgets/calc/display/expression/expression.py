@@ -505,7 +505,7 @@ class Expression(QWidget):
                 # with a registered widget class in PAREN_KIND_MAP.
                 # This flow works for paren and latex expression render at same time
                 # Otherwise parentheses catch by _try_open_paren and _try_close_paren
-                for ind in reversed(result.open_paren_indices):
+                for ind in result.open_paren_indices:
                     # TODO: write proper tests about these => closed but not have expresionNode, sbling openedClosed parens, nested parent_slot
                     if ind >= expr_first:
                         continue
