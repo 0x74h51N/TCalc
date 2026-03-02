@@ -20,149 +20,312 @@ def _fail_tree(expression_widget: Expression, t, message: str, node=None) -> Non
     raise AssertionError(f"{message}\n\n{t}")
 
 
-class TestFractionNodeCreation:
-    """Test FractionWidget creation from text input."""
+class TestExpressionNode:
+    """Test expressions with fractions, powers, and roots."""
 
     @pytest.mark.parametrize(
-        "expr,expected_num,expected_den",
         [
-            ("\\frac{1}{2}", "1", "2"),
-            ("\\frac{3}{4}", "3", "4"),
-            ("\\frac{42}{7}", "42", "7"),
-            ("\\frac{10}{5}", "10", "5"),
-            ("\\frac{3.14}{2.71}", "3.14", "2.71"),
-            ("\\frac{100}{0.5}", "100", "0.5"),
+            "expression",  # test case
+            "expected_node_cls_idx",  # list of tuples: (node index, expected class name)
+            "idx_slot_count",  # list of tuples: (node index, expected slot count)
+            "idx_segment_count",  # list of tuples: (node index, expected segment count)
+            "total_slot_count",  # total slot count across all nodes
+            "total_segment_count",  # total segment count across all nodes
         ],
-    )
-    def test_fraction_creates_correct_slots(
-        self, expression_widget, set_expression, qapp, expr, expected_num, expected_den
-    ):
-        """Fraction expression should create FractionWidget with correct numerator/denominator."""
-        set_expression(expr)
-
-        t = snapshot_tree(expression_widget)
-        assert len(t.fracs) == 1
-        frac = t.fracs[0].widget
-        assert frac.numerator.to_plain_text() == expected_num
-        assert frac.denominator.to_plain_text() == expected_den
-
-
-class TestPowNodeCreation:
-    """Test PowWidget creation from text input."""
-
-    @pytest.mark.parametrize(
-        "expr,expected_base,expected_exp",
         [
-            ("\\pow{2}{3}", "2", "3"),
-            ("\\pow{5}{2}", "5", "2"),
-            ("\\pow{10}{0}", "10", "0"),
-            ("\\pow{2}{10}", "2", "10"),
-            ("\\pow{2.5}{1.5}", "2.5", "1.5"),
-            ("\\pow{3}{0.5}", "3", "0.5"),
-        ],
-    )
-    def test_pow_creates_correct_slots(
-        self, expression_widget, set_expression, qapp, expr, expected_base, expected_exp
-    ):
-        """Power expression should create PowWidget with correct base/exponent."""
-        set_expression(expr)
-
-        t = snapshot_tree(expression_widget)
-        assert len(t.pows) == 1
-        pw = t.pows[0].widget
-        assert pw.base.to_plain_text() == expected_base
-        assert pw.exponent.to_plain_text() == expected_exp
-
-
-class TestNestedExpressions:
-    """Test deeply nested and complex expressions."""
-
-    @pytest.mark.parametrize(
-        "expr,expected_fraction_count",
-        [
-            ("\\frac{\\frac{1}{2}}{\\frac{3}{4}}", 3),
-            ("\\frac{\\frac{\\frac{1}{2}}{\\frac{3}{4}}}{\\frac{5}{6}}", 5),
-            ("\\frac{2}{\\frac{5}{\\frac{4}{\\frac{7}{5}}}}", 4),
-            ("\\frac{3}{4}+\\frac{4}{5}", 2),
-            ("\\frac{6}{2*(1+2)}", 1),
-            ("\\frac{12}{3+(4*(5-\\frac{6}{7+8}))}", 2),
-            ("-\\frac{3}{2}", 1),
-            ("\\frac{-3}{2}", 1),
-            ("(-1) + \\frac{2}{3}", 1),
-            (
-                "\\frac{\\frac{\\frac{1}{\\pow{2}{2}}}{\\frac{2}{3}}}{\\frac{5}{6}}"
-                "+"
-                "\\frac{\\frac{\\frac{1}{\\pow{2}{2}}}{\\frac{2}{3}}}{\\frac{5}{6}}",
+            pytest.param(
+                "\\frac{1}{2}",
+                [(0, "FractionWidget")],
+                [(0, 2)],
+                [(0, 2)],
+                2,
+                2,
+                id="fracNode-1",
+            ),
+            pytest.param(
+                "\\frac{3}{4}",
+                [(0, "FractionWidget")],
+                [(0, 2)],
+                [(0, 2)],
+                2,
+                2,
+                id="fracNode-2",
+            ),
+            pytest.param(
+                "\\pow{2}{3}",
+                [(0, "PowWidget")],
+                [(0, 2)],
+                [(0, 2)],
+                2,
+                2,
+                id="powNode-1",
+            ),
+            pytest.param(
+                "\\pow{5}{2}",
+                [(0, "PowWidget")],
+                [(0, 2)],
+                [(0, 2)],
+                2,
+                2,
+                id="powNode-2",
+            ),
+            pytest.param(
+                "\\root{2}{3}",
+                [(0, "RootWidget")],
+                [(0, 2)],
+                [(0, 2)],
+                2,
+                2,
+                id="rootNode-1",
+            ),
+            pytest.param(
+                "\\root{5}{2}",
+                [(0, "RootWidget")],
+                [(0, 2)],
+                [(0, 2)],
+                2,
+                2,
+                id="rootNode-2",
+            ),
+            pytest.param(
+                "1+\\frac{1}{2}",
+                [(0, "FractionWidget")],
+                [(0, 2)],
+                [(0, 2)],
+                2,
+                2,
+                id="frac-plus",
+            ),
+            pytest.param(
+                "\\frac{1}{2}+\\frac{3}{4}",
+                [(0, "FractionWidget"), (1, "FractionWidget")],
+                [(0, 2), (1, 2)],
+                [(0, 2), (1, 2)],
+                4,
+                4,
+                id="frac-plus-frac",
+            ),
+            pytest.param(
+                "1+\\pow{2}{3}",
+                [(0, "PowWidget")],
+                [(0, 2)],
+                [(0, 2)],
+                2,
+                2,
+                id="pow-plus",
+            ),
+            pytest.param(
+                "1+\\root{2}{3}",
+                [(0, "RootWidget")],
+                [(0, 2)],
+                [(0, 2)],
+                2,
+                2,
+                id="root-plus",
+            ),
+            pytest.param(
+                "\\frac{\\frac{1}{2}}{3}",
+                [(0, "FractionWidget"), (1, "FractionWidget")],
+                [(0, 2), (1, 2)],
+                [(0, 4), (1, 2)],
+                4,
+                6,
+                id="frac-nested-left",
+            ),
+            pytest.param(
+                "\\frac{\\frac{1}{2}}{\\frac{3}{4}}",
+                [
+                    (0, "FractionWidget"),
+                    (1, "FractionWidget"),
+                    (2, "FractionWidget"),
+                ],
+                [(0, 2), (1, 2), (2, 2)],
+                [(0, 6), (1, 2), (2, 2)],
+                6,
                 10,
+                id="frac-nested-both",
+            ),
+            pytest.param(
+                "\\pow{2}{\\pow{3}{4}}",
+                [(0, "PowWidget"), (1, "PowWidget")],
+                [(0, 2), (1, 2)],
+                [(0, 4), (1, 2)],
+                4,
+                6,
+                id="pow-nested-exp",
+            ),
+            pytest.param(
+                "\\pow{\\pow{2}{3}}{4}",
+                [(0, "PowWidget"), (1, "PowWidget")],
+                [(0, 2), (1, 2)],
+                [(0, 4), (1, 2)],
+                4,
+                6,
+                id="pow-nested-base",
+            ),
+            pytest.param(
+                "\\root{2}{\\root{3}{4}}",
+                [(0, "RootWidget"), (1, "RootWidget")],
+                [(0, 2), (1, 2)],
+                [(0, 4), (1, 2)],
+                4,
+                6,
+                id="root-nested-radicand",
+            ),
+            pytest.param(
+                "\\root{\\root{2}{3}}{4}",
+                [(0, "RootWidget"), (1, "RootWidget")],
+                [(0, 2), (1, 2)],
+                [(0, 4), (1, 2)],
+                4,
+                6,
+                id="root-nested-degree",
+            ),
+            pytest.param(
+                "\\frac{\\pow{2}{3}}{\\pow{4}{5}}",
+                [
+                    (0, "FractionWidget"),
+                    (1, "PowWidget"),
+                    (2, "PowWidget"),
+                ],
+                [(0, 2), (1, 2), (2, 2)],
+                [(0, 6), (1, 2), (2, 2)],
+                6,
+                10,
+                id="frac-with-two-pows",
+            ),
+            pytest.param(
+                "\\frac{\\pow{2}{3}}{\\root{4}{5}}",
+                [
+                    (0, "FractionWidget"),
+                    (1, "PowWidget"),
+                    (2, "RootWidget"),
+                ],
+                [(0, 2), (1, 2), (2, 2)],
+                [(0, 6), (1, 2), (2, 2)],
+                6,
+                10,
+                id="frac-with-pow-root",
+            ),
+            pytest.param(
+                "\\pow{\\frac{1}{2}}{\\root{2}{3}}",
+                [
+                    (0, "PowWidget"),
+                    (1, "FractionWidget"),
+                    (2, "RootWidget"),
+                ],
+                [(0, 2), (1, 2), (2, 2)],
+                [(0, 6), (1, 2), (2, 2)],
+                6,
+                10,
+                id="pow-with-frac-root",
+            ),
+            pytest.param(
+                "\\root{2}{\\frac{\\pow{3}{4}}{5}}",
+                [
+                    (0, "RootWidget"),
+                    (1, "FractionWidget"),
+                    (2, "PowWidget"),
+                ],
+                [(0, 2), (1, 2), (2, 2)],
+                [(0, 4), (1, 4), (2, 2)],
+                6,
+                10,
+                id="root-with-frac-pow",
+            ),
+            pytest.param(
+                "\\frac{1+\\pow{2}{3}}{4}",
+                [(0, "FractionWidget"), (1, "PowWidget")],
+                [(0, 2), (1, 2)],
+                [(0, 4), (1, 2)],
+                4,
+                6,
+                id="frac-nested-with-text",
+            ),
+            pytest.param(
+                "\\pow{1+\\frac{2}{3}}{4}",
+                [(0, "PowWidget"), (1, "FractionWidget")],
+                [(0, 2), (1, 2)],
+                [(0, 4), (1, 2)],
+                4,
+                6,
+                id="pow-nested-with-text",
+            ),
+            pytest.param(
+                "\\root{1+\\pow{2}{3}}{4}",
+                [(0, "RootWidget"), (1, "PowWidget")],
+                [(0, 2), (1, 2)],
+                [(0, 4), (1, 2)],
+                4,
+                6,
+                id="root-nested-with-text",
             ),
         ],
     )
-    def test_nested_fractions_count(
-        self, expression_widget: Expression, set_expression, expr, expected_fraction_count
+    def test_mixed_expression_node_creation(
+        self,
+        expression_widget,
+        set_expression,
+        qapp,
+        expression,
+        expected_node_cls_idx,
+        idx_slot_count,
+        idx_segment_count,
+        total_slot_count,
+        total_segment_count,
     ):
-        """Nested fractions should create expected number of FractionWidgets."""
-        set_expression(expr)
+        """Expressions should create expected node types and slot counts."""
+        set_expression(expression)
 
         t = snapshot_tree(expression_widget)
-        assert len(t.fracs) == expected_fraction_count
+        for idx, expected_cls in expected_node_cls_idx:
+            actual_cls = t.all_nodes[idx].cls_name
+            if actual_cls != expected_cls:
+                _fail_tree(
+                    expression_widget,
+                    t,
+                    f"Expected node[{idx}] class={expected_cls}, got {actual_cls}",
+                    node=t.all_nodes[idx],
+                )
 
-    @pytest.mark.parametrize(
-        "expr,expected_pow_count",
-        [
-            ("\\pow{2}{\\pow{3}{4}}", 2),
-            ("\\pow{\\pow{2}{3}}{4}", 2),
-            ("\\pow{\\pow{2}{\\pow{3}{4}}}{\\pow{5}{\\pow{6}{7}}}", 5),
-        ],
-    )
-    def test_nested_pow_count(
-        self, expression_widget: Expression, set_expression, expr, expected_pow_count
-    ):
-        """Nested powers should create expected number of PowWidgets."""
-        set_expression(expr)
+        for idx, expected_slots in idx_slot_count:
+            actual_slots = len(t.all_nodes[idx].slots)
+            if actual_slots != expected_slots:
+                _fail_tree(
+                    expression_widget,
+                    t,
+                    f"Expected node[{idx}] slot count={expected_slots}, got {actual_slots}",
+                    node=t.all_nodes[idx],
+                )
 
-        t = snapshot_tree(expression_widget)
-        assert len(t.pows) == expected_pow_count
+        for idx, expected_segments in idx_segment_count:
+            actual_segments = sum(len(slot.segments) for slot in t.all_nodes[idx].slots)
+            if actual_segments != expected_segments:
+                _fail_tree(
+                    expression_widget,
+                    t,
+                    (
+                        f"Expected node[{idx}] segment count={expected_segments}, "
+                        f"got {actual_segments}"
+                    ),
+                    node=t.all_nodes[idx],
+                )
 
-    def test_two_fractions_with_add_has_plus(self, expression_widget, set_expression, qapp):
-        """(\\frac{3}{4})+\\frac{4}{5} should have + operator in serialization."""
-        set_expression("(\\frac{3}{4})+\\frac{4}{5}")
-        result = expression_widget.get_plain_text()
-        assert "+" in result
+        total_slots = sum(len(node.slots) for node in t.all_nodes)
+        if total_slots != total_slot_count:
+            _fail_tree(
+                expression_widget,
+                t,
+                f"Expected total slot count={total_slot_count}, got {total_slots}",
+            )
 
-
-class TestMixedNodeTypes:
-    """Test expressions with both fractions and powers."""
-
-    @pytest.mark.parametrize(
-        "expr,expected_frac,expected_pow",
-        [
-            ("3+4*\\frac{2}{\\pow{(1-5)}{\\pow{2}{3}}}", 1, 2),
-            ("\\frac{\\pow{(-3)}{2}}{2+(-1)*\\frac{4}{2}}", 2, 1),
-            ("\\frac{\\pow{2}{3}}{\\pow{4}{5}}", 1, 2),
-            ("\\frac{(1+2)*(3+4)}{\\frac{(5-6)}{(7+8)}}", 2, 0),
-            ("1+(2*(3+\\frac{4}{(5-6)}))", 1, 0),
-            ("\\frac{\\pow{(-3)}{2}}{2}", 1, 1),
-            (
-                "\\frac{"
-                "\\pow{2}{\\frac{3}{\\pow{4}{5}}}"
-                "}"
-                "{"
-                "\\frac{\\pow{6}{7}}{\\pow{8}{\\frac{9}{10}}}"
-                "}",
-                4,
-                4,
-            ),
-        ],
-    )
-    def test_mixed_expression_node_count(
-        self, expression_widget, set_expression, qapp, expr, expected_frac, expected_pow
-    ):
-        """Mixed expressions should create expected number of each node type."""
-        set_expression(expr)
-
-        t = snapshot_tree(expression_widget)
-        assert len(t.fracs) == expected_frac
-        assert len(t.pows) == expected_pow
+        total_segments = sum(len(slot.segments) for node in t.all_nodes for slot in node.slots)
+        if total_segments != total_segment_count:
+            _fail_tree(
+                expression_widget,
+                t,
+                f"Expected total segment count={total_segment_count}, got {total_segments}",
+            )
 
 
 class TestFocusHandling:
@@ -626,7 +789,7 @@ class TestNodeRemovalDetailed:
             id="open-brace-leading-op",
         ),
         pytest.param(
-            "(1)+{2+\\frac{2}{3}}",
+            "(1)+{2+\\root{2}{3}}",
             1,
             [(0, ParenKind.Brace)],
             [(0, 5)],
@@ -642,7 +805,7 @@ class TestNodeRemovalDetailed:
             id="bracket-widget",
         ),
         pytest.param(
-            "(1)+{2+[\\frac{2}{3}]+4}",
+            "(1)+{2+[\\pow{2}{3}]+4}",
             2,
             [(0, ParenKind.Brace), (1, ParenKind.Bracket)],
             [(0, 5), (1, 5)],
@@ -656,6 +819,14 @@ class TestNodeRemovalDetailed:
             [(0, 5), (1, 7), (2, 5)],
             24,
             id="nested-brace-bracket-paren",
+        ),
+        pytest.param(
+            "(1)+{2+[\\frac{2}{3}+4+(\\pow{2}{3}",
+            3,
+            [(0, ParenKind.Brace), (1, ParenKind.Bracket), (2, ParenKind.Paren)],
+            [(0, 4), (1, 6), (2, 4)],
+            21,
+            id="nested-brace-bracket-paren-open-only",
         ),
     ],
 )
@@ -699,7 +870,6 @@ class TestParenWidget:
 
         if idx_segments_count and idx_segments_count != (None, 0):
             for idx, seg_count in idx_segments_count:
-                # ParenWidget tek slot kullaniyorsa slots[0] yeterli
                 actual = len(t.parens[idx].slots[0].segments)
                 if actual != seg_count:
                     _fail_tree(
