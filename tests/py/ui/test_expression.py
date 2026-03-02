@@ -1,52 +1,23 @@
 from __future__ import annotations
 
 import pytest
+from calc_native import ParenKind
 from PySide6.QtWidgets import QLineEdit
 
 from tcalc.core.ops import Operation
+from tcalc.debug import dump_expression_tree, snapshot_tree
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
-from tcalc.ui.widgets.calc.display.expression.expression_node import ExpressionNode
-from tcalc.ui.widgets.calc.display.expression.widgets import FractionWidget, ParenWidget, PowWidget
 
 DIV_SYM = Operation.DIV.symbol
 POW_SYM = Operation.POW.symbol
 
 
-# Helper functions for testing
-def get_all_expression_nodes(widget: Expression) -> list[ExpressionNode]:
-    """Get all ExpressionNode instances (FractionWidget, PowWidget) from the tree."""
-    nodes: list[ExpressionNode] = []
-    _collect_nodes(widget._root, nodes)
-    return nodes
-
-
-def _collect_nodes(container, nodes: list[ExpressionNode]) -> None:
-    """Recursively collect all nodes from the container."""
-    if hasattr(container, "_segments"):
-        for seg in container._segments:
-            if isinstance(seg, ExpressionNode):
-                nodes.append(seg)
-            _collect_nodes(seg, nodes)
-    for attr in ("_left_slot", "_right_slot"):
-        slot = getattr(container, attr, None)
-        if slot is not None:
-            _collect_nodes(slot, nodes)
-
-
-def get_fraction_parts(fraction: FractionWidget) -> tuple[str, str]:
-    """Get (numerator, denominator) text from a FractionWidget."""
-    return (
-        fraction.numerator.to_plain_text(),
-        fraction.denominator.to_plain_text(),
-    )
-
-
-def get_pow_parts(pow_widget: PowWidget) -> tuple[str, str]:
-    """Get (base, exponent) text from a PowWidget."""
-    return (
-        pow_widget.base.to_plain_text(),
-        pow_widget.exponent.to_plain_text(),
-    )
+def _fail_tree(expression_widget: Expression, t, message: str, node=None) -> None:
+    dump_expression_tree(expression_widget._root, t.plain_text)
+    if node is not None:
+        node_dump = "\n".join(["[node_dump]", *node._fmt(0)])
+        raise AssertionError(f"{message}\n\n{node_dump}")
+    raise AssertionError(f"{message}\n\n{t}")
 
 
 class TestFractionNodeCreation:
@@ -69,13 +40,11 @@ class TestFractionNodeCreation:
         """Fraction expression should create FractionWidget with correct numerator/denominator."""
         set_expression(expr)
 
-        nodes = get_all_expression_nodes(expression_widget)
-        assert len(nodes) == 1
-        assert isinstance(nodes[0], FractionWidget)
-
-        num, den = get_fraction_parts(nodes[0])
-        assert num == expected_num
-        assert den == expected_den
+        t = snapshot_tree(expression_widget)
+        assert len(t.fracs) == 1
+        frac = t.fracs[0].widget
+        assert frac.numerator.to_plain_text() == expected_num
+        assert frac.denominator.to_plain_text() == expected_den
 
 
 class TestPowNodeCreation:
@@ -98,13 +67,11 @@ class TestPowNodeCreation:
         """Power expression should create PowWidget with correct base/exponent."""
         set_expression(expr)
 
-        nodes = get_all_expression_nodes(expression_widget)
-        assert len(nodes) == 1
-        assert isinstance(nodes[0], PowWidget)
-
-        base, exp = get_pow_parts(nodes[0])
-        assert base == expected_base
-        assert exp == expected_exp
+        t = snapshot_tree(expression_widget)
+        assert len(t.pows) == 1
+        pw = t.pows[0].widget
+        assert pw.base.to_plain_text() == expected_base
+        assert pw.exponent.to_plain_text() == expected_exp
 
 
 class TestNestedExpressions:
@@ -136,9 +103,8 @@ class TestNestedExpressions:
         """Nested fractions should create expected number of FractionWidgets."""
         set_expression(expr)
 
-        nodes = get_all_expression_nodes(expression_widget)
-        fractions = [n for n in nodes if isinstance(n, FractionWidget)]
-        assert len(fractions) == expected_fraction_count
+        t = snapshot_tree(expression_widget)
+        assert len(t.fracs) == expected_fraction_count
 
     @pytest.mark.parametrize(
         "expr,expected_pow_count",
@@ -154,9 +120,8 @@ class TestNestedExpressions:
         """Nested powers should create expected number of PowWidgets."""
         set_expression(expr)
 
-        nodes = get_all_expression_nodes(expression_widget)
-        pows = [n for n in nodes if isinstance(n, PowWidget)]
-        assert len(pows) == expected_pow_count
+        t = snapshot_tree(expression_widget)
+        assert len(t.pows) == expected_pow_count
 
     def test_two_fractions_with_add_has_plus(self, expression_widget, set_expression, qapp):
         """(\\frac{3}{4})+\\frac{4}{5} should have + operator in serialization."""
@@ -195,11 +160,9 @@ class TestMixedNodeTypes:
         """Mixed expressions should create expected number of each node type."""
         set_expression(expr)
 
-        nodes = get_all_expression_nodes(expression_widget)
-        fractions = [n for n in nodes if isinstance(n, FractionWidget)]
-        pows = [n for n in nodes if isinstance(n, PowWidget)]
-        assert len(fractions) == expected_frac
-        assert len(pows) == expected_pow
+        t = snapshot_tree(expression_widget)
+        assert len(t.fracs) == expected_frac
+        assert len(t.pows) == expected_pow
 
 
 class TestFocusHandling:
@@ -211,12 +174,10 @@ class TestFocusHandling:
         main_input.setText("/")
         qapp.processEvents()
 
-        nodes = get_all_expression_nodes(expression_widget)
-        if nodes and isinstance(nodes[0], FractionWidget):
-            fraction = nodes[0]
-            num_text = fraction.numerator.to_plain_text()
-            den_text = fraction.denominator.to_plain_text()
-            assert num_text == "" or den_text == ""
+        t = snapshot_tree(expression_widget)
+        if t.fracs:
+            frac = t.fracs[0].widget
+            assert frac.numerator.to_plain_text() == "" or frac.denominator.to_plain_text() == ""
 
 
 class TestInputCounts:
@@ -262,10 +223,10 @@ class TestExpressionModification:
         """Modifying a fraction slot should update serialization."""
         set_expression(initial_expr)
 
-        nodes = get_all_expression_nodes(expression_widget)
-        if nodes and isinstance(nodes[0], FractionWidget):
-            fraction = nodes[0]
-            slot_obj = getattr(fraction, slot)
+        t = snapshot_tree(expression_widget)
+        if t.fracs:
+            frac = t.fracs[0].widget
+            slot_obj = getattr(frac, slot)
             input_field = slot_obj.line_edits()[0]
             input_field.setText(new_value)
             qapp.processEvents()
@@ -311,8 +272,8 @@ class TestNodeRemoval:
         set_expression("\\frac{1}{2}")
         qapp.processEvents()
 
-        nodes_before = get_all_expression_nodes(expression_widget)
-        assert len(nodes_before) >= 1
+        t = snapshot_tree(expression_widget)
+        assert len(t.all_nodes) >= 1
 
         expression_widget.backspace()
         qapp.processEvents()
@@ -342,8 +303,8 @@ class TestInsertExprStr:
 
         result = expression_widget.get_plain_text()
         # Should have 3 fractions: original two + new one at position of 3
-        nodes = get_all_expression_nodes(expression_widget)
-        assert len(nodes) == 3
+        t = snapshot_tree(expression_widget)
+        assert len(t.all_nodes) == 3
         assert "\\frac{3}{}" in result
         assert "\\frac{1}{2}" in result
         assert "\\frac{4}{5}" in result
@@ -369,9 +330,8 @@ class TestInsertExprStr:
         target.setText("\\frac")
         qapp.processEvents()
 
-        nodes = get_all_expression_nodes(expression_widget)
-        assert len(nodes) == 1
-        assert isinstance(nodes[0], FractionWidget)
+        t = snapshot_tree(expression_widget)
+        assert len(t.fracs) == 1
 
     def test_frac_on_empty_input_creates_empty_widget(self, expression_widget, qapp):
         """Insert frac on empty input creates empty FractionWidget."""
@@ -380,12 +340,11 @@ class TestInsertExprStr:
         expression_widget.insert_expr_str(calc_native.ExprKind.Frac)
         qapp.processEvents()
 
-        nodes = get_all_expression_nodes(expression_widget)
-        assert len(nodes) == 1
-        assert isinstance(nodes[0], FractionWidget)
-        num, den = get_fraction_parts(nodes[0])
-        assert num == ""
-        assert den == ""
+        t = snapshot_tree(expression_widget)
+        assert len(t.fracs) == 1
+        frac = t.fracs[0].widget
+        assert frac.numerator.to_plain_text() == ""
+        assert frac.denominator.to_plain_text() == ""
 
 
 class TestImplicitMultiplication:
@@ -404,9 +363,8 @@ class TestImplicitMultiplication:
     ):
         """Implicit multiplication between fractions should create correct nodes."""
         set_expression(expr)
-        nodes = get_all_expression_nodes(expression_widget)
-        fractions = [n for n in nodes if isinstance(n, FractionWidget)]
-        assert len(fractions) == expected_fracs
+        t = snapshot_tree(expression_widget)
+        assert len(t.fracs) == expected_fracs
 
 
 class TestHandleNegate:
@@ -462,10 +420,9 @@ class TestHandleNegate:
         """Negate inside a fraction numerator: \\frac{3}{4} -> \\frac{-3}{4}."""
         set_expression("\\frac{3}{4}")
 
-        nodes = get_all_expression_nodes(expression_widget)
-        assert len(nodes) == 1
-        frac = nodes[0]
-        assert isinstance(frac, FractionWidget)
+        t = snapshot_tree(expression_widget)
+        assert len(t.fracs) == 1
+        frac = t.fracs[0].widget
 
         num_input = frac.numerator.line_edits()[0]
         num_input.setFocus()
@@ -481,9 +438,8 @@ class TestHandleNegate:
         """Negate inside a fraction denominator: \\frac{3}{4} -> \\frac{3}{-4}."""
         set_expression("\\frac{3}{4}")
 
-        nodes = get_all_expression_nodes(expression_widget)
-        frac = nodes[0]
-        assert isinstance(frac, FractionWidget)
+        t = snapshot_tree(expression_widget)
+        frac = t.fracs[0].widget
 
         den_input = frac.denominator.line_edits()[0]
         den_input.setFocus()
@@ -585,8 +541,8 @@ class TestNodeRemovalDetailed:
         set_expression("1 + \\frac{2}{3}")
         qapp.processEvents()
 
-        nodes_before = get_all_expression_nodes(expression_widget)
-        assert len(nodes_before) == 1
+        t_before = snapshot_tree(expression_widget)
+        assert len(t_before.all_nodes) == 1
 
         # Find empty input after fraction and backspace
         inputs = expression_widget.expression_inputs()
@@ -600,22 +556,164 @@ class TestNodeRemovalDetailed:
         qapp.processEvents()
 
         # Node should be removed or merged
-        nodes_after = get_all_expression_nodes(expression_widget)
-        assert len(nodes_after) <= len(nodes_before)
+        t_after = snapshot_tree(expression_widget)
+        assert len(t_after.all_nodes) <= len(t_before.all_nodes)
 
 
+@pytest.mark.parametrize(
+    [
+        "expression",  # test case
+        "expected_count",  # number of ParenWidget nodes expected to be rendered
+        "expected_parenKind_idx",  # list of tuples: (index in rendered ParenWidget list, expected ParenKind)
+        "idx_segments_count",  # list of tuples: (index in ParenWidget list, number of inner segments rendered)
+        "total_segment_count",  # all segment counts
+    ],
+    [
+        pytest.param(
+            "(1)+\\frac{2}{3}",
+            0,
+            (None, None),
+            (None, 0),
+            5,
+            id="non-parenNode",
+        ),
+        pytest.param(
+            "(1)+\\frac{2}{3})",
+            0,
+            (None, None),
+            (None, 0),
+            5,
+            id="non-parenNode-w-close",
+        ),
+        pytest.param(
+            "(1)+(\\frac{2}{3})",
+            1,
+            [(0, ParenKind.Paren)],
+            [(0, 5)],
+            10,
+            id="render-parenNode",
+        ),
+        pytest.param(
+            "(1)+(2+\\frac{2}{3})",
+            1,
+            [(0, ParenKind.Paren)],
+            [(0, 5)],
+            10,
+            id="paren-with-prefix-text",
+        ),
+        pytest.param(
+            "{\\frac{2}{3}}",
+            1,
+            [(0, ParenKind.Brace)],
+            [(0, 5)],
+            10,
+            id="brace-widget",
+        ),
+        pytest.param(
+            "{\\frac{2}{3})",
+            1,
+            [(0, ParenKind.Brace)],
+            [(0, 4)],
+            9,
+            id="non-closed-brace-widget",
+        ),
+        pytest.param(
+            "{+\\frac{2}{3}",
+            1,
+            [(0, ParenKind.Brace)],
+            [(0, 4)],
+            9,
+            id="open-brace-leading-op",
+        ),
+        pytest.param(
+            "(1)+{2+\\frac{2}{3}}",
+            1,
+            [(0, ParenKind.Brace)],
+            [(0, 5)],
+            10,
+            id="brace-in-sum",
+        ),
+        pytest.param(
+            "[\\frac{2}{3}]",
+            1,
+            [(0, ParenKind.Bracket)],
+            [(0, 5)],
+            10,
+            id="bracket-widget",
+        ),
+        pytest.param(
+            "(1)+{2+[\\frac{2}{3}]+4}",
+            2,
+            [(0, ParenKind.Brace), (1, ParenKind.Bracket)],
+            [(0, 5), (1, 5)],
+            15,
+            id="outer-first-nested-parens",
+        ),
+        pytest.param(
+            "(1)+{2+[\\frac{2}{3}+4+(\\pow{2}{3})]}",
+            3,
+            [(0, ParenKind.Brace), (1, ParenKind.Bracket), (2, ParenKind.Paren)],
+            [(0, 5), (1, 7), (2, 5)],
+            24,
+            id="nested-brace-bracket-paren",
+        ),
+    ],
+)
 class TestParenWidget:
-    """Test ParenWidget creation and close-paren matching across segments."""
+    """Test readyExpression ParenWidget render pipeline."""
 
-    def test_paste_brace_frac_creates_paren_widget(self, expression_widget, set_expression, qapp):
-        """Pasting {\\frac{3}{4}} should create ParenWidget wrapping FractionWidget."""
-        set_expression("{\\frac{3}{4}}")
+    def test_paren_widgets(
+        self,
+        expression_widget,
+        set_expression,
+        qapp,
+        expression,
+        expected_count,
+        expected_parenKind_idx,
+        idx_segments_count,
+        total_segment_count,
+    ):
+        set_expression(expression)
+        qapp.processEvents()
 
-        nodes = get_all_expression_nodes(expression_widget)
-        paren_nodes = [n for n in nodes if isinstance(n, ParenWidget)]
-        frac_nodes = [n for n in nodes if isinstance(n, FractionWidget)]
-        assert len(paren_nodes) == 1, f"Expected 1 ParenWidget, got {len(paren_nodes)}"
-        assert len(frac_nodes) == 1, f"Expected 1 FractionWidget, got {len(frac_nodes)}"
+        t = snapshot_tree(expression_widget)
 
-        result = expression_widget.get_plain_text()
-        assert "\\frac{3}{4}" in result
+        if len(t.parens) != expected_count:
+            _fail_tree(
+                expression_widget,
+                t,
+                f"Expected {expected_count} ParenWidget(s), got {len(t.parens)}",
+            )
+
+        if expected_parenKind_idx and expected_parenKind_idx != (None, None):
+            for idx, kind in expected_parenKind_idx:
+                if t.parens[idx].paren_kind != kind:
+                    _fail_tree(
+                        expression_widget,
+                        t,
+                        (
+                            f"Expected ParenWidget[{idx}] kind={kind}, "
+                            f"got {t.parens[idx].paren_kind}"
+                        ),
+                    )
+
+        if idx_segments_count and idx_segments_count != (None, 0):
+            for idx, seg_count in idx_segments_count:
+                # ParenWidget tek slot kullaniyorsa slots[0] yeterli
+                actual = len(t.parens[idx].slots[0].segments)
+                if actual != seg_count:
+                    _fail_tree(
+                        expression_widget,
+                        t,
+                        (f"Expected {seg_count} segments at ParenWidget[{idx}], got {actual}"),
+                        node=t.parens[idx],
+                    )
+
+        if total_segment_count is not None:
+            total = sum(len(slot.segments) for slot in t.all_slots)
+            if total != total_segment_count:
+                _fail_tree(
+                    expression_widget,
+                    t,
+                    f"Expected total segments={total_segment_count}, got {total}",
+                )
