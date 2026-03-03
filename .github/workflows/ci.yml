@@ -213,7 +213,7 @@ jobs:
       - name: Run py-tests
         run: |
           . .venv/bin/activate
-          make py-test
+          make py-test PYTEST_ARGS="-rA -s"
 
   py-test-benchmark:
     name: Benchmark Tests

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pytest
 from calc_native import ParenKind
 from PySide6.QtWidgets import QLineEdit
@@ -7,6 +9,12 @@ from PySide6.QtWidgets import QLineEdit
 from tcalc.core.ops import Operation
 from tcalc.debug import dump_expression_tree, snapshot_tree
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
+from tcalc.ui.widgets.calc.display.expression.widgets import (
+    FractionWidget,
+    PowWidget,
+    RootWidget,
+    RoundParenWidget,
+)
 
 DIV_SYM = Operation.DIV.symbol
 POW_SYM = Operation.POW.symbol
@@ -20,312 +28,678 @@ def _fail_tree(expression_widget: Expression, t, message: str, node=None) -> Non
     raise AssertionError(f"{message}\n\n{t}")
 
 
+def _check_indexed(
+    expression_widget: Expression,
+    t,
+    expected: list[tuple[int, object]] | tuple[int, object] | None,
+    get_actual,
+    label: str,
+    get_node=None,
+) -> None:
+    if expected is None:
+        return
+    expected_items = expected if isinstance(expected, list) else [expected]
+    for idx, value in expected_items:
+        actual = get_actual(idx)
+        if actual != value:
+            node = get_node(idx) if get_node else None
+            expected_display = value.__name__ if isinstance(value, type) else value
+            actual_display = actual.__name__ if isinstance(actual, type) else actual
+            message = f"Expected {label}[{idx}]={expected_display}, got {actual_display}"
+            _fail_tree(expression_widget, t, message, node=node)
+
+
+def _resolve_target_input(expression_widget: Expression, t, path: tuple) -> QLineEdit:
+    kind = path[0]
+    if kind == "root":
+        seg_idx = path[1]
+        return expression_widget._root._segments[seg_idx]
+    if kind == "node":
+        node_idx, slot_name, edit_idx = path[1], path[2], path[3]
+        widget = t.all_nodes[node_idx].widget
+        slot = getattr(widget, slot_name)
+        return slot.line_edits()[edit_idx]
+    raise ValueError(f"Unsupported target kind: {kind}")
+
+
+def _trigger_on_input(
+    qapp,
+    target: QLineEdit,
+    cursor_pos: int,
+    action,
+    times: int = 1,
+) -> None:
+    target.setFocus()
+    target.setCursorPosition(cursor_pos)
+    qapp.processEvents()
+    for _ in range(times):
+        action()
+        qapp.processEvents()
+
+
+@dataclass(frozen=True)
+class ExpressionNodeCase:
+    expression: str
+    expected_widget_cls_idx: list[tuple[int, type]]
+    idx_slot_count: list[tuple[int, int]]
+    idx_segment_count: list[tuple[int, int]]
+    total_slot_count: int
+    total_segment_count: int
+    total_edit_count: int
+
+
+def expression_node_case(**kwargs) -> ExpressionNodeCase:
+    return ExpressionNodeCase(**kwargs)
+
+
+EXPRESSION_NODE_CASES = [
+    pytest.param(
+        expression_node_case(
+            expression="\\frac",
+            expected_widget_cls_idx=[(0, FractionWidget)],
+            idx_slot_count=[(0, 2)],
+            idx_segment_count=[(0, 2)],
+            total_slot_count=2,
+            total_segment_count=5,
+            total_edit_count=4,
+        ),
+        id="fracNode-0",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\pow",
+            expected_widget_cls_idx=[(0, PowWidget)],
+            idx_slot_count=[(0, 2)],
+            idx_segment_count=[(0, 2)],
+            total_slot_count=2,
+            total_segment_count=5,
+            total_edit_count=4,
+        ),
+        id="powNode-0",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\root",
+            expected_widget_cls_idx=[(0, RootWidget)],
+            idx_slot_count=[(0, 2)],
+            idx_segment_count=[(0, 2)],
+            total_slot_count=2,
+            total_segment_count=5,
+            total_edit_count=4,
+        ),
+        id="rootNode-0",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\frac{1}{2}",
+            expected_widget_cls_idx=[(0, FractionWidget)],
+            idx_slot_count=[(0, 2)],
+            idx_segment_count=[(0, 2)],
+            total_slot_count=2,
+            total_segment_count=5,
+            total_edit_count=4,
+        ),
+        id="fracNode-1",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\pow{2}{3}",
+            expected_widget_cls_idx=[(0, PowWidget)],
+            idx_slot_count=[(0, 2)],
+            idx_segment_count=[(0, 2)],
+            total_slot_count=2,
+            total_segment_count=5,
+            total_edit_count=4,
+        ),
+        id="powNode-1",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\root{2}{3}",
+            expected_widget_cls_idx=[(0, RootWidget)],
+            idx_slot_count=[(0, 2)],
+            idx_segment_count=[(0, 2)],
+            total_slot_count=2,
+            total_segment_count=5,
+            total_edit_count=4,
+        ),
+        id="rootNode-1",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="1+\\frac{1}{2}",
+            expected_widget_cls_idx=[(0, FractionWidget)],
+            idx_slot_count=[(0, 2)],
+            idx_segment_count=[(0, 2)],
+            total_slot_count=2,
+            total_segment_count=5,
+            total_edit_count=4,
+        ),
+        id="frac-plus",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\frac{1}{2}+\\frac{3}{4}",
+            expected_widget_cls_idx=[(0, FractionWidget), (1, FractionWidget)],
+            idx_slot_count=[(0, 2), (1, 2)],
+            idx_segment_count=[(0, 2), (1, 2)],
+            total_slot_count=4,
+            total_segment_count=9,
+            total_edit_count=7,
+        ),
+        id="frac-plus-frac",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="1+\\pow{2}{3}",
+            expected_widget_cls_idx=[(0, PowWidget)],
+            idx_slot_count=[(0, 2)],
+            idx_segment_count=[(0, 2)],
+            total_slot_count=2,
+            total_segment_count=5,
+            total_edit_count=4,
+        ),
+        id="pow-plus",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="1+\\root{2}{3}",
+            expected_widget_cls_idx=[(0, RootWidget)],
+            idx_slot_count=[(0, 2)],
+            idx_segment_count=[(0, 2)],
+            total_slot_count=2,
+            total_segment_count=5,
+            total_edit_count=4,
+        ),
+        id="root-plus",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\frac{1}{2}\\root{2}{3}",
+            expected_widget_cls_idx=[(0, FractionWidget), (1, RootWidget)],
+            idx_slot_count=[(0, 2), (1, 2)],
+            idx_segment_count=[(0, 2), (1, 2)],
+            total_slot_count=4,
+            total_segment_count=9,
+            total_edit_count=7,
+        ),
+        id="implicit-multiplation-nodes",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\frac{\\frac{1}{2}}{3}",
+            expected_widget_cls_idx=[(0, FractionWidget), (1, FractionWidget)],
+            idx_slot_count=[(0, 2), (1, 2)],
+            idx_segment_count=[(0, 4), (1, 2)],
+            total_slot_count=4,
+            total_segment_count=9,
+            total_edit_count=7,
+        ),
+        id="frac-nested-left",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\frac{\\frac{1}{2}}{\\frac{3}{4}}",
+            expected_widget_cls_idx=[
+                (0, FractionWidget),
+                (1, FractionWidget),
+                (2, FractionWidget),
+            ],
+            idx_slot_count=[(0, 2), (1, 2), (2, 2)],
+            idx_segment_count=[(0, 6), (1, 2), (2, 2)],
+            total_slot_count=6,
+            total_segment_count=13,
+            total_edit_count=10,
+        ),
+        id="frac-nested-both",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\pow{2}{\\pow{3}{4}}",
+            expected_widget_cls_idx=[(0, PowWidget), (1, PowWidget)],
+            idx_slot_count=[(0, 2), (1, 2)],
+            idx_segment_count=[(0, 4), (1, 2)],
+            total_slot_count=4,
+            total_segment_count=9,
+            total_edit_count=7,
+        ),
+        id="pow-nested-exp",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\pow{\\pow{2}{3}}{4}",
+            expected_widget_cls_idx=[(0, PowWidget), (1, PowWidget)],
+            idx_slot_count=[(0, 2), (1, 2)],
+            idx_segment_count=[(0, 4), (1, 2)],
+            total_slot_count=4,
+            total_segment_count=9,
+            total_edit_count=7,
+        ),
+        id="pow-nested-base",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\root{2}{\\root{3}{4}}",
+            expected_widget_cls_idx=[(0, RootWidget), (1, RootWidget)],
+            idx_slot_count=[(0, 2), (1, 2)],
+            idx_segment_count=[(0, 4), (1, 2)],
+            total_slot_count=4,
+            total_segment_count=9,
+            total_edit_count=7,
+        ),
+        id="root-nested-radicand",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\root{\\root{2}{3}}{4}",
+            expected_widget_cls_idx=[(0, RootWidget), (1, RootWidget)],
+            idx_slot_count=[(0, 2), (1, 2)],
+            idx_segment_count=[(0, 4), (1, 2)],
+            total_slot_count=4,
+            total_segment_count=9,
+            total_edit_count=7,
+        ),
+        id="root-nested-degree",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\frac{\\pow{2}{3}}{\\pow{4}{5}}",
+            expected_widget_cls_idx=[
+                (0, FractionWidget),
+                (1, PowWidget),
+                (2, PowWidget),
+            ],
+            idx_slot_count=[(0, 2), (1, 2), (2, 2)],
+            idx_segment_count=[(0, 6), (1, 2), (2, 2)],
+            total_slot_count=6,
+            total_segment_count=13,
+            total_edit_count=10,
+        ),
+        id="frac-with-two-pows",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\frac{\\pow{2}{3}}{\\root{4}{5}}",
+            expected_widget_cls_idx=[
+                (0, FractionWidget),
+                (1, PowWidget),
+                (2, RootWidget),
+            ],
+            idx_slot_count=[(0, 2), (1, 2), (2, 2)],
+            idx_segment_count=[(0, 6), (1, 2), (2, 2)],
+            total_slot_count=6,
+            total_segment_count=13,
+            total_edit_count=10,
+        ),
+        id="frac-with-pow-root",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\pow{\\frac{1}{2}}{\\root{2}{3}}",
+            expected_widget_cls_idx=[
+                (0, PowWidget),
+                (1, FractionWidget),
+                (2, RootWidget),
+            ],
+            idx_slot_count=[(0, 2), (1, 2), (2, 2)],
+            idx_segment_count=[(0, 6), (1, 2), (2, 2)],
+            total_slot_count=6,
+            total_segment_count=13,
+            total_edit_count=10,
+        ),
+        id="pow-with-frac-root",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\root{2}{\\frac{\\pow{3}{4}}{5}}",
+            expected_widget_cls_idx=[
+                (0, RootWidget),
+                (1, FractionWidget),
+                (2, PowWidget),
+            ],
+            idx_slot_count=[(0, 2), (1, 2), (2, 2)],
+            idx_segment_count=[(0, 4), (1, 4), (2, 2)],
+            total_slot_count=6,
+            total_segment_count=13,
+            total_edit_count=10,
+        ),
+        id="root-with-frac-pow",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\frac{1+\\pow{2}{3}}{4}",
+            expected_widget_cls_idx=[(0, FractionWidget), (1, PowWidget)],
+            idx_slot_count=[(0, 2), (1, 2)],
+            idx_segment_count=[(0, 4), (1, 2)],
+            total_slot_count=4,
+            total_segment_count=9,
+            total_edit_count=7,
+        ),
+        id="frac-nested-with-text",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\pow{1+\\frac{2}{3}}{4}",
+            expected_widget_cls_idx=[(0, PowWidget), (1, FractionWidget)],
+            idx_slot_count=[(0, 2), (1, 2)],
+            idx_segment_count=[(0, 4), (1, 2)],
+            total_slot_count=4,
+            total_segment_count=9,
+            total_edit_count=7,
+        ),
+        id="pow-nested-with-text",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\root{1+\\pow{2}{3}}{4}",
+            expected_widget_cls_idx=[(0, RootWidget), (1, PowWidget)],
+            idx_slot_count=[(0, 2), (1, 2)],
+            idx_segment_count=[(0, 4), (1, 2)],
+            total_slot_count=4,
+            total_segment_count=9,
+            total_edit_count=7,
+        ),
+        id="root-nested-with-text",
+    ),
+]
+
+
+@pytest.mark.parametrize("case", EXPRESSION_NODE_CASES)
 class TestExpressionNode:
     """Test expressions with fractions, powers, and roots."""
 
-    @pytest.mark.parametrize(
-        [
-            "expression",  # test case
-            "expected_node_cls_idx",  # list of tuples: (node index, expected class name)
-            "idx_slot_count",  # list of tuples: (node index, expected slot count)
-            "idx_segment_count",  # list of tuples: (node index, expected segment count)
-            "total_slot_count",  # total slot count across all nodes
-            "total_segment_count",  # total segment count across all nodes
-        ],
-        [
-            pytest.param(
-                "\\frac{1}{2}",
-                [(0, "FractionWidget")],
-                [(0, 2)],
-                [(0, 2)],
-                2,
-                2,
-                id="fracNode-1",
-            ),
-            pytest.param(
-                "\\frac{3}{4}",
-                [(0, "FractionWidget")],
-                [(0, 2)],
-                [(0, 2)],
-                2,
-                2,
-                id="fracNode-2",
-            ),
-            pytest.param(
-                "\\pow{2}{3}",
-                [(0, "PowWidget")],
-                [(0, 2)],
-                [(0, 2)],
-                2,
-                2,
-                id="powNode-1",
-            ),
-            pytest.param(
-                "\\pow{5}{2}",
-                [(0, "PowWidget")],
-                [(0, 2)],
-                [(0, 2)],
-                2,
-                2,
-                id="powNode-2",
-            ),
-            pytest.param(
-                "\\root{2}{3}",
-                [(0, "RootWidget")],
-                [(0, 2)],
-                [(0, 2)],
-                2,
-                2,
-                id="rootNode-1",
-            ),
-            pytest.param(
-                "\\root{5}{2}",
-                [(0, "RootWidget")],
-                [(0, 2)],
-                [(0, 2)],
-                2,
-                2,
-                id="rootNode-2",
-            ),
-            pytest.param(
-                "1+\\frac{1}{2}",
-                [(0, "FractionWidget")],
-                [(0, 2)],
-                [(0, 2)],
-                2,
-                2,
-                id="frac-plus",
-            ),
-            pytest.param(
-                "\\frac{1}{2}+\\frac{3}{4}",
-                [(0, "FractionWidget"), (1, "FractionWidget")],
-                [(0, 2), (1, 2)],
-                [(0, 2), (1, 2)],
-                4,
-                4,
-                id="frac-plus-frac",
-            ),
-            pytest.param(
-                "1+\\pow{2}{3}",
-                [(0, "PowWidget")],
-                [(0, 2)],
-                [(0, 2)],
-                2,
-                2,
-                id="pow-plus",
-            ),
-            pytest.param(
-                "1+\\root{2}{3}",
-                [(0, "RootWidget")],
-                [(0, 2)],
-                [(0, 2)],
-                2,
-                2,
-                id="root-plus",
-            ),
-            pytest.param(
-                "\\frac{\\frac{1}{2}}{3}",
-                [(0, "FractionWidget"), (1, "FractionWidget")],
-                [(0, 2), (1, 2)],
-                [(0, 4), (1, 2)],
-                4,
-                6,
-                id="frac-nested-left",
-            ),
-            pytest.param(
-                "\\frac{\\frac{1}{2}}{\\frac{3}{4}}",
-                [
-                    (0, "FractionWidget"),
-                    (1, "FractionWidget"),
-                    (2, "FractionWidget"),
-                ],
-                [(0, 2), (1, 2), (2, 2)],
-                [(0, 6), (1, 2), (2, 2)],
-                6,
-                10,
-                id="frac-nested-both",
-            ),
-            pytest.param(
-                "\\pow{2}{\\pow{3}{4}}",
-                [(0, "PowWidget"), (1, "PowWidget")],
-                [(0, 2), (1, 2)],
-                [(0, 4), (1, 2)],
-                4,
-                6,
-                id="pow-nested-exp",
-            ),
-            pytest.param(
-                "\\pow{\\pow{2}{3}}{4}",
-                [(0, "PowWidget"), (1, "PowWidget")],
-                [(0, 2), (1, 2)],
-                [(0, 4), (1, 2)],
-                4,
-                6,
-                id="pow-nested-base",
-            ),
-            pytest.param(
-                "\\root{2}{\\root{3}{4}}",
-                [(0, "RootWidget"), (1, "RootWidget")],
-                [(0, 2), (1, 2)],
-                [(0, 4), (1, 2)],
-                4,
-                6,
-                id="root-nested-radicand",
-            ),
-            pytest.param(
-                "\\root{\\root{2}{3}}{4}",
-                [(0, "RootWidget"), (1, "RootWidget")],
-                [(0, 2), (1, 2)],
-                [(0, 4), (1, 2)],
-                4,
-                6,
-                id="root-nested-degree",
-            ),
-            pytest.param(
-                "\\frac{\\pow{2}{3}}{\\pow{4}{5}}",
-                [
-                    (0, "FractionWidget"),
-                    (1, "PowWidget"),
-                    (2, "PowWidget"),
-                ],
-                [(0, 2), (1, 2), (2, 2)],
-                [(0, 6), (1, 2), (2, 2)],
-                6,
-                10,
-                id="frac-with-two-pows",
-            ),
-            pytest.param(
-                "\\frac{\\pow{2}{3}}{\\root{4}{5}}",
-                [
-                    (0, "FractionWidget"),
-                    (1, "PowWidget"),
-                    (2, "RootWidget"),
-                ],
-                [(0, 2), (1, 2), (2, 2)],
-                [(0, 6), (1, 2), (2, 2)],
-                6,
-                10,
-                id="frac-with-pow-root",
-            ),
-            pytest.param(
-                "\\pow{\\frac{1}{2}}{\\root{2}{3}}",
-                [
-                    (0, "PowWidget"),
-                    (1, "FractionWidget"),
-                    (2, "RootWidget"),
-                ],
-                [(0, 2), (1, 2), (2, 2)],
-                [(0, 6), (1, 2), (2, 2)],
-                6,
-                10,
-                id="pow-with-frac-root",
-            ),
-            pytest.param(
-                "\\root{2}{\\frac{\\pow{3}{4}}{5}}",
-                [
-                    (0, "RootWidget"),
-                    (1, "FractionWidget"),
-                    (2, "PowWidget"),
-                ],
-                [(0, 2), (1, 2), (2, 2)],
-                [(0, 4), (1, 4), (2, 2)],
-                6,
-                10,
-                id="root-with-frac-pow",
-            ),
-            pytest.param(
-                "\\frac{1+\\pow{2}{3}}{4}",
-                [(0, "FractionWidget"), (1, "PowWidget")],
-                [(0, 2), (1, 2)],
-                [(0, 4), (1, 2)],
-                4,
-                6,
-                id="frac-nested-with-text",
-            ),
-            pytest.param(
-                "\\pow{1+\\frac{2}{3}}{4}",
-                [(0, "PowWidget"), (1, "FractionWidget")],
-                [(0, 2), (1, 2)],
-                [(0, 4), (1, 2)],
-                4,
-                6,
-                id="pow-nested-with-text",
-            ),
-            pytest.param(
-                "\\root{1+\\pow{2}{3}}{4}",
-                [(0, "RootWidget"), (1, "PowWidget")],
-                [(0, 2), (1, 2)],
-                [(0, 4), (1, 2)],
-                4,
-                6,
-                id="root-nested-with-text",
-            ),
-        ],
-    )
-    def test_mixed_expression_node_creation(
-        self,
-        expression_widget,
-        set_expression,
-        qapp,
-        expression,
-        expected_node_cls_idx,
-        idx_slot_count,
-        idx_segment_count,
-        total_slot_count,
-        total_segment_count,
-    ):
-        """Expressions should create expected node types and slot counts."""
+    def _snapshot(self, expression_widget, set_expression, expression):
         set_expression(expression)
+        return snapshot_tree(expression_widget)
 
-        t = snapshot_tree(expression_widget)
-        for idx, expected_cls in expected_node_cls_idx:
-            actual_cls = t.all_nodes[idx].cls_name
-            if actual_cls != expected_cls:
-                _fail_tree(
-                    expression_widget,
-                    t,
-                    f"Expected node[{idx}] class={expected_cls}, got {actual_cls}",
-                    node=t.all_nodes[idx],
-                )
+    def test_node_classes(self, expression_widget, set_expression, case):
+        t = self._snapshot(expression_widget, set_expression, case.expression)
+        _check_indexed(
+            expression_widget,
+            t,
+            case.expected_widget_cls_idx,
+            get_actual=lambda idx: type(t.all_nodes[idx].widget),
+            label="node class",
+            get_node=lambda idx: t.all_nodes[idx],
+        )
 
-        for idx, expected_slots in idx_slot_count:
-            actual_slots = len(t.all_nodes[idx].slots)
-            if actual_slots != expected_slots:
-                _fail_tree(
-                    expression_widget,
-                    t,
-                    f"Expected node[{idx}] slot count={expected_slots}, got {actual_slots}",
-                    node=t.all_nodes[idx],
-                )
+    def test_node_slot_counts(self, expression_widget, set_expression, case):
+        t = self._snapshot(expression_widget, set_expression, case.expression)
+        _check_indexed(
+            expression_widget,
+            t,
+            case.idx_slot_count,
+            get_actual=lambda idx: len(t.all_nodes[idx].slots),
+            label="node slot count",
+            get_node=lambda idx: t.all_nodes[idx],
+        )
 
-        for idx, expected_segments in idx_segment_count:
-            actual_segments = sum(len(slot.segments) for slot in t.all_nodes[idx].slots)
-            if actual_segments != expected_segments:
-                _fail_tree(
-                    expression_widget,
-                    t,
-                    (
-                        f"Expected node[{idx}] segment count={expected_segments}, "
-                        f"got {actual_segments}"
-                    ),
-                    node=t.all_nodes[idx],
-                )
+    def test_node_segment_counts(self, expression_widget, set_expression, case):
+        t = self._snapshot(expression_widget, set_expression, case.expression)
+        _check_indexed(
+            expression_widget,
+            t,
+            case.idx_segment_count,
+            get_actual=lambda idx: sum(len(slot.segments) for slot in t.all_nodes[idx].slots),
+            label="node segment count",
+            get_node=lambda idx: t.all_nodes[idx],
+        )
 
+    def test_total_slot_count(self, expression_widget, set_expression, case):
+        t = self._snapshot(expression_widget, set_expression, case.expression)
         total_slots = sum(len(node.slots) for node in t.all_nodes)
-        if total_slots != total_slot_count:
+        _check_indexed(
+            expression_widget,
+            t,
+            [(0, case.total_slot_count)],
+            get_actual=lambda _: total_slots,
+            label="total slot count",
+        )
+
+    def test_total_segment_count(self, expression_widget, set_expression, case):
+        t = self._snapshot(expression_widget, set_expression, case.expression)
+        total_segments = sum(len(slot.segments) for slot in t.all_slots)
+        _check_indexed(
+            expression_widget,
+            t,
+            [(0, case.total_segment_count)],
+            get_actual=lambda _: total_segments,
+            label="total segment count",
+        )
+
+    def test_total_edit_count(self, expression_widget, set_expression, case):
+        t = self._snapshot(expression_widget, set_expression, case.expression)
+        _check_indexed(
+            expression_widget,
+            t,
+            [(0, case.total_edit_count)],
+            get_actual=lambda _: len(t.all_edits),
+            label="total edit count",
+        )
+
+
+@dataclass(frozen=True)
+class ParenWidgetCase:
+    expression: str
+    expected_count: int
+    expected_parenKind_idx: list[tuple[int, ParenKind]]
+    idx_segments_count: list[tuple[int, int]]
+    total_segment_count: int
+    total_edit_count: int
+
+
+def paren_widget_case(**kwargs) -> ParenWidgetCase:
+    return ParenWidgetCase(**kwargs)
+
+
+PAREN_WIDGET_CASES = [
+    pytest.param(
+        paren_widget_case(
+            expression="(1)+\\frac{2}{3}",
+            expected_count=0,
+            expected_parenKind_idx=[],
+            idx_segments_count=[],
+            total_segment_count=5,
+            total_edit_count=4,
+        ),
+        id="non-parenNode",
+    ),
+    pytest.param(
+        paren_widget_case(
+            expression="(1)+\\frac{2}{3})",
+            expected_count=0,
+            expected_parenKind_idx=[],
+            idx_segments_count=[],
+            total_segment_count=5,
+            total_edit_count=4,
+        ),
+        id="non-parenNode-w-close",
+    ),
+    pytest.param(
+        paren_widget_case(
+            expression="(1)+(\\frac{2}{3})",
+            expected_count=1,
+            expected_parenKind_idx=[(0, ParenKind.Paren)],
+            idx_segments_count=[(0, 5)],
+            total_segment_count=10,
+            total_edit_count=6,
+        ),
+        id="render-parenNode",
+    ),
+    pytest.param(
+        paren_widget_case(
+            expression="(1)+(2+\\frac{2}{3})",
+            expected_count=1,
+            expected_parenKind_idx=[(0, ParenKind.Paren)],
+            idx_segments_count=[(0, 5)],
+            total_segment_count=10,
+            total_edit_count=6,
+        ),
+        id="paren-with-prefix-text",
+    ),
+    pytest.param(
+        paren_widget_case(
+            expression="{\\frac{2}{3}}",
+            expected_count=1,
+            expected_parenKind_idx=[(0, ParenKind.Brace)],
+            idx_segments_count=[(0, 5)],
+            total_segment_count=10,
+            total_edit_count=6,
+        ),
+        id="brace-widget",
+    ),
+    pytest.param(
+        paren_widget_case(
+            expression="{\\frac{2}{3})",
+            expected_count=1,
+            expected_parenKind_idx=[(0, ParenKind.Brace)],
+            idx_segments_count=[(0, 4)],
+            total_segment_count=9,
+            total_edit_count=6,
+        ),
+        id="non-closed-brace-widget",
+    ),
+    pytest.param(
+        paren_widget_case(
+            expression="{+\\frac{2}{3}",
+            expected_count=1,
+            expected_parenKind_idx=[(0, ParenKind.Brace)],
+            idx_segments_count=[(0, 4)],
+            total_segment_count=9,
+            total_edit_count=6,
+        ),
+        id="open-brace-leading-op",
+    ),
+    pytest.param(
+        paren_widget_case(
+            expression="(1)+{2+\\root{2}{3}}",
+            expected_count=1,
+            expected_parenKind_idx=[(0, ParenKind.Brace)],
+            idx_segments_count=[(0, 5)],
+            total_segment_count=10,
+            total_edit_count=6,
+        ),
+        id="brace-in-sum",
+    ),
+    pytest.param(
+        paren_widget_case(
+            expression="[\\frac{2}{3}]",
+            expected_count=1,
+            expected_parenKind_idx=[(0, ParenKind.Bracket)],
+            idx_segments_count=[(0, 5)],
+            total_segment_count=10,
+            total_edit_count=6,
+        ),
+        id="bracket-widget",
+    ),
+    pytest.param(
+        paren_widget_case(
+            expression="(1)+{2+[\\pow{2}{3}]+4}",
+            expected_count=2,
+            expected_parenKind_idx=[(0, ParenKind.Brace), (1, ParenKind.Bracket)],
+            idx_segments_count=[(0, 5), (1, 5)],
+            total_segment_count=15,
+            total_edit_count=8,
+        ),
+        id="outer-first-nested-parens",
+    ),
+    pytest.param(
+        paren_widget_case(
+            expression="(1)+{2+[\\frac{2}{3}+4+(\\pow{2}{3})]}",
+            expected_count=3,
+            expected_parenKind_idx=[
+                (0, ParenKind.Brace),
+                (1, ParenKind.Bracket),
+                (2, ParenKind.Paren),
+            ],
+            idx_segments_count=[(0, 5), (1, 7), (2, 5)],
+            total_segment_count=24,
+            total_edit_count=13,
+        ),
+        id="nested-brace-bracket-paren",
+    ),
+    pytest.param(
+        paren_widget_case(
+            expression="(1)+{2+[\\frac{2}{3}+4+(\\pow{2}{3}",
+            expected_count=3,
+            expected_parenKind_idx=[
+                (0, ParenKind.Brace),
+                (1, ParenKind.Bracket),
+                (2, ParenKind.Paren),
+            ],
+            idx_segments_count=[(0, 4), (1, 6), (2, 4)],
+            total_segment_count=21,
+            total_edit_count=13,
+        ),
+        id="nested-brace-bracket-paren-open-only",
+    ),
+]
+
+
+@pytest.mark.parametrize("case", PAREN_WIDGET_CASES)
+class TestParenWidget:
+    """Test readyExpression ParenWidget render pipeline."""
+
+    def _snapshot(self, expression_widget, set_expression, expression):
+        set_expression(expression)
+        return snapshot_tree(expression_widget)
+
+    def test_paren_count(self, expression_widget, set_expression, case):
+        t = self._snapshot(expression_widget, set_expression, case.expression)
+        if len(t.parens) != case.expected_count:
             _fail_tree(
                 expression_widget,
                 t,
-                f"Expected total slot count={total_slot_count}, got {total_slots}",
+                f"Expected {case.expected_count} ParenWidget(s), got {len(t.parens)}",
             )
 
-        total_segments = sum(len(slot.segments) for node in t.all_nodes for slot in node.slots)
-        if total_segments != total_segment_count:
-            _fail_tree(
-                expression_widget,
-                t,
-                f"Expected total segment count={total_segment_count}, got {total_segments}",
-            )
+    def test_paren_kinds(self, expression_widget, set_expression, case):
+        t = self._snapshot(expression_widget, set_expression, case.expression)
+        _check_indexed(
+            expression_widget,
+            t,
+            case.expected_parenKind_idx,
+            get_actual=lambda idx: t.parens[idx].paren_kind,
+            label="ParenWidget kind",
+        )
+
+    def test_paren_segments(self, expression_widget, set_expression, case):
+        t = self._snapshot(expression_widget, set_expression, case.expression)
+        _check_indexed(
+            expression_widget,
+            t,
+            case.idx_segments_count,
+            get_actual=lambda idx: len(t.parens[idx].slots[0].segments),
+            label="ParenWidget segments",
+            get_node=lambda idx: t.parens[idx],
+        )
+
+    def test_total_segment_count(self, expression_widget, set_expression, case):
+        t = self._snapshot(expression_widget, set_expression, case.expression)
+        total_segments = sum(len(slot.segments) for slot in t.all_slots)
+        _check_indexed(
+            expression_widget,
+            t,
+            [(0, case.total_segment_count)],
+            get_actual=lambda _: total_segments,
+            label="total segment count",
+        )
+
+    def test_total_edit_count(self, expression_widget, set_expression, case):
+        t = self._snapshot(expression_widget, set_expression, case.expression)
+        _check_indexed(
+            expression_widget,
+            t,
+            [(0, case.total_edit_count)],
+            get_actual=lambda _: len(t.all_edits),
+            label="total edit count",
+        )
+
+
+#
+#
+#
+# UI Integration Tests
 
 
 class TestFocusHandling:
@@ -341,25 +715,6 @@ class TestFocusHandling:
         if t.fracs:
             frac = t.fracs[0].widget
             assert frac.numerator.to_plain_text() == "" or frac.denominator.to_plain_text() == ""
-
-
-class TestInputCounts:
-    """Test input field counts after node creation."""
-
-    @pytest.mark.parametrize(
-        "expr,min_inputs",
-        [
-            ("\\frac{1}{2}", 2),
-            ("\\frac{\\frac{1}{2}}{\\frac{3}{4}}", 4),
-            ("\\pow{1}{2}", 2),
-            ("\\frac{1}{2}+\\frac{3}{4}", 4),
-        ],
-    )
-    def test_input_count(self, expression_widget, set_expression, qapp, expr, min_inputs):
-        """Expression should have at least expected number of input fields."""
-        set_expression(expr)
-        inputs = expression_widget.expression_inputs()
-        assert len(inputs) >= min_inputs
 
 
 class TestExpressionModification:
@@ -432,268 +787,633 @@ class TestNodeRemoval:
 
     def test_backspace_callable(self, expression_widget, set_expression, qapp):
         """Backspace method should be callable without error."""
-        set_expression("\\frac{1}{2}")
+        # TODO:
+        # TODO:
+        # TODO:
+
+
+@dataclass(frozen=True)
+class NodeInsertCase:
+    init_expr: str
+    target_path: tuple
+    cursor_pos: int
+    insert_str: str
+    expected_widget_cls_idx: list[tuple[int, type]]
+    expected_inner_segments_idx: list[tuple[int, int]]
+    total_node_count: int
+    total_segment_count: int
+    total_edit_count: int
+    expected_plain_text: str
+
+
+def node_insert_case(**kwargs) -> NodeInsertCase:
+    return NodeInsertCase(**kwargs)
+
+
+NODE_INSERT_CASES = [
+    pytest.param(
+        node_insert_case(
+            init_expr="\\frac{1}{2}",
+            target_path=("root", 2),
+            cursor_pos=0,
+            insert_str="\\pow",
+            expected_widget_cls_idx=[(1, PowWidget)],
+            expected_inner_segments_idx=[(1, 2)],
+            total_node_count=2,
+            total_segment_count=9,
+            total_edit_count=7,
+            expected_plain_text="\\frac{1}{2}\\pow{}{}",
+        ),
+        id="insert-pow-after-frac",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="\\pow{2}{3}",
+            target_path=("node", 0, "exponent", 0),
+            cursor_pos=1,
+            insert_str="\\frac",
+            expected_widget_cls_idx=[(1, FractionWidget)],
+            expected_inner_segments_idx=[(1, 2)],
+            total_node_count=2,
+            total_segment_count=9,
+            total_edit_count=7,
+            expected_plain_text="\\pow{2}{\\frac{3}{}}",
+        ),
+        id="insert-frac-into-exponent",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="\\frac{1}{2}",
+            target_path=("node", 0, "denominator", 0),
+            cursor_pos=1,
+            insert_str="\\root",
+            expected_widget_cls_idx=[(1, RootWidget)],
+            expected_inner_segments_idx=[(1, 2)],
+            total_node_count=2,
+            total_segment_count=9,
+            total_edit_count=7,
+            expected_plain_text="\\frac{1}{\\root{2}{}}",
+        ),
+        id="insert-root-into-denom",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="12+\\frac{3}{4}",
+            target_path=("root", 0),
+            cursor_pos=1,
+            insert_str="\\pow",
+            expected_widget_cls_idx=[(0, PowWidget)],
+            expected_inner_segments_idx=[(1, 2)],
+            total_node_count=2,
+            total_segment_count=9,
+            total_edit_count=7,
+            expected_plain_text="\\pow{1}{2} + \\frac{3}{4}",
+        ),
+        id="add-node-between-numbers",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="\\frac{1}{2}\\frac{3}{4}",
+            target_path=("root", 2),
+            cursor_pos=0,
+            insert_str="(",
+            expected_widget_cls_idx=[(1, RoundParenWidget)],
+            expected_inner_segments_idx=[(1, 4)],
+            total_node_count=3,
+            total_segment_count=12,
+            total_edit_count=8,
+            expected_plain_text="\\frac{1}{2}(\\frac{3}{4}",
+        ),
+        id="open-paren-wrap-right-frac",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="\\frac{3}{4}",
+            target_path=("root", 0),
+            cursor_pos=0,
+            insert_str="(",
+            expected_widget_cls_idx=[(0, RoundParenWidget)],
+            expected_inner_segments_idx=[(0, 4)],
+            total_node_count=2,
+            total_segment_count=7,
+            total_edit_count=5,
+            expected_plain_text="(\\frac{3}{4}",
+        ),
+        id="try-open-paren-0",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="1+2+\\frac{3}{4}",
+            target_path=("root", 0),
+            cursor_pos=0,
+            insert_str="(",
+            expected_widget_cls_idx=[(0, RoundParenWidget)],
+            expected_inner_segments_idx=[(0, 4)],
+            total_node_count=2,
+            total_segment_count=8,
+            total_edit_count=5,
+            expected_plain_text="(1 + 2 + \\frac{3}{4}",
+        ),
+        id="try-open-paren-1",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="1+2)+\\frac{3}{4}",
+            target_path=("root", 0),
+            cursor_pos=0,
+            insert_str="(",
+            expected_widget_cls_idx=[(0, FractionWidget)],
+            expected_inner_segments_idx=[(0, 2)],
+            total_node_count=1,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="(1 + 2) + \\frac{3}{4}",
+        ),
+        id="try-open-paren-non-paren-before-non-node-close",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="1+2+\\frac{3}{4}+5",
+            target_path=("root", 2),
+            cursor_pos=0,
+            insert_str="(",
+            expected_widget_cls_idx=[(0, FractionWidget)],
+            expected_inner_segments_idx=[(0, 2)],
+            total_node_count=1,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="1 + 2 + \\frac{3}{4}(+5",
+        ),
+        id="try-open-paren-non-paren-after-node",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="(1+2+\\frac{3}{4}",
+            target_path=("root", 2),
+            cursor_pos=0,
+            insert_str=")",
+            expected_widget_cls_idx=[(0, RoundParenWidget)],
+            expected_inner_segments_idx=[(0, 5)],
+            total_node_count=2,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text="(1 + 2 + \\frac{3}{4})",
+        ),
+        id="try-close-paren",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="(1+2+\\frac{3}{4}",
+            target_path=("root", 2),
+            cursor_pos=0,
+            insert_str="}",
+            expected_widget_cls_idx=[(0, RoundParenWidget), (1, FractionWidget)],
+            expected_inner_segments_idx=[(0, 4), (1, 2)],
+            total_node_count=2,
+            total_segment_count=9,
+            total_edit_count=5,
+            expected_plain_text="(1 + 2 + \\frac{3}{4}}",
+        ),
+        id="try-close-paren-non-paren-diff-kind",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="(1+2+\\frac{3}{4}",
+            target_path=("node", 0, "_left_slot", 0),
+            cursor_pos=5,
+            insert_str=")",
+            expected_widget_cls_idx=[(0, FractionWidget)],
+            expected_inner_segments_idx=[(0, 2)],
+            total_node_count=1,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="(1 + 2) + \\frac{3}{4}",
+        ),
+        id="try-close-paren-non-paren",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="(1+2+\\frac{3}{4}",
+            target_path=("node", 1, "numerator", 0),
+            cursor_pos=1,
+            insert_str=")",
+            expected_widget_cls_idx=[(0, RoundParenWidget), (1, FractionWidget)],
+            expected_inner_segments_idx=[(0, 3), (1, 2)],
+            total_node_count=2,
+            total_segment_count=8,
+            total_edit_count=5,
+            expected_plain_text="(1 + 2 + \\frac{3)}{4}",
+        ),
+        id="try-close-paren-non-paren-at-child-seg",
+    ),
+]
+
+
+@pytest.mark.parametrize("rendered_case", NODE_INSERT_CASES, indirect=True)
+class TestNodeInsertAfterRender:
+    @pytest.fixture(scope="class")
+    def rendered_case(self, request, qapp):
+        case = request.param
+        widget = Expression()
+        widget.show()
+        widget.set_plain_text(case.init_expr)
         qapp.processEvents()
 
-        t = snapshot_tree(expression_widget)
-        assert len(t.all_nodes) >= 1
+        t_before = snapshot_tree(widget)
+        target = _resolve_target_input(widget, t_before, case.target_path)
+        if not isinstance(target, QLineEdit):
+            _fail_tree(
+                widget,
+                t_before,
+                f"Expected QLineEdit target, got {type(target).__name__}",
+            )
 
-        expression_widget.backspace()
+        target.setFocus()
+        target.setCursorPosition(case.cursor_pos)
+        target.insert(case.insert_str)
+        qapp.processEvents()
+        t_after = snapshot_tree(widget)
+
+        yield case, widget, t_after
+
+        widget.close()
+        widget.deleteLater()
         qapp.processEvents()
 
+    def test_node_classes(self, rendered_case):
+        case, widget, t_after = rendered_case
+        _check_indexed(
+            widget,
+            t_after,
+            case.expected_widget_cls_idx,
+            get_actual=lambda idx: type(t_after.all_nodes[idx].widget),
+            label="node class",
+            get_node=lambda idx: t_after.all_nodes[idx],
+        )
 
-class TestInsertExprStr:
-    """Test insert_expr_str for keystroke-based node insertion."""
+    def test_node_segments(self, rendered_case):
+        case, widget, t_after = rendered_case
+        _check_indexed(
+            widget,
+            t_after,
+            case.expected_inner_segments_idx,
+            get_actual=lambda idx: sum(len(slot.segments) for slot in t_after.all_nodes[idx].slots),
+            label="node segment count",
+            get_node=lambda idx: t_after.all_nodes[idx],
+        )
 
-    def test_frac_between_existing_fracs(self, expression_widget, qapp):
-        """Insert frac between two existing fractions preserves structure."""
-        import calc_native
+    def test_total_nodes(self, rendered_case):
+        case, widget, t_after = rendered_case
+        _check_indexed(
+            widget,
+            t_after,
+            [(0, case.total_node_count)],
+            get_actual=lambda _: len(t_after.all_nodes),
+            label="total node count",
+        )
 
-        target = expression_widget._resolve_target()
-        target.setText("\\frac{1}{2} + 3 + \\frac{4}{5}")
-        qapp.processEvents()
+    def test_total_segments(self, rendered_case):
+        case, widget, t_after = rendered_case
+        total_segments = sum(len(slot.segments) for slot in t_after.all_slots)
+        _check_indexed(
+            widget,
+            t_after,
+            [(0, case.total_segment_count)],
+            get_actual=lambda _: total_segments,
+            label="total segment count",
+        )
 
-        # Find input containing "3" and position cursor after it
-        for le in expression_widget.expression_inputs():
-            if "3" in le.text():
-                le.setFocus()
-                le.setCursorPosition(le.text().find("3") + 1)
-                break
-        qapp.processEvents()
+    def test_total_edits(self, rendered_case):
+        case, widget, t_after = rendered_case
+        _check_indexed(
+            widget,
+            t_after,
+            [(0, case.total_edit_count)],
+            get_actual=lambda _: len(t_after.all_edits),
+            label="total edit count",
+        )
 
-        expression_widget.insert_expr_str(calc_native.ExprKind.Frac)
-        qapp.processEvents()
-
-        result = expression_widget.get_plain_text()
-        # Should have 3 fractions: original two + new one at position of 3
-        t = snapshot_tree(expression_widget)
-        assert len(t.all_nodes) == 3
-        assert "\\frac{3}{}" in result
-        assert "\\frac{1}{2}" in result
-        assert "\\frac{4}{5}" in result
-
-    def test_frac_preserves_suffix_with_binary_op(self, expression_widget, qapp):
-        """Insert frac keeps binary operator in suffix, not in denominator."""
-        import calc_native
-
-        target = expression_widget._resolve_target()
-        target.setText("1 + 2 + 3")
-        qapp.processEvents()
-
-        target.setCursorPosition(5)  # After "1 + 2"
-        expression_widget.insert_expr_str(calc_native.ExprKind.Frac)
-        qapp.processEvents()
-
-        result = expression_widget.get_plain_text()
-        assert result == "1 + \\frac{2}{} + 3"
-
-    def test_frac_without_braces_creates_widget(self, expression_widget, qapp):
-        """Typing \\frac alone (without braces) should create FractionWidget."""
-        target = expression_widget._resolve_target()
-        target.setText("\\frac")
-        qapp.processEvents()
-
-        t = snapshot_tree(expression_widget)
-        assert len(t.fracs) == 1
-
-    def test_frac_on_empty_input_creates_empty_widget(self, expression_widget, qapp):
-        """Insert frac on empty input creates empty FractionWidget."""
-        import calc_native
-
-        expression_widget.insert_expr_str(calc_native.ExprKind.Frac)
-        qapp.processEvents()
-
-        t = snapshot_tree(expression_widget)
-        assert len(t.fracs) == 1
-        frac = t.fracs[0].widget
-        assert frac.numerator.to_plain_text() == ""
-        assert frac.denominator.to_plain_text() == ""
+    def test_plain_text(self, rendered_case):
+        case, widget, t_after = rendered_case
+        _check_indexed(
+            widget,
+            t_after,
+            [(0, case.expected_plain_text)],
+            get_actual=lambda _: widget.get_plain_text(),
+            label="plain text",
+        )
 
 
-class TestImplicitMultiplication:
-    """Test implicit multiplication cases."""
+@dataclass(frozen=True)
+class FlatNegateCase:
+    text: str
+    cursor: int
+    expected: str
 
-    @pytest.mark.parametrize(
-        "expr,expected_fracs",
-        [
-            ("\\frac{2}{4}\\frac{3}{4}", 2),  # (2/4)(3/4) implicit mult
-            ("2\\frac{3}{4}", 1),  # 2 * 3/4
-            ("\\frac{1}{2}\\frac{3}{4}\\frac{5}{6}", 3),
-        ],
-    )
-    def test_implicit_mult_fractions(
-        self, expression_widget, set_expression, qapp, expr, expected_fracs
-    ):
-        """Implicit multiplication between fractions should create correct nodes."""
-        set_expression(expr)
-        t = snapshot_tree(expression_widget)
-        assert len(t.fracs) == expected_fracs
+
+@dataclass(frozen=True)
+class ExprNegateCase:
+    expression: str
+    target_path: tuple
+    cursor_pos: int
+    negate_times: int
+    expected_plain_text: str
+    expected_plain_text_first: str | None
+
+
+def flat_negate_case(**kwargs) -> FlatNegateCase:
+    return FlatNegateCase(**kwargs)
+
+
+def expr_negate_case(**kwargs) -> ExprNegateCase:
+    return ExprNegateCase(**kwargs)
 
 
 class TestHandleNegate:
     """Test handle_negate toggling unary minus based on cursor position."""
 
-    def _negate_at(self, expression_widget, qapp, text: str, cursor_pos: int) -> str:
-        """Set text in root input, position cursor, call handle_negate, return result."""
-        target = expression_widget._resolve_target()
-        target.setText(text)
-        target.setCursorPosition(cursor_pos)
-        qapp.processEvents()
-        expression_widget.handle_negate()
-        qapp.processEvents()
-        return target.text()
-
     @pytest.mark.parametrize(
-        "text,cursor,expected",
+        "flat_case",
         [
-            # Simple number: 4| -> -4|
-            ("4", 1, "-4"),
-            # Toggle back: -4| -> 4|
-            ("-4", 2, "4"),
-            # After binary op: 4+6| -> 4+-6|
-            ("4 + 6", 5, "4 + -6"),
-            # Unclosed paren treated as normal: (4+6| -> (4+-6| (no closed group)
-            ("(4 + 6", 6, "(4 + -6"),
-            # Closed paren group: (4+6)| -> -(4+6)|
-            ("(4 + 6)", 7, "-(4 + 6)"),
-            # Toggle back closed paren group: -(4+6)| -> (4+6)|
-            ("-(4 + 6)", 8, "(4 + 6)"),
-            # Empty input: | -> -|
-            ("", 0, "-"),
-            # Just minus: -| -> |
-            ("-", 1, ""),
-            # Cursor mid-expression: 3(4|+3) — implicit mul, negate 4
-            ("3(4 + 3)", 4, "3(-4 + 3)"),
-            # Negate at start of inner content: 3(|4+3) — negate the operand after open paren
-            ("3(4 + 3)", 2, "3(-4 + 3)"),
-            # Number after operator: 2+3| -> 2+-3|
-            ("2 + 3", 5, "2 + -3"),
-            # Negate closed paren after operator: 2+(3+4)| -> 2+-(3+4)|
-            ("2 + (3 + 4)", 11, "2 + -(3 + 4)"),
+            pytest.param(
+                flat_negate_case(text="4", cursor=1, expected="-4"),
+                id="simple-number",
+            ),
+            pytest.param(
+                flat_negate_case(text="-4", cursor=2, expected="4"),
+                id="toggle-back",
+            ),
+            pytest.param(
+                flat_negate_case(text="4 + 6", cursor=5, expected="4 + -6"),
+                id="after-binary-op",
+            ),
+            pytest.param(
+                flat_negate_case(text="(4 + 6", cursor=6, expected="(4 + -6"),
+                id="unclosed-paren",
+            ),
+            pytest.param(
+                flat_negate_case(text="(4 + 6)", cursor=7, expected="-(4 + 6)"),
+                id="closed-paren",
+            ),
+            pytest.param(
+                flat_negate_case(text="-(4 + 6)", cursor=8, expected="(4 + 6)"),
+                id="toggle-back-closed",
+            ),
+            pytest.param(
+                flat_negate_case(text="", cursor=0, expected="-"),
+                id="empty-input",
+            ),
+            pytest.param(
+                flat_negate_case(text="-", cursor=1, expected=""),
+                id="just-minus",
+            ),
+            pytest.param(
+                flat_negate_case(text="3(4 + 3)", cursor=4, expected="3(-4 + 3)"),
+                id="cursor-mid",
+            ),
+            pytest.param(
+                flat_negate_case(text="3(4 + 3)", cursor=2, expected="3(-4 + 3)"),
+                id="cursor-inner-start",
+            ),
+            pytest.param(
+                flat_negate_case(text="2 + 3", cursor=5, expected="2 + -3"),
+                id="after-operator",
+            ),
+            pytest.param(
+                flat_negate_case(text="2 + (3 + 4)", cursor=11, expected="2 + -(3 + 4)"),
+                id="closed-paren-after-operator",
+            ),
         ],
     )
-    def test_negate_flat_text(self, expression_widget, qapp, text, cursor, expected):
+    def test_negate_flat_text(self, expression_widget, qapp, flat_case):
         """handle_negate on flat text (no ExpressionNodes) with cursor positioning."""
-        result = self._negate_at(expression_widget, qapp, text, cursor)
-        assert result == expected, (
-            f"negate({text!r}, cursor={cursor}) -> {result!r}, expected {expected!r}"
+        target = expression_widget._resolve_target()
+        target.setText(flat_case.text)
+        _trigger_on_input(
+            qapp,
+            target,
+            flat_case.cursor,
+            expression_widget.handle_negate,
+            1,
+        )
+        assert target.text() == flat_case.expected, (
+            f"negate({flat_case.text!r}, cursor={flat_case.cursor})"
+            f" -> {target.text()!r}, expected {flat_case.expected!r}"
         )
 
-    def test_negate_inside_fraction_numerator(self, expression_widget, set_expression, qapp):
-        """Negate inside a fraction numerator: \\frac{3}{4} -> \\frac{-3}{4}."""
-        set_expression("\\frac{3}{4}")
+    def _run_expr_negate(self, expression_widget, set_expression, qapp, expr_case):
+        set_expression(expr_case.expression)
 
         t = snapshot_tree(expression_widget)
-        assert len(t.fracs) == 1
-        frac = t.fracs[0].widget
+        target = _resolve_target_input(expression_widget, t, expr_case.target_path)
 
-        num_input = frac.numerator.line_edits()[0]
-        num_input.setFocus()
-        num_input.setCursorPosition(len(num_input.text()))
-        qapp.processEvents()
+        _trigger_on_input(
+            qapp,
+            target,
+            expr_case.cursor_pos,
+            expression_widget.handle_negate,
+            1,
+        )
+        first_text = expression_widget.get_plain_text()
+        remaining = max(0, expr_case.negate_times - 1)
+        _trigger_on_input(
+            qapp,
+            target,
+            expr_case.cursor_pos,
+            expression_widget.handle_negate,
+            remaining,
+        )
+        final_text = expression_widget.get_plain_text()
+        return first_text, final_text
 
-        expression_widget.handle_negate()
-        qapp.processEvents()
-
-        assert num_input.text() == "-3"
-
-    def test_negate_inside_fraction_denominator(self, expression_widget, set_expression, qapp):
-        """Negate inside a fraction denominator: \\frac{3}{4} -> \\frac{3}{-4}."""
-        set_expression("\\frac{3}{4}")
-
-        t = snapshot_tree(expression_widget)
-        frac = t.fracs[0].widget
-
-        den_input = frac.denominator.line_edits()[0]
-        den_input.setFocus()
-        den_input.setCursorPosition(len(den_input.text()))
-        qapp.processEvents()
-
-        expression_widget.handle_negate()
-        qapp.processEvents()
-
-        assert den_input.text() == "-4"
-
-    def test_negate_cursor_after_fraction(self, expression_widget, set_expression, qapp):
-        """Negate with cursor on empty input after fraction inserts '-' in the segment before the node."""
-        set_expression("1 + \\frac{2}{3}")
-        qapp.processEvents()
-
-        # Root segments: [QLineEdit("1 + "), FractionWidget, QLineEdit("")]
-        root = expression_widget._root
-        segs = root._segments
-        after_input = segs[-1]
-        assert isinstance(after_input, QLineEdit)
-        assert after_input.text() == ""
-
-        before_input = segs[0]
-        assert isinstance(before_input, QLineEdit)
-        assert before_input.text() == "1 + "
-
-        after_input.setFocus()
-        after_input.setCursorPosition(0)
-        qapp.processEvents()
-
-        expression_widget.handle_negate()
-        qapp.processEvents()
-
-        # '-' appended to the segment before the fraction
-        assert before_input.text() == "1 + -"
-
-    def test_negate_cursor_after_fraction_toggle_back(
-        self, expression_widget, set_expression, qapp
+    @pytest.mark.parametrize(
+        "expr_case",
+        [
+            pytest.param(
+                expr_negate_case(
+                    expression="\\frac{3}{4}",
+                    target_path=("node", 0, "numerator", 0),
+                    cursor_pos=1,
+                    negate_times=1,
+                    expected_plain_text="\\frac{-3}{4}",
+                    expected_plain_text_first=None,
+                ),
+                id="negate-frac-num",
+            ),
+            pytest.param(
+                expr_negate_case(
+                    expression="\\frac{3}{4}",
+                    target_path=("node", 0, "denominator", 0),
+                    cursor_pos=1,
+                    negate_times=1,
+                    expected_plain_text="\\frac{3}{-4}",
+                    expected_plain_text_first=None,
+                ),
+                id="negate-frac-den",
+            ),
+            pytest.param(
+                expr_negate_case(
+                    expression="1 + \\frac{2}{3}",
+                    target_path=("root", -1),
+                    cursor_pos=0,
+                    negate_times=1,
+                    expected_plain_text="1 + -\\frac{2}{3}",
+                    expected_plain_text_first=None,
+                ),
+                id="negate-after-frac",
+            ),
+            pytest.param(
+                expr_negate_case(
+                    expression="1 + \\frac{2}{3}",
+                    target_path=("root", -1),
+                    cursor_pos=0,
+                    negate_times=2,
+                    expected_plain_text="1 + \\frac{2}{3}",
+                    expected_plain_text_first="1 + -\\frac{2}{3}",
+                ),
+                id="negate-after-frac-toggle",
+            ),
+            pytest.param(
+                expr_negate_case(
+                    expression="1 + \\pow{2}{3}",
+                    target_path=("root", -1),
+                    cursor_pos=0,
+                    negate_times=1,
+                    expected_plain_text="1 + -\\pow{2}{3}",
+                    expected_plain_text_first=None,
+                ),
+                id="negate-after-pow",
+            ),
+            pytest.param(
+                expr_negate_case(
+                    expression="1 + \\pow{2}{3}",
+                    target_path=("root", -1),
+                    cursor_pos=0,
+                    negate_times=2,
+                    expected_plain_text="1 + \\pow{2}{3}",
+                    expected_plain_text_first="1 + -\\pow{2}{3}",
+                ),
+                id="negate-after-pow-toggle",
+            ),
+            pytest.param(
+                expr_negate_case(
+                    expression="1 + \\root{2}{3}",
+                    target_path=("root", -1),
+                    cursor_pos=0,
+                    negate_times=1,
+                    expected_plain_text="1 + -\\root{2}{3}",
+                    expected_plain_text_first=None,
+                ),
+                id="negate-after-root",
+            ),
+            pytest.param(
+                expr_negate_case(
+                    expression="1 + \\root{2}{3}",
+                    target_path=("root", -1),
+                    cursor_pos=0,
+                    negate_times=2,
+                    expected_plain_text="1 + \\root{2}{3}",
+                    expected_plain_text_first="1 + -\\root{2}{3}",
+                ),
+                id="negate-after-root-toggle",
+            ),
+            pytest.param(
+                expr_negate_case(
+                    expression="\\frac{1}{2}\\frac{3}{4}",
+                    target_path=("root", 4),
+                    cursor_pos=0,
+                    negate_times=1,
+                    expected_plain_text="\\frac{1}{2} - \\frac{3}{4}",
+                    expected_plain_text_first=None,
+                ),
+                id="negate-before-fracs",
+            ),
+            pytest.param(
+                expr_negate_case(
+                    expression="\\frac{2}{3}\\frac{4}{5}",
+                    target_path=("root", 2),
+                    cursor_pos=0,
+                    negate_times=2,
+                    expected_plain_text="\\frac{2}{3}\\frac{4}{5}",
+                    expected_plain_text_first="-\\frac{2}{3}\\frac{4}{5}",
+                ),
+                id="negate-between-fracs-toggle",
+            ),
+        ],
+    )
+    def test_negate_expression_nodes_final(
+        self, expression_widget, set_expression, qapp, expr_case
     ):
-        """Negate twice on empty input after fraction removes the '-' again."""
-        set_expression("1 + \\frac{2}{3}")
-        qapp.processEvents()
+        """Negate behavior around expression nodes."""
+        _, final_text = self._run_expr_negate(expression_widget, set_expression, qapp, expr_case)
+        _check_indexed(
+            expression_widget,
+            snapshot_tree(expression_widget),
+            [(0, expr_case.expected_plain_text)],
+            get_actual=lambda _: final_text,
+            label="plain text",
+        )
 
-        root = expression_widget._root
-        segs = root._segments
-        after_input = segs[-1]
-        before_input = segs[0]
-
-        after_input.setFocus()
-        after_input.setCursorPosition(0)
-        qapp.processEvents()
-
-        # First negate: insert '-'
-        expression_widget.handle_negate()
-        qapp.processEvents()
-        assert before_input.text() == "1 + -"
-
-        # Second negate: remove '-'
-        expression_widget.handle_negate()
-        qapp.processEvents()
-        assert before_input.text() == "1 + "
-
-    def test_negate_cursor_between_two_fractions(self, expression_widget, set_expression, qapp):
-        """Negate with cursor between two fractions uses the QLineEdit between them."""
-        set_expression("\\frac{1}{2}\\frac{3}{4}")
-        qapp.processEvents()
-
-        # Root segments: [QLineEdit(""), Frac, QLineEdit(""), Frac, QLineEdit("")]
-        root = expression_widget._root
-        segs = root._segments
-
-        # Find the middle QLineEdit (between the two fractions)
-        mid_input = segs[2]
-        assert isinstance(mid_input, QLineEdit)
-        assert mid_input.text() == ""
-
-        # The QLineEdit before the first fraction
-        first_input = segs[0]
-        assert isinstance(first_input, QLineEdit)
-
-        mid_input.setFocus()
-        mid_input.setCursorPosition(0)
-        qapp.processEvents()
-
-        expression_widget.handle_negate()
-        qapp.processEvents()
-
-        # '-' inserted into the middle QLineEdit itself (it IS a QLineEdit, cursor prefix empty,
-        # prev segment is first Frac → walk back to segs[0])
-        assert first_input.text() == "-"
+    @pytest.mark.parametrize(
+        "expr_case",
+        [
+            pytest.param(
+                expr_negate_case(
+                    expression="1 + \\frac{2}{3}",
+                    target_path=("root", -1),
+                    cursor_pos=0,
+                    negate_times=2,
+                    expected_plain_text="1 + \\frac{2}{3}",
+                    expected_plain_text_first="1 + -\\frac{2}{3}",
+                ),
+                id="negate-after-frac-toggle",
+            ),
+            pytest.param(
+                expr_negate_case(
+                    expression="1 + \\pow{2}{3}",
+                    target_path=("root", -1),
+                    cursor_pos=0,
+                    negate_times=2,
+                    expected_plain_text="1 + \\pow{2}{3}",
+                    expected_plain_text_first="1 + -\\pow{2}{3}",
+                ),
+                id="negate-after-pow-toggle",
+            ),
+            pytest.param(
+                expr_negate_case(
+                    expression="1 + \\root{2}{3}",
+                    target_path=("root", -1),
+                    cursor_pos=0,
+                    negate_times=2,
+                    expected_plain_text="1 + \\root{2}{3}",
+                    expected_plain_text_first="1 + -\\root{2}{3}",
+                ),
+                id="negate-after-root-toggle",
+            ),
+            pytest.param(
+                expr_negate_case(
+                    expression="\\frac{2}{3}\\frac{4}{5}",
+                    target_path=("root", 2),
+                    cursor_pos=0,
+                    negate_times=2,
+                    expected_plain_text="\\frac{2}{3}\\frac{4}{5}",
+                    expected_plain_text_first="-\\frac{2}{3}\\frac{4}{5}",
+                ),
+                id="negate-between-fracs-toggle",
+            ),
+        ],
+    )
+    def test_negate_expression_nodes_first(
+        self, expression_widget, set_expression, qapp, expr_case
+    ):
+        first_text, _ = self._run_expr_negate(expression_widget, set_expression, qapp, expr_case)
+        _check_indexed(
+            expression_widget,
+            snapshot_tree(expression_widget),
+            [(0, expr_case.expected_plain_text_first)],
+            get_actual=lambda _: first_text,
+            label="plain text",
+        )
 
 
 class TestNodeRemovalDetailed:
@@ -721,169 +1441,3 @@ class TestNodeRemovalDetailed:
         # Node should be removed or merged
         t_after = snapshot_tree(expression_widget)
         assert len(t_after.all_nodes) <= len(t_before.all_nodes)
-
-
-@pytest.mark.parametrize(
-    [
-        "expression",  # test case
-        "expected_count",  # number of ParenWidget nodes expected to be rendered
-        "expected_parenKind_idx",  # list of tuples: (index in rendered ParenWidget list, expected ParenKind)
-        "idx_segments_count",  # list of tuples: (index in ParenWidget list, number of inner segments rendered)
-        "total_segment_count",  # all segment counts
-    ],
-    [
-        pytest.param(
-            "(1)+\\frac{2}{3}",
-            0,
-            (None, None),
-            (None, 0),
-            5,
-            id="non-parenNode",
-        ),
-        pytest.param(
-            "(1)+\\frac{2}{3})",
-            0,
-            (None, None),
-            (None, 0),
-            5,
-            id="non-parenNode-w-close",
-        ),
-        pytest.param(
-            "(1)+(\\frac{2}{3})",
-            1,
-            [(0, ParenKind.Paren)],
-            [(0, 5)],
-            10,
-            id="render-parenNode",
-        ),
-        pytest.param(
-            "(1)+(2+\\frac{2}{3})",
-            1,
-            [(0, ParenKind.Paren)],
-            [(0, 5)],
-            10,
-            id="paren-with-prefix-text",
-        ),
-        pytest.param(
-            "{\\frac{2}{3}}",
-            1,
-            [(0, ParenKind.Brace)],
-            [(0, 5)],
-            10,
-            id="brace-widget",
-        ),
-        pytest.param(
-            "{\\frac{2}{3})",
-            1,
-            [(0, ParenKind.Brace)],
-            [(0, 4)],
-            9,
-            id="non-closed-brace-widget",
-        ),
-        pytest.param(
-            "{+\\frac{2}{3}",
-            1,
-            [(0, ParenKind.Brace)],
-            [(0, 4)],
-            9,
-            id="open-brace-leading-op",
-        ),
-        pytest.param(
-            "(1)+{2+\\root{2}{3}}",
-            1,
-            [(0, ParenKind.Brace)],
-            [(0, 5)],
-            10,
-            id="brace-in-sum",
-        ),
-        pytest.param(
-            "[\\frac{2}{3}]",
-            1,
-            [(0, ParenKind.Bracket)],
-            [(0, 5)],
-            10,
-            id="bracket-widget",
-        ),
-        pytest.param(
-            "(1)+{2+[\\pow{2}{3}]+4}",
-            2,
-            [(0, ParenKind.Brace), (1, ParenKind.Bracket)],
-            [(0, 5), (1, 5)],
-            15,
-            id="outer-first-nested-parens",
-        ),
-        pytest.param(
-            "(1)+{2+[\\frac{2}{3}+4+(\\pow{2}{3})]}",
-            3,
-            [(0, ParenKind.Brace), (1, ParenKind.Bracket), (2, ParenKind.Paren)],
-            [(0, 5), (1, 7), (2, 5)],
-            24,
-            id="nested-brace-bracket-paren",
-        ),
-        pytest.param(
-            "(1)+{2+[\\frac{2}{3}+4+(\\pow{2}{3}",
-            3,
-            [(0, ParenKind.Brace), (1, ParenKind.Bracket), (2, ParenKind.Paren)],
-            [(0, 4), (1, 6), (2, 4)],
-            21,
-            id="nested-brace-bracket-paren-open-only",
-        ),
-    ],
-)
-class TestParenWidget:
-    """Test readyExpression ParenWidget render pipeline."""
-
-    def test_paren_widgets(
-        self,
-        expression_widget,
-        set_expression,
-        qapp,
-        expression,
-        expected_count,
-        expected_parenKind_idx,
-        idx_segments_count,
-        total_segment_count,
-    ):
-        set_expression(expression)
-        qapp.processEvents()
-
-        t = snapshot_tree(expression_widget)
-
-        if len(t.parens) != expected_count:
-            _fail_tree(
-                expression_widget,
-                t,
-                f"Expected {expected_count} ParenWidget(s), got {len(t.parens)}",
-            )
-
-        if expected_parenKind_idx and expected_parenKind_idx != (None, None):
-            for idx, kind in expected_parenKind_idx:
-                if t.parens[idx].paren_kind != kind:
-                    _fail_tree(
-                        expression_widget,
-                        t,
-                        (
-                            f"Expected ParenWidget[{idx}] kind={kind}, "
-                            f"got {t.parens[idx].paren_kind}"
-                        ),
-                    )
-
-        if idx_segments_count and idx_segments_count != (None, 0):
-            for idx, seg_count in idx_segments_count:
-                actual = len(t.parens[idx].slots[0].segments)
-                if actual != seg_count:
-                    _fail_tree(
-                        expression_widget,
-                        t,
-                        (f"Expected {seg_count} segments at ParenWidget[{idx}], got {actual}"),
-                        node=t.parens[idx],
-                    )
-
-        if total_segment_count is not None:
-            total = sum(len(slot.segments) for slot in t.all_slots)
-            if total != total_segment_count:
-                _fail_tree(
-                    expression_widget,
-                    t,
-                    f"Expected total segments={total_segment_count}, got {total}",
-                )

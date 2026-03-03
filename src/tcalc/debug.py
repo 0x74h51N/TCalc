@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Generic, Literal, TypeVar
 import calc_native
 from PySide6.QtWidgets import QLineEdit
 
-from tcalc.ui.components.math_primitives import ParenGlyph
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
 from tcalc.ui.widgets.calc.display.expression.expression_node import (
     ExpressionNode,
@@ -139,21 +138,24 @@ class TreeInfo:
     all_slots: list[SlotInfo] = field(default_factory=list)
     all_edits: list[SegInfo] = field(default_factory=list)
 
+    def _nodes_of_type(self, cls: type[_W]) -> list[NodeInfo[_W]]:
+        return [n for n in self.all_nodes if isinstance(n.widget, cls)]
+
     @property
     def parens(self) -> list[NodeInfo[ParenWidget]]:
-        return [n for n in self.all_nodes if isinstance(n.widget, ParenWidget)]
+        return self._nodes_of_type(ParenWidget)
 
     @property
     def fracs(self) -> list[NodeInfo[FractionWidget]]:
-        return [n for n in self.all_nodes if isinstance(n.widget, FractionWidget)]
+        return self._nodes_of_type(FractionWidget)
 
     @property
     def pows(self) -> list[NodeInfo[PowWidget]]:
-        return [n for n in self.all_nodes if isinstance(n.widget, PowWidget)]
+        return self._nodes_of_type(PowWidget)
 
     @property
     def roots(self) -> list[NodeInfo[RootWidget]]:
-        return [n for n in self.all_nodes if isinstance(n.widget, RootWidget)]
+        return self._nodes_of_type(RootWidget)
 
     def __str__(self) -> str:
         sep = "=" * 42
@@ -186,8 +188,6 @@ def snapshot_tree(widget: Expression) -> TreeInfo:
             elif isinstance(seg, ExpressionNode):
                 ni = _walk_node(seg)
                 si.segments.append(SegInfo(kind="node", node=ni))
-            elif isinstance(seg, ParenGlyph):
-                si.segments.append(SegInfo(kind="glyph", glyph_cls=type(seg).__name__))
             else:
                 si.segments.append(SegInfo(kind="glyph", glyph_cls=type(seg).__name__))
         return si
