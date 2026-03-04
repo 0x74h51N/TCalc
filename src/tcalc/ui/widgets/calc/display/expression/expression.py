@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from shiboken6 import isValid
 
 from tcalc.core.ops import Operation, get_symbols_with_aliases
 from tcalc.core.parser import tokenize
@@ -245,8 +246,10 @@ class Expression(QWidget):
         pos = target.cursorPosition()
 
         if pos and text[pos - 1] == " ":
-            target.setCursorPosition(pos - 1)
-            target.backspace()
+            left = pos - 2
+            start = left - (left > 0 and text[left - 1] == " ")
+            target.setText(text[:start] + text[pos:])
+            target.setCursorPosition(start)
             return
 
         slot = target.parent()
@@ -421,18 +424,21 @@ class Expression(QWidget):
         prefix_tokens: list[calc_native.Token],
         node: ExpressionNode,
         suffix_tokens: list[calc_native.Token],
-    ) -> QLineEdit:
+        suffix: bool = True,
+    ) -> QLineEdit | None:
         """Insert a node widget into slot: [prefix | node | suffix]."""
         idx = slot.index_of(seg)
 
         seg.setText(calc_native.tokens_to_text(prefix_tokens, self._seg_after_node(seg)))
         seg.setObjectName("prefix")
         slot.insert_widget(idx + 1, node)
-        suffix_le = slot.insert_input(idx + 2)
-        suffix_le.setText(calc_native.tokens_to_text(suffix_tokens, True))
-        suffix_le.setObjectName("suffix")
-        node.focus_default()
-        return suffix_le
+        if suffix:
+            suffix_le = slot.insert_input(idx + 2)
+            suffix_le.setText(calc_native.tokens_to_text(suffix_tokens, True))
+            suffix_le.setObjectName("suffix")
+            node.focus_default()
+            return suffix_le
+        return None
 
     def _seg_after_node(self, seg: QLineEdit) -> bool:
         """Check if the segment immediately follows an ExpressionNode in its slot."""
@@ -469,6 +475,8 @@ class Expression(QWidget):
 
             while pending:
                 seg = pending.popleft()
+                if not isValid(seg):
+                    continue
                 parent = seg.parent()
 
                 if not isinstance(parent, ExpressionSlot):
@@ -552,6 +560,10 @@ class Expression(QWidget):
                         self._pending_parens.setdefault(open_paren_tok.kind, []).append(paren_node)
 
                     node: ExpressionNode = paren_node
+
+                    suffix_seg = self._insert_node(
+                        slot, seg, prefix_tokens, node, suffix_tokens, has_close
+                    )
                 else:
                     idx = expr_first
                     expr_tok = tokens[idx].as_expr()
@@ -578,7 +590,8 @@ class Expression(QWidget):
 
                     node = widget_cls(self, left_tokens, right_tokens)
 
-                suffix_seg = self._insert_node(slot, seg, prefix_tokens, node, suffix_tokens)
+                    suffix_seg = self._insert_node(slot, seg, prefix_tokens, node, suffix_tokens)
+
                 dirty_inputs.update(node.line_edits())
                 # Queue node's internal inputs for nested processing
                 pending.extend(node.line_edits())
@@ -629,7 +642,13 @@ class Expression(QWidget):
 
         paren_node.adopt_segments(detached)
 
-        self._insert_node(slot, seg, before_toks, paren_node, [])
+        self._insert_node(slot, seg, before_toks, paren_node, [], False)
+        inner_slot = paren_node._left_slot
+        line_edits = inner_slot.line_edits()
+        if line_edits:
+            le = line_edits[0]
+            le.setFocus()
+            le.setCursorPosition(0)
 
         return True
 
@@ -660,7 +679,12 @@ class Expression(QWidget):
             if par.type != calc_native.ParenType.Close or not stack:
                 continue
 
-            pw = stack.pop()
+            pw = stack[-1]
+            if slot is not pw._left_slot:
+                # Pre-check, only pop pending paren and attach when the close paren is in the inner slot.
+                continue
+
+            stack.pop()
             if not stack:
                 self._pending_parens.pop(par.kind)
 
@@ -671,12 +695,11 @@ class Expression(QWidget):
             pw.set_close(par)
 
             seg.setText(calc_native.tokens_to_text(before_toks))
-
             suffix_seg = next(self._iter_line_edits(seg, 1), None)
 
-            if suffix_seg is None:
-                pw_parent = pw.parent()
-                if isinstance(pw_parent, ExpressionSlot):
+            pw_parent = pw.parent()
+            if isinstance(pw_parent, ExpressionSlot):
+                if suffix_seg is None or suffix_seg.parent() is not pw_parent:
                     suffix_seg = pw_parent.insert_input(pw_parent.index_of(pw) + 1)
 
             if suffix_seg:

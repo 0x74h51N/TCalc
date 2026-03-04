@@ -21,7 +21,13 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.core.ops import LatexExpr
-from tcalc.ui.components.math_primitives import CurlyBrace, RoundParen, SqrtSymbol, SquareBracket
+from tcalc.ui.components.math_primitives import (
+    CurlyBrace,
+    ParenGlyph,
+    RoundParen,
+    SqrtSymbol,
+    SquareBracket,
+)
 from tcalc.ui.widgets.calc.display.expression.expression_node import (
     ExpressionNode,
     ExpressionSlot,
@@ -333,10 +339,16 @@ class ParenWidget(ExpressionNode):
             if isinstance(parent, ExpressionSlot):
                 detached = parent.detach_right_of(self)
                 if detached:
+                    while detached and isinstance(detached[-1], ParenGlyph):
+                        parent.insert_widget(len(parent._segments), detached.pop())
                     self.adopt_segments(detached)
-                parent.append_input()
 
-        if self._open_glyph is None and self._close_glyph is None:
+        if (
+            self._open_glyph is None and self._close_glyph is None
+        ):  # If there is no open and close glyph dissolve ParenWidget
+            parent = self.parent()
+            if isinstance(parent, ExpressionSlot):
+                self._editor._last_focused = parent.default_input()
             self._dissolve()
         else:
             self._editor._pending_parens.setdefault(self._paren_kind, []).append(self)

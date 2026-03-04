@@ -124,11 +124,13 @@ class ExpressionNode(QWidget):
         if not isinstance(parent, ExpressionSlot):
             return
 
-        left_text = self._left_slot.to_plain_text() if self._left_slot else ""
+        left_text = (
+            self._left_slot.to_plain_text() if self._left_slot else ""
+        )  # TODO: move segments instead of serialize
         parent.remove(self)
 
         focus = self._editor._last_focused
-        if focus is None or not isinstance(focus, QLineEdit):
+        if focus is None or not isinstance(focus, QLineEdit) or not isValid(focus):
             focus = parent.default_input()
         cursor = focus.cursorPosition()
         focus.setText(focus.text()[:cursor] + left_text + focus.text()[cursor:])
@@ -141,12 +143,22 @@ class ExpressionNode(QWidget):
             isinstance(s, ExpressionNode) for s in parent._segments
         ):
             plain = paren.to_plain_text()
+            open_len = len(paren._open_token.symbol) if paren._open_token else 0
+            inner_cursor = focus.cursorPosition() if isValid(focus) else 0
+            paren_slot = paren.parent()
+            if isinstance(paren_slot, ExpressionSlot):
+                pidx = paren_slot.index_of(paren)
+                has_right = pidx + 1 < len(paren_slot._segments) and isinstance(
+                    paren_slot._segments[pidx + 1], QLineEdit
+                )
+                if not has_right:
+                    paren_slot.insert_input(pidx + 1)
             paren._dissolve(False)
             target = self._editor._last_focused
-            if target and isinstance(target, QLineEdit):
+            if target and isinstance(target, QLineEdit) and isValid(target):
                 cur = target.cursorPosition()
                 target.setText(target.text()[:cur] + plain + target.text()[cur:])
-                target.setCursorPosition(cur + len(left_text) + 1)
+                target.setCursorPosition(cur + open_len + inner_cursor)
 
     def remove(self) -> None:
         """Remove this node from its parent slot."""
