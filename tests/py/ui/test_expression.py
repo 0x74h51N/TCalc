@@ -10,6 +10,7 @@ from tcalc.core.ops import Operation
 from tcalc.debug import dump_expression_tree, snapshot_tree
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
 from tcalc.ui.widgets.calc.display.expression.widgets import (
+    BraceWidget,
     FractionWidget,
     PowWidget,
     RootWidget,
@@ -782,16 +783,6 @@ class TestPlainTextSignal:
         assert len(received) >= 1
 
 
-class TestNodeRemoval:
-    """Test node removal via backspace."""
-
-    def test_backspace_callable(self, expression_widget, set_expression, qapp):
-        """Backspace method should be callable without error."""
-        # TODO:
-        # TODO:
-        # TODO:
-
-
 @dataclass(frozen=True)
 class NodeInsertCase:
     init_expr: str
@@ -1005,6 +996,88 @@ NODE_INSERT_CASES = [
             expected_plain_text="(1 + 2 + \\frac{3)}{4}",
         ),
         id="try-close-paren-non-paren-at-child-seg",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="(\\frac{1}{2}",
+            target_path=("node", 0, "_left_slot", 0),
+            cursor_pos=0,
+            insert_str="3+\\pow",
+            expected_widget_cls_idx=[(0, RoundParenWidget), (1, PowWidget), (2, FractionWidget)],
+            expected_inner_segments_idx=[(0, 6), (1, 2), (2, 2)],
+            total_node_count=3,
+            total_segment_count=12,
+            total_edit_count=8,
+            expected_plain_text="(3 + \\pow{}{}\\frac{1}{2}",
+        ),
+        id="insert-node-inside-open-paren",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="(2 + ",
+            target_path=("root", 0),
+            cursor_pos=-1,
+            insert_str="3+\\pow",
+            expected_widget_cls_idx=[(0, RoundParenWidget), (1, PowWidget)],
+            expected_inner_segments_idx=[(0, 6), (1, 2)],
+            total_node_count=2,
+            total_segment_count=9,
+            total_edit_count=6,
+            expected_plain_text="(2 + 3 + \\pow{}{}",
+        ),
+        marks=pytest.mark.xfail(
+            reason="open paren without ExpressionNode + node insert creates wrong tree"
+        ),
+        id="insert-node-into-flat-open-paren",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="(\\frac{1}{2}+3)",
+            target_path=("node", 0, "_left_slot", -1),
+            cursor_pos=1,
+            insert_str="\\pow",
+            expected_widget_cls_idx=[
+                (0, RoundParenWidget),
+                (1, FractionWidget),
+                (2, PowWidget),
+            ],
+            expected_inner_segments_idx=[(0, 7), (1, 2), (2, 2)],
+            total_node_count=3,
+            total_segment_count=14,
+            total_edit_count=9,
+            expected_plain_text="(\\frac{1}{2}\\pow{}{} + 3)",
+        ),
+        id="insert-node-after-node-in-closed-paren",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="\\frac{1}{2}",
+            target_path=("root", 2),
+            cursor_pos=0,
+            insert_str="+\\frac",
+            expected_widget_cls_idx=[(0, FractionWidget), (1, FractionWidget)],
+            expected_inner_segments_idx=[(0, 2), (1, 2)],
+            total_node_count=2,
+            total_segment_count=9,
+            total_edit_count=7,
+            expected_plain_text="\\frac{1}{2} + \\frac{}{}",
+        ),
+        id="insert-frac-in-suffix-of-frac",
+    ),
+    pytest.param(
+        node_insert_case(
+            init_expr="(\\frac{1}{2}",
+            target_path=("node", 0, "_left_slot", -1),
+            cursor_pos=0,
+            insert_str=")",
+            expected_widget_cls_idx=[(0, RoundParenWidget)],
+            expected_inner_segments_idx=[(0, 5)],
+            total_node_count=2,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text="(\\frac{1}{2})",
+        ),
+        id="close-paren-right-after-node",
     ),
 ]
 
@@ -1416,28 +1489,388 @@ class TestHandleNegate:
         )
 
 
-class TestNodeRemovalDetailed:
-    """Detailed tests for node removal via backspace."""
+@dataclass(frozen=True)
+class NodeBackspaceCase:
+    init_expr: str
+    target_path: tuple
+    cursor_pos: int
+    expected_widget_cls_idx: list[tuple[int, type]] | None
+    expected_inner_segments_idx: list[tuple[int, int]] | None
+    total_node_count: int
+    total_segment_count: int
+    total_edit_count: int
+    expected_plain_text: str
+    expected_focus_cursor: tuple[tuple, int] | None = None
 
-    def test_backspace_removes_fraction(self, expression_widget, set_expression, qapp):
-        """Backspace on empty input after fraction should remove it."""
-        set_expression("1 + \\frac{2}{3}")
+
+def node_backspace_case(**kwargs) -> NodeBackspaceCase:
+    return NodeBackspaceCase(**kwargs)
+
+
+NODE_BACKSPACE_CASES = [
+    pytest.param(
+        node_backspace_case(
+            init_expr="\\frac{2}{}",
+            target_path=("node", 0, "denominator", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=0,
+            total_segment_count=1,
+            total_edit_count=1,
+            expected_plain_text="2",
+            expected_focus_cursor=(("root", 0), 1),
+        ),
+        id="dissolve-frac-empty-denom",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="\\pow{2}{}",
+            target_path=("node", 0, "exponent", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=0,
+            total_segment_count=1,
+            total_edit_count=1,
+            expected_plain_text="2",
+            expected_focus_cursor=(("root", 0), 1),
+        ),
+        id="dissolve-pow-empty-exp",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="\\root{2}{}",
+            target_path=("node", 0, "radicand", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=0,
+            total_segment_count=1,
+            total_edit_count=1,
+            expected_plain_text="2",
+            expected_focus_cursor=(("root", 0), 1),
+        ),
+        id="dissolve-root-empty-radicand",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="1 + \\frac{2}{} + 3",
+            target_path=("node", 0, "denominator", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=0,
+            total_segment_count=1,
+            total_edit_count=1,
+            expected_plain_text="1 + 2 + 3",
+            expected_focus_cursor=(("root", 0), 5),
+        ),
+        id="dissolve-frac-with-surrounding",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="1 + \\pow{2}{} + 3",
+            target_path=("node", 0, "exponent", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=0,
+            total_segment_count=1,
+            total_edit_count=1,
+            expected_plain_text="1 + 2 + 3",
+            expected_focus_cursor=(("root", 0), 5),
+        ),
+        id="dissolve-pow-with-surrounding",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="\\frac{\\frac{2}{}}{3}",
+            target_path=("node", 1, "denominator", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=[(0, FractionWidget)],
+            expected_inner_segments_idx=[(0, 2)],
+            total_node_count=1,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="\\frac{2}{3}",
+            expected_focus_cursor=(
+                ("node", 0, "numerator", 0),
+                1,
+            ),  # (("node", 0, "numerator", 0), 1),
+        ),
+        id="dissolve-nested-frac-inner-denom",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="\\frac{\\frac{2}{4}}{} + 5",
+            target_path=("node", 0, "denominator", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=[(0, FractionWidget)],
+            expected_inner_segments_idx=[(0, 2)],
+            total_node_count=1,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="\\frac{2}{4} + 5",
+        ),
+        id="dissolve-outer-frac-keeps-inner",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="(\\frac{2}{4})",
+            target_path=("root", -1),
+            cursor_pos=0,
+            expected_widget_cls_idx=[(0, RoundParenWidget), (1, FractionWidget)],
+            expected_inner_segments_idx=[(0, 4), (1, 2)],
+            total_node_count=2,
+            total_segment_count=8,
+            total_edit_count=5,
+            expected_plain_text="(\\frac{2}{4}",
+            expected_focus_cursor=None,  # xFail it should be (("node", 0, "_left_slot", -1), 0)
+        ),
+        id="non-dissolve-paren-w-remove-close",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="(\\frac{2}{4}",
+            target_path=("node", 0, "_left_slot", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=[(0, FractionWidget)],
+            expected_inner_segments_idx=[(0, 2)],
+            total_node_count=1,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="\\frac{2}{4}",
+            expected_focus_cursor=(("node", 0, "denominator", 0), 1),
+        ),
+        id="dissolve-paren-w-remove-open",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="(\\frac{2}{}+4)",
+            target_path=("node", 1, "denominator", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=0,
+            total_segment_count=1,
+            total_edit_count=1,
+            expected_plain_text="(2 + 4)",
+            expected_focus_cursor=(("root", 0), 2),
+        ),
+        id="dissolve-frac-and-paren-closed",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="(\\frac{2}{} + 4",
+            target_path=("node", 1, "denominator", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=0,
+            total_segment_count=1,
+            total_edit_count=1,
+            expected_plain_text="(2 + 4",
+            expected_focus_cursor=(("root", 0), 2),
+        ),
+        id="dissolve-frac-and-paren-unclosed",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="(2 + \\frac{3}{} + 4",
+            target_path=("node", 1, "denominator", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=0,
+            total_segment_count=1,
+            total_edit_count=1,
+            expected_plain_text="(2 + 3 + 4",
+            expected_focus_cursor=(("root", 0), 6),
+        ),
+        id="dissolve-frac-and-paren-unclosed-with-prefix",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="{1 + (2 + \\frac{3}{4} + 4 +5}",
+            target_path=("node", 1, "_left_slot", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=[(0, BraceWidget), (1, FractionWidget)],
+            expected_inner_segments_idx=[(0, 5), (1, 2)],
+            total_node_count=2,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text="{1 + 2 + \\frac{3}{4} + 4 + 5}",
+            expected_focus_cursor=(
+                ("node", 1, "denominator", 0),
+                1,
+            ),  # xFail it should be (("node", 0, "_left_slot", 0), 4) it is going to DefaultFocus of fractionWidget
+        ),
+        id="dissolve-inner-paren-nested-paren",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="{1 + (2 + \\frac{3}{4} + 4) +5",
+            target_path=("node", 0, "_left_slot", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=[(0, RoundParenWidget), (1, FractionWidget)],
+            expected_inner_segments_idx=[(0, 5), (1, 2)],
+            total_node_count=2,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text="1 + (2 + \\frac{3}{4} + 4) + 5",
+            expected_focus_cursor=(
+                ("node", 1, "denominator", 0),
+                1,
+            ),  # xFail it should be (("root", 0), 0) it is going to DefaultFocus of fractionWidget
+        ),
+        id="dissolve-outer-paren-nested-paren",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="{(2 + \\frac{3}{} + 4)+5}",
+            target_path=("node", 2, "denominator", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=0,
+            total_segment_count=1,
+            total_edit_count=1,
+            expected_plain_text="{(2 + 3 + 4 + 5)}",
+            expected_focus_cursor=(("root", 0), 7),
+        ),
+        marks=pytest.mark.xfail(
+            reason="nested paren, non ExpressionNode don't dissolve to outer paren"
+        ),
+        id="dissolve-frac-and-paren-nested-paren",
+    ),
+]
+
+
+@pytest.mark.parametrize("rendered_case", NODE_BACKSPACE_CASES, indirect=True)
+class TestNodeBackspace:
+    """Test node removal via backspace on empty right slot."""
+
+    @pytest.fixture(scope="class")
+    def rendered_case(self, request, qapp):
+        case = request.param
+        widget = Expression()
+        widget.show()
+        widget.set_plain_text(case.init_expr)
         qapp.processEvents()
 
-        t_before = snapshot_tree(expression_widget)
-        assert len(t_before.all_nodes) == 1
+        t_before = snapshot_tree(widget)
+        target = _resolve_target_input(widget, t_before, case.target_path)
+        if not isinstance(target, QLineEdit):
+            _fail_tree(
+                widget,
+                t_before,
+                f"Expected QLineEdit target, got {type(target).__name__}",
+            )
 
-        # Find empty input after fraction and backspace
-        inputs = expression_widget.expression_inputs()
-        for inp in inputs:
-            if inp.text() == "":
-                inp.setFocus()
-                break
+        _trigger_on_input(qapp, target, case.cursor_pos, widget.backspace)
+        t_after = snapshot_tree(widget)
+
+        yield case, widget, t_after
+
+        widget.close()
+        widget.deleteLater()
         qapp.processEvents()
 
-        expression_widget.backspace()
-        qapp.processEvents()
+    def test_node_classes(self, rendered_case):
+        case, widget, t_after = rendered_case
+        if case.expected_widget_cls_idx is None:
+            return
+        _check_indexed(
+            widget,
+            t_after,
+            case.expected_widget_cls_idx,
+            get_actual=lambda idx: type(t_after.all_nodes[idx].widget),
+            label="node class",
+            get_node=lambda idx: t_after.all_nodes[idx],
+        )
 
-        # Node should be removed or merged
-        t_after = snapshot_tree(expression_widget)
-        assert len(t_after.all_nodes) <= len(t_before.all_nodes)
+    def test_node_segments(self, rendered_case):
+        case, widget, t_after = rendered_case
+        if case.expected_inner_segments_idx is None:
+            return
+        _check_indexed(
+            widget,
+            t_after,
+            case.expected_inner_segments_idx,
+            get_actual=lambda idx: sum(len(slot.segments) for slot in t_after.all_nodes[idx].slots),
+            label="node segment count",
+            get_node=lambda idx: t_after.all_nodes[idx],
+        )
+
+    def test_total_nodes(self, rendered_case):
+        case, widget, t_after = rendered_case
+        _check_indexed(
+            widget,
+            t_after,
+            [(0, case.total_node_count)],
+            get_actual=lambda _: len(t_after.all_nodes),
+            label="total node count",
+        )
+
+    def test_total_segments(self, rendered_case):
+        case, widget, t_after = rendered_case
+        total_segments = sum(len(slot.segments) for slot in t_after.all_slots)
+        _check_indexed(
+            widget,
+            t_after,
+            [(0, case.total_segment_count)],
+            get_actual=lambda _: total_segments,
+            label="total segment count",
+        )
+
+    def test_total_edits(self, rendered_case):
+        case, widget, t_after = rendered_case
+        _check_indexed(
+            widget,
+            t_after,
+            [(0, case.total_edit_count)],
+            get_actual=lambda _: len(t_after.all_edits),
+            label="total edit count",
+        )
+
+    def test_plain_text(self, rendered_case):
+        case, widget, t_after = rendered_case
+        _check_indexed(
+            widget,
+            t_after,
+            [(0, case.expected_plain_text)],
+            get_actual=lambda _: widget.get_plain_text(),
+            label="plain text",
+        )
+
+    def test_focus_cursor(self, rendered_case):
+        case, widget, t_after = rendered_case
+        if case.expected_focus_cursor is None:
+            return
+        focus_path, expected_cursor = case.expected_focus_cursor
+        expected_target = _resolve_target_input(widget, t_after, focus_path)
+        actual_target = widget._resolve_target()
+        if actual_target is not expected_target:
+            expected_name = (
+                expected_target.objectName()
+                if isinstance(expected_target, QLineEdit)
+                else type(expected_target).__name__
+            )
+            actual_name = (
+                actual_target.objectName()
+                if isinstance(actual_target, QLineEdit)
+                else type(actual_target).__name__
+            )
+            _fail_tree(
+                widget,
+                t_after,
+                f"Focus target mismatch: expected path {focus_path} ({expected_name}), got ({actual_name})",
+            )
+        _check_indexed(
+            widget,
+            t_after,
+            [(0, expected_cursor)],
+            get_actual=lambda _: actual_target.cursorPosition(),
+            label="cursor position",
+        )
