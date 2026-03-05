@@ -1597,7 +1597,7 @@ NODE_BACKSPACE_CASES = [
             expected_focus_cursor=(
                 ("node", 0, "numerator", 0),
                 1,
-            ),  # (("node", 0, "numerator", 0), 1),
+            ),
         ),
         id="dissolve-nested-frac-inner-denom",
     ),
@@ -1617,7 +1617,7 @@ NODE_BACKSPACE_CASES = [
     ),
     pytest.param(
         node_backspace_case(
-            init_expr="(\\frac{2}{4})",
+            init_expr="(\\frac{2}{4} + 5)",
             target_path=("root", -1),
             cursor_pos=0,
             expected_widget_cls_idx=[(0, RoundParenWidget), (1, FractionWidget)],
@@ -1625,8 +1625,8 @@ NODE_BACKSPACE_CASES = [
             total_node_count=2,
             total_segment_count=8,
             total_edit_count=5,
-            expected_plain_text="(\\frac{2}{4}",
-            expected_focus_cursor=None,  # xFail it should be (("node", 0, "_left_slot", -1), 0)
+            expected_plain_text="(\\frac{2}{4} + 5",
+            expected_focus_cursor=(("node", 0, "_left_slot", -1), 4),
         ),
         id="non-dissolve-paren-w-remove-close",
     ),
@@ -1641,9 +1641,24 @@ NODE_BACKSPACE_CASES = [
             total_segment_count=5,
             total_edit_count=4,
             expected_plain_text="\\frac{2}{4}",
-            expected_focus_cursor=(("node", 0, "denominator", 0), 1),
+            expected_focus_cursor=(("root", 0), 0),
         ),
         id="dissolve-paren-w-remove-open",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="(\\frac{2}{3} + 4)",
+            target_path=("node", 0, "_left_slot", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=1,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="\\frac{2}{3} + 4)",
+            expected_focus_cursor=(("root", 0), 0),
+        ),
+        id="dissolve-paren-w-remove-only-open",
     ),
     pytest.param(
         node_backspace_case(
@@ -1702,9 +1717,9 @@ NODE_BACKSPACE_CASES = [
             total_edit_count=6,
             expected_plain_text="{1 + 2 + \\frac{3}{4} + 4 + 5}",
             expected_focus_cursor=(
-                ("node", 1, "denominator", 0),
-                1,
-            ),  # xFail it should be (("node", 0, "_left_slot", 0), 4) it is going to DefaultFocus of fractionWidget
+                ("node", 0, "_left_slot", 0),
+                4,
+            ),
         ),
         id="dissolve-inner-paren-nested-paren",
     ),
@@ -1720,15 +1735,33 @@ NODE_BACKSPACE_CASES = [
             total_edit_count=6,
             expected_plain_text="1 + (2 + \\frac{3}{4} + 4) + 5",
             expected_focus_cursor=(
-                ("node", 1, "denominator", 0),
-                1,
-            ),  # xFail it should be (("root", 0), 0) it is going to DefaultFocus of fractionWidget
+                ("root", 0),
+                0,
+            ),
         ),
         id="dissolve-outer-paren-nested-paren",
     ),
     pytest.param(
         node_backspace_case(
-            init_expr="{(2 + \\frac{3}{} + 4)+5}",
+            init_expr="{1 + (2 + \\frac{3}{4} + 4) + 5}",
+            target_path=("node", 0, "_left_slot", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=[(0, RoundParenWidget), (1, FractionWidget)],
+            expected_inner_segments_idx=[(0, 5), (1, 2)],
+            total_node_count=2,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text="1 + (2 + \\frac{3}{4} + 4) + 5}",
+            expected_focus_cursor=(
+                ("root", 0),
+                0,
+            ),
+        ),
+        id="dissolve-outer-paren-w-remove-only-open",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="{(2 + \\frac{3}{} + 4) + 5}",
             target_path=("node", 2, "denominator", 0),
             cursor_pos=0,
             expected_widget_cls_idx=None,
@@ -1736,13 +1769,55 @@ NODE_BACKSPACE_CASES = [
             total_node_count=0,
             total_segment_count=1,
             total_edit_count=1,
-            expected_plain_text="{(2 + 3 + 4 + 5)}",
+            expected_plain_text="{(2 + 3 + 4) + 5}",
             expected_focus_cursor=(("root", 0), 7),
         ),
-        marks=pytest.mark.xfail(
-            reason="nested paren, non ExpressionNode don't dissolve to outer paren"
+        id="dissolve-frac-and-nested-parens",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="{(2 + \\frac{3}{} + 4) + 5",
+            target_path=("node", 2, "denominator", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=0,
+            total_segment_count=1,
+            total_edit_count=1,
+            expected_plain_text="{(2 + 3 + 4) + 5",
+            expected_focus_cursor=(("root", 0), 7),
         ),
-        id="dissolve-frac-and-paren-nested-paren",
+        id="dissolve-frac-and-nested-parens-w-non-closed-outer-paren",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="{(2 + \\frac{3}{} + 4 + 5}",
+            target_path=("node", 2, "denominator", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=0,
+            total_segment_count=1,
+            total_edit_count=1,
+            expected_plain_text="{(2 + 3 + 4 + 5}",
+            expected_focus_cursor=(("root", 0), 7),
+        ),
+        id="dissolve-frac-and-nested-parens-w-non-closed-inner-paren",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="{(2 + \\frac{3}{} + 4 + 5",
+            target_path=("node", 2, "denominator", 0),
+            cursor_pos=0,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=0,
+            total_segment_count=1,
+            total_edit_count=1,
+            expected_plain_text="{(2 + 3 + 4 + 5",
+            expected_focus_cursor=(("root", 0), 7),
+        ),
+        id="dissolve-frac-and-nested-parens-w-non-closed-all",
     ),
 ]
 
@@ -1851,22 +1926,13 @@ class TestNodeBackspace:
         focus_path, expected_cursor = case.expected_focus_cursor
         expected_target = _resolve_target_input(widget, t_after, focus_path)
         actual_target = widget._resolve_target()
-        if actual_target is not expected_target:
-            expected_name = (
-                expected_target.objectName()
-                if isinstance(expected_target, QLineEdit)
-                else type(expected_target).__name__
-            )
-            actual_name = (
-                actual_target.objectName()
-                if isinstance(actual_target, QLineEdit)
-                else type(actual_target).__name__
-            )
-            _fail_tree(
-                widget,
-                t_after,
-                f"Focus target mismatch: expected path {focus_path} ({expected_name}), got ({actual_name})",
-            )
+        _check_indexed(
+            widget,
+            t_after,
+            [(0, expected_target.objectName())],
+            get_actual=lambda _: actual_target.objectName(),
+            label="focus target",
+        )
         _check_indexed(
             widget,
             t_after,

@@ -116,35 +116,61 @@ class ExpressionNode(QWidget):
     def slot_below(self, current: ExpressionSlot) -> ExpressionSlot | None:
         return self._bottom_slot if current is self._top_slot else None
 
+    def _resolve_focus(self, *fallbacks: ExpressionSlot) -> QLineEdit:
+        """Return _last_focused if valid, otherwise first fallback's default_input."""
+        f = self._editor._last_focused
+        if f is not None and isinstance(f, QLineEdit) and isValid(f):
+            return f
+        for slot in fallbacks:
+            if isinstance(slot, ExpressionSlot):
+                return slot.default_input()
+        return fallbacks[0].default_input() if fallbacks else self._editor._root.default_input()
+
+    @staticmethod
+    def _write_back_at_cursor(focus: QLineEdit, text: str, cursor_offset: int) -> None:
+        """Insert *text* into *focus* at the current cursor position."""
+        cur = focus.cursorPosition()
+        before = focus.text()[:cur]
+        after = focus.text()[cur:]
+        focus.setText(before + text + after)
+        focus.setCursorPosition(cur + cursor_offset)
+
     def dissolve(self) -> None:
-        """Dissolve this node: serialize _left_slot, remove node, write text back."""
+        """Dissolve this node: move _left_slot segments into parent slot."""
         from .widgets import ParenWidget
 
         parent = self.parent()
         if not isinstance(parent, ExpressionSlot):
             return
 
-        left_text = (
-            self._left_slot.to_plain_text() if self._left_slot else ""
-        )  # TODO: move segments instead of serialize
-        parent.remove(self)
-
-        focus = self._editor._last_focused
-        if focus is None or not isinstance(focus, QLineEdit) or not isValid(focus):
-            focus = parent.default_input()
-        cursor = focus.cursorPosition()
-        focus.setText(focus.text()[:cursor] + left_text + focus.text()[cursor:])
-        focus.setCursorPosition(cursor + len(left_text))
-
-        # If parent slot is a ParenWidget with no inner nodes left, dissolve it too
-        # TODO: write proper test about paren remove/dissolve
-        paren = parent.parent()
-        if isinstance(paren, ParenWidget) and not any(
-            isinstance(s, ExpressionNode) for s in parent._segments
+        if self._left_slot and any(
+            isinstance(seg, ExpressionNode) for seg in self._left_slot._segments
         ):
+            segments = list(self._left_slot._segments)
+            self._left_slot.remove_segments(segments, delete=False)
+            focus = parent.replace_with(self, segments)
+        else:
+            plain = self._left_slot.to_plain_text() if self._left_slot else ""
+            parent.remove(self)
+            focus = self._resolve_focus(parent)
+            self._write_back_at_cursor(focus, plain, len(plain))
+
+        # Cascade: dissolve ancestor ParenWidgets with no ExpressionNode children.
+        while True:
+            slot = focus.parent() if isValid(focus) else None
+            if not isinstance(slot, ExpressionSlot):
+                break
+            paren = slot.parent()
+            if not isinstance(paren, ParenWidget):
+                break
+            if any(isinstance(s, ExpressionNode) for s in slot._segments):
+                break
+
             plain = paren.to_plain_text()
+            cursor_in_paren = focus.cursorPosition() if isValid(focus) else 0
             open_len = len(paren._open_token.symbol) if paren._open_token else 0
-            inner_cursor = focus.cursorPosition() if isValid(focus) else 0
+
+            # Ensure suffix QLineEdit exists for unclosed parens
             paren_slot = paren.parent()
             if isinstance(paren_slot, ExpressionSlot):
                 pidx = paren_slot.index_of(paren)
@@ -153,12 +179,11 @@ class ExpressionNode(QWidget):
                 )
                 if not has_right:
                     paren_slot.insert_input(pidx + 1)
-            paren._dissolve(False)
-            target = self._editor._last_focused
-            if target and isinstance(target, QLineEdit) and isValid(target):
-                cur = target.cursorPosition()
-                target.setText(target.text()[:cur] + plain + target.text()[cur:])
-                target.setCursorPosition(cur + open_len + inner_cursor)
+
+                paren._dissolve(False)
+
+                focus = self._resolve_focus(paren_slot, parent)
+                self._write_back_at_cursor(focus, plain, open_len + cursor_in_paren)
 
     def remove(self) -> None:
         """Remove this node from its parent slot."""
@@ -268,24 +293,78 @@ class ExpressionSlot(QWidget):
     def index_of(self, seg: QWidget) -> int:
         return self._segments.index(seg)
 
-    def adopt_segments(self, segments: list[QWidget]) -> None:
-        if (
-            segments
-            and isinstance(segments[0], QLineEdit)
-            and self._segments
-            and isinstance(self._segments[-1], QLineEdit)
-        ):
-            target = self._segments[-1]
-            cur_pos = len(target.text())
-            target.setText(target.text() + segments[0].text())
-            segments[0].deleteLater()
-            segments = segments[1:]
-            target.setFocus()
-            target.setCursorPosition(cur_pos)
+    def _remove_segment(self, seg: QWidget, delete: bool = True) -> None:
+        if seg not in self._segments:
+            return
+        self._layout.removeWidget(seg)
+        self._segments.remove(seg)
+        if isinstance(seg, QLineEdit) and seg in self._direct_edits:
+            self._direct_edits.remove(seg)
+        if delete:
+            seg.deleteLater()
+
+    def _merge_edits(self, left: QLineEdit, right: QLineEdit) -> None:
+        left.setText(left.text() + right.text())
+        if right in self._segments:
+            self._layout.removeWidget(right)
+            self._segments.remove(right)
+        if right in self._direct_edits:
+            self._direct_edits.remove(right)
+        right.deleteLater()
+
+    def _splice(self, idx: int, segments: list[QWidget]) -> QLineEdit | None:
+        """Insert *segments* at *idx*, merge adjacent QLineEdits."""
+        left = self._segments[idx - 1] if idx > 0 else None
+        right = self._segments[idx] if idx < len(self._segments) else None
+
+        off = 0
         for w in segments:
-            self.insert_widget(len(self._segments), w)
+            if isinstance(w, ParenGlyph):
+                slot = w.parent()
+                paren = slot._paren if isinstance(slot, ExpressionSlot) else None
+                sym = (paren[0] if w._opening else paren[1]) if paren else None
+                prev = self._segments[idx + off - 1] if idx + off > 0 else None
+                if sym and isinstance(prev, QLineEdit):
+                    prev.setText(prev.text() + sym)
+                w.deleteLater()
+                continue
+            self._layout.insertWidget(idx + off, w, 0, self._align.value)
+            self._segments.insert(idx + off, w)
             if isinstance(w, QLineEdit):
                 self._direct_edits.append(w)
+            off += 1
+
+        focus: QLineEdit | None = None
+        first = (
+            self._segments[idx]
+            if idx < len(self._segments) and self._segments[idx] is not right
+            else None
+        )
+        if isinstance(left, QLineEdit) and isinstance(first, QLineEdit):
+            cursor = len(left.text())
+            self._merge_edits(left, first)
+            focus = left
+            focus.setCursorPosition(cursor)
+
+        # Merge last segment with right neighbor if both QLineEdit
+        if right is not None and isinstance(right, QLineEdit):
+            right_idx = self._segments.index(right)
+            prev = self._segments[right_idx - 1] if right_idx > 0 else None
+            if isinstance(prev, QLineEdit):
+                self._merge_edits(prev, right)
+                if focus is None:
+                    focus = prev
+
+        return focus
+
+    #
+    #
+    # segment operations APIs
+
+    def adopt_segments(self, segments: list[QWidget]) -> None:
+        focus = self._splice(len(self._segments), segments)
+        if focus is not None:
+            focus.setFocus()
 
     def detach_right_of(self, seg: QWidget) -> list[QWidget]:
         idx = self.index_of(seg)
@@ -299,14 +378,26 @@ class ExpressionSlot(QWidget):
     def remove_segments(self, segs: list[QWidget], delete: bool = True) -> None:
         """Remove a list of segments from this slot, optionally destroying each widget."""
         for s in reversed(segs):
-            if s not in self._segments:
-                continue
-            self._layout.removeWidget(s)
-            self._segments.remove(s)
-            if isinstance(s, QLineEdit) and s in self._direct_edits:
-                self._direct_edits.remove(s)
-            if delete:
-                s.deleteLater()
+            self._remove_segment(s, delete)
+
+    def replace_with(self, node: QWidget, replacements: list[QWidget]) -> QLineEdit:
+        """Replace *node* with *replacements*, merging adjacent QLineEdits.
+
+        Returns the QLineEdit that received focus after merging.
+        """
+        idx = self._segments.index(node)
+        self._remove_segment(node, delete=False)
+
+        focus = self._splice(idx, replacements)
+
+        if focus is None:
+            focus = self.default_input()
+
+        node.deleteLater()
+        focus.setFocus()
+        if self._on_node_removed:
+            self._on_node_removed()
+        return focus
 
     def remove(self, seg: QWidget) -> None:
         if seg not in self._segments:
@@ -329,25 +420,13 @@ class ExpressionSlot(QWidget):
         right = self._segments[idx + 1] if idx + 1 < len(self._segments) else None
         if isinstance(left, QLineEdit) and isinstance(right, QLineEdit):
             left_text = left.text()
-            left.setText(left_text + right.text())
-            self._layout.removeWidget(right)
-            right.deleteLater()
-            self._layout.removeWidget(seg)
-            seg.deleteLater()
-            self._direct_edits.remove(right)
-            # update segments: remove right then node
-            self._segments.pop(idx + 1)
-            self._segments.pop(idx)
+            self._merge_edits(left, right)
+            self._remove_segment(seg)
             left.setFocus()
             left.setCursorPosition(len(left_text))
             if self._on_node_removed:
                 self._on_node_removed()
             return
-
-        # fallback: simple removal
-        self._layout.removeWidget(seg)
-        seg.deleteLater()
-        self._segments.remove(seg)
 
         if isinstance(seg, QLineEdit):
             self._direct_edits.remove(seg)

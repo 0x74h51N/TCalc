@@ -330,7 +330,7 @@ class ParenWidget(ExpressionNode):
             le.setFocus()
 
     def remove(self, glyph: QWidget | None = None) -> None:
-        """Remove one glyph. If both gone, dissolve."""
+        """Remove one glyph and dissolve the ParenWidget."""
         if glyph is self._open_glyph:
             self._detach_open_glyph()
         elif glyph is self._close_glyph:
@@ -342,10 +342,7 @@ class ParenWidget(ExpressionNode):
                     while detached and isinstance(detached[-1], ParenGlyph):
                         parent.insert_widget(len(parent._segments), detached.pop())
                     self.adopt_segments(detached)
-
-        if (
-            self._open_glyph is None and self._close_glyph is None
-        ):  # If there is no open and close glyph dissolve ParenWidget
+        if self._open_glyph is None:  # If there is no open and close glyph dissolve ParenWidget
             parent = self.parent()
             if isinstance(parent, ExpressionSlot):
                 self._editor._last_focused = parent.default_input()
