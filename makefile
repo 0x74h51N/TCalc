@@ -1,7 +1,7 @@
 .PHONY: dev hooks lint lint-fix typecheck check stubs
 .PHONY: py-format py-format-check
 .PHONY: native native-configure native-build native-test native-ctest native-clean native-release
-.PHONY: py-test py-test-ui py-benchmark
+.PHONY: py-test py-test-ui py-benchmark py-flamegraph
 
 PY := ./.venv/bin/python
 PYTEST_ARGS ?= -vv -rA -s
@@ -38,7 +38,10 @@ py-test-ui:
 	PYTHONPATH=src $(PY) -m pytest tests/py/ui $(PYTEST_ARGS)
 
 py-benchmark:
-	PYTHONPATH=src $(PY) -m pytest tests/benchmark -m benchmark -k "not test_malloc" $(PYTEST_ARGS)
+	PYTHONPATH=src $(PY) -m pytest tests/benchmark/perf $(PYTEST_ARGS)
+
+py-flamegraph:
+	PYTHONPATH=src $(PY) -m pytest tests/benchmark/flame $(PYTEST_ARGS)
 
 py-mem-profile:
 	./scripts/malloc profile

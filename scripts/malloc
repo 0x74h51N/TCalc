@@ -7,7 +7,7 @@ set -euo pipefail
 : "${MEMRAY_ARGS:=-v}"
 : "${MEMRAY_BIN_DIR:=./.memray}"
 : "${MEMRAY_BIN_PREFIX:=memray}"
-: "${TEST_DIR:=./tests/benchmark/test_malloc.py}"
+: "${TEST_DIR:=./tests/benchmark/mem/test_malloc.py}"
 
 
 
