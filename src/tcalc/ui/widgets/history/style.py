@@ -4,8 +4,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QAbstractItemView, QListWidget
 
+from tcalc.ui.config import history_style as style
+
 from ....theme import get_theme
-from .config import style
 
 
 def apply_history_style(list_widget: QListWidget) -> None:

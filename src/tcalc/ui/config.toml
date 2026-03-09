@@ -22,3 +22,37 @@ history_stretch = 1
 
 [style]
 tooltip_padding = 2
+
+# ---------------------------------------------------------------------------
+# Side panel (reusable container for history / future left-panel / etc.)
+# ---------------------------------------------------------------------------
+[side_panel]
+margin = 10
+spacing = 6
+
+# ---------------------------------------------------------------------------
+# History panel
+# ---------------------------------------------------------------------------
+[history]
+max_items = 100
+
+[history.style]
+button_spacer_stretch = 1
+clear_button_stretch = 1
+
+item_padding = 4
+
+font_size = 3
+wrap_padding_factor = 3
+max_pt = 16
+btn_min_pt = 9
+btn_max_pt = 12
+
+
+# ---------------------------------------------------------------------------
+# Memory bar
+# ---------------------------------------------------------------------------
+[memory.style]
+font_size = 9
+max_pt = 13
+divider_spacing = 4

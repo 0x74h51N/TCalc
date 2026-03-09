@@ -8,8 +8,7 @@ from typing import List
 from PySide6.QtCore import QStandardPaths
 
 from tcalc.app_state import CalculatorMode
-
-from .config import storage_config
+from tcalc.ui.config import history_config
 
 _log = logging.getLogger("tcalc.ui.history.storage")
 
@@ -43,7 +42,7 @@ def save_history(history: List[str], mode: CalculatorMode) -> None:
     history_file = _get_data_dir() / f"history_{mode.value}.json"
 
     # Limit history size
-    max_items = int(storage_config["max_items"])
+    max_items = int(history_config["max_items"])
     if len(history) > max_items:
         history = history[-max_items:]
 
