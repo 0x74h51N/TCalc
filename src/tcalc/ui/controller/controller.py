@@ -7,11 +7,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence, cast
 
 import calc_native
 
-from tcalc.app_state import AngleUnit, get_app_state
+from tcalc.app_state import AngleUnit, CalcValue, get_app_state
 from tcalc.core.ops import Operation
 from tcalc.core.utils import is_number_token
 from tcalc.ui.controller.menubar import EditOperations
@@ -48,7 +48,7 @@ class CalculatorController:
         self._expression = self._display.editor.get_plain_text()
 
         self.tokens: List[calc_native.Token] = []
-        self._result: Optional[object] = None
+        self._result: CalcValue | None = None
         self._just_solved = False
         self._error_text: Optional[str] = None
         self._force_error_display = False
@@ -118,17 +118,17 @@ class CalculatorController:
             token = clean_for_expression(format_result(self._app_state.memory))
             self._display.editor.insert_text(token)
 
-        def store(value) -> None:
+        def store(value: CalcValue) -> None:
             self._app_state.memory = value
 
-        def add(value) -> None:
-            self._app_state.memory = (
-                value
-                if self._app_state.memory is None
-                else self._calculator.add(self._app_state.memory, value)
-            )
+        def add(value: CalcValue) -> None:
+            mem = self._app_state.memory
+            if mem is None:
+                self._app_state.memory = value
+                return
+            self._app_state.memory = cast(CalcValue, self._calculator.add(mem, value))
 
-        def with_value(fn) -> None:
+        def with_value(fn: Callable[[CalcValue], None]) -> None:
             value = self._result
             if value is None:
                 self._force_error_display = True
@@ -204,12 +204,15 @@ class CalculatorController:
 
     # -- Helpers ----------------------------------------------------------
 
-    def _evaluate_tokens(self, tokens: Sequence[calc_native.Token], calculator: Calculator):
+    def _evaluate_tokens(
+        self, tokens: Sequence[calc_native.Token], calculator: Calculator
+    ) -> CalcValue | None:
         try:
-            return evaluate_tokens(tokens, calculator)
+            return cast(CalcValue, evaluate_tokens(tokens, calculator))
         except Exception as exc:
             self._error_text = str(exc)
             _log.debug("Evaluate token native error: %s", exc)
+            return None
 
     def _can_compute_preview(self, tokens: List[calc_native.Token]) -> bool:
         if not tokens:
