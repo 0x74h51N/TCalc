@@ -11,6 +11,7 @@ namespace py = pybind11;
 void bind_bigcomplex(py::module_ &m) {
     using BC = BigComplex;
     using BF = boost::multiprecision::cpp_bin_float_50;
+    using B = BigReal;
 
     py::class_<BC>(m, "BigComplex")
         .def(py::init<>())
@@ -18,6 +19,11 @@ void bind_bigcomplex(py::module_ &m) {
         .def(py::init<double, double>(), py::arg("real"), py::arg("imag"))
         .def(py::init<const std::string &>(), py::arg("real"))
         .def(py::init<const std::string &, const std::string &>(), py::arg("real"), py::arg("imag"))
+        .def(py::init([](const B &re) { return BC(BF(re), BF(0)); }), py::arg("real"))
+        .def(
+            py::init([](const B &re, const B &im) { return BC(BF(re), BF(im)); }),
+            py::arg("real"),
+            py::arg("imag"))
         .def(
             "__str__",
             [](const BC &v) {

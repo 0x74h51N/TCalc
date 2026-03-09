@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import TypeAlias
 
 import calc_native
 from PySide6.QtCore import QSettings
@@ -15,6 +16,9 @@ class CalculatorMode(Enum):
 
 
 AngleUnit = calc_native.AngleUnit
+
+
+CalcValue: TypeAlias = int | float | complex | calc_native.BigReal | calc_native.BigComplex
 
 
 class AppState:
@@ -46,7 +50,7 @@ class AppState:
         self.hyp = False
 
         # Memory slot (not persisted)
-        self.memory: float | complex | None = None
+        self.memory: CalcValue | None = None
 
         # Shifted (not persisted)
         self.shifted = False
