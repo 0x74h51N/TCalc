@@ -110,6 +110,21 @@ def _eval(expr: str) -> object:
         param("1e16!", "BigReal", "e+155657055180967490", id="factorial-bigreal-huge"),
         param("1e17!", "BigReal", "inf", id="factorial-overflows-to-inf"),
         param("10^309 + e", "BigReal", "e+309", id="bigreal-promotes-e"),
+        # ----------------------------
+        # BigReal + complex -> BigComplex promotion
+        # ----------------------------
+        param(
+            "10^309 + sqrt(-1)",
+            "BigComplex",
+            "e+309",
+            id="bigreal-plus-complex-promotes-bigcomplex",
+        ),
+        param(
+            "sqrt(-1) + 10^309",
+            "BigComplex",
+            "e+309",
+            id="complex-plus-bigreal-promotes-bigcomplex",
+        ),
     ],
 )
 def test_native_eval_golden(expr: str, expected_type: str, expected_value: object) -> None:

@@ -47,6 +47,8 @@ class Calculator:
             return v
         if isinstance(v, complex):
             return NativeBigComplex(repr(v.real), repr(v.imag))
+        if isinstance(v, NativeBigReal):
+            return NativeBigComplex(v)
         return NativeBigComplex(repr(v))
 
     def _to_complex(self, value: object) -> object:
