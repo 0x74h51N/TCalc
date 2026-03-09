@@ -7,7 +7,7 @@
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -24,7 +24,6 @@ from PySide6.QtWidgets import (
 from tcalc.app_state import CalculatorMode
 from tcalc.ui.config import history_style as style
 from tcalc.ui.widgets.common.utils import Align
-from tcalc.ui.widgets.utils import apply_scaled_fonts
 
 from ..common import Toaster, ToastLevel
 from .storage import clear_history_file, load_history, save_history
@@ -73,8 +72,6 @@ class History(QWidget):
         self._toaster = Toaster(self, horizontal=Align.LEFT)
 
         self.reload_from_storage(mode)
-
-        QTimer.singleShot(0, self._update_fonts)
 
     def reload_from_storage(self, mode: CalculatorMode) -> None:
         self._mode = mode
@@ -134,20 +131,8 @@ class History(QWidget):
         self._history_items.clear()
         clear_history_file(self._mode)
 
-    def _update_fonts(self) -> None:
-
-        apply_scaled_fonts(
-            self.list.viewport(), [self.list], style["font_size"], int(style["max_pt"])
-        )
-
-        apply_scaled_fonts(
-            self, [self.clear_button], int(style["btn_min_pt"]), int(style["btn_max_pt"])
-        )
-
+    def _re_render_items(self) -> None:
+        """Re-render all history items with current font metrics."""
         self.list.clear()
         for item in self._history_items:
             self._add_item_to_list(item)
-
-    def resizeEvent(self, event) -> None:
-        super().resizeEvent(event)
-        self._update_fonts()

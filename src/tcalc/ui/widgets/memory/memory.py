@@ -2,11 +2,10 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from tcalc.ui.config import memory_style as style
-from tcalc.ui.widgets.utils import apply_scaled_fonts
 
 
 class MemoryBar(QWidget):
@@ -41,27 +40,12 @@ class MemoryBar(QWidget):
         self.setVisible(False)
         self._memory_divider.setVisible(False)
 
-        QTimer.singleShot(0, self._update_fonts)
-
     def set_memory(self, text: str) -> None:
         """Set and show memorised values on Memory bar"""
         if text:
             self._memory_value.setText(text)
             self.setVisible(True)
             self._memory_divider.setVisible(True)
-            self._update_fonts()
         else:
             self.setVisible(False)
             self._memory_divider.setVisible(False)
-
-    def _update_fonts(self) -> None:
-        apply_scaled_fonts(
-            self,
-            [self._memory_label, self._memory_value],
-            int(style["font_size"]),
-            int(style["max_pt"]),
-        )
-
-    def resizeEvent(self, event) -> None:  # noqa: N802
-        super().resizeEvent(event)
-        self._update_fonts()

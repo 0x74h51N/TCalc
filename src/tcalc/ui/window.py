@@ -14,7 +14,7 @@ from tcalc.app_state import CalculatorMode, get_app_state
 from tcalc.ui.keyboard import KeyboardHandler
 
 from ..core import Calculator
-from .config import get_history_width_from_total, window
+from .config import get_history_width_from_total, history_style, memory_style, window
 from .controller import CalculatorController, EditOperations
 from .controller.utils import format_result
 from .manubar.menu import Menubar
@@ -68,6 +68,23 @@ class MainWindow(QMainWindow):
         # Add to layout
         m_layout.addWidget(self.divider)
         m_layout.addWidget(self.side_panel, window["history_stretch"])
+        # Register font targets on side panel
+        self.side_panel.register_font_targets(
+            [self.memory_bar._memory_label, self.memory_bar._memory_value],
+            int(memory_style["font_size"]),
+            int(memory_style["max_pt"]),
+        )
+        self.side_panel.register_font_targets(
+            [self.history.list],
+            int(history_style["font_size"]),
+            int(history_style["max_pt"]),
+        )
+        self.side_panel.register_font_targets(
+            [self.history.clear_button],
+            int(history_style["btn_min_pt"]),
+            int(history_style["btn_max_pt"]),
+            callback=self.history._re_render_items,
+        )
 
         # Edit operations
         self.edit_ops = EditOperations(self)
