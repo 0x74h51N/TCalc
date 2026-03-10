@@ -41,10 +41,17 @@ button_spacer_stretch = 1
 clear_button_stretch = 1
 
 item_padding = 4
+item_min_height = 70
+item_margin = 6
+item_spacing = 8
 
 font_size = 7
 wrap_padding_factor = 3
 max_pt = 12
+expr_min_pt = 9
+expr_max_pt = 15
+result_min_pt = 7
+result_max_pt = 11
 btn_min_pt = 7
 btn_max_pt = 10
 

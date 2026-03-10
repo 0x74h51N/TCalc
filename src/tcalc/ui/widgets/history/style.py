@@ -25,6 +25,11 @@ def apply_history_style(list_widget: QListWidget) -> None:
             border: none;
             padding: {style["item_padding"]}px;
             text-align: right;
+            background: {c["background_dark_alt"]};
+            min-height: {style["item_min_height"]}px;
+        }}
+        QListWidget::item:alternate {{
+            background: {c["background_dark"]};
         }}
         QListWidget::item:selected {{
             background: {c["selection_background"]};
@@ -35,6 +40,7 @@ def apply_history_style(list_widget: QListWidget) -> None:
 
     list_widget.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
     list_widget.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
+    list_widget.setAlternatingRowColors(True)
 
     list_widget.viewport().setProperty(
         "textInteractionFlags",

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 class EditOperations:
     def _do_history_op(self, delta: int, reset_on_end: bool = False) -> None:
-        count = self._history_list.count()
+        count = len(self._history._history_items)
         idx = self.app_state.history_index
         if not count:
             return
@@ -62,17 +62,12 @@ class EditOperations:
     def _history(self):
         return self.window.history
 
-    @property
-    def _history_list(self):
-        return self._history.list
-
     def _get_history_expression(self, index: int) -> Optional[str]:
-        item = self._history_list.item(index)
+        item = self._history.get_history_item(index)
         if not item:
             return None
 
-        text = item.text().split("=")[0]
-        return text.replace("\n", "").replace("\r", "").strip()
+        return item
 
     def _set_expression(self, expression: str) -> None:
         self._display.expression.set_plain_text(expression)

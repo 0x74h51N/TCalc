@@ -101,7 +101,7 @@ class CalculatorController:
 
         formatted_res = clean_for_expression(format_result(self._result))
         expr = self._expression
-        self._history.update_history(f"{expr}={formatted_res}")
+        self._history.update_history(expr, formatted_res, self.tokens)
         self._just_solved = True
         self._display.editor.set_plain_text(formatted_res)
         self._expression = formatted_res

@@ -31,9 +31,9 @@ from tcalc.ui.components.math_primitives import (
 from tcalc.ui.widgets.calc.display.expression.expression_node import (
     ExpressionNode,
     ExpressionSlot,
-    InputAlign,
     InputKind,
 )
+from tcalc.ui.widgets.utils import InputAlign
 
 if TYPE_CHECKING:
     from .expression import Expression

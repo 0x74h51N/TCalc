@@ -28,7 +28,6 @@ from tcalc.ui.widgets.calc.config import display_config, font_scale_config
 from tcalc.ui.widgets.calc.display.expression.expression_node import (
     ExpressionNode,
     ExpressionSlot,
-    InputAlign,
     InputKind,
 )
 from tcalc.ui.widgets.calc.display.expression.widgets import (
@@ -40,7 +39,7 @@ from tcalc.ui.widgets.calc.display.expression.widgets import (
     RootWidget,
     RoundParenWidget,
 )
-from tcalc.ui.widgets.utils import apply_scaled_fonts
+from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
 
 from .utils import space_binary_ops, split_operand, update_autowidth
 

@@ -23,6 +23,7 @@ action_text = "#a6c7ff"
 
 # Background colors
 background_dark = "#1E1E1E"
+background_dark_alt = "#242424"
 background_medium = "#2a2c33"
 background_light = "#3f4450"
 

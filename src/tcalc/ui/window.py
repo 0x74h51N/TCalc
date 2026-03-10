@@ -78,13 +78,24 @@ class MainWindow(QMainWindow):
             [self.history.list],
             int(history_style["font_size"]),
             int(history_style["max_pt"]),
+            callback=self.history._re_render_items,
+        )
+        self.side_panel.register_font_targets(
+            self.history.get_expression_labels(),
+            int(history_style["expr_min_pt"]),
+            int(history_style["expr_max_pt"]),
+        )
+        self.side_panel.register_font_targets(
+            self.history.get_result_labels(),
+            int(history_style["result_min_pt"]),
+            int(history_style["result_max_pt"]),
         )
         self.side_panel.register_font_targets(
             [self.history.clear_button],
             int(history_style["btn_min_pt"]),
             int(history_style["btn_max_pt"]),
-            callback=self.history._re_render_items,
         )
+        self.history.items_changed.connect(self.side_panel._update_fonts)
 
         # Edit operations
         self.edit_ops = EditOperations(self)
@@ -122,6 +133,7 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._update_history_size()
+        self.side_panel._update_fonts()
 
     def _update_history_size(self):
         central = self.centralWidget()
