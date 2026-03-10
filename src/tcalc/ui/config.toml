@@ -42,8 +42,9 @@ clear_button_stretch = 1
 
 item_padding = 4
 item_min_height = 70
-item_margin = 6
-item_spacing = 8
+item_margin = 10
+item_spacing = 10
+action_btn_size = 22
 
 font_size = 7
 wrap_padding_factor = 3

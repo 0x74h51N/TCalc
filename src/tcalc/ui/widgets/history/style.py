@@ -23,10 +23,9 @@ def apply_history_style(list_widget: QListWidget) -> None:
         }}
         QListWidget::item {{
             border: none;
-            padding: {style["item_padding"]}px;
+            padding: 0px;
             text-align: right;
             background: {c["background_dark_alt"]};
-            min-height: {style["item_min_height"]}px;
         }}
         QListWidget::item:alternate {{
             background: {c["background_dark"]};
