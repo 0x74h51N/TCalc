@@ -329,7 +329,6 @@ void bind_parser(py::module_ &m) {
         "tokens_to_flat_text",
         &tcalc::parser::tokens_to_flat_text,
         py::arg("tokens"),
-        py::arg("after_node") = false,
         "Convert tokens to flat display text — LaTeX expressions use op symbols.");
 
     m.def(

@@ -590,14 +590,18 @@ std::string token_text(const Token &tok) {
         tok.data);
 }
 
+std::string spaced(std::string_view text) {
+    std::string out;
+    out.reserve(text.size() + 2);
+    out.push_back(' ');
+    out.append(text);
+    out.push_back(' ');
+    return out;
+}
+
 std::string space_binary_op(ops::OpId op_id, const std::string &text, const bool &after_node) {
     if (is_binary_op(op_id) || (after_node && is_unary_as_binary(op_id))) {
-        std::string out;
-        out.reserve(text.size() + 2);
-        out.push_back(' ');
-        out.append(text);
-        out.push_back(' ');
-        return out;
+        return spaced(text);
     }
     return text;
 }
@@ -625,65 +629,31 @@ std::string tokens_to_text(const std::vector<Token> &tokens, const bool &after_n
 std::string token_flat_text(const Token &tok) {
     if (tok.kind == TokenKind::Expr) {
         const auto &expr = std::get<ExprToken>(tok.data);
-        const Token open_par{
-            .kind = TokenKind::Paren,
-            .data = ParenToken{ParenType::Open, ParenKind::Brace},
-            .start_pos = 0,
-            .end_pos = 1,
-        };
-        const Token close_par{
-            .kind = TokenKind::Paren,
-            .data = ParenToken{ParenType::Close, ParenKind::Brace},
-            .start_pos = 1,
-            .end_pos = 2,
-        };
-        const auto build_flat = [&](const std::vector<Token> &side) {
-            std::string text;
-            text.reserve(side.size() * 4);
-            bool has_op = false;
-            for (std::size_t i = 0; i < side.size(); ++i) {
-                const auto &t = side[i];
-                if (t.kind == TokenKind::Op) {
-                    has_op = true;
-                    text.append(
-                        space_binary_op(std::get<OpToken>(t.data).op_id, token_text(t), i == 0));
-                } else {
-                    text.append(token_flat_text(t));
+        const auto &entry = kLatexExprs[static_cast<std::size_t>(expr.kind)];
+
+        const auto wrap_side = [](const std::vector<Token> &side) {
+            auto text = tokens_to_flat_text(side);
+            // Wrap in braces if the side contains ops or latex
+            for (const auto &t : side) {
+                if (t.kind == TokenKind::Op || t.kind == TokenKind::Expr) {
+                    constexpr char open = paren_symbol(ParenType::Open, ParenKind::Brace);
+                    constexpr char close = paren_symbol(ParenType::Close, ParenKind::Brace);
+                    return open + text + close;
                 }
             }
-
-            if (has_op) {
-                const auto &open = std::get<ParenToken>(open_par.data);
-                const auto &close = std::get<ParenToken>(close_par.data);
-                std::string wrapped;
-                wrapped.reserve(text.size() + 2);
-                wrapped.push_back(paren_symbol(open.type, open.kind));
-                wrapped.append(text);
-                wrapped.push_back(paren_symbol(close.type, close.kind));
-                return wrapped;
-            }
-
             return text;
         };
 
-        auto left = build_flat(expr.left);
-        auto right = build_flat(expr.right);
-        const auto &entry = kLatexExprs[static_cast<std::size_t>(expr.kind)];
-        const auto *spec = ops::op_spec(entry.opid);
-
         std::string out;
-        out.reserve(left.size() + right.size() + spec->symbol.size() + 2);
-        out.append(left);
-        out.push_back(' ');
-        out.append(spec->symbol);
-        out.push_back(' ');
-        out.append(right);
+        out.append(wrap_side(expr.left));
+        out.append(spaced(ops::op_spec(entry.opid)->symbol));
+        out.append(wrap_side(expr.right));
         return out;
     }
     return token_text(tok);
 }
 
-std::string tokens_to_flat_text(const std::vector<Token> &tokens, const bool &after_node) {
+std::string tokens_to_flat_text(const std::vector<Token> &tokens) {
     std::string out;
     out.reserve(tokens.size() * 4);
 
@@ -692,8 +662,7 @@ std::string tokens_to_flat_text(const std::vector<Token> &tokens, const bool &af
 
         if (tok.kind == TokenKind::Op) {
             const auto &op = std::get<OpToken>(tok.data);
-            const bool node_ctx = i == 0 && after_node;
-            out.append(space_binary_op(op.op_id, token_text(tok), node_ctx));
+            out.append(space_binary_op(op.op_id, token_text(tok), 0));
         } else {
             out.append(token_flat_text(tok));
         }

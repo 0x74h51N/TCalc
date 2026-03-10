@@ -245,7 +245,7 @@ std::string token_flat_text(const Token &tok);
 /// Convert a token list to flat display text in a single pass.
 /// LaTeX expressions are flattened to infix notation with op symbols;
 /// all other tokens are rendered identically to tokens_to_text().
-std::string tokens_to_flat_text(const std::vector<Token> &tokens, const bool &after_node = false);
+std::string tokens_to_flat_text(const std::vector<Token> &tokens);
 
 /// Format a single (op_id, text) pair with binary-op spacing if applicable.
 std::string space_binary_op(ops::OpId op_id, const std::string &text, const bool &after_node);
