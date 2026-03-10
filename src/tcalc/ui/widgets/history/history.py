@@ -1,14 +1,14 @@
 #
 #
 #
-# TCalc - Copyright (C) 2025 Tahsin Önemli
+# TCalc - Copyright (C) 2025 Tahsin Onemli
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
-from typing import Optional
+from typing import Optional, cast
 
 import calc_native
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QModelIndex, QPersistentModelIndex, QSize, Qt, Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QApplication,
@@ -19,6 +19,8 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QPushButton,
     QSizePolicy,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
     QVBoxLayout,
     QWidget,
 )
@@ -55,6 +57,7 @@ class History(QWidget):
         layout.setSpacing(0)
 
         self.list = QListWidget()
+        self.list.setItemDelegate(HistoryItemDelegate(self.list))
         apply_history_style(self.list)
 
         self.list.itemClicked.connect(self._copy_item_to_clipboard)
@@ -102,63 +105,31 @@ class History(QWidget):
 
         return wrap_expression(flat, fm, max_width)
 
-    def _make_item(self, entry: HistoryEntry) -> QWidget:
-        flat_exprs = self._format_display(entry.tokens)
-        container = QWidget(self)
-        container.setObjectName("historyItem")
-        container.setMinimumHeight(int(style["item_min_height"]))
-        container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
-
-        item_layout = QVBoxLayout(container)
-        item_layout.setContentsMargins(
-            int(style["item_margin"]),
-            int(style["item_margin"]),
-            int(style["item_margin"]),
-            int(style["item_margin"]),
-        )
-        item_layout.setSpacing(int(style["item_spacing"]))
-
-        item_layout.setAlignment(InputAlign.RIGHT.value)
-
-        expression_label = QLabel(flat_exprs, container)
-        expression_label.setAlignment(InputAlign.RIGHT.value)
-        expression_label.setWordWrap(True)
-        expr_font = expression_label.font()
-        expr_font.setBold(True)
-        expression_label.setFont(expr_font)
-
-        result_label = QLabel(entry.result, container)
-        result_label.setAlignment(InputAlign.RIGHT.value)
-
-        item_layout.addWidget(expression_label)
-        item_layout.addWidget(result_label)
-
-        self._expr_labels.append(expression_label)
-        self._result_labels.append(result_label)
-
-        return container
-
     def _add_item_to_list(self, entry: HistoryEntry) -> None:
         """Add item to list widget with proper formatting."""
-        widget = self._make_item(entry)
+        flat_exprs = self._format_display(entry.tokens)
+        item_widget = HistoryItemWidget(flat_exprs, entry.result, parent=self)
+
+        self._expr_labels.append(item_widget.expression_label)
+        self._result_labels.append(item_widget.result_label)
+
         item = QListWidgetItem(self.list)
         item.setData(Qt.ItemDataRole.UserRole, entry.expression)
-        size_hint = widget.sizeHint()
+
         min_height = int(style["item_min_height"])
-        if size_hint.height() < min_height:
-            size_hint = QSize(size_hint.width(), min_height)
-        item.setSizeHint(size_hint)
+        item.setSizeHint(QSize(0, min_height))
         self.list.addItem(item)
-        self.list.setItemWidget(item, widget)
+        self.list.setItemWidget(item, item_widget)
+
         if not self._is_rendering:
             self.items_changed.emit()
 
     def _copy_item_to_clipboard(self, item: QListWidgetItem) -> None:
         """Copy the raw expression to clipboard when an item is clicked."""
-        expression: str = item.data(Qt.ItemDataRole.UserRole)
+        _expression: str = item.data(Qt.ItemDataRole.UserRole)
         clipboard = QApplication.clipboard()
         if clipboard:
-            clipboard.setText(expression)
+            clipboard.setText(_expression)
             self._toaster.show_toast("Copied!", ToastLevel.INFO)
 
     def highlight_item(self, index: int) -> None:
@@ -180,7 +151,7 @@ class History(QWidget):
         tokens: list[calc_native.Token],
     ) -> None:
         """Add a new entry to history and persist to storage."""
-        entry = HistoryEntry(expression=expression, result=result, tokens=tokens)
+        entry = HistoryEntry(expression, result, tokens)
         self._history_items.append(entry)
         self._add_item_to_list(entry)
         self.list.scrollToBottom()
@@ -220,3 +191,56 @@ class History(QWidget):
 
     def get_result_labels(self) -> list[QLabel]:
         return self._result_labels
+
+
+class HistoryItemWidget(QWidget):
+    """Single history entry widget"""
+
+    def __init__(
+        self,
+        expression_text: str,
+        result_text: str,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setObjectName("historyItem")
+        self.setMinimumHeight(int(style["item_min_height"]))
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
+
+        layout = QVBoxLayout(self)
+        margin = int(style["item_margin"])
+        layout.setContentsMargins(margin, margin, margin, margin)
+        layout.setSpacing(int(style["item_spacing"]))
+        layout.setAlignment(InputAlign.RIGHT.value)
+
+        # Expression label
+        self.expression_label = QLabel(expression_text, self)
+        self.expression_label.setAlignment(InputAlign.RIGHT.value)
+        self.expression_label.setWordWrap(True)
+        self.expression_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
+        )
+        expr_font = self.expression_label.font()
+        expr_font.setBold(True)
+        self.expression_label.setFont(expr_font)
+
+        # Result label
+        self.result_label = QLabel(result_text, self)
+        self.result_label.setAlignment(InputAlign.RIGHT.value)
+
+        layout.addWidget(self.expression_label)
+        layout.addWidget(self.result_label)
+
+
+class HistoryItemDelegate(QStyledItemDelegate):
+    """Item delegate that sizes rows to the item-widget's actual sizeHint."""
+
+    def sizeHint(
+        self,
+        option: QStyleOptionViewItem,
+        index: QModelIndex | QPersistentModelIndex,
+    ) -> QSize:
+        lw = cast(QListWidget, option.widget)
+        widget = lw.itemWidget(lw.item(index.row()))
+        wh = widget.sizeHint().height()
+        return QSize(lw.viewport().width(), max(wh, super().sizeHint(option, index).height()))
