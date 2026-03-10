@@ -143,8 +143,8 @@ struct ExprToken {
 using TokenData = std::variant<NumberToken, OpToken, ParenToken, ExprToken>;
 
 struct Token {
-    TokenKind kind;
-    TokenData data;
+    TokenKind kind{};
+    TokenData data{};
     std::size_t start_pos = 0;
     std::size_t end_pos = 0;
 };
