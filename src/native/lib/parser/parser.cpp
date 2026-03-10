@@ -622,4 +622,84 @@ std::string tokens_to_text(const std::vector<Token> &tokens, const bool &after_n
     return out;
 }
 
+std::string token_flat_text(const Token &tok) {
+    if (tok.kind == TokenKind::Expr) {
+        const auto &expr = std::get<ExprToken>(tok.data);
+        const Token open_par{
+            .kind = TokenKind::Paren,
+            .data = ParenToken{ParenType::Open, ParenKind::Brace},
+            .start_pos = 0,
+            .end_pos = 1,
+        };
+        const Token close_par{
+            .kind = TokenKind::Paren,
+            .data = ParenToken{ParenType::Close, ParenKind::Brace},
+            .start_pos = 1,
+            .end_pos = 2,
+        };
+        const auto build_flat = [&](const std::vector<Token> &side) {
+            std::string text;
+            text.reserve(side.size() * 4);
+            bool has_op = false;
+            for (std::size_t i = 0; i < side.size(); ++i) {
+                const auto &t = side[i];
+                if (t.kind == TokenKind::Op) {
+                    has_op = true;
+                    text.append(
+                        space_binary_op(std::get<OpToken>(t.data).op_id, token_text(t), i == 0));
+                } else {
+                    text.append(token_flat_text(t));
+                }
+            }
+
+            if (has_op) {
+                const auto &open = std::get<ParenToken>(open_par.data);
+                const auto &close = std::get<ParenToken>(close_par.data);
+                std::string wrapped;
+                wrapped.reserve(text.size() + 2);
+                wrapped.push_back(paren_symbol(open.type, open.kind));
+                wrapped.append(text);
+                wrapped.push_back(paren_symbol(close.type, close.kind));
+                return wrapped;
+            }
+
+            return text;
+        };
+
+        auto left = build_flat(expr.left);
+        auto right = build_flat(expr.right);
+        const auto &entry = kLatexExprs[static_cast<std::size_t>(expr.kind)];
+        const auto *spec = ops::op_spec(entry.opid);
+
+        std::string out;
+        out.reserve(left.size() + right.size() + spec->symbol.size() + 2);
+        out.append(left);
+        out.push_back(' ');
+        out.append(spec->symbol);
+        out.push_back(' ');
+        out.append(right);
+        return out;
+    }
+    return token_text(tok);
+}
+
+std::string tokens_to_flat_text(const std::vector<Token> &tokens, const bool &after_node) {
+    std::string out;
+    out.reserve(tokens.size() * 4);
+
+    for (std::size_t i = 0; i < tokens.size(); ++i) {
+        const auto &tok = tokens[i];
+
+        if (tok.kind == TokenKind::Op) {
+            const auto &op = std::get<OpToken>(tok.data);
+            const bool node_ctx = i == 0 && after_node;
+            out.append(space_binary_op(op.op_id, token_text(tok), node_ctx));
+        } else {
+            out.append(token_flat_text(tok));
+        }
+    }
+
+    return out;
+}
+
 } // namespace tcalc::parser

@@ -114,20 +114,50 @@ void bind_parser(py::module_ &m) {
         py::return_value_policy::reference);
 
     // NumberToken
-    py::class_<NumberToken>(m, "NumberToken").def_readonly("value", &NumberToken::value);
+    py::class_<NumberToken>(m, "NumberToken")
+        .def_readonly("value", &NumberToken::value)
+        .def(
+            py::pickle(
+                [](const NumberToken &t) { return py::make_tuple(t.value); },
+                [](const py::tuple &t) {
+                    if (t.size() != 1)
+                        throw std::runtime_error("Invalid NumberToken state");
+                    return NumberToken{t[0].cast<std::string>()};
+                }));
 
     // OpToken
-    py::class_<OpToken>(m, "OpToken").def_readonly("op_id", &OpToken::op_id);
+    py::class_<OpToken>(m, "OpToken")
+        .def_readonly("op_id", &OpToken::op_id)
+        .def(
+            py::pickle(
+                [](const OpToken &t) { return py::make_tuple(t.op_id); },
+                [](const py::tuple &t) {
+                    if (t.size() != 1)
+                        throw std::runtime_error("Invalid OpToken state");
+                    return OpToken{t[0].cast<OpId>()};
+                }));
 
     // ParenToken
     py::class_<ParenToken>(m, "ParenToken")
         .def_readonly("type", &ParenToken::type)
         .def_readonly("kind", &ParenToken::kind)
         .def_readonly("pair_idx", &ParenToken::pair_idx)
-        .def_property_readonly("symbol", [](const ParenToken &p) -> std::string {
-            return std::string(1, tcalc::parser::paren_symbol(p.type, p.kind));
-        });
+        .def_property_readonly(
+            "symbol",
+            [](const ParenToken &p) -> std::string {
+                return std::string(1, tcalc::parser::paren_symbol(p.type, p.kind));
+            })
+        .def(
+            py::pickle(
+                [](const ParenToken &t) { return py::make_tuple(t.type, t.kind, t.pair_idx); },
+                [](const py::tuple &t) {
+                    if (t.size() != 3)
+                        throw std::runtime_error("Invalid ParenToken state");
+                    return ParenToken{
+                        t[0].cast<ParenType>(), t[1].cast<ParenKind>(), t[2].cast<std::size_t>()};
+                }));
 
+    // ExprToken — forward-declare, pickle added after Token
     py::class_<ExprToken> ExprToken_(m, "ExprToken");
 
     auto Token_ = py::class_<Token>(m, "Token")
@@ -153,18 +183,61 @@ void bind_parser(py::module_ &m) {
 
         .def("as_expr", &token_as<ExprToken>, py::return_value_policy::reference_internal)
 
-        .def_property_readonly("symbol", [](const Token &tok) -> std::string {
-            if (auto p = token_as<OpToken>(tok)) {
-                const auto *spec = tcalc::ops::op_spec(p->op_id);
-                return spec ? std::string(spec->symbol) : "";
-            }
-            return "";
-        });
+        .def_property_readonly(
+            "symbol",
+            [](const Token &tok) -> std::string {
+                if (auto p = token_as<OpToken>(tok)) {
+                    const auto *spec = tcalc::ops::op_spec(p->op_id);
+                    return spec ? std::string(spec->symbol) : "";
+                }
+                return "";
+            })
+        .def(
+            py::pickle(
+                [](const Token &tok) -> py::tuple {
+                    py::object data = std::visit(
+                        [](const auto &v) -> py::object { return py::cast(v); }, tok.data);
+                    return py::make_tuple(tok.kind, data, tok.start_pos, tok.end_pos);
+                },
+                [](const py::tuple &t) -> Token {
+                    if (t.size() != 4)
+                        throw std::runtime_error("Invalid Token state");
+                    Token tok;
+                    tok.kind = t[0].cast<TokenKind>();
+                    tok.start_pos = t[2].cast<std::size_t>();
+                    tok.end_pos = t[3].cast<std::size_t>();
+                    switch (tok.kind) {
+                    case TokenKind::Number:
+                        tok.data = t[1].cast<NumberToken>();
+                        break;
+                    case TokenKind::Op:
+                        tok.data = t[1].cast<OpToken>();
+                        break;
+                    case TokenKind::Paren:
+                        tok.data = t[1].cast<ParenToken>();
+                        break;
+                    case TokenKind::Expr:
+                        tok.data = t[1].cast<ExprToken>();
+                        break;
+                    }
+                    return tok;
+                }));
 
-    // ExprToken
+    // ExprToken — properties + pickle (after Token so recursive list[Token] resolves)
     ExprToken_.def_readonly("kind", &ExprToken::kind);
     def_readonly_ref(ExprToken_, "left", &ExprToken::left);
     def_readonly_ref(ExprToken_, "right", &ExprToken::right);
+    ExprToken_.def(
+        py::pickle(
+            [](const ExprToken &t) { return py::make_tuple(t.kind, t.left, t.right); },
+            [](const py::tuple &t) {
+                if (t.size() != 3)
+                    throw std::runtime_error("Invalid ExprToken state");
+                return ExprToken{
+                    t[0].cast<ExprKind>(),
+                    t[1].cast<std::vector<Token>>(),
+                    t[2].cast<std::vector<Token>>()};
+            }));
 
     py::class_<TokenizeResult>(m, "TokenizeResult", "Result of tokenization with metadata.")
         .def_readonly("tokens", &TokenizeResult::tokens)
@@ -251,6 +324,13 @@ void bind_parser(py::module_ &m) {
         py::arg("tokens"),
         py::arg("after_node") = false,
         "Convert a token list to display text with proper binary-op spacing.");
+
+    m.def(
+        "tokens_to_flat_text",
+        &tcalc::parser::tokens_to_flat_text,
+        py::arg("tokens"),
+        py::arg("after_node") = false,
+        "Convert tokens to flat display text — LaTeX expressions use op symbols.");
 
     m.def(
         "space_binary_op",
