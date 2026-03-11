@@ -11,31 +11,8 @@ from ....theme import get_theme
 
 def apply_history_style(list_widget: QListWidget) -> None:
     theme = get_theme()
-    c = theme.colors
 
-    list_widget.setStyleSheet(
-        f"""
-        QListWidget {{
-            background: {c["background_dark"]};
-            border: none;
-            outline: none;
-            color: {c["text_secondary"]};
-        }}
-        QListWidget::item {{
-            border: none;
-            padding: 0px;
-            text-align: right;
-            background: {c["background_dark_alt"]};
-        }}
-        QListWidget::item:alternate {{
-            background: {c["background_dark"]};
-        }}
-        QListWidget::item:selected {{
-            background: {c["selection_background"]};
-            color: {c["selection_text"]};
-        }}
-        """
-    )
+    list_widget.setProperty("uiRole", "historyList")
 
     list_widget.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
     list_widget.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)

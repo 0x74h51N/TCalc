@@ -9,6 +9,7 @@ from typing import Optional, cast
 
 import calc_native
 from PySide6.QtCore import QModelIndex, QPersistentModelIndex, QSize, Qt, Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -22,8 +23,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from tcalc.app_state import CalculatorMode
+from tcalc.app_state import CalculatorMode, RenderMode, get_app_state
 from tcalc.ui.config import history_style as style
+from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.common.utils import Align
 from tcalc.ui.widgets.utils import InputAlign
 
@@ -48,7 +50,7 @@ class History(QWidget):
         self._result_labels: list[QLabel] = []
         self._is_rendering = False
         self._mode = mode
-
+        self._app_state = get_app_state()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -60,9 +62,30 @@ class History(QWidget):
         self.list.currentItemChanged.connect(self._on_current_changed)
         layout.addWidget(self.list, 1)
 
-        button_container = QHBoxLayout()
-        button_container.addStretch(int(style["button_spacer_stretch"]))
+        btn_container = QHBoxLayout()
 
+        btn_margin = style["btn_margin"]
+        btn_container.setContentsMargins(0, btn_margin, 0, 0)
+
+        # History item render modes
+        self._history_modes = OptionGroup(
+            [(RenderMode.MATH, "Math"), (RenderMode.FLAT, "Flat"), (RenderMode.RAW, "Raw")],
+            self._app_state.history_mode,
+            self,
+            tooltips={
+                RenderMode.FLAT: "Formatted text",
+                RenderMode.MATH: "Coming soon",
+                RenderMode.RAW: "Raw LaTeX",
+            },
+        )
+        self._history_modes.buttons()[RenderMode.MATH].setDisabled(True)
+        self._history_modes.selection_changed.connect(self.set_mode)
+
+        btn_container.addWidget(self._history_modes)
+
+        btn_container.addStretch(int(style["button_spacer_stretch"]))
+
+        # Clear Button
         self.clear_button = IconButton(
             "edit-clear-history",
             tooltip="Clears all history permanently from local storage",
@@ -71,13 +94,18 @@ class History(QWidget):
         )
         self.clear_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.clear_button.clicked.connect(self.clear_history)
-        button_container.addWidget(self.clear_button, int(style["clear_button_stretch"]))
+        btn_container.addWidget(self.clear_button, int(style["clear_button_stretch"]))
 
-        layout.addLayout(button_container)
-
-        self._toaster = Toaster(self, horizontal=Align.LEFT)
+        layout.addLayout(btn_container)
 
         self.reload_from_storage(mode)
+
+    def set_mode(self, mode: RenderMode):
+        self._history_modes.set_current(mode)
+        self._app_state.history_mode = mode
+
+        self._re_render_items()
+        self.items_changed.emit()
 
     def reload_from_storage(self, mode: CalculatorMode) -> None:
         self._mode = mode
@@ -102,8 +130,16 @@ class History(QWidget):
 
     def _add_item_to_list(self, entry: HistoryEntry) -> None:
         """Add item to list widget with proper formatting."""
-        flat_exprs = self._format_display(entry.tokens)
-        item_widget = HistoryItemWidget(flat_exprs, entry.result, parent=self)
+        exprs: str
+        match self._app_state.history_mode:
+            case RenderMode.RAW:
+                exprs = entry.expression
+            case RenderMode.FLAT:
+                exprs = self._format_display(entry.tokens)
+            case _:
+                exprs = self._format_display(entry.tokens)
+
+        item_widget = HistoryItem(exprs, entry.result, parent=self)
 
         self._expr_labels.append(item_widget.expression_label)
         self._result_labels.append(item_widget.result_label)
@@ -125,11 +161,11 @@ class History(QWidget):
     def _on_current_changed(self, current: QListWidgetItem, previous: QListWidgetItem) -> None:
         if previous is not None:
             prev_widget = self.list.itemWidget(previous)
-            if isinstance(prev_widget, HistoryItemWidget):
+            if isinstance(prev_widget, HistoryItem):
                 prev_widget.hide_actions()
         if current is not None:
             cur_widget = self.list.itemWidget(current)
-            if isinstance(cur_widget, HistoryItemWidget):
+            if isinstance(cur_widget, HistoryItem):
                 cur_widget.show_actions()
 
     def _copy_item(self, item: QListWidgetItem) -> None:
@@ -138,7 +174,9 @@ class History(QWidget):
         clipboard = QApplication.clipboard()
         if clipboard:
             clipboard.setText(expression)
-            self._toaster.show_toast("Copied!", ToastLevel.INFO)
+            item_widget = self.list.itemWidget(item)
+            if isinstance(item_widget, HistoryItem):
+                item_widget.toaster.show_toast("Copied!", ToastLevel.INFO)
 
     def _remove_item(self, item: QListWidgetItem) -> None:
         """Remove a single history item."""
@@ -215,7 +253,7 @@ class History(QWidget):
         return self._result_labels
 
 
-class HistoryItemWidget(QWidget):
+class HistoryItem(QWidget):
     """Single history entry widget with copy/remove action buttons."""
 
     copy_clicked = Signal()
@@ -231,7 +269,6 @@ class HistoryItemWidget(QWidget):
         self.setObjectName("historyItem")
         self.setMinimumHeight(int(style["item_min_height"]))
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
-
         layout = QVBoxLayout(self)
         margin = int(style["item_margin"])
         layout.setContentsMargins(margin, margin, margin, margin)
@@ -251,13 +288,12 @@ class HistoryItemWidget(QWidget):
         self._remove_btn.hide()
         self._remove_btn.clicked.connect(self.remove_clicked)
 
+        self.toaster = Toaster(self, horizontal=Align.LEFT, y_offset=-self._btn_size)
+
         # Expression label
         self.expression_label = QLabel(expression_text, self)
         self.expression_label.setAlignment(InputAlign.RIGHT.value)
         self.expression_label.setWordWrap(True)
-        expr_font = self.expression_label.font()
-        expr_font.setBold(True)
-        self.expression_label.setFont(expr_font)
 
         # Result label
         self.result_label = QLabel(result_text, self)
@@ -268,12 +304,23 @@ class HistoryItemWidget(QWidget):
         layout.addWidget(self.result_label)
         layout.addStretch()
 
-    def resizeEvent(self, event: object) -> None:
-        super().resizeEvent(event)  # type: ignore[arg-type]
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
         margin = int(style["item_margin"])
         y = self.height() - margin - self._btn_size
         self._copy_btn.move(margin, y)
         self._remove_btn.move(margin + self._btn_size + margin // 2, y)
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        margin = int(style["item_margin"])
+        spacing = int(style["item_spacing"])
+        inner_width = max(0, width - margin * 2)
+        expr_height = self.expression_label.heightForWidth(inner_width)
+        result_height = self.result_label.sizeHint().height()
+        return margin * 2 + expr_height + result_height + spacing * 3
 
     def show_actions(self) -> None:
         self._copy_btn.show()
@@ -300,6 +347,11 @@ class HistoryItemDelegate(QStyledItemDelegate):
         if widget is None:
             return super().sizeHint(option, index)
 
-        margin = int(style["item_margin"])
-        wh = widget.sizeHint().height() + margin
-        return QSize(lw.viewport().width(), max(wh, super().sizeHint(option, index).height()))
+        width = lw.viewport().width()
+        if widget.hasHeightForWidth():
+            wh = widget.heightForWidth(width)
+        else:
+            margin = int(style["item_margin"])
+            wh = widget.sizeHint().height() + margin
+
+        return QSize(width, max(wh, super().sizeHint(option, index).height()))

@@ -92,8 +92,8 @@ class MainWindow(QMainWindow):
         )
         self.side_panel.register_font_targets(
             [self.history.clear_button],
-            int(history_style["btn_min_pt"]),
-            int(history_style["btn_max_pt"]),
+            int(history_style["clr_btn_min_pt"]),
+            int(history_style["clr_btn_max_pt"]),
         )
         self.history.items_changed.connect(self.side_panel._update_fonts)
 
@@ -151,12 +151,10 @@ class MainWindow(QMainWindow):
         keypad = self.calc_widget.keypad
         topbar = self.calc_widget.topbar
         keypad._science_widget.setVisible(is_science)
-        topbar._angle_widget.setVisible(is_science)
+        topbar._angle_group.setVisible(is_science)
         keypad._buttons["Shift"].setVisible(app_state.mode != CalculatorMode.SIMPLE)
 
-        btn = topbar._angle_buttons.get(app_state.angle_unit)
-        if btn:
-            btn.setChecked(True)
+        topbar.set_angle(app_state.angle_unit)
 
         hyp_btn = keypad.get_button("Hyp")
         if hyp_btn:

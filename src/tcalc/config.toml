@@ -26,28 +26,35 @@ background_dark = "#1E1E1E"
 background_dark_alt = "#242424"
 background_medium = "#2a2c33"
 background_light = "#3f4450"
+background = "#1E1E1E"
+foreground = "#f6f7fb"
 
 # Text colors
 text_primary = "#f6f7fb"
 text_secondary = "#b6b8c9"
 text_muted = "#808290"
+text_tertiary = "#808290"
 
 # Border colors
 border_default = "#111111"
 border_light = "#444957"
 border_focus = "#5a606d"
+border_dark = "#111111"
 
 # Status colors
 status_warn = "#e0a828"
 status_error = "#d94040"
+status_info = "#a6c7ff"
+status_success = "#9bdc8c"
 
 # Selection colors
 selection_background = "#3a3d47"
 selection_text = "#ffffff"
 
+
 [theme.spacing]
-radius_small = 4
-radius_medium = 8
+radius_small = 2
+radius_medium = 6
 radius_large = 12
 
 [theme.fonts]

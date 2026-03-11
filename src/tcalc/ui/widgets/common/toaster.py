@@ -46,6 +46,8 @@ class Toaster(QLabel):
         font_size: int = 13,
         horizontal: Align = Align.CENTER,
         vertical: Align = Align.BOTTOM,
+        x_offset: int = 0,
+        y_offset: int = 0,
     ) -> None:
         super().__init__(parent)
         self._duration_ms = duration_ms
@@ -54,6 +56,8 @@ class Toaster(QLabel):
         self._font_size = font_size
         self._horizontal = horizontal
         self._vertical = vertical
+        self._x_offset = x_offset
+        self._y_offset = y_offset
 
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setWordWrap(False)
@@ -85,6 +89,8 @@ class Toaster(QLabel):
         )
         self.adjustSize()
         reposition(self, self._horizontal, self._vertical)
+        if self._x_offset or self._y_offset:
+            self.move(self.x() + self._x_offset, self.y() + self._y_offset)
         self._opacity_effect.setOpacity(1.0)
         self.show()
         self.raise_()

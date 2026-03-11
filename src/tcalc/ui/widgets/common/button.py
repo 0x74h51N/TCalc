@@ -7,10 +7,18 @@
 
 from __future__ import annotations
 
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import QPushButton, QWidget
+from typing import Mapping, Sequence
 
-from tcalc.theme import get_theme
+from PySide6.QtCore import Signal
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import (
+    QButtonGroup,
+    QHBoxLayout,
+    QPushButton,
+    QRadioButton,
+    QSizePolicy,
+    QWidget,
+)
 
 
 class IconButton(QPushButton):
@@ -31,17 +39,78 @@ class IconButton(QPushButton):
         if tooltip:
             self.setToolTip(tooltip)
 
-        theme = get_theme()
-        c = theme.colors
-        radius = theme.spacing["radius_small"]
-
-        self.setStyleSheet(
-            f"QPushButton {{ background: {c['background_light']};"
-            f" border: none; border-radius: {radius}px;"
-            f" padding: {padding}px; }}"
-            f" QPushButton:hover {{ background: {c['selection_background']}; }}"
-        )
+        self.setProperty("uiRole", "iconButton")
 
         if size is not None:
             self.setFixedSize(size, size)
             self.setFlat(True)
+
+
+class OptionGroup(QWidget):
+    """Reusable radio-button group built from ``(key, label)`` pairs."""
+
+    selection_changed = Signal(object)
+
+    def __init__(
+        self,
+        options: Sequence[tuple[object, str]],
+        current: object,
+        parent: QWidget | None = None,
+        tooltips: Mapping[object, str] | None = None,
+    ) -> None:
+        super().__init__(parent)
+
+        sp = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        sp.setRetainSizeWhenHidden(False)
+        self.setSizePolicy(sp)
+
+        self._buttons: dict[object, QRadioButton] = {}
+        self._group = QButtonGroup(self)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        for key, label in options:
+            btn = QRadioButton(label, self)
+            btn.setProperty("optionRole", "option")
+            if tooltips is not None:
+                tooltip = tooltips.get(key)
+                if tooltip:
+                    btn.setToolTip(tooltip)
+            self._group.addButton(btn)
+            self._buttons[key] = btn
+            layout.addWidget(btn)
+
+        if current in self._buttons:
+            self._buttons[current].setChecked(True)
+
+        self._group.buttonToggled.connect(self._on_toggled)
+
+    def _on_toggled(self, button: QRadioButton, checked: bool) -> None:
+        if not checked:
+            return
+        for key, btn in self._buttons.items():
+            if btn is button:
+                self.selection_changed.emit(key)
+                return
+
+    def current(self) -> object:
+        """Return the key of the currently selected option."""
+        for key, btn in self._buttons.items():
+            if btn.isChecked():
+                return key
+        return next(iter(self._buttons))
+
+    def set_current(self, key: object) -> None:
+        """Programmatically select *key* without emitting the signal."""
+        btn = self._buttons.get(key)
+        if btn is None:
+            return
+        self._group.blockSignals(True)
+        btn.setChecked(True)
+        self._group.blockSignals(False)
+
+    def buttons(self) -> dict[object, QRadioButton]:
+        """Return the internal ``{key: QRadioButton}`` mapping."""
+        return self._buttons

@@ -1,0 +1,22 @@
+QListWidget[uiRole="historyList"] {
+    background: $background_dark;
+    border: none;
+    outline: none;
+    color: $text_secondary;
+}
+
+QListWidget[uiRole="historyList"]::item {
+    border: none;
+    padding: 0px;
+    text-align: right;
+    background: $background_dark_alt;
+}
+
+QListWidget[uiRole="historyList"]::item:alternate {
+    background: $background_dark;
+}
+
+QListWidget[uiRole="historyList"]::item:selected {
+    background: $selection_background;
+    color: $selection_text;
+}

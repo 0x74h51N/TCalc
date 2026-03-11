@@ -1,0 +1,51 @@
+QToolTip {
+    background-color: $background_dark;
+    border: 1px solid $border_light;
+    border-radius: ${radius_small}px;
+    color: $text_secondary;
+    padding: ${tooltip_padding}px;
+}
+
+QPushButton[uiRole="iconButton"] {
+    background-color: $background_light;
+    color: $text_primary;
+    border: 1px solid $background_dark;
+    border-top-color: $selection_background;
+    border-left-color: $selection_background;
+    border-radius: ${radius_small}px;
+    padding: ${icon_padding}px;
+}
+
+QPushButton[uiRole="iconButton"]:hover {
+    background-color: $selection_background;
+}
+
+QPushButton[uiRole="iconButton"]:pressed {
+    background-color: $background_dark;
+    border-top-color: $background_dark;
+    border-left-color: $background_dark;
+    border-bottom-color: $selection_background;
+    border-right-color: $selection_background;
+}
+
+QRadioButton[optionRole="option"] {
+    background-color: transparent;
+    color: $text_secondary;
+    border-radius: ${radius_small}px;
+    padding: ${option_padding_y}px ${option_padding_x}px;
+    spacing: 0px;
+}
+
+QRadioButton[optionRole="option"]::indicator {
+    width: 0px;
+    height: 0px;
+}
+
+QRadioButton[optionRole="option"]:hover {
+    background-color: $option_hover_bg;
+}
+
+QRadioButton[optionRole="option"]:checked {
+    background-color: $option_checked_bg;
+    color: $accent_text;
+}
