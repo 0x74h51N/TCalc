@@ -15,6 +15,14 @@ class CalculatorMode(Enum):
     STATISTIC = "statistic"
 
 
+class RenderMode(Enum):
+    """Display expression render modes."""
+
+    MATH = "math"
+    FLAT = "flat"
+    RAW = "raw"
+
+
 AngleUnit = calc_native.AngleUnit
 
 
@@ -27,13 +35,15 @@ class AppState:
     def __init__(self):
         self._settings = QSettings("TCalc", "TCalc")
 
-        # Load from settings or use defaults
-        mode_str = self._settings.value("mode", CalculatorMode.SIMPLE.value)
-        self._mode = (
-            CalculatorMode(mode_str) if isinstance(mode_str, str) else CalculatorMode.SIMPLE
+        self._mode: CalculatorMode = CalculatorMode(
+            self._settings.value("mode", CalculatorMode.SIMPLE.value)
         )
 
         self._show_history: bool = bool(self._settings.value("show_history", False, type=bool))
+
+        self._history_mode: RenderMode = RenderMode(
+            self._settings.value("history_mode", RenderMode.FLAT.value)
+        )
 
         self._show_constant_buttons: bool = bool(
             self._settings.value("show_constant_buttons", False, type=bool)
@@ -72,6 +82,15 @@ class AppState:
     def show_history(self, value: bool) -> None:
         self._show_history = value
         self._settings.setValue("show_history", value)
+
+    @property
+    def history_mode(self) -> RenderMode:
+        return self._history_mode
+
+    @history_mode.setter
+    def history_mode(self, value: RenderMode) -> None:
+        self._history_mode = value
+        self._settings.setValue("history_mode", value.value)
 
     @property
     def show_constant_buttons(self) -> bool:

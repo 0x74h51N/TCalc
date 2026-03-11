@@ -143,8 +143,8 @@ struct ExprToken {
 using TokenData = std::variant<NumberToken, OpToken, ParenToken, ExprToken>;
 
 struct Token {
-    TokenKind kind;
-    TokenData data;
+    TokenKind kind{};
+    TokenData data{};
     std::size_t start_pos = 0;
     std::size_t end_pos = 0;
 };
@@ -236,6 +236,16 @@ std::string token_text(const Token &tok);
 /// Convert a token list to display text in a single pass.
 /// Binary operators get spaces around them.
 std::string tokens_to_text(const std::vector<Token> &tokens, const bool &after_node = false);
+
+/// Convert a single token to flat display text.
+/// ExprTokens are flattened using op symbols (e.g. \frac{2}{3} → 2 ÷ 3);
+/// all other token kinds delegate to token_text().
+std::string token_flat_text(const Token &tok);
+
+/// Convert a token list to flat display text in a single pass.
+/// LaTeX expressions are flattened to infix notation with op symbols;
+/// all other tokens are rendered identically to tokens_to_text().
+std::string tokens_to_flat_text(const std::vector<Token> &tokens);
 
 /// Format a single (op_id, text) pair with binary-op spacing if applicable.
 std::string space_binary_op(ops::OpId op_id, const std::string &text, const bool &after_node);

@@ -14,27 +14,33 @@ if TYPE_CHECKING:
 
 class EditOperations:
     def _do_history_op(self, delta: int, reset_on_end: bool = False) -> None:
-        count = self._history_list.count()
-        idx = self.app_state.history_index
+        count = len(self._history._history_items)
         if not count:
             return
-        if idx == -1:
-            if delta < 0:
-                self.app_state.redo_cached_exprs = self._display.expression.get_plain_text()
-                idx = count - 1
-            else:
+
+        current_idx = self.app_state.history_index
+
+        if current_idx in (-1, count):
+            if delta >= 0:
                 return
+            self.app_state.redo_cached_exprs = self._display.expression.get_plain_text()
+            next_idx = count - 1
         else:
-            idx = max(0, idx + delta)
-        if idx >= count:
+            next_idx = max(0, min(current_idx + delta, count))
+
+        if next_idx == current_idx:
+            return
+
+        self.app_state.history_index = next_idx
+
+        if next_idx >= count:
             self._set_expression(self.app_state.redo_cached_exprs)
             if reset_on_end:
                 self.reset_navigation()
-            self.app_state.history_index = idx
             return
-        self.app_state.history_index = idx
-        self._history.highlight_item(idx)
-        expr = self._get_history_expression(idx)
+
+        self._history.highlight_item(next_idx)
+        expr = self._get_history_expression(next_idx)
         if expr:
             self._set_expression(expr)
 
@@ -62,17 +68,12 @@ class EditOperations:
     def _history(self):
         return self.window.history
 
-    @property
-    def _history_list(self):
-        return self._history.list
-
     def _get_history_expression(self, index: int) -> Optional[str]:
-        item = self._history_list.item(index)
+        item = self._history.get_history_item(index)
         if not item:
             return None
 
-        text = item.text().split("=")[0]
-        return text.replace("\n", "").replace("\r", "").strip()
+        return item
 
     def _set_expression(self, expression: str) -> None:
         self._display.expression.set_plain_text(expression)

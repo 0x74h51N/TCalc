@@ -1,17 +1,25 @@
 from __future__ import annotations
 
-import json
 import logging
+import pickle
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
 
+import calc_native
 from PySide6.QtCore import QStandardPaths
 
 from tcalc.app_state import CalculatorMode
-
-from .config import storage_config
+from tcalc.ui.config import history_config
 
 _log = logging.getLogger("tcalc.ui.history.storage")
+
+
+@dataclass(slots=True)
+class HistoryEntry:
+    expression: str
+    result: str
+    tokens: list[calc_native.Token] = field(default_factory=list)
 
 
 def _get_data_dir() -> Path:
@@ -22,44 +30,46 @@ def _get_data_dir() -> Path:
     return data_dir
 
 
-def load_history(mode: CalculatorMode) -> List[str]:
-    """Load history from JSON file."""
-    history_file = _get_data_dir() / f"history_{mode.value}.json"
+def _history_path(mode: CalculatorMode) -> Path:
+    return _get_data_dir() / f"history_{mode.value}.dat"
 
-    if not history_file.exists():
+
+def load_history(mode: CalculatorMode) -> List[HistoryEntry]:
+    """Load history from binary file."""
+    path = _history_path(mode)
+
+    if not path.exists():
         return []
 
     try:
-        with open(history_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return data.get("history", [])
-    except (json.JSONDecodeError, IOError):
-        _log.debug("Failed to load history file: %s", history_file, exc_info=True)
+        with open(path, "rb") as f:
+            return pickle.load(f)
+    except Exception:
+        _log.debug("Failed to load history file: %s", path, exc_info=True)
         return []
 
 
-def save_history(history: List[str], mode: CalculatorMode) -> None:
-    """Save history to JSON file."""
-    history_file = _get_data_dir() / f"history_{mode.value}.json"
+def save_history(history: List[HistoryEntry], mode: CalculatorMode) -> None:
+    """Save history to binary file."""
+    path = _history_path(mode)
 
-    # Limit history size
-    max_items = int(storage_config["max_items"])
+    max_items = int(history_config["max_items"])
     if len(history) > max_items:
         history = history[-max_items:]
 
     try:
-        with open(history_file, "w", encoding="utf-8") as f:
-            json.dump({"history": history}, f, ensure_ascii=False, indent=2)
+        with open(path, "wb") as f:
+            pickle.dump(history, f, protocol=pickle.HIGHEST_PROTOCOL)
     except IOError:
-        _log.debug("History storage write error: %s", history_file, exc_info=True)
+        _log.debug("History storage write error: %s", path, exc_info=True)
 
 
 def clear_history_file(mode: CalculatorMode) -> None:
     """Clear history file."""
-    history_file = _get_data_dir() / f"history_{mode.value}.json"
+    path = _history_path(mode)
 
     try:
-        with open(history_file, "w", encoding="utf-8") as f:
-            json.dump({"history": []}, f)
+        with open(path, "wb") as f:
+            pickle.dump([], f, protocol=pickle.HIGHEST_PROTOCOL)
     except IOError:
-        _log.debug("Failed to clear history file: %s", history_file, exc_info=True)
+        _log.debug("Failed to clear history file: %s", path, exc_info=True)

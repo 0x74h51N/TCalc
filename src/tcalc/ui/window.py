@@ -14,11 +14,11 @@ from tcalc.app_state import CalculatorMode, get_app_state
 from tcalc.ui.keyboard import KeyboardHandler
 
 from ..core import Calculator
-from .config import get_history_width_from_total, window
+from .config import get_history_width_from_total, history_style, memory_style, window
 from .controller import CalculatorController, EditOperations
 from .controller.utils import format_result
 from .manubar.menu import Menubar
-from .widgets import CalcWidget, History
+from .widgets import CalcWidget, History, MemoryBar, SidePanel
 
 
 class MainWindow(QMainWindow):
@@ -55,13 +55,47 @@ class MainWindow(QMainWindow):
         self.divider.setLineWidth(int(window["divider_line_width"]))
         self.divider.setVisible(app_state.show_history)
 
-        self.history = History(parent=central, mode=app_state.mode)
-        self.history.setMinimumSize(window["history_min_width"], window["min_height"])
-        self.history.setVisible(app_state.show_history)
+        # Side panel: memory bar + history
+        self.memory_bar = MemoryBar()
+        self.history = History(mode=app_state.mode)
+
+        self.side_panel = SidePanel(parent=central)
+        self.side_panel.add_widget(self.memory_bar)
+        self.side_panel.add_widget(self.history, stretch=1)
+        self.side_panel.setMinimumSize(window["history_min_width"], window["min_height"])
+        self.side_panel.setVisible(app_state.show_history)
 
         # Add to layout
         m_layout.addWidget(self.divider)
-        m_layout.addWidget(self.history, window["history_stretch"])
+        m_layout.addWidget(self.side_panel, window["history_stretch"])
+        # Register font targets on side panel
+        self.side_panel.register_font_targets(
+            [self.memory_bar._memory_label, self.memory_bar._memory_value],
+            int(memory_style["font_size"]),
+            int(memory_style["max_pt"]),
+        )
+        self.side_panel.register_font_targets(
+            [self.history.list],
+            int(history_style["font_size"]),
+            int(history_style["max_pt"]),
+            callback=self.history._re_render_items,
+        )
+        self.side_panel.register_font_targets(
+            self.history.get_expression_labels(),
+            int(history_style["expr_min_pt"]),
+            int(history_style["expr_max_pt"]),
+        )
+        self.side_panel.register_font_targets(
+            self.history.get_result_labels(),
+            int(history_style["result_min_pt"]),
+            int(history_style["result_max_pt"]),
+        )
+        self.side_panel.register_font_targets(
+            [self.history.clear_button],
+            int(history_style["clr_btn_min_pt"]),
+            int(history_style["clr_btn_max_pt"]),
+        )
+        self.history.items_changed.connect(self.side_panel._update_fonts)
 
         # Edit operations
         self.edit_ops = EditOperations(self)
@@ -71,6 +105,7 @@ class MainWindow(QMainWindow):
             self.calculator,
             self.calc_widget.display,
             self.history,
+            self.memory_bar,
             self.edit_ops,
             self.calc_widget.topbar,
         )
@@ -98,29 +133,28 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self._update_history_size()
+        self.side_panel._update_fonts()
 
     def _update_history_size(self):
         central = self.centralWidget()
         if central:
             width = central.width()
             history_width = get_history_width_from_total(width)
-            self.history.setMinimumWidth(history_width)
+            self.side_panel.setMinimumWidth(history_width)
 
     def update_layout(self) -> None:
         app_state = get_app_state()
-        self.history.setVisible(app_state.show_history)
+        self.side_panel.setVisible(app_state.show_history)
         self.divider.setVisible(app_state.show_history)
 
         is_science = app_state.mode == CalculatorMode.SCIENCE
         keypad = self.calc_widget.keypad
         topbar = self.calc_widget.topbar
         keypad._science_widget.setVisible(is_science)
-        topbar._angle_widget.setVisible(is_science)
+        topbar._angle_group.setVisible(is_science)
         keypad._buttons["Shift"].setVisible(app_state.mode != CalculatorMode.SIMPLE)
 
-        btn = topbar._angle_buttons.get(app_state.angle_unit)
-        if btn:
-            btn.setChecked(True)
+        topbar.set_angle(app_state.angle_unit)
 
         hyp_btn = keypad.get_button("Hyp")
         if hyp_btn:
@@ -134,7 +168,9 @@ class MainWindow(QMainWindow):
                 btn.setVisible(bool(app_state.show_constant_buttons))
 
         topbar.set_memory_available(app_state.memory is not None)
-        self.history.set_memory("" if app_state.memory is None else format_result(app_state.memory))
+        self.memory_bar.set_memory(
+            "" if app_state.memory is None else format_result(app_state.memory)
+        )
 
         # Adjust minimum width based on visibility and mode
         calc_width = window["calc_min_width"]

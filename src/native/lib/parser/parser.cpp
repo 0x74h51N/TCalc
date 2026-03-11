@@ -590,14 +590,18 @@ std::string token_text(const Token &tok) {
         tok.data);
 }
 
+std::string spaced(std::string_view text) {
+    std::string out;
+    out.reserve(text.size() + 2);
+    out.push_back(' ');
+    out.append(text);
+    out.push_back(' ');
+    return out;
+}
+
 std::string space_binary_op(ops::OpId op_id, const std::string &text, const bool &after_node) {
     if (is_binary_op(op_id) || (after_node && is_unary_as_binary(op_id))) {
-        std::string out;
-        out.reserve(text.size() + 2);
-        out.push_back(' ');
-        out.append(text);
-        out.push_back(' ');
-        return out;
+        return spaced(text);
     }
     return text;
 }
@@ -616,6 +620,51 @@ std::string tokens_to_text(const std::vector<Token> &tokens, const bool &after_n
             out.append(space_binary_op(op.op_id, token_text(tok), node_ctx));
         } else {
             out.append(token_text(tok));
+        }
+    }
+
+    return out;
+}
+
+std::string token_flat_text(const Token &tok) {
+    if (tok.kind == TokenKind::Expr) {
+        const auto &expr = std::get<ExprToken>(tok.data);
+        const auto &entry = kLatexExprs[static_cast<std::size_t>(expr.kind)];
+
+        const auto wrap_side = [](const std::vector<Token> &side) {
+            auto text = tokens_to_flat_text(side);
+            // Wrap in braces if the side contains ops or latex
+            for (const auto &t : side) {
+                if (t.kind == TokenKind::Op || t.kind == TokenKind::Expr) {
+                    constexpr char open = paren_symbol(ParenType::Open, ParenKind::Brace);
+                    constexpr char close = paren_symbol(ParenType::Close, ParenKind::Brace);
+                    return open + text + close;
+                }
+            }
+            return text;
+        };
+
+        std::string out;
+        out.append(wrap_side(expr.left));
+        out.append(spaced(ops::op_spec(entry.opid)->symbol));
+        out.append(wrap_side(expr.right));
+        return out;
+    }
+    return token_text(tok);
+}
+
+std::string tokens_to_flat_text(const std::vector<Token> &tokens) {
+    std::string out;
+    out.reserve(tokens.size() * 4);
+
+    for (std::size_t i = 0; i < tokens.size(); ++i) {
+        const auto &tok = tokens[i];
+
+        if (tok.kind == TokenKind::Op) {
+            const auto &op = std::get<OpToken>(tok.data);
+            out.append(space_binary_op(op.op_id, token_text(tok), 0));
+        } else {
+            out.append(token_flat_text(tok));
         }
     }
 

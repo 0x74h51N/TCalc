@@ -4,36 +4,19 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QAbstractItemView, QListWidget
 
+from tcalc.ui.config import history_style as style
+
 from ....theme import get_theme
-from .config import style
 
 
 def apply_history_style(list_widget: QListWidget) -> None:
     theme = get_theme()
-    c = theme.colors
 
-    list_widget.setStyleSheet(
-        f"""
-        QListWidget {{
-            background: {c["background_dark"]};
-            border: none;
-            outline: none;
-            color: {c["text_secondary"]};
-        }}
-        QListWidget::item {{
-            border: none;
-            padding: {style["item_padding"]}px;
-            text-align: right;
-        }}
-        QListWidget::item:selected {{
-            background: {c["selection_background"]};
-            color: {c["selection_text"]};
-        }}
-        """
-    )
+    list_widget.setProperty("uiRole", "historyList")
 
     list_widget.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
     list_widget.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
+    list_widget.setAlternatingRowColors(True)
 
     list_widget.viewport().setProperty(
         "textInteractionFlags",

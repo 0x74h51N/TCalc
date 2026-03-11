@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 from shiboken6 import isValid
 
 from tcalc.ui.components.math_primitives import ParenGlyph
+from tcalc.ui.widgets.utils import InputAlign
 
 from .utils import update_autowidth
 
@@ -36,20 +37,6 @@ class InputKind(Enum):
     MAIN = "main"
     AUX = "aux"
     SCRIPT = "script"
-
-
-class InputAlign(Enum):
-    """Predefined alignment flags for expression inputs (text alignment)."""
-
-    LEFT = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-    CENTER = Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
-    RIGHT = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-    RIGHTB = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignBottom
-    LEFTB = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom
-    RIGHTT = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop
-    LEFTT = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
-    BOTTOM = Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom
-    TOP = Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop
 
 
 class ExpressionNode(QWidget):

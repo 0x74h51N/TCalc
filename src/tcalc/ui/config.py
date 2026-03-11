@@ -13,6 +13,18 @@ _config = _load_config()
 window = _config["window"]
 style = _config["style"]
 
+# Side panel layout
+side_panel_config = _config["side_panel"]
+
+# History
+_history = _config["history"]
+history_config = _history
+history_style = _history["style"]
+
+# Memory
+_memory = _config.get("memory", {})
+memory_style = _memory.get("style", {})
+
 
 def get_history_width_from_total(total_width: int) -> int:
     # Calculate history width based on total width and ratio

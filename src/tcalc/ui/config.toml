@@ -22,3 +22,55 @@ history_stretch = 1
 
 [style]
 tooltip_padding = 2
+
+# OptionGroup (reusable radio-button group) style
+[style.option_group]
+checked_alpha = 0.25
+hover_alpha = 0.35
+padding_y = 4
+padding_x = 10
+
+# ---------------------------------------------------------------------------
+# Side panel (reusable container for history / future left-panel / etc.)
+# ---------------------------------------------------------------------------
+[side_panel]
+margin = 10
+spacing = 6
+
+# ---------------------------------------------------------------------------
+# History panel
+# ---------------------------------------------------------------------------
+[history]
+max_items = 100
+
+[history.style]
+button_spacer_stretch = 1
+clear_button_stretch = 1
+
+item_padding = 4
+item_min_height = 70
+item_margin = 10
+item_spacing = 10
+action_btn_size = 22
+
+font_size = 7
+wrap_padding_factor = 3
+max_pt = 12
+expr_min_pt = 10
+expr_max_pt = 15
+result_min_pt = 8
+result_max_pt = 12
+
+btn_margin = 6
+
+clr_btn_min_pt = 7
+clr_btn_max_pt = 10
+
+
+# ---------------------------------------------------------------------------
+# Memory bar
+# ---------------------------------------------------------------------------
+[memory.style]
+font_size = 9
+max_pt = 13
+divider_spacing = 4

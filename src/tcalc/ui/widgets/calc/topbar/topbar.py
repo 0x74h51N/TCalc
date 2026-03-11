@@ -4,8 +4,6 @@ from typing import Optional
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
-    QAbstractButton,
-    QButtonGroup,
     QHBoxLayout,
     QPushButton,
     QSizePolicy,
@@ -13,11 +11,12 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.app_state import AngleUnit
+from tcalc.ui.widgets.common import OptionGroup
 
 from ..config import keypad_config, topbar_config
 from ..style import apply_button_style
 from ..utils import KeyDef, add_keys_to_grid, create_button, handle_button_clicked, make_grid
-from .defins import ANGLE_L_KEYS, MEMORY_L_KEYS, MemoryKey
+from .defins import ANGLE_OPTIONS, MEMORY_L_KEYS, MemoryKey
 from .style import apply_topbar_style
 
 
@@ -29,7 +28,6 @@ class TopBar(QWidget):
         super().__init__(parent)
 
         self._buttons: dict[str, QPushButton] = {}
-        self._angle_buttons: dict[AngleUnit, QAbstractButton] = {}
 
         apply_topbar_style(self)
 
@@ -42,19 +40,22 @@ class TopBar(QWidget):
         )
         layout.setSpacing(keypad_config["grid_spacing"])
 
-        self._angle_widget = QWidget(self)
-        self._angle_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        size_policy = self._angle_widget.sizePolicy()
-        size_policy.setRetainSizeWhenHidden(False)
-        self._angle_widget.setSizePolicy(size_policy)
-
-        self._angle_group = QButtonGroup(self._angle_widget)
-        angle_grid = make_grid(keypad_config["grid_spacing"], self._angle_widget)
-        add_keys_to_grid(ANGLE_L_KEYS, angle_grid, self._add_key)
-        layout.addWidget(self._angle_widget)
+        self._angle_group = OptionGroup(
+            options=ANGLE_OPTIONS,
+            current=AngleUnit.DEG,
+            parent=self,
+            tooltips={
+                AngleUnit.DEG: "Degrees",
+                AngleUnit.RAD: "Radians",
+                AngleUnit.GRAD: "Gradians",
+            },
+        )
+        self._angle_group.selection_changed.connect(self.angle_changed)
+        layout.addWidget(self._angle_group)
 
         layout.addStretch(int(topbar_config["spacer_stretch"]))
 
+        # Memory keys
         self._memory_widget = QWidget(self)
         self._memory_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         memory_grid = make_grid(keypad_config["grid_spacing"], self._memory_widget)
@@ -62,26 +63,14 @@ class TopBar(QWidget):
         layout.addWidget(self._memory_widget)
 
     def _add_key(self, key_def: KeyDef, role: str, grid) -> None:
-        is_radio = bool(key_def.get("radio"))
         button = create_button(key_def, role, grid.parentWidget() or self)
+        assert isinstance(button, QPushButton)
         button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-
-        if is_radio:
-            unit = key_def.get("unit")
-            if not isinstance(unit, AngleUnit):
-                return
-            self._angle_group.addButton(button)
-            self._angle_buttons[unit] = button
-            button.toggled.connect(
-                lambda checked, u=unit: self.angle_changed.emit(u) if checked else None
-            )
-        else:
-            assert isinstance(button, QPushButton)
-            apply_button_style(button, role)
-            button.clicked.connect(
-                lambda _=False, kd=key_def: handle_button_clicked(self.key_pressed, kd)
-            )
-            self._buttons[str(key_def["label"])] = button
+        apply_button_style(button, role)
+        button.clicked.connect(
+            lambda _=False, kd=key_def: handle_button_clicked(self.key_pressed, kd)
+        )
+        self._buttons[str(key_def["label"])] = button
 
         grid.addWidget(
             button,
@@ -93,6 +82,9 @@ class TopBar(QWidget):
 
     def get_button(self, label: str) -> Optional[QPushButton]:
         return self._buttons.get(label)
+
+    def set_angle(self, unit: AngleUnit) -> None:
+        self._angle_group.set_current(unit)
 
     def set_memory_available(self, available: bool) -> None:
         for key in (MemoryKey.MC, MemoryKey.MR):

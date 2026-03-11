@@ -15,7 +15,7 @@ from tcalc.app_state import AngleUnit, CalcValue, get_app_state
 from tcalc.core.ops import Operation
 from tcalc.core.utils import is_number_token
 from tcalc.ui.controller.menubar import EditOperations
-from tcalc.ui.widgets import History
+from tcalc.ui.widgets import History, MemoryBar
 from tcalc.ui.widgets.calc import Display, TopBar
 
 from ...core import Calculator, evaluate_tokens, tokenize_string
@@ -33,12 +33,14 @@ class CalculatorController:
         calculator: Calculator,
         display: Display,
         history: History,
+        memory_bar: MemoryBar,
         edit_ops: EditOperations,
         topbar: TopBar,
     ) -> None:
         self._calculator: Calculator = calculator
         self._display: Display = display
         self._history: History = history
+        self._memory_bar: MemoryBar = memory_bar
         self._edit_ops: EditOperations = edit_ops
         self._topbar: TopBar = topbar
         self._app_state = get_app_state()
@@ -59,7 +61,7 @@ class CalculatorController:
         self._handlers: Dict[Operation, Callable[[str], None]] = self._build_handlers()
 
         self._tokenize_string = tokenize_string
-        self._history.set_memory("")
+        self._memory_bar.set_memory("")
         self._compute_and_update()
 
     def handle_key(self, label: str, operation) -> None:
@@ -99,7 +101,7 @@ class CalculatorController:
 
         formatted_res = clean_for_expression(format_result(self._result))
         expr = self._expression
-        self._history.update_history(f"{expr}={formatted_res}")
+        self._history.update_history(expr, formatted_res, self.tokens)
         self._just_solved = True
         self._display.editor.set_plain_text(formatted_res)
         self._expression = formatted_res
@@ -147,7 +149,7 @@ class CalculatorController:
             return
         action()
         self._topbar.set_memory_available(self._app_state.memory is not None)
-        self._history.set_memory(
+        self._memory_bar.set_memory(
             "" if self._app_state.memory is None else format_result(self._app_state.memory)
         )
 

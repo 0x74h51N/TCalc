@@ -47,14 +47,6 @@ spacer_stretch = 1
 memory_background_alpha = 0.2
 memory_background_hover_alpha = 0.28
 memory_background_pressed_alpha = 0.38
-angle_background_checked_alpha = 0.25
-angle_background_hover_alpha = 0.35
-
-# Angle radios styling (px)
-angle_button_padding_y = 4
-angle_button_padding_x = 10
-angle_spacing_px = 0
-angle_indicator_size_px = 0
 
 [keypad]
 top_margin = 10

@@ -3,15 +3,8 @@ from __future__ import annotations
 from PySide6.QtWidgets import QAbstractButton, QWidget
 
 from ....theme import get_theme
+from ..common.utils import rgba
 from .config import style_config
-
-
-def rgba(hex_color: str, alpha: float) -> str:
-    hex_color = hex_color.lstrip("#")
-    r = int(hex_color[0:2], 16)
-    g = int(hex_color[2:4], 16)
-    b = int(hex_color[4:6], 16)
-    return f"rgba({r}, {g}, {b}, {alpha})"
 
 
 def build_calc_base_stylesheet() -> str:

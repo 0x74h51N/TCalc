@@ -1,6 +1,6 @@
 from PySide6.QtGui import QFontMetrics
 
-from ....core import Operation, get_symbols_with_aliases
+from tcalc.core.ops import Operation, get_symbols_with_aliases
 
 BREAK_SYMBOLS: set[str] = get_symbols_with_aliases(
     lambda op: (
