@@ -31,7 +31,6 @@ class IconButton(QPushButton):
         text: str = "",
         size: int | None = None,
         parent: QWidget | None = None,
-        padding: int = 4,
     ) -> None:
         super().__init__(text, parent)
         self.setIcon(QIcon.fromTheme(icon_name))

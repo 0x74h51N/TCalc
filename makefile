@@ -30,7 +30,8 @@ typecheck:
 	$(PY) -m mypy --check-untyped-defs
 
 py-test:
-	PYTHONPATH=src $(PY) -m pytest tests/py/unit $(PYTEST_ARGS)
+	PYTHONPATH=src $(PY) -m pytest tests/py/unit/core $(PYTEST_ARGS)
+	PYTHONPATH=src $(PY) -m pytest tests/py/unit/ui $(PYTEST_ARGS)
 	PYTHONPATH=src $(PY) -m pytest tests/py/ui $(PYTEST_ARGS)
 	PYTHONPATH=src $(PY) -m pytest tests/py/e2e $(PYTEST_ARGS)
 
