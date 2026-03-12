@@ -47,7 +47,6 @@ class MathRender(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self._editor: Expression
-        self._rendering: bool = False
         self._pending_parens: dict[calc_native.ParenKind, list[ParenWidget]]
 
     @property
@@ -115,55 +114,26 @@ class MathRender(QWidget):
             seg.setText(new_text)
             seg.setCursorPosition(min(new_cursor, len(new_text)))
 
-    def _tok_info(self, tokens: list[calc_native.Token]) -> str:
-        items: list[str] = []
-        for idx, tok in enumerate(tokens):
-            if tok.kind == calc_native.TokenKind.Paren:
-                par = tok.as_paren()
-                items.append(f"{idx}:{par.symbol}:{par.type.name}:{par.kind.name}:{par.pair_idx}")
-                continue
-            if tok.kind == calc_native.TokenKind.Expr:
-                expr = tok.as_expr()
-                items.append(f"{idx}:expr:{expr.kind.name}")
-                continue
-            items.append(f"{idx}:{calc_native.token_text(tok)}")
-        return "[" + ", ".join(items) + "]"
-
-    def _bad_pairs(self, tokens: list[calc_native.Token]) -> list[str]:
-        out: list[str] = []
-        for idx, tok in enumerate(tokens):
-            if tok.kind != calc_native.TokenKind.Paren:
-                continue
-            par = tok.as_paren()
-            if par.pair_idx == calc_native.PAREN_NO_MATCH:
-                continue
-            if par.pair_idx < 0 or par.pair_idx >= len(tokens):
-                out.append(f"{idx}->{par.pair_idx}")
-        return out
-
     def _queue(
         self,
-        target: ExpressionSlot | QLineEdit | None,
+        target: QLineEdit | None,
         tokens: list[calc_native.Token],
         pending: deque[tuple[QLineEdit, calc_native.TokenizeResult]],
     ) -> QLineEdit | None:
+
         if target is None or not tokens:
             return None
 
-        if isinstance(target, ExpressionSlot):
-            seg = target.default_input()
-            seg.setText(calc_native.tokens_to_text(tokens))
-        else:
-            seg = target
-
         classified = calc_native.classify_tokens(tokens)
+
         if classified.expr_indices or classified.open_paren_indices:
-            pending.append((seg, classified))
-        return seg
+            pending.append((target, classified))
+        else:
+            target.setText(calc_native.tokens_to_text(tokens))
+
+        return target
 
     def render_node(self, seg, tokenized: calc_native.TokenizeResult) -> None:
-        self._rendering = True
-        self.setUpdatesEnabled(False)
         dirty_inputs: set[QLineEdit] = set()
         pending = deque([(seg, tokenized)])
         try:
@@ -279,9 +249,9 @@ class MathRender(QWidget):
 
                 # Populate widget slots with token text
                 if node._left_slot:
-                    self._queue(node._left_slot, left_tokens, pending)
+                    self._queue(node._left_slot.default_input(), left_tokens, pending)
                 if node._right_slot:
-                    self._queue(node._right_slot, right_tokens, pending)
+                    self._queue(node._right_slot.default_input(), right_tokens, pending)
 
                 dirty_inputs.update(node.line_edits())
 
@@ -292,7 +262,5 @@ class MathRender(QWidget):
         except Exception:
             _log.debug("_add_exp_node failed", exc_info=True)
         finally:
-            self.setUpdatesEnabled(True)
-            self._rendering = False
             for le in dirty_inputs:
                 update_autowidth(le)
