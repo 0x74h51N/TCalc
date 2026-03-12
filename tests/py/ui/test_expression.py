@@ -9,7 +9,7 @@ from PySide6.QtWidgets import QLineEdit
 from tcalc.core.ops import Operation
 from tcalc.debug import dump_expression_tree, snapshot_tree
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
-from tcalc.ui.widgets.calc.display.expression.widgets import (
+from tcalc.ui.widgets.math.widgets import (
     BraceWidget,
     FractionWidget,
     PowWidget,

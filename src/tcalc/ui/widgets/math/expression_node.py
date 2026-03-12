@@ -27,8 +27,9 @@ from .utils import update_autowidth
 
 _log = logging.getLogger("tcalc.ui.expression_node")
 
+
 if TYPE_CHECKING:
-    from .expression import Expression
+    from tcalc.ui.widgets.calc.display.expression.expression import Expression
 
 
 class InputKind(Enum):
@@ -44,14 +45,9 @@ class ExpressionNode(QWidget):
 
     def __init__(
         self,
-        editor: Expression,
-        left_tokens: list[calc_native.Token] | None,
-        right_tokens: list[calc_native.Token] | None,
     ):
-        super().__init__(editor)
-        self._editor = editor
-        self.left_tokens = left_tokens if left_tokens is not None else []
-        self.right_tokens = right_tokens if right_tokens is not None else []
+        super().__init__()
+        self._editor: Expression | None = None
 
         self._left_slot: ExpressionSlot | None = None
         self._right_slot: ExpressionSlot | None = None
@@ -61,6 +57,19 @@ class ExpressionNode(QWidget):
     OP_ID: ClassVar[calc_native.OpId]
     EXPR_KIND: ClassVar[calc_native.ExprKind]
     SYMBOL: ClassVar[str | None] = None
+
+    @property
+    def editor(self) -> Expression:
+        if self._editor is None:
+            raise RuntimeError("ExpressionNode editor is not set")
+        return self._editor
+
+    @editor.setter
+    def editor(self, editor: Expression) -> None:
+        self._editor = editor
+        for slot in (self._left_slot, self._right_slot, self._top_slot, self._bottom_slot):
+            if isinstance(slot, ExpressionSlot):
+                slot.editor = editor
 
     def anchor_y(self) -> int:
         return (self.height() - self.contentsMargins().top()) // 2
@@ -105,13 +114,18 @@ class ExpressionNode(QWidget):
 
     def _resolve_focus(self, *fallbacks: ExpressionSlot) -> QLineEdit:
         """Return _last_focused if valid, otherwise first fallback's default_input."""
-        f = self._editor._last_focused
-        if f is not None and isinstance(f, QLineEdit) and isValid(f):
-            return f
-        for slot in fallbacks:
-            if isinstance(slot, ExpressionSlot):
-                return slot.default_input()
-        return fallbacks[0].default_input() if fallbacks else self._editor._root.default_input()
+        editor = self._editor
+        if editor is not None:
+            f = editor._last_focused
+            if f is not None and isinstance(f, QLineEdit) and isValid(f):
+                return f
+            if not fallbacks:
+                return editor._root.default_input()
+
+        if fallbacks:
+            return fallbacks[0].default_input()
+
+        raise RuntimeError("No focus target available")
 
     @staticmethod
     def _write_back_at_cursor(focus: QLineEdit, text: str, cursor_offset: int) -> None:
@@ -188,20 +202,18 @@ class ExpressionSlot(QWidget):
 
     def __init__(
         self,
-        editor: Expression,
-        *,
         kind: InputKind,
         key: str,
         align: InputAlign,
         paren: tuple[str | None, str | None] | None = None,
     ) -> None:
-        super().__init__(editor)
+        super().__init__()
 
-        self._editor = editor
         self._kind = kind
         self._key = key
         self._align = align
         self._paren = paren  # (open_symbol, close_symbol) or None
+        self._editor: Expression | None = None
         self._segments: list[QWidget] = []
         self._direct_edits: list[QLineEdit] = []
 
@@ -224,6 +236,23 @@ class ExpressionSlot(QWidget):
     def _input_key(self) -> str:
         return f"{self._key}_{len(self._segments)}"
 
+    @property
+    def editor(self) -> Expression | None:
+        return self._editor
+
+    @editor.setter
+    def editor(self, editor: Expression | None) -> None:
+        self._editor = editor
+        if self._editor is None:
+            return
+        for seg in self._segments:
+            if isinstance(seg, QLineEdit):
+                self._editor._register_input(seg)
+            elif isinstance(seg, ExpressionNode):
+                seg.editor = self._editor
+            elif isinstance(seg, ExpressionSlot):
+                seg.editor = self._editor
+
     def _run_autowidth(self, le: QLineEdit) -> None:
         try:
             le.setProperty("_aw_scheduled", False)
@@ -233,7 +262,7 @@ class ExpressionSlot(QWidget):
         update_autowidth(le)
 
     def schedule_autowidth(self, le: QLineEdit) -> None:
-        if self._editor._rendering:
+        if self._editor is not None and self._editor._rendering:
             return
         if le.property("_aw_scheduled"):
             return
@@ -247,10 +276,8 @@ class ExpressionSlot(QWidget):
         le.setAlignment(self._align.value)
         le.setProperty("exprInput", True)
         le.setProperty("exprKind", self._kind.value)
-
-        le.textChanged.connect(lambda _, seg=le: self._editor._on_input_changed(seg))
-        le.textChanged.connect(lambda: self.schedule_autowidth(le))
-        self._editor.input_created.emit(le)
+        if self._editor is not None:
+            self._editor._register_input(le)
         QTimer.singleShot(0, lambda: self.schedule_autowidth(le))
         return le
 
@@ -471,7 +498,6 @@ class ExpressionSlot(QWidget):
         This ensures that all segments share the same visual
         reference Y position inside the horizontal layout.
         """
-        # TODO: Write proper test abut this
         max_anchor = 0
         max_below = 0
 

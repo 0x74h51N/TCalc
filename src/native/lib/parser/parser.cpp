@@ -95,6 +95,29 @@ inline void push_number(
 inline constexpr auto kParenKindCount = static_cast<std::size_t>(ParenKind::Bracket) + 1;
 using ParenStacks = std::array<std::vector<std::size_t>, kParenKindCount>;
 
+void classify_paren(TokenizeResult &result, ParenStacks &paren_stacks, std::size_t tok_idx) {
+    auto &paren = std::get<ParenToken>(result.tokens[tok_idx].data);
+    paren.pair_idx = kNoMatch;
+
+    auto &stack = paren_stacks[static_cast<std::size_t>(paren.kind)];
+    if (paren.type == ParenType::Open) {
+        result.open_paren_indices.push_back(tok_idx);
+        stack.push_back(tok_idx);
+        return;
+    }
+
+    result.close_paren_indices.push_back(tok_idx);
+    if (stack.empty()) {
+        return;
+    }
+
+    const std::size_t pair = stack.back();
+    stack.pop_back();
+
+    paren.pair_idx = pair;
+    std::get<ParenToken>(result.tokens[pair].data).pair_idx = tok_idx;
+}
+
 /// Returns final expect_operand state after tokenizing
 bool tokenize_core(
     std::string_view expression,
@@ -122,32 +145,13 @@ bool tokenize_core(
 
         if (auto p = match_paren(expression[i])) {
             const std::size_t tok_idx = tokens.size();
-            auto &stack = paren_stacks[static_cast<std::size_t>(p->kind)];
-
-            if (p->type == ParenType::Open) {
-                result.open_paren_indices.push_back(tok_idx);
-                tokens.push_back(
-                    Token{
-                        .kind = TokenKind::Paren,
-                        .data = ParenToken{p->type, p->kind},
-                        .start_pos = tok_start,
-                        .end_pos = tok_start + 1});
-                stack.push_back(tok_idx);
-            } else {
-                result.close_paren_indices.push_back(tok_idx);
-                std::size_t pair = kNoMatch;
-                if (!stack.empty()) {
-                    pair = stack.back();
-                    stack.pop_back();
-                    std::get<ParenToken>(tokens[pair].data).pair_idx = tok_idx;
-                }
-                tokens.push_back(
-                    Token{
-                        .kind = TokenKind::Paren,
-                        .data = ParenToken{p->type, p->kind, pair},
-                        .start_pos = tok_start,
-                        .end_pos = tok_start + 1});
-            }
+            tokens.push_back(
+                Token{
+                    .kind = TokenKind::Paren,
+                    .data = ParenToken{p->type, p->kind},
+                    .start_pos = tok_start,
+                    .end_pos = tok_start + 1});
+            classify_paren(result, paren_stacks, tok_idx);
 
             expect_operand = (p->type == ParenType::Open);
             ++i;
@@ -351,6 +355,29 @@ TokenizeResult tokenize(std::string_view s) {
 
         expect_operand = detail::tokenize_core(
             s.substr(start, i - start), result, paren_stacks, start, expect_operand);
+    }
+
+    return result;
+}
+
+TokenizeResult classify_tokens(std::vector<Token> tokens) {
+    TokenizeResult result;
+    result.tokens = std::move(tokens);
+    detail::ParenStacks paren_stacks{};
+
+    for (std::size_t i = 0; i < result.tokens.size(); ++i) {
+        const auto &tok = result.tokens[i];
+        switch (tok.kind) {
+        case TokenKind::Expr:
+            result.expr_indices.push_back(i);
+            break;
+        case TokenKind::Paren: {
+            detail::classify_paren(result, paren_stacks, i);
+            break;
+        }
+        default:
+            break;
+        }
     }
 
     return result;

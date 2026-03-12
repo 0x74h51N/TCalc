@@ -8,11 +8,8 @@ import calc_native
 from PySide6.QtWidgets import QLineEdit
 
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
-from tcalc.ui.widgets.calc.display.expression.expression_node import (
-    ExpressionNode,
-    ExpressionSlot,
-)
-from tcalc.ui.widgets.calc.display.expression.widgets import (
+from tcalc.ui.widgets.math.expression_node import ExpressionNode, ExpressionSlot
+from tcalc.ui.widgets.math.widgets import (
     FractionWidget,
     ParenWidget,
     PowWidget,
@@ -20,9 +17,7 @@ from tcalc.ui.widgets.calc.display.expression.widgets import (
 )
 
 if TYPE_CHECKING:
-    from tcalc.ui.widgets.calc.display.expression.expression_node import (
-        ExpressionSlot,
-    )
+    from tcalc.ui.widgets.math.expression_node import ExpressionSlot
 
 _log = logging.getLogger("tcalc.debug")
 
@@ -217,6 +212,8 @@ def dump_expression_tree(root: ExpressionSlot, plain_text: str) -> None:
     """Snapshot the tree from a root slot and log it."""
 
     editor = root._editor
+    if editor is None:
+        raise RuntimeError("ExpressionSlot editor is not set")
     info = snapshot_tree(editor)
 
     for line in str(info).splitlines():

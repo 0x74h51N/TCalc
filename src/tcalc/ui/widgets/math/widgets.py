@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import calc_native
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -28,15 +26,12 @@ from tcalc.ui.components.math_primitives import (
     SqrtSymbol,
     SquareBracket,
 )
-from tcalc.ui.widgets.calc.display.expression.expression_node import (
+from tcalc.ui.widgets.math.expression_node import (
     ExpressionNode,
     ExpressionSlot,
     InputKind,
 )
 from tcalc.ui.widgets.utils import InputAlign
-
-if TYPE_CHECKING:
-    from .expression import Expression
 
 
 class FractionWidget(ExpressionNode):
@@ -48,20 +43,15 @@ class FractionWidget(ExpressionNode):
 
     def __init__(
         self,
-        editor: Expression,
-        left_tokens: list[calc_native.Token] | None = None,
-        right_tokens: list[calc_native.Token] | None = None,
     ) -> None:
-        super().__init__(editor, left_tokens, right_tokens)
+        super().__init__()
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self.numerator = ExpressionSlot(
-            editor, kind=InputKind.AUX, key="numerator", align=InputAlign.TOP
-        )
+        self.numerator = ExpressionSlot(kind=InputKind.AUX, key="numerator", align=InputAlign.TOP)
         layout.addWidget(self.numerator, 0, Qt.AlignmentFlag.AlignHCenter)
 
         self.line = QFrame(self)
@@ -71,7 +61,7 @@ class FractionWidget(ExpressionNode):
         layout.addWidget(self.line)
 
         self.denominator = ExpressionSlot(
-            editor, kind=InputKind.AUX, key="denominator", align=InputAlign.TOP
+            kind=InputKind.AUX, key="denominator", align=InputAlign.TOP
         )
 
         layout.addWidget(self.denominator, 0, Qt.AlignmentFlag.AlignHCenter)
@@ -80,11 +70,6 @@ class FractionWidget(ExpressionNode):
         self._right_slot = self.denominator
         self._top_slot = self.numerator
         self._bottom_slot = self.denominator
-
-        if self.left_tokens:
-            self.numerator.default_input().setText(calc_native.tokens_to_text(self.left_tokens))
-        if self.right_tokens:
-            self.denominator.default_input().setText(calc_native.tokens_to_text(self.right_tokens))
 
     def anchor_y(self) -> int:
         return self.numerator.height() - self.line.height() // 2
@@ -106,11 +91,8 @@ class PowWidget(ExpressionNode):
 
     def __init__(
         self,
-        editor: Expression,
-        left_tokens: list[calc_native.Token] | None = None,
-        right_tokens: list[calc_native.Token] | None = None,
     ) -> None:
-        super().__init__(editor, left_tokens, right_tokens)
+        super().__init__()
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
         grid = QGridLayout(self)
@@ -120,7 +102,6 @@ class PowWidget(ExpressionNode):
         grid.setHorizontalSpacing(0)
 
         self.base = ExpressionSlot(
-            editor,
             kind=InputKind.AUX,
             key="base",
             align=InputAlign.LEFT,
@@ -129,7 +110,6 @@ class PowWidget(ExpressionNode):
         grid.addWidget(self.base, 1, 0, 1, 2, InputAlign.RIGHT.value)
 
         self.exponent = ExpressionSlot(
-            editor,
             kind=InputKind.SCRIPT,
             key="exponent",
             align=InputAlign.RIGHTB,
@@ -141,10 +121,6 @@ class PowWidget(ExpressionNode):
         self._right_slot = self.exponent
         self._top_slot = self.exponent
         self._bottom_slot = self.base
-        if self.left_tokens:
-            self.base.default_input().setText(calc_native.tokens_to_text(self.left_tokens))
-        if self.right_tokens:
-            self.exponent.default_input().setText(calc_native.tokens_to_text(self.right_tokens))
 
     def anchor_y(self) -> int:
         return self.exponent.height() + self.base.height() // 2
@@ -170,11 +146,8 @@ class RootWidget(ExpressionNode):
 
     def __init__(
         self,
-        editor: Expression,
-        left_tokens: list[calc_native.Token] | None = None,
-        right_tokens: list[calc_native.Token] | None = None,
     ) -> None:
-        super().__init__(editor, left_tokens, right_tokens)
+        super().__init__()
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
         grid = QGridLayout(self)
@@ -185,7 +158,6 @@ class RootWidget(ExpressionNode):
         grid.setHorizontalSpacing(0)
 
         self.degree = ExpressionSlot(
-            editor,
             kind=InputKind.SCRIPT,
             key="degree",
             align=InputAlign.LEFTT,
@@ -199,7 +171,6 @@ class RootWidget(ExpressionNode):
 
         grid.addWidget(self.sqrt_symbol, 2, 0, 2, 4, InputAlign.RIGHT.value)
         self.radicand = ExpressionSlot(
-            editor,
             kind=InputKind.AUX,
             key="radicand",
             align=InputAlign.LEFTT,
@@ -213,11 +184,6 @@ class RootWidget(ExpressionNode):
         self._right_slot = self.radicand
         self._top_slot = self.degree
         self._bottom_slot = self.radicand
-
-        if self.left_tokens:
-            self.degree.default_input().setText(calc_native.tokens_to_text(self.left_tokens))
-        if self.right_tokens:
-            self.radicand.default_input().setText(calc_native.tokens_to_text(self.right_tokens))
 
         self.dHeight = self.degree.height()
 
@@ -249,15 +215,12 @@ class ParenWidget(ExpressionNode):
 
     def __init__(
         self,
-        editor: Expression,
-        inner_tokens: list[calc_native.Token],
         open_token: calc_native.ParenToken | None = None,
         close_token: calc_native.ParenToken | None = None,
     ) -> None:
-        super().__init__(editor, None, None)
+        super().__init__()
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
-        self._editor = editor
         self._open_token = open_token
         self._close_token = close_token
         if open_token is not None:
@@ -269,7 +232,6 @@ class ParenWidget(ExpressionNode):
         close_symbol = close_token.symbol if close_token is not None else None
 
         self._left_slot: ExpressionSlot = ExpressionSlot(
-            editor,
             kind=InputKind.AUX,
             key="innerSlot",
             align=InputAlign.TOP,
@@ -280,8 +242,6 @@ class ParenWidget(ExpressionNode):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(self._left_slot, 0, Qt.AlignmentFlag.AlignHCenter)
-
-        self._left_slot.default_input().setText(calc_native.tokens_to_text(inner_tokens))
 
         self._open_glyph: QWidget | None = None
         if open_token is not None:
@@ -345,18 +305,18 @@ class ParenWidget(ExpressionNode):
         if self._open_glyph is None:  # If there is no open and close glyph dissolve ParenWidget
             parent = self.parent()
             if isinstance(parent, ExpressionSlot):
-                self._editor._last_focused = parent.default_input()
+                self.editor._last_focused = parent.default_input()
             self._dissolve()
         else:
-            self._editor._pending_parens.setdefault(self._paren_kind, []).append(self)
+            self.editor._pending_parens.setdefault(self._paren_kind, []).append(self)
 
     def _dissolve(self, has_node: bool = True) -> None:
         """Serialize inner content, remove this ParenWidget, write text back."""
-        stack = self._editor._pending_parens.get(self._paren_kind)
+        stack = self.editor._pending_parens.get(self._paren_kind)
         if stack and self in stack:
             stack.remove(self)
             if not stack:
-                del self._editor._pending_parens[self._paren_kind]
+                del self.editor._pending_parens[self._paren_kind]
         if has_node:
             super().dissolve()
 
