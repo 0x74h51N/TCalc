@@ -231,7 +231,7 @@ class ParenWidget(ExpressionNode):
         open_symbol = open_token.symbol if open_token is not None else None
         close_symbol = close_token.symbol if close_token is not None else None
 
-        self._left_slot: ExpressionSlot = ExpressionSlot(
+        self._inner_slot = ExpressionSlot(
             kind=InputKind.AUX,
             key="innerSlot",
             align=InputAlign.TOP,
@@ -241,17 +241,23 @@ class ParenWidget(ExpressionNode):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
-        layout.addWidget(self._left_slot, 0, Qt.AlignmentFlag.AlignHCenter)
+        layout.addWidget(self._inner_slot, 0, Qt.AlignmentFlag.AlignHCenter)
 
         self._open_glyph: QWidget | None = None
         if open_token is not None:
             self._open_glyph = self._create_open()
             if self._open_glyph is not None:
-                self._left_slot.insert_widget(0, self._open_glyph)
+                self._inner_slot.insert_widget(0, self._open_glyph)
 
         self._close_glyph: QWidget | None = None
         if close_token is not None:
             self._attach_close_glyph()
+
+        self._left_slot = self._inner_slot
+
+    @property
+    def slot(self) -> ExpressionSlot:
+        return self._inner_slot
 
     def _create_open(self) -> QWidget | None:
         """Return the opening glyph widget, or *None* to draw nothing."""
@@ -267,25 +273,25 @@ class ParenWidget(ExpressionNode):
         """Reattach an open paren that was typed after the glyph was removed."""
 
         close_sym = self._close_token.symbol if self._close_token else None
-        self._left_slot._paren = (open_token.symbol, close_sym)
+        self._inner_slot._paren = (open_token.symbol, close_sym)
         if self._open_glyph is None:
             self._open_glyph = self._create_open()
             if self._open_glyph is not None:
-                self._left_slot.insert_widget(0, self._open_glyph)
+                self._inner_slot.insert_widget(0, self._open_glyph)
 
     def set_close(self, close_token: calc_native.ParenToken) -> None:
         """Attach a close paren that was typed later in a different segment."""
         self._close_token = close_token
         open_sym = self._open_token.symbol if self._open_token else None
-        self._left_slot._paren = (open_sym, close_token.symbol)
+        self._inner_slot._paren = (open_sym, close_token.symbol)
         if self._close_glyph is None:
             self._attach_close_glyph()
 
     def to_plain_text(self) -> str:
-        return self._left_slot.to_plain_text()
+        return self._inner_slot.to_plain_text()
 
     def focus_default(self) -> None:
-        le = self._left_slot.default_input()
+        le = self._inner_slot.default_input()
         if not le.text():
             le.setFocus()
 
@@ -323,7 +329,7 @@ class ParenWidget(ExpressionNode):
         super().remove()
 
     def adopt_segments(self, segments: list[QWidget]) -> None:
-        self._left_slot.adopt_segments(segments)
+        self._inner_slot.adopt_segments(segments)
 
     # Internal
 
@@ -332,27 +338,27 @@ class ParenWidget(ExpressionNode):
             return
         self._close_glyph = self._create_close()
         if self._close_glyph is not None:
-            self._left_slot.insert_widget(len(self._left_slot._segments), self._close_glyph)
+            self._inner_slot.insert_widget(len(self._inner_slot._segments), self._close_glyph)
 
     def _detach_open_glyph(self) -> None:
         if self._open_glyph is None:
             return
-        self._left_slot._layout.removeWidget(self._open_glyph)
-        self._left_slot._segments.remove(self._open_glyph)
+        self._inner_slot._layout.removeWidget(self._open_glyph)
+        self._inner_slot._segments.remove(self._open_glyph)
         self._open_glyph.deleteLater()
         self._open_glyph = None
         self._open_token = None
-        self._left_slot._paren = (None, self._close_token.symbol) if self._close_token else None
+        self._inner_slot._paren = (None, self._close_token.symbol) if self._close_token else None
 
     def _detach_close_glyph(self) -> None:
         if self._close_glyph is None:
             return
-        self._left_slot._layout.removeWidget(self._close_glyph)
-        self._left_slot._segments.remove(self._close_glyph)
+        self._inner_slot._layout.removeWidget(self._close_glyph)
+        self._inner_slot._segments.remove(self._close_glyph)
         self._close_glyph.deleteLater()
         self._close_glyph = None
         self._close_token = None
-        self._left_slot._paren = (self._open_token.symbol, None) if self._open_token else None
+        self._inner_slot._paren = (self._open_token.symbol, None) if self._open_token else None
 
 
 class BraceWidget(ParenWidget):
@@ -361,10 +367,10 @@ class BraceWidget(ParenWidget):
     PAREN_KIND = calc_native.ParenKind.Brace
 
     def _create_open(self) -> QWidget:
-        return CurlyBrace(self._left_slot, True)
+        return CurlyBrace(self._inner_slot, True)
 
     def _create_close(self) -> QWidget:
-        return CurlyBrace(self._left_slot, False)
+        return CurlyBrace(self._inner_slot, False)
 
 
 class RoundParenWidget(ParenWidget):
@@ -373,10 +379,10 @@ class RoundParenWidget(ParenWidget):
     PAREN_KIND = calc_native.ParenKind.Paren
 
     def _create_open(self) -> QWidget:
-        return RoundParen(self._left_slot, True)
+        return RoundParen(self._inner_slot, True)
 
     def _create_close(self) -> QWidget:
-        return RoundParen(self._left_slot, False)
+        return RoundParen(self._inner_slot, False)
 
 
 class BracketWidget(ParenWidget):
@@ -385,7 +391,7 @@ class BracketWidget(ParenWidget):
     PAREN_KIND = calc_native.ParenKind.Bracket
 
     def _create_open(self) -> QWidget:
-        return SquareBracket(self._left_slot, True)
+        return SquareBracket(self._inner_slot, True)
 
     def _create_close(self) -> QWidget:
-        return SquareBracket(self._left_slot, False)
+        return SquareBracket(self._inner_slot, False)

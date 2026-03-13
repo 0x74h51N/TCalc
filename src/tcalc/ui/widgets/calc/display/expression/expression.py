@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from shiboken6 import isValid
 
 from tcalc.core.ops import Operation
 from tcalc.core.parser import tokenize
@@ -49,7 +48,6 @@ class Expression(QWidget):
         super().__init__(parent)
 
         self._last_focused: QLineEdit | None = None
-        self._rendering: bool = False
         self.renderer = MathRender()
         self._inputs_layout = QVBoxLayout(self)
         self._inputs_layout.setContentsMargins(0, 0, 0, 0)
@@ -372,8 +370,6 @@ class Expression(QWidget):
             text[:cursor] + calc_native.format_expr_str(expr_kind, "", "") + text[cursor:]
         )
 
-        self.plain_text_changed.emit(self.get_plain_text())
-
     #
     #
     #
@@ -387,7 +383,7 @@ class Expression(QWidget):
             self._pending_seg = None
 
     def _on_input_changed(self, seg: QLineEdit):
-        if self._rendering:
+        if self.renderer.is_rendering:
             return
         self._pending_seg = seg
         QTimer.singleShot(0, self._flush_exp_nodes)
@@ -397,13 +393,7 @@ class Expression(QWidget):
             return
         le.setProperty("_expr_connected", True)
         le.textChanged.connect(lambda _=None, seg=le: self._on_input_changed(seg))
-        le.textChanged.connect(lambda: self._schedule_autowidth_for_input(le))
         self.input_created.emit(le)
-
-    def _schedule_autowidth_for_input(self, le: QLineEdit) -> None:
-        slot = le.parent()
-        if isinstance(slot, ExpressionSlot):
-            slot.schedule_autowidth(le)
 
     def _focus_backspace(self, le: QLineEdit) -> None:
         le.setFocus()
@@ -441,16 +431,10 @@ class Expression(QWidget):
         idx = slot.index_of(seg)
         return idx > 0 and isinstance(slot._segments[idx - 1], ExpressionNode)
 
-    def _add_exp_node(self, seg: QLineEdit | None = None) -> None:
-        self._rendering = True
-        self.setUpdatesEnabled(False)
+    def _add_exp_node(self, seg: QLineEdit) -> None:
+        self.renderer.is_rendering = True
 
         try:
-            if not seg:
-                return
-
-            if not isValid(seg):
-                return
             parent = seg.parent()
 
             if not isinstance(parent, ExpressionSlot):
@@ -482,8 +466,7 @@ class Expression(QWidget):
         except Exception:
             _log.debug("_add_exp_node failed", exc_info=True)
         finally:
-            self.setUpdatesEnabled(True)
-            self._rendering = False
+            self.renderer.is_rendering = False
 
     def _try_open_paren(
         self,
@@ -516,14 +499,13 @@ class Expression(QWidget):
 
         paren_node = paren_cls(par, None)
         paren_node.editor = self
-        paren_node._left_slot.default_input().setText(calc_native.tokens_to_text(after_toks))
+        paren_node.slot.default_input().setText(calc_native.tokens_to_text(after_toks))
         self._pending_parens.setdefault(par.kind, []).append(paren_node)
 
         paren_node.adopt_segments(detached)
 
         self._insert_node(slot, seg, before_toks, paren_node, [], False)
-        inner_slot = paren_node._left_slot
-        line_edits = inner_slot.line_edits()
+        line_edits = paren_node.slot.line_edits()
         if line_edits:
             le = line_edits[0]
             le.setFocus()
@@ -557,7 +539,7 @@ class Expression(QWidget):
                 continue
 
             pw = stack[-1]
-            if slot is not pw._left_slot:
+            if slot is not pw.slot:
                 # Pre-check, only pop pending paren and attach when the close paren is in the inner slot.
                 continue
 
@@ -593,7 +575,7 @@ class Expression(QWidget):
                         parent_slot.adopt_segments(detached)
 
             if not any(
-                isinstance(s, ExpressionNode) for s in pw._left_slot._segments
+                isinstance(s, ExpressionNode) for s in pw.slot._segments
             ):  # if not have any ExpressionNode dissolve pw -> text
                 pw.dissolve()
 
@@ -621,7 +603,6 @@ class Expression(QWidget):
     def update_input_fonts(self, sample: QWidget) -> None:
         """Update font and width of all inputs based on sample widget size."""
         base_font = int(display_config["expression_font_size"])
-
         for le in self.expression_inputs():
             kind_str = le.property("exprKind")
             scale = float(display_config.get(f"scale_{kind_str}", 1.0))

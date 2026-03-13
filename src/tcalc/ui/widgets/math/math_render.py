@@ -1,3 +1,10 @@
+#
+#
+#
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
 from __future__ import annotations
 
 import logging
@@ -5,6 +12,7 @@ from collections import deque
 from typing import TYPE_CHECKING
 
 import calc_native
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QLineEdit,
     QWidget,
@@ -32,6 +40,7 @@ _log = logging.getLogger("tcalc.ui.math")
 
 
 class MathRender(QWidget):
+    rendering = Signal(bool)
     EXPR_KIND_MAP: dict[calc_native.ExprKind, type[ExpressionNode]] = {
         FractionWidget.EXPR_KIND: FractionWidget,
         PowWidget.EXPR_KIND: PowWidget,
@@ -46,8 +55,20 @@ class MathRender(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
+        self._rendering: bool = False
         self._editor: Expression
         self._pending_parens: dict[calc_native.ParenKind, list[ParenWidget]]
+
+    @property
+    def is_rendering(self) -> bool:
+        return self._rendering
+
+    @is_rendering.setter
+    def is_rendering(self, value: bool) -> None:
+        if self._rendering == value:
+            return
+        self._rendering = value
+        self.rendering.emit(value)
 
     @property
     def pending_parens(self) -> dict[calc_native.ParenKind, list[ParenWidget]]:
@@ -136,6 +157,7 @@ class MathRender(QWidget):
     def render_node(self, seg, tokenized: calc_native.TokenizeResult) -> None:
         dirty_inputs: set[QLineEdit] = set()
         pending = deque([(seg, tokenized)])
+
         try:
             while pending:
                 seg, tokenized = pending.popleft()
@@ -150,7 +172,6 @@ class MathRender(QWidget):
 
                 tokens = tokenized.tokens
                 if not tokenized.expr_indices:
-                    _log.debug("render_node: skip seg=%s no expr indices", seg.objectName())
                     continue
 
                 no_match = calc_native.PAREN_NO_MATCH
