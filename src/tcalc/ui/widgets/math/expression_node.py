@@ -276,7 +276,7 @@ class ExpressionSlot(QWidget):
         le.setProperty("exprKind", self._kind.value)
         if self._editor is not None:
             self._editor._register_input(le)
-        QTimer.singleShot(0, lambda: self.schedule_autowidth(le))
+            QTimer.singleShot(0, lambda: self.schedule_autowidth(le))
         return le
 
     def append_input(self) -> QLineEdit:

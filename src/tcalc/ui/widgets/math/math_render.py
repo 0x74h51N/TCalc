@@ -12,14 +12,14 @@ from collections import deque
 from typing import TYPE_CHECKING
 
 import calc_native
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QLineEdit,
     QWidget,
 )
 from shiboken6 import isValid
 
-from tcalc.ui.widgets.math.expression_node import ExpressionNode, ExpressionSlot
+from tcalc.ui.widgets.math.expression_node import ExpressionNode, ExpressionSlot, InputKind
 from tcalc.ui.widgets.math.widgets import (
     BraceWidget,
     BracketWidget,
@@ -29,6 +29,7 @@ from tcalc.ui.widgets.math.widgets import (
     RootWidget,
     RoundParenWidget,
 )
+from tcalc.ui.widgets.utils import apply_scaled_fonts
 
 from .utils import split_operand, update_autowidth
 
@@ -53,9 +54,10 @@ class MathRender(QWidget):
         BracketWidget.PAREN_KIND: BracketWidget,
     }
 
-    def __init__(self) -> None:
+    def __init__(self, *, read_only: bool = False) -> None:
         super().__init__()
         self._rendering: bool = False
+        self._read_only: bool = read_only
         self._editor: Expression
         self._pending_parens: dict[calc_native.ParenKind, list[ParenWidget]]
 
@@ -88,31 +90,30 @@ class MathRender(QWidget):
     def editor(self, editor: Expression) -> None:
         self._editor = editor
 
-    def _insert_node(
+    def insert_node(
         self,
         slot: ExpressionSlot,
         seg: QLineEdit,
         prefix_tokens: list[calc_native.Token],
         node: ExpressionNode,
-        suffix_tokens: list[calc_native.Token],
         suffix: bool = True,
     ) -> QLineEdit | None:
         """Insert a node widget into slot: [prefix | node | suffix]."""
 
         idx = slot.index_of(seg)
 
-        seg.setText(calc_native.tokens_to_text(prefix_tokens, self._seg_after_node(seg)))
+        seg.setText(calc_native.tokens_to_text(prefix_tokens, self.seg_after_node(seg)))
         seg.setObjectName("prefix")
         slot.insert_widget(idx + 1, node)
         if suffix:
             suffix_le = slot.insert_input(idx + 2)
-            suffix_le.setText(calc_native.tokens_to_text(suffix_tokens, True))
             suffix_le.setObjectName("suffix")
-            node.focus_default()
+            if not self._read_only:
+                node.focus_default()
             return suffix_le
         return None
 
-    def _seg_after_node(self, seg: QLineEdit) -> bool:
+    def seg_after_node(self, seg: QLineEdit) -> bool:
         """Check if the segment immediately follows an ExpressionNode in its slot."""
         slot = seg.parent()
         if not isinstance(slot, ExpressionSlot):
@@ -123,7 +124,7 @@ class MathRender(QWidget):
     def normalize_text(self, seg: QLineEdit, tokens: list[calc_native.Token]) -> None:
         """Normalize text aliases to symbols (add -> + or floor -> ⌊)."""
         text = seg.text()
-        new_text = calc_native.tokens_to_text(tokens, self._seg_after_node(seg))
+        new_text = calc_native.tokens_to_text(tokens, self.seg_after_node(seg))
         if new_text != text:
             cursor_pos = seg.cursorPosition()
 
@@ -233,7 +234,8 @@ class MathRender(QWidget):
                     if not has_close:
                         self._pending_parens.setdefault(open_paren_tok.kind, []).append(paren_node)
 
-                    node.editor = self.editor
+                    if not self._read_only:
+                        node.editor = self.editor
 
                 else:
                     idx = expr_first
@@ -261,12 +263,11 @@ class MathRender(QWidget):
                         return
 
                     node = widget_cls()
-                    node.editor = self.editor
+                    if not self._read_only:
+                        node.editor = self.editor
                     suffix = True
 
-                suffix_seg = self._insert_node(
-                    slot, seg, prefix_tokens, node, suffix_tokens, suffix
-                )
+                suffix_seg = self.insert_node(slot, seg, prefix_tokens, node, suffix)
 
                 # Populate widget slots with token text
                 if node._left_slot:
@@ -274,7 +275,10 @@ class MathRender(QWidget):
                 if node._right_slot:
                     self._queue(node._right_slot.default_input(), right_tokens, pending)
 
+                dirty_inputs.add(seg)
                 dirty_inputs.update(node.line_edits())
+                if suffix_seg is not None:
+                    dirty_inputs.add(suffix_seg)
 
                 # Enqueue suffix if it contains latex expressions
                 if suffix_seg is not None and suffix_tokens:
@@ -284,4 +288,30 @@ class MathRender(QWidget):
             _log.debug("_add_exp_node failed", exc_info=True)
         finally:
             for le in dirty_inputs:
+                if self._read_only:
+                    le.setReadOnly(True)
+                    le.setFocusPolicy(Qt.FocusPolicy.NoFocus)
                 update_autowidth(le)
+
+    @staticmethod
+    def update_line_fonts(
+        lines: list[QLineEdit],
+        sample: QWidget,
+        base_font: int,
+        max_pt: int,
+        config: dict | None = None,
+    ):
+        for le in lines:
+            kind_str = le.property("exprKind")
+            scale = float(config.get(f"scale_{kind_str}", 1.0)) if config else 1.0
+            # Propagate script kind to children
+            parent = le.parent()
+            if kind_str == InputKind.SCRIPT.value and isinstance(parent, ExpressionSlot):
+                for le in parent.line_edits():
+                    le.setProperty("exprKind", InputKind.SCRIPT.value)
+
+            min_pt = int(base_font * scale)
+            scaled_max = int(max_pt * scale)
+
+            apply_scaled_fonts(sample, [le], min_pt, scaled_max)
+            update_autowidth(le)

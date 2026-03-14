@@ -29,9 +29,9 @@ from tcalc.ui.widgets.math.expression_node import (
     InputKind,
 )
 from tcalc.ui.widgets.math.math_render import MathRender
-from tcalc.ui.widgets.math.utils import split_operand, update_autowidth
+from tcalc.ui.widgets.math.utils import split_operand
 from tcalc.ui.widgets.math.widgets import ParenWidget
-from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
+from tcalc.ui.widgets.utils import InputAlign
 
 from .utils import space_binary_ops
 
@@ -400,37 +400,6 @@ class Expression(QWidget):
         le.setCursorPosition(len(le.text()))
         le.backspace()
 
-    def _insert_node(
-        self,
-        slot: ExpressionSlot,
-        seg: QLineEdit,
-        prefix_tokens: list[calc_native.Token],
-        node: ExpressionNode,
-        suffix_tokens: list[calc_native.Token],
-        suffix: bool = True,
-    ) -> QLineEdit | None:
-        """Insert a node widget into slot: [prefix | node | suffix]."""
-        idx = slot.index_of(seg)
-
-        seg.setText(calc_native.tokens_to_text(prefix_tokens, self._seg_after_node(seg)))
-        seg.setObjectName("prefix")
-        slot.insert_widget(idx + 1, node)
-        if suffix:
-            suffix_le = slot.insert_input(idx + 2)
-            suffix_le.setText(calc_native.tokens_to_text(suffix_tokens, True))
-            suffix_le.setObjectName("suffix")
-            node.focus_default()
-            return suffix_le
-        return None
-
-    def _seg_after_node(self, seg: QLineEdit) -> bool:
-        """Check if the segment immediately follows an ExpressionNode in its slot."""
-        slot = seg.parent()
-        if not isinstance(slot, ExpressionSlot):
-            return False
-        idx = slot.index_of(seg)
-        return idx > 0 and isinstance(slot._segments[idx - 1], ExpressionNode)
-
     def _add_exp_node(self, seg: QLineEdit) -> None:
         self.renderer.is_rendering = True
 
@@ -504,7 +473,7 @@ class Expression(QWidget):
 
         paren_node.adopt_segments(detached)
 
-        self._insert_node(slot, seg, before_toks, paren_node, [], False)
+        self.renderer.insert_node(slot, seg, before_toks, paren_node, False)
         line_edits = paren_node.slot.line_edits()
         if line_edits:
             le = line_edits[0]
@@ -549,7 +518,7 @@ class Expression(QWidget):
 
             before_toks, after_toks, detached = self._split_seg(seg, tokens, idx, slot)
 
-            before_text = calc_native.tokens_to_text(before_toks, self._seg_after_node(seg))
+            before_text = calc_native.tokens_to_text(before_toks, self.renderer.seg_after_node(seg))
             after_text = calc_native.tokens_to_text(after_toks)
 
             pw.set_close(par)
@@ -603,18 +572,7 @@ class Expression(QWidget):
     def update_input_fonts(self, sample: QWidget) -> None:
         """Update font and width of all inputs based on sample widget size."""
         base_font = int(display_config["expression_font_size"])
-        for le in self.expression_inputs():
-            kind_str = le.property("exprKind")
-            scale = float(display_config.get(f"scale_{kind_str}", 1.0))
-
-            # Propagate script kind to children
-            parent = le.parent()
-            if kind_str == InputKind.SCRIPT.value and isinstance(parent, ExpressionSlot):
-                for le in parent.line_edits():
-                    le.setProperty("exprKind", InputKind.SCRIPT.value)
-
-            min_pt = int(base_font * scale)
-            max_pt = int(font_scale_config["display_expression"]["max_pt"] * scale)
-
-            apply_scaled_fonts(sample, [le], min_pt, max_pt)
-            update_autowidth(le)
+        max_pt = int(font_scale_config["display_expression"]["max_pt"])
+        self.renderer.update_line_fonts(
+            self.expression_inputs(), sample, base_font, max_pt, display_config
+        )
