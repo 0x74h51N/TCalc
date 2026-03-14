@@ -212,6 +212,10 @@ inline bool operator==(const Token &a, const Token &b) {
 /// expr_indices metadata.
 TokenizeResult tokenize(std::string_view expression);
 
+/// Classify an existing token list: recompute local paren pair_idx metadata, then scan for
+/// Expr / Open-Paren / Close-Paren tokens and populate the index vectors.
+TokenizeResult classify_tokens(std::vector<Token> tokens);
+
 // Convert tokens to RPN using precedence/associativity rules.
 std::vector<Token> shunting_yard(const std::vector<Token> &tokens);
 

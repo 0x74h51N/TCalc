@@ -301,6 +301,12 @@ void bind_parser(py::module_ &m) {
 
     m.def("tokenize_string", &tcalc::parser::tokenize, py::arg("expression"));
     m.def("shunting_yard", &tcalc::parser::shunting_yard, py::arg("tokens"));
+    m.def(
+        "classify_tokens",
+        &tcalc::parser::classify_tokens,
+        py::arg("tokens"),
+        "Classify a token list into a TokenizeResult with expr/paren indices. "
+        "Recomputes local paren pairs without re-tokenizing the source text.");
 
     // format_expr_str / token_text / tokens_to_text / space_binary_op
 

@@ -943,6 +943,34 @@ void unit_parser(TestContext &ctx) {
         EXPECT_EQ(ctx, result.tokens.size(), 3UL);
     });
 
+    test_detail::with_case(ctx, "classify_tokens :: rebase nested slice pairs", [&] {
+        auto result = p::tokenize("(1)+{2+[\\pow{2}{3}]+4}");
+        std::vector<Token> slice(result.tokens.begin() + 5, result.tokens.begin() + 12);
+
+        auto classified = p::classify_tokens(std::move(slice));
+        EXPECT_EQ(ctx, classified.open_paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, classified.open_paren_indices[0], 2UL);
+        EXPECT_EQ(ctx, classified.close_paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, classified.close_paren_indices[0], 4UL);
+        EXPECT_EQ(ctx, pair_of(classified.tokens, 2), 4UL);
+        EXPECT_EQ(ctx, pair_of(classified.tokens, 4), 2UL);
+    });
+
+    test_detail::with_case(ctx, "classify_tokens :: unmatched outer pair stays open", [&] {
+        auto result = p::tokenize("({[1]})");
+        std::vector<Token> slice(result.tokens.begin() + 1, result.tokens.begin() + 5);
+
+        auto classified = p::classify_tokens(std::move(slice));
+        EXPECT_EQ(ctx, classified.open_paren_indices.size(), 2UL);
+        EXPECT_EQ(ctx, classified.open_paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, classified.open_paren_indices[1], 1UL);
+        EXPECT_EQ(ctx, classified.close_paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, classified.close_paren_indices[0], 3UL);
+        EXPECT_EQ(ctx, pair_of(classified.tokens, 0), p::kNoMatch);
+        EXPECT_EQ(ctx, pair_of(classified.tokens, 1), 3UL);
+        EXPECT_EQ(ctx, pair_of(classified.tokens, 3), 1UL);
+    });
+
     // paren_indices
 
     test_detail::with_case(ctx, "paren_indices :: no parens", [&] {

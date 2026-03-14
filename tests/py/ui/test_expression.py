@@ -9,7 +9,8 @@ from PySide6.QtWidgets import QLineEdit
 from tcalc.core.ops import Operation
 from tcalc.debug import dump_expression_tree, snapshot_tree
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
-from tcalc.ui.widgets.calc.display.expression.widgets import (
+from tcalc.ui.widgets.math.expression_node import ExpressionNode, ExpressionSlot
+from tcalc.ui.widgets.math.widgets import (
     BraceWidget,
     FractionWidget,
     PowWidget,
@@ -2068,3 +2069,141 @@ class TestNodeBackspace:
             get_actual=lambda _: actual_target.cursorPosition(),
             label="cursor position",
         )
+
+
+#
+#
+#
+# Margin Alignment Tests
+
+
+def _effective_anchor(seg) -> int | None:
+    """Return effective anchor_y (own_anchor + top_margin) for a segment widget."""
+    if isinstance(seg, ExpressionNode):
+        return seg.anchor_y() + seg.contentsMargins().top()
+    if isinstance(seg, QLineEdit):
+        return seg.fontMetrics().height() // 2 + seg.textMargins().top()
+    return None
+
+
+def _check_slot_alignment(
+    expression_widget: Expression, t, slot: ExpressionSlot, slot_label: str
+) -> None:
+    """Assert all sibling segments in a slot share the same effective anchor_y."""
+    anchors = []
+    for seg in slot._segments:
+        a = _effective_anchor(seg)
+        if a is not None:
+            anchors.append(a)
+
+    if len(anchors) < 2:
+        return
+
+    first = anchors[0]
+    for i, a in enumerate(anchors[1:], 1):
+        if a != first:
+            _fail_tree(
+                expression_widget,
+                t,
+                f"Margin alignment mismatch in {slot_label}: "
+                f"seg[0] anchor={first}, seg[{i}] anchor={a}",
+            )
+
+
+@dataclass(frozen=True)
+class MarginAlignCase:
+    expression: str
+
+
+def margin_align_case(**kwargs) -> MarginAlignCase:
+    return MarginAlignCase(**kwargs)
+
+
+MARGIN_ALIGN_CASES = [
+    pytest.param(
+        margin_align_case(expression="1 + \\frac{2}{3} + 4"),
+        id="frac-with-siblings",
+    ),
+    pytest.param(
+        margin_align_case(expression="\\frac{1}{2} + \\frac{3}{4}"),
+        id="two-fracs",
+    ),
+    pytest.param(
+        margin_align_case(expression="\\frac{\\frac{1}{2}}{3} + 4"),
+        id="nested-frac-numerator",
+    ),
+    pytest.param(
+        margin_align_case(expression="\\frac{1}{\\frac{2}{3}} + 4"),
+        id="nested-frac-denominator",
+    ),
+    pytest.param(
+        margin_align_case(expression="1 + \\pow{2}{3} + 4"),
+        id="pow-with-siblings",
+    ),
+    pytest.param(
+        margin_align_case(expression="1 + \\root{2}{3} + 4"),
+        id="root-with-siblings",
+    ),
+    pytest.param(
+        margin_align_case(expression="\\frac{\\frac{1}{2}}{3} + \\pow{4}{5}"),
+        id="nested-nodes-siblings",
+    ),
+    pytest.param(
+        margin_align_case(expression="2 + \\frac{5}{6 + 5} + \\pow{5}{\\frac{4}{6}}"),
+        id="nested-pow-nodes-siblings",
+    ),
+    pytest.param(
+        margin_align_case(
+            expression="\\frac{11}{7} + \\frac{5 + 5}\\frac{6}\\frac{6}{6}}} + \\frac{11}{7} + \\frac{5 + 5}\\frac{6}\\frac{6}{6}}} + \\frac{11}{7} + \\frac{5 + 5}\\frac{6}\\frac{6}{6}}}"
+        ),
+        id="multiple-nested-nodes-siblings",
+    ),
+    pytest.param(
+        margin_align_case(expression="2 + (\\frac{5}{7} + \\root{6}{3})"),
+        id="paren-w-nodes-siblings",
+    ),
+    pytest.param(
+        margin_align_case(expression="2 + (\\frac{5}{6 + (\\frac\\frac{53}{35}}{64}})"),
+        id="nested-paren-w-nested-nodes-siblings",
+    ),
+    pytest.param(
+        margin_align_case(
+            expression="2 + (\\frac\\frac{5}\\frac{6}\\frac{7}{8}}} + 5}{6 + (\\frac\\frac{53}{35}}\\frac{64}{5}}) + 3} + 5) + 6"
+        ),
+        id="sick-level-nested-nodes-siblings-w-paren",
+    ),
+    pytest.param(
+        margin_align_case(
+            expression="2 + (\\frac{(\\frac{5}{\\frac{6}{\\root{7}{8}} + 5} + \\frac{5}{6}) + 5}{6 + (\\frac{\\frac{53}{35}}{64})})"
+        ),
+        id="sick-level-nested-nodes-2-siblings-w-paren",
+    ),
+]
+
+
+@pytest.mark.parametrize("case", MARGIN_ALIGN_CASES)
+class TestMarginAlignment:
+    """Test that sibling segments are vertically aligned after render."""
+
+    def _snapshot(self, expression_widget, set_expression, qapp, expression):
+        set_expression(expression)
+        for _ in range(5):
+            qapp.processEvents()
+        return snapshot_tree(expression_widget)
+
+    def test_root_siblings_aligned(self, expression_widget, set_expression, qapp, case):
+        t = self._snapshot(expression_widget, set_expression, qapp, case.expression)
+        _check_slot_alignment(expression_widget, t, expression_widget._root, "root")
+
+    def test_all_node_slots_aligned(self, expression_widget, set_expression, qapp, case):
+        t = self._snapshot(expression_widget, set_expression, qapp, case.expression)
+        for node_info in t.all_nodes:
+            node = node_info.widget
+            for slot in (node._left_slot, node._right_slot):
+                if slot is not None:
+                    _check_slot_alignment(
+                        expression_widget,
+                        t,
+                        slot,
+                        f"{node_info.cls_name}.{slot._key}",
+                    )

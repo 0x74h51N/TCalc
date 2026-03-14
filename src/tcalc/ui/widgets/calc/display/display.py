@@ -52,9 +52,6 @@ class Display(QWidget):
         self._expr_scroll.setWidget(self.editor)
 
         layout.addWidget(self._expr_scroll)
-        self.editor.plain_text_changed.connect(
-            lambda _text: QTimer.singleShot(0, self._scroll_expression_to_end)
-        )
 
         line = QFrame(self)
         line.setObjectName("displayDivider")
