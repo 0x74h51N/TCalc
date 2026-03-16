@@ -243,7 +243,23 @@ void bind_parser(py::module_ &m) {
         .def_readonly("tokens", &TokenizeResult::tokens)
         .def_readonly("expr_indices", &TokenizeResult::expr_indices)
         .def_readonly("open_paren_indices", &TokenizeResult::open_paren_indices)
-        .def_readonly("close_paren_indices", &TokenizeResult::close_paren_indices);
+        .def_readonly("close_paren_indices", &TokenizeResult::close_paren_indices)
+        .def(
+            py::pickle(
+                [](const TokenizeResult &r) {
+                    return py::make_tuple(
+                        r.tokens, r.expr_indices, r.open_paren_indices, r.close_paren_indices);
+                },
+                [](const py::tuple &t) {
+                    if (t.size() != 4)
+                        throw std::runtime_error("Invalid TokenizeResult state");
+                    TokenizeResult r;
+                    r.tokens = t[0].cast<std::vector<Token>>();
+                    r.expr_indices = t[1].cast<std::vector<std::size_t>>();
+                    r.open_paren_indices = t[2].cast<std::vector<std::size_t>>();
+                    r.close_paren_indices = t[3].cast<std::vector<std::size_t>>();
+                    return r;
+                }));
 
     py::enum_<tcalc::ops::Assoc>(m, "OpAssoc", "Operator associativity.")
         .value("Left", tcalc::ops::Assoc::Left)
