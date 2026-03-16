@@ -20,6 +20,7 @@ side_panel_config = _config["side_panel"]
 _history = _config["history"]
 history_config = _history
 history_style = _history["style"]
+history_math = _history["math"]
 
 # Memory
 _memory = _config.get("memory", {})

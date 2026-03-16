@@ -20,3 +20,21 @@ QListWidget[uiRole="historyList"]::item:selected {
     background: $selection_background;
     color: $selection_text;
 }
+
+/* HistoryItem expression slot */
+QWidget#historyItem QWidget[exprSlot="true"] {
+    background: transparent;
+}
+
+QWidget#historyItem QWidget[exprSlot="true"] QLineEdit {
+    background: transparent;
+    border: none;
+}
+
+QWidget#radicandSlot, QWidget#radicandSlot:focus {
+    border-top: 2px solid $selection_text;  /* make this global and other math expression styles */
+}
+
+QWidget#historyItem QScrollArea#historyExprScroll {
+    background: transparent;
+}

@@ -1,4 +1,4 @@
-.PHONY: dev hooks lint lint-fix typecheck check stubs
+.PHONY: dev hooks lint lint-fix typecheck check stubs clear-history
 .PHONY: py-format py-format-check
 .PHONY: native native-configure native-build native-test native-ctest native-clean native-release
 .PHONY: py-test py-test-ui py-benchmark py-flamegraph
@@ -96,6 +96,10 @@ cpp-tidy:
 
 cpp-tidy-diff:
 	$(NATIVE_MAKE) cpp-tidy-diff
+
+clear-history:
+	rm -f ~/.local/share/TCalc/history_*.dat
+	@echo "History cleared."
 
 hooks:
 	$(PY) -m pre_commit install --install-hooks --config .pre-commit.yaml

@@ -5,9 +5,10 @@ import pytest
 from PySide6.QtCore import Qt
 
 from tcalc.app_state import CalculatorMode, RenderMode, get_app_state
-from tcalc.core.parser import tokenize_string
+from tcalc.core.parser import tokenize
 from tcalc.ui.config import history_style as style
 from tcalc.ui.widgets.history.history import History, HistoryItem
+from tcalc.ui.widgets.history.storage import HistoryEntry
 from tcalc.ui.widgets.history.utils import wrap_expression
 
 
@@ -34,13 +35,15 @@ def history(qapp, monkeypatch):
 
 
 def _add(history: History, expr: str, result: str, qapp) -> None:
-    tokens = tokenize_string(expr)
-    history.update_history(expr, result, tokens)
+    tokens = tokenize(expr)
+    flat_text = calc_native.tokens_to_flat_text(tokens.tokens)
+    entry = HistoryEntry(expr, result, tokens, flat_text)
+    history.update_history(entry)
     qapp.processEvents()
 
 
 def _expr_text(history: History, row: int) -> str:
-    return history.get_expression_labels()[row].text()
+    return history._item_widgets[row].expression_label.text()
 
 
 def _result_text(history: History, row: int) -> str:
@@ -48,7 +51,9 @@ def _result_text(history: History, row: int) -> str:
 
 
 def _item_widget(history: History, row: int) -> HistoryItem:
-    return history.list.itemWidget(history.list.item(row))
+    widget = history.list.itemWidget(history.list.item(row))
+    assert isinstance(widget, HistoryItem)
+    return widget
 
 
 class TestModeSwitch:
@@ -58,7 +63,7 @@ class TestModeSwitch:
         buttons = history._history_modes.buttons()
         assert get_app_state().history_mode == RenderMode.FLAT
         assert buttons[RenderMode.FLAT].isChecked()
-        assert not buttons[RenderMode.MATH].isEnabled()
+        assert buttons[RenderMode.MATH].isEnabled()
         assert buttons[RenderMode.RAW].isEnabled()
 
     @pytest.mark.parametrize(
@@ -101,8 +106,8 @@ class TestModeSwitch:
         history.set_mode(RenderMode.FLAT)
         qapp.processEvents()
 
-        tokens = tokenize_string(expr)
-        expected = calc_native.tokens_to_flat_text(tokens)
+        tokens = tokenize(expr)
+        expected = calc_native.tokens_to_flat_text(tokens.tokens)
         assert expected in _expr_text(history, 0)
 
     def test_mode_round_trip_preserves_items(self, history, qapp):
@@ -146,7 +151,7 @@ class TestListOperations:
         _add(history, "3+3", "6", qapp)
 
         assert history.list.count() == 3
-        assert len(history.get_expression_labels()) == 3
+        assert len(history._item_widgets) == 3
 
         history._remove_item(history.list.item(1))
         qapp.processEvents()
@@ -163,7 +168,7 @@ class TestListOperations:
         qapp.processEvents()
 
         assert history.list.count() == 0
-        assert len(history.get_expression_labels()) == 0
+        assert len(history._item_widgets) == 0
         assert len(history.get_result_labels()) == 0
 
     def test_user_data_stores_raw_expression(self, history, qapp):
@@ -314,7 +319,7 @@ class TestEdgeCases:
         qapp.processEvents()
 
         assert history.list.count() == 0
-        assert len(history.get_expression_labels()) == 0
+        assert len(history._item_widgets) == 0
 
     def test_double_clear(self, history, qapp):
         _add(history, "1+1", "2", qapp)

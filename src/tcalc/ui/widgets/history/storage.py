@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import pickle
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import List
 
@@ -19,7 +19,8 @@ _log = logging.getLogger("tcalc.ui.history.storage")
 class HistoryEntry:
     expression: str
     result: str
-    tokens: list[calc_native.Token] = field(default_factory=list)
+    tokenized: calc_native.TokenizeResult
+    flat_text: str = ""
 
 
 def _get_data_dir() -> Path:
@@ -60,7 +61,7 @@ def save_history(history: List[HistoryEntry], mode: CalculatorMode) -> None:
     try:
         with open(path, "wb") as f:
             pickle.dump(history, f, protocol=pickle.HIGHEST_PROTOCOL)
-    except IOError:
+    except Exception:
         _log.debug("History storage write error: %s", path, exc_info=True)
 
 
