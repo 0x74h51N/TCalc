@@ -232,6 +232,7 @@ class ExpressionSlot(QWidget):
 
         self._margin_scheduled = False
         self._on_node_removed: Callable[[], None] | None = None
+        self._on_margin_updated: Callable[[], None] | None = None
 
     def _input_key(self) -> str:
         return f"{self._key}_{len(self._segments)}"
@@ -553,13 +554,16 @@ class ExpressionSlot(QWidget):
             return
         self._update_segment_margins()
         self._margin_scheduled = False
-
         # Propagate margin child to parent
         node = self.parent()
         if isinstance(node, ExpressionNode):
             parent_slot = node.parent()
             if isinstance(parent_slot, ExpressionSlot):
                 parent_slot._schedule_margin_update()
+                return
+
+        if self._on_margin_updated is not None:
+            self._on_margin_updated()
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

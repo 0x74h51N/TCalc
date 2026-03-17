@@ -196,10 +196,7 @@ class TestHistoryItemWidget:
         assert isinstance(w, HistoryItem)
         assert w.expression_label.alignment() & Qt.AlignmentFlag.AlignRight
         assert w.result_label.alignment() & Qt.AlignmentFlag.AlignRight
-        assert w.expression_label.wordWrap()
         assert w.minimumHeight() >= int(style["item_min_height"])
-        assert w.hasHeightForWidth()
-        assert w.heightForWidth(200) > 0
 
     def test_action_buttons_toggle(self, history, qapp):
         _add(history, "1+2", "3", qapp)

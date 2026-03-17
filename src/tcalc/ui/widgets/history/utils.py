@@ -4,7 +4,7 @@ from tcalc.core.ops import Operation, get_symbols_with_aliases
 
 BREAK_SYMBOLS: set[str] = get_symbols_with_aliases(
     lambda op: (
-        op
+        op.symbol
         in {
             Operation.ADD,
             Operation.SUB,
@@ -14,7 +14,7 @@ BREAK_SYMBOLS: set[str] = get_symbols_with_aliases(
             Operation.EQUALS,
         }
     )
-)
+) | {")", "}", "]"}  # Temporary disgusting workaround, TODO: bind native paren table
 
 
 def wrap_expression(expr: str, fm: QFontMetrics, max_width: int) -> str:

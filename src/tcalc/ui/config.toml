@@ -67,8 +67,8 @@ clr_btn_min_pt = 7
 clr_btn_max_pt = 10
 
 [history.math]
-base_font = 13
-max_pt = 20
+base_font = 11
+max_pt = 18
 scale_main = 1.0
 scale_aux = 1.0
 scale_script = 0.5
