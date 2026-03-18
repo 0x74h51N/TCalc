@@ -59,7 +59,7 @@ class MathRender(QWidget):
         self._rendering: bool = False
         self._read_only: bool = read_only
         self._editor: Expression
-        self._pending_parens: dict[calc_native.ParenKind, list[ParenWidget]]
+        self._pending_parens: dict[calc_native.ParenKind, list[ParenWidget]] = {}
 
     @property
     def is_rendering(self) -> bool:

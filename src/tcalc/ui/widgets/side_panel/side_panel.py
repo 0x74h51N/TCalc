@@ -17,6 +17,8 @@ from tcalc.theme import get_theme
 from tcalc.ui.config import side_panel_config
 from tcalc.ui.widgets.utils import apply_scaled_fonts
 
+_FontTargets = Iterable[QWidget] | Callable[[], Iterable[QWidget]]
+
 
 class SidePanel(QWidget):
     """Reusable vertical side-panel container."""
@@ -25,7 +27,7 @@ class SidePanel(QWidget):
         super().__init__(parent)
         self.setObjectName("sidePanel")
         self._parent = parent
-        self._font_targets: list[tuple[Iterable[QWidget], int, int, Callable[[], None] | None]] = []
+        self._font_targets: list[tuple[_FontTargets, int, int, Callable[[], None] | None]] = []
 
         theme = get_theme()
         palette = self.palette()
@@ -53,13 +55,14 @@ class SidePanel(QWidget):
 
     def _update_fonts(self) -> None:
         for targets, min_pt, max_pt, callback in self._font_targets:
-            apply_scaled_fonts(self, targets, min_pt, max_pt)
+            widgets = targets() if callable(targets) else targets
+            apply_scaled_fonts(self, widgets, min_pt, max_pt)
             if callback is not None:
                 callback()
 
     def register_font_targets(
         self,
-        targets: Iterable[QWidget],
+        targets: _FontTargets,
         min_pt: int,
         max_pt: int,
         callback: Callable[[], None] | None = None,

@@ -17,8 +17,10 @@ from tcalc.core.utils import is_number_token
 from tcalc.ui.controller.menubar import EditOperations
 from tcalc.ui.widgets import History, MemoryBar
 from tcalc.ui.widgets.calc import Display, TopBar
+from tcalc.ui.widgets.history.storage import HistoryEntry
 
-from ...core import Calculator, evaluate_tokens, tokenize_string
+from ...core import Calculator, evaluate_tokens
+from ...core.parser import tokenize
 from ..widgets.calc.topbar.defins import MEMORY_KEYS, MemoryKey
 from .utils import apply_hyp_variant, clean_for_expression, format_result
 
@@ -50,6 +52,7 @@ class CalculatorController:
         self._expression = self._display.editor.get_plain_text()
 
         self.tokens: List[calc_native.Token] = []
+        self._tokenized: calc_native.TokenizeResult
         self._result: CalcValue | None = None
         self._just_solved = False
         self._error_text: Optional[str] = None
@@ -59,8 +62,6 @@ class CalculatorController:
 
         # Build handlers dictionary
         self._handlers: Dict[Operation, Callable[[str], None]] = self._build_handlers()
-
-        self._tokenize_string = tokenize_string
         self._memory_bar.set_memory("")
         self._compute_and_update()
 
@@ -99,11 +100,12 @@ class CalculatorController:
             self._compute_and_update()
             return
 
-        formatted_res = clean_for_expression(format_result(self._result))
-        expr = self._expression
-        self._history.update_history(expr, formatted_res, self.tokens)
+        formatted_res = format_result(self._result)
+        flat_text = calc_native.tokens_to_flat_text(self._tokenized.tokens)
+        entry = HistoryEntry(self._expression, formatted_res, self._tokenized, flat_text)
+        self._history.update_history(entry)
         self._just_solved = True
-        self._display.editor.set_plain_text(formatted_res)
+        self._display.editor.set_plain_text(clean_for_expression(formatted_res))
         self._expression = formatted_res
 
         self._edit_ops.reset_navigation()
@@ -230,7 +232,8 @@ class CalculatorController:
         self._compute_and_update()
 
     def _compute_and_update(self) -> None:
-        self.tokens = self._tokenize_string(self._expression)
+        self._tokenized = tokenize(self._expression)
+        self.tokens = self._tokenized.tokens
         _can_preview = self._can_compute_preview(self.tokens)
 
         result_text = ""

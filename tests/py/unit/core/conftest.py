@@ -187,6 +187,23 @@ class FakeNativeCalculatorError(Exception):
     pass
 
 
+class FakeParenType(Enum):
+    Open = 0
+    Close = 1
+
+
+class FakeParenKind(Enum):
+    Paren = 0
+    Brace = 1
+    Bracket = 2
+
+
+_FAKE_PAREN_TABLE: list[tuple[str, FakeParenType, FakeParenKind]] = [
+    ("(", FakeParenType.Open, FakeParenKind.Paren),
+    (")", FakeParenType.Close, FakeParenKind.Paren),
+]
+
+
 class FakeTokenKind:
     Number = "number"
     Op = "op"
@@ -286,6 +303,10 @@ def _install_fake_calc_native() -> ModuleType:
     calc_native.TokenKind = FakeTokenKind
 
     calc_native.OpArity = FakeArity
+
+    calc_native.ParenType = FakeParenType
+    calc_native.ParenKind = FakeParenKind
+    calc_native.paren_table = lambda: list(_FAKE_PAREN_TABLE)
 
     calc_native.OpId = Id
 

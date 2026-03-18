@@ -1,19 +1,18 @@
 from PySide6.QtGui import QFontMetrics
 
-from tcalc.core.ops import Operation, get_symbols_with_aliases
+from tcalc.core.ops import Operation
 
-BREAK_SYMBOLS: set[str] = get_symbols_with_aliases(
-    lambda op: (
-        op
-        in {
-            Operation.ADD,
-            Operation.SUB,
-            Operation.MUL,
-            Operation.DIV,
-            Operation.POW,
-            Operation.EQUALS,
-        }
-    )
+BREAK_SYMBOLS: frozenset[str] = frozenset(
+    {
+        Operation.ADD.symbol,
+        Operation.SUB.symbol,
+        Operation.MUL.symbol,
+        Operation.DIV.symbol,
+        Operation.EQUALS.symbol,
+        Operation.CLOSE_PAREN.symbol,
+        Operation.CLOSE_BRACE.symbol,
+        Operation.CLOSE_BRACKET.symbol,
+    }
 )
 
 
@@ -21,32 +20,28 @@ def wrap_expression(expr: str, fm: QFontMetrics, max_width: int) -> str:
     if not expr:
         return ""
 
+    advance = fm.horizontalAdvance
     lines: list[str] = []
     line_start = 0
-    i = 0
-    n = len(expr)
+    last_break = -1
+    line_width = 0
 
-    while i < n:
-        current = expr[line_start : i + 1]
-        width = fm.horizontalAdvance(current)
+    for i, ch in enumerate(expr):
+        line_width += advance(ch)
 
-        if width > max_width:
-            break_pos = -1
-            for j in range(i, line_start, -1):
-                if expr[j] in BREAK_SYMBOLS:
-                    break_pos = j + 1
-                    break
+        if ch in BREAK_SYMBOLS:
+            last_break = i + 1
+            # Recalibrate against real substring width to correct kerning drift
+            line_width = advance(expr[line_start : i + 1])
 
-            if break_pos == -1:
-                break_pos = i
+        if line_width > max_width:
+            cut = last_break if last_break > line_start else i
+            lines.append(expr[line_start:cut])
+            line_start = cut
+            last_break = -1
+            line_width = advance(expr[line_start : i + 1])
 
-            lines.append(expr[line_start:break_pos])
-            line_start = break_pos
-            i = break_pos
-        else:
-            i += 1
-
-    if line_start < n:
+    if line_start < len(expr):
         lines.append(expr[line_start:])
 
     return "\n".join(lines)
