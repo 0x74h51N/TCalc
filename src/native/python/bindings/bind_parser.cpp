@@ -313,6 +313,21 @@ void bind_parser(py::module_ &m) {
         "Return list of OpSpec objects from the native operation table.",
         py::return_value_policy::reference);
 
+    m.def(
+        "paren_table",
+        []() -> py::list {
+            py::list out;
+            for (std::size_t i = 0; i < p::kParenTable.size(); ++i) {
+                if (const auto &entry = p::kParenTable[i]) {
+                    out.append(
+                        py::make_tuple(
+                            std::string(1, static_cast<char>(i)), entry->type, entry->kind));
+                }
+            }
+            return out;
+        },
+        "Return the native paren table as a list of (symbol, ParenType, ParenKind) tuples.");
+
     m.attr("PAREN_NO_MATCH") = tcalc::parser::kNoMatch;
 
     m.def("tokenize_string", &tcalc::parser::tokenize, py::arg("expression"));

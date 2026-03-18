@@ -1,20 +1,19 @@
 from PySide6.QtGui import QFontMetrics
 
-from tcalc.core.ops import Operation, get_symbols_with_aliases
+from tcalc.core.ops import Operation
 
-BREAK_SYMBOLS: set[str] = get_symbols_with_aliases(
-    lambda op: (
-        op.symbol
-        in {
-            Operation.ADD,
-            Operation.SUB,
-            Operation.MUL,
-            Operation.DIV,
-            Operation.POW,
-            Operation.EQUALS,
-        }
-    )
-) | {")", "}", "]"}  # Temporary disgusting workaround, TODO: bind native paren table
+BREAK_SYMBOLS: frozenset[str] = frozenset(
+    {
+        Operation.ADD.symbol,
+        Operation.SUB.symbol,
+        Operation.MUL.symbol,
+        Operation.DIV.symbol,
+        Operation.EQUALS.symbol,
+        Operation.CLOSE_PAREN.symbol,
+        Operation.CLOSE_BRACE.symbol,
+        Operation.CLOSE_BRACKET.symbol,
+    }
+)
 
 
 def wrap_expression(expr: str, fm: QFontMetrics, max_width: int) -> str:

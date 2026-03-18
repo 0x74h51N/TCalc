@@ -77,12 +77,16 @@ for native_spec in calc_native.op_table():
     OP_BY_ID[native_spec.id] = native_spec
 
 
+# Build paren UI specs from the native paren table
+_PAREN_SPECS = [
+    (f"{t.name.upper()}_{k.name.upper()}", sym) for sym, t, k in calc_native.paren_table()
+]
+
 # UI-only operations
 _UI_SPECS = (
     ("DIGIT", "digit"),
     ("DOT", "."),
-    ("OPEN_PAREN", "("),
-    ("CLOSE_PAREN", ")"),
+    *_PAREN_SPECS,
     ("EQUALS", "="),
     ("CLEAR", "C"),
     ("BACKSPACE", "⌫"),
