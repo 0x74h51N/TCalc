@@ -100,12 +100,12 @@ class CalculatorController:
             self._compute_and_update()
             return
 
-        formatted_res = clean_for_expression(format_result(self._result))
+        formatted_res = format_result(self._result)
         flat_text = calc_native.tokens_to_flat_text(self._tokenized.tokens)
         entry = HistoryEntry(self._expression, formatted_res, self._tokenized, flat_text)
         self._history.update_history(entry)
         self._just_solved = True
-        self._display.editor.set_plain_text(formatted_res)
+        self._display.editor.set_plain_text(clean_for_expression(formatted_res))
         self._expression = formatted_res
 
         self._edit_ops.reset_navigation()
