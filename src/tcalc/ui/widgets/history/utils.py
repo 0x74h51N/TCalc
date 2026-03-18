@@ -22,31 +22,24 @@ def wrap_expression(expr: str, fm: QFontMetrics, max_width: int) -> str:
         return ""
 
     lines: list[str] = []
+    line_width = 0
     line_start = 0
-    i = 0
-    n = len(expr)
+    last_break = -1
 
-    while i < n:
-        current = expr[line_start : i + 1]
-        width = fm.horizontalAdvance(current)
+    for i, ch in enumerate(expr):
+        line_width += fm.horizontalAdvance(ch)
 
-        if width > max_width:
-            break_pos = -1
-            for j in range(i, line_start, -1):
-                if expr[j] in BREAK_SYMBOLS:
-                    break_pos = j + 1
-                    break
+        if ch in BREAK_SYMBOLS:
+            last_break = i + 1
 
-            if break_pos == -1:
-                break_pos = i
+        if line_width > max_width:
+            cut = last_break if last_break > line_start else i
+            lines.append(expr[line_start:cut])
+            line_start = cut
+            last_break = -1
+            line_width = fm.horizontalAdvance(expr[line_start : i + 1])
 
-            lines.append(expr[line_start:break_pos])
-            line_start = break_pos
-            i = break_pos
-        else:
-            i += 1
-
-    if line_start < n:
+    if line_start < len(expr):
         lines.append(expr[line_start:])
 
     return "\n".join(lines)

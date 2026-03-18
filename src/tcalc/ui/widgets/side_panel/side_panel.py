@@ -40,11 +40,6 @@ class SidePanel(QWidget):
         self._layout.setContentsMargins(margin, margin, margin, margin)
         self._layout.setSpacing(side_panel_config["spacing"])
 
-        self._resize_timer = QTimer(self)
-        self._resize_timer.setSingleShot(True)
-        self._resize_timer.setInterval(15)
-        self._resize_timer.timeout.connect(self._update_fonts)
-
         QTimer.singleShot(0, self._update_fonts)
 
     def add_widget(self, widget: QWidget, stretch: int = 0) -> None:
@@ -77,4 +72,4 @@ class SidePanel(QWidget):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        self._resize_timer.start()
+        self._update_fonts()
