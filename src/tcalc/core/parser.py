@@ -73,11 +73,7 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
                 latex_spec = LatexExpr.get(expr_tok.kind)
                 op_spec = OP_BY_ID[latex_spec.opid]
                 func = getattr(calculator, op_spec.method)
-                # Root: root(radicand, degree) = root(right, left)
-                if expr_tok.kind == calc_native.ExprKind.Root:
-                    result = func(right_val, left_val)
-                else:
-                    result = func(left_val, right_val)
+                result = func(left_val, right_val)
 
                 operand_stack.append(result)
                 continue

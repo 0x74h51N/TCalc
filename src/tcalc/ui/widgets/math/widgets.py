@@ -180,8 +180,8 @@ class RootWidget(ExpressionNode):
         self.radicand.setObjectName("radicandSlot")
         self.radicand.setContentsMargins(0, self.BORDER_PADDING, 0, 0)
 
-        self._left_slot = self.degree
-        self._right_slot = self.radicand
+        self._left_slot = self.radicand
+        self._right_slot = self.degree
         self._top_slot = self.degree
         self._bottom_slot = self.radicand
 

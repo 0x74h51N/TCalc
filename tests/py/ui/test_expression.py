@@ -1670,7 +1670,7 @@ NODE_BACKSPACE_CASES = [
     pytest.param(
         node_backspace_case(
             init_expr="\\root{2}{}",
-            target_path=("node", 0, "radicand", 0),
+            target_path=("node", 0, "degree", 0),
             cursor_pos=0,
             expected_widget_cls_idx=None,
             expected_inner_segments_idx=None,
