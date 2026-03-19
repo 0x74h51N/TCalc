@@ -69,15 +69,14 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
                 right_rpn = shunting_yard(expr_tok.right)
                 left_val = evaluate_rpn(left_rpn, calculator) if left_rpn else 0
                 right_val = evaluate_rpn(right_rpn, calculator) if right_rpn else 0
+                # Root with empty degree defaults to square root
+                if expr_tok.kind == calc_native.ExprKind.Root and not right_rpn:
+                    right_val = 2
 
                 latex_spec = LatexExpr.get(expr_tok.kind)
                 op_spec = OP_BY_ID[latex_spec.opid]
                 func = getattr(calculator, op_spec.method)
-                # Root: root(radicand, degree) = root(right, left)
-                if expr_tok.kind == calc_native.ExprKind.Root:
-                    result = func(right_val, left_val)
-                else:
-                    result = func(left_val, right_val)
+                result = func(left_val, right_val)
 
                 operand_stack.append(result)
                 continue

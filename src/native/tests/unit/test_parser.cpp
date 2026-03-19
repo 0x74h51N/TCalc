@@ -315,12 +315,12 @@ void unit_parser(TestContext &ctx) {
         }},
 
         {.id = "root simple",
-        .input = "\\root{3}{8}",
+        .input = "\\root{8}{3}",
         .expected = {
             {.kind = TokenKind::Expr, .data = ExprToken{
                 .kind = ExprKind::Root,
-                .left  = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
-                .right = {{.kind = TokenKind::Number, .data = NumberToken{"8"}}},
+                .left  = {{.kind = TokenKind::Number, .data = NumberToken{"8"}}},
+                .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
             }, .start_pos = 0, .end_pos = 11},
         }},
 

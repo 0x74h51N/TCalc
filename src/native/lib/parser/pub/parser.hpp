@@ -87,7 +87,7 @@ enum class ExprKind : std::uint8_t {
     /// \pow{base}{exponent}
     Pow,
     /// Root:
-    /// \root{degree}{radicand}
+    /// \root{radicand}{degree}
     Root,
     /// Logarithm:
     /// \log{base}{value}
