@@ -108,8 +108,6 @@ class MathRender(QWidget):
         if suffix:
             suffix_le = slot.insert_input(idx + 2)
             suffix_le.setObjectName("suffix")
-            if not self._read_only:
-                node.focus_default()
             return suffix_le
         return None
 
@@ -274,6 +272,9 @@ class MathRender(QWidget):
                     self._queue(node._left_slot.default_input(), left_tokens, pending)
                 if node._right_slot:
                     self._queue(node._right_slot.default_input(), right_tokens, pending)
+
+                if not self._read_only:
+                    node.focus_default()
 
                 dirty_inputs.add(seg)
                 dirty_inputs.update(node.line_edits())
