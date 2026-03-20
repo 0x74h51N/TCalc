@@ -4,7 +4,7 @@ from enum import Enum, auto
 from typing import Callable
 
 from PySide6.QtCore import QPropertyAnimation
-from PySide6.QtWidgets import QGraphicsOpacityEffect, QWidget
+from PySide6.QtWidgets import QAbstractButton, QGraphicsOpacityEffect, QWidget
 
 
 class Align(Enum):
@@ -63,6 +63,13 @@ def start_fade_out(anim: QPropertyAnimation) -> None:
     anim.setStartValue(1.0)
     anim.setEndValue(0.0)
     anim.start()
+
+
+def apply_button_style(button: QAbstractButton, role: str) -> None:
+    button.setObjectName("keypadButton")
+    button.setProperty("keypadRole", role)
+    button.style().unpolish(button)
+    button.style().polish(button)
 
 
 def rgba(hex_color: str, alpha: float) -> str:

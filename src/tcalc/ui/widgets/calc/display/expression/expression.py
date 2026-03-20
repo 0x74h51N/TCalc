@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (
 from tcalc.core.ops import Operation
 from tcalc.core.parser import tokenize
 from tcalc.ui.components.math_primitives import ParenGlyph
-from tcalc.ui.widgets.calc.config import display_config, font_scale_config
+from tcalc.ui.config import calc_config
 from tcalc.ui.widgets.math.expression_node import (
     ExpressionNode,
     ExpressionSlot,
@@ -571,8 +571,9 @@ class Expression(QWidget):
 
     def update_input_fonts(self, sample: QWidget) -> None:
         """Update font and width of all inputs based on sample widget size."""
-        base_font = int(display_config["expression_font_size"])
-        max_pt = int(font_scale_config["display_expression"]["max_pt"])
+        font_scale_config = calc_config["display"]["font_scale"]
+        base_font = int(calc_config["display"]["expression_font_size"])
+        max_pt = int(font_scale_config["expression"]["max_pt"])
         self.renderer.update_line_fonts(
-            self.expression_inputs(), sample, base_font, max_pt, display_config
+            self.expression_inputs(), sample, base_font, max_pt, calc_config["display"]
         )

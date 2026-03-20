@@ -89,8 +89,16 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
     ),
     MenuSeparatorItem(),
     MenuActionItem(
+        text="Show Keypad",
+        icon="input-keyboard",
+        checkable=True,
+        item_type=MenuActionType.TOGGLE,
+        checked_attr="show_keypad",
+        fn=SettingsOperations.toggle_keypad,
+    ),
+    MenuActionItem(
         text="Show History",
-        icon="view-history",
+        icon="document-open-recent",
         checkable=True,
         item_type=MenuActionType.TOGGLE,
         checked_attr="show_history",

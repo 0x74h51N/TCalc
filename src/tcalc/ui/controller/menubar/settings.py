@@ -21,3 +21,7 @@ class SettingsOperations:
     def toggle_constants(self, checked: bool) -> None:
         self._app_state.show_constant_buttons = checked
         self._window.update_layout()
+
+    def toggle_keypad(self, checked: bool) -> None:
+        self._app_state.show_keypad = checked
+        self._window.update_layout()

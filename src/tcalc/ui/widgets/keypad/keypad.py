@@ -14,14 +14,19 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.app_state import CalculatorMode, get_app_state
-from tcalc.core import Operation
+from tcalc.core.ops import Operation
+from tcalc.ui.widgets.keypad.utils import (
+    KeyDef,
+    add_keys_to_grid,
+    create_button,
+    handle_button_clicked,
+    make_grid,
+)
 
-from ...utils import apply_scaled_fonts
-from ..config import font_scale_config, keypad_config
-from ..style import apply_button_style
-from ..utils import KeyDef, add_keys_to_grid, create_button, handle_button_clicked, make_grid
+from ...config import keypad_config
+from ..common.utils import apply_button_style
+from ..utils import apply_scaled_fonts
 from .keypad_defins import NORMAL_MODE_KEYS, SCIENCE_MODE_KEYS, SIDEBAR_KEYS
-from .style import apply_keypad_style
 
 
 class Keypad(QWidget):
@@ -41,8 +46,6 @@ class Keypad(QWidget):
         self._button_group.buttonClicked.connect(self._on_button_clicked)
         self._base_key_def_by_button: dict[QAbstractButton, KeyDef] = {}
         self._key_def_by_button: dict[QAbstractButton, KeyDef] = {}
-
-        apply_keypad_style(self)
 
         # Root layout
         self._main_layout = QVBoxLayout(self)
@@ -168,8 +171,9 @@ class Keypad(QWidget):
     # -- Font scaling ----------------------------------------------------
     #
     def _update_button_fonts(self) -> None:
-        scale = font_scale_config["keypad_buttons"]
-        apply_scaled_fonts(self, self._buttons.values(), int(scale["min_pt"]), int(scale["max_pt"]))
+        apply_scaled_fonts(
+            self, self._buttons.values(), int(keypad_config["min_pt"]), int(keypad_config["max_pt"])
+        )
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

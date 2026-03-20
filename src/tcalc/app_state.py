@@ -45,10 +45,11 @@ class AppState:
             self._settings.value("history_mode", RenderMode.FLAT.value)
         )
 
+        self._show_keypad: bool = bool(self._settings.value("show_keypad", False, type=bool))
+
         self._show_constant_buttons: bool = bool(
             self._settings.value("show_constant_buttons", False, type=bool)
         )
-
         # Undo/redo state (not persisted)
         self.history_index: int = -1
         self.redo_cached_exprs: str = ""
@@ -91,6 +92,15 @@ class AppState:
     def history_mode(self, value: RenderMode) -> None:
         self._history_mode = value
         self._settings.setValue("history_mode", value.value)
+
+    @property
+    def show_keypad(self) -> bool:
+        return self._show_keypad
+
+    @show_keypad.setter
+    def show_keypad(self, value: bool) -> None:
+        self._show_keypad = value
+        self._settings.setValue("show_keypad", value)
 
     @property
     def show_constant_buttons(self) -> bool:

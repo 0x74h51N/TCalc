@@ -1,0 +1,50 @@
+/* Display */
+QLineEdit[exprInput="true"] {
+    border: none;
+    background-color: transparent;
+    color: $text_secondary;
+    selection-background-color: $selection_background;
+    selection-color: $selection_text;
+}
+
+QWidget[exprSlot="true"][exprSlotKind="aux"] {
+    background-color: $background_dark;
+}
+
+QWidget[exprSlot="true"][exprSlotKind="aux"] QLineEdit[exprKind="aux"]:focus,
+QWidget[exprSlot="true"][exprSlotKind="script"] QLineEdit[exprKind="script"]:focus {
+    background-color: $background_light;
+}
+
+QWidget#radicandSlot, QWidget#radicandSlot:focus {
+    border-top: ${root_border_width}px solid $selection_text;
+}
+
+QScrollArea#displayExpression,
+QScrollArea#displayExpression QWidget#qt_scrollarea_viewport,
+QWidget#displayExpressionEditor {
+    background-color: $background_dark;
+}
+
+QLabel#displayResult {
+    color: $text_primary;
+}
+
+QFrame#displayDivider {
+    min-height: ${divider_height}px;
+    max-height: ${divider_height}px;
+}
+
+/* Topbar memory buttons */
+QPushButton[keypadRole="memory"] {
+    background-color: $memory_bg;
+    color: $accent_text;
+    border: none;
+    padding: ${compact_pad_y}px ${compact_pad_x}px;
+}
+QPushButton[keypadRole="memory"]:hover {
+    background-color: $memory_bg_hover;
+}
+QPushButton[keypadRole="memory"]:pressed, QPushButton[keypadRole="memory"][pressed="true"] {
+    background-color: $memory_bg_pressed;
+}
