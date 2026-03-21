@@ -6,9 +6,8 @@ from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QWidget
 
 from tcalc.theme import get_theme
-
-from ....config import calc_config
-from ....styles import build_subs, load_qss
+from tcalc.ui.config import calc_config
+from tcalc.ui.styles import build_subs, load_qss
 
 _QSS = Path(__file__).with_suffix(".qss")
 

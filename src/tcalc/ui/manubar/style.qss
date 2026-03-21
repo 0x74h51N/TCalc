@@ -1,0 +1,41 @@
+QMenu {
+    background: $menu_background;
+    color: $menu_text;
+    border: 1px solid $menu_border;
+    padding: ${menu_padding}px;
+    font-size: ${menu_font_size}px;
+}
+
+QMenu::item {
+    padding: ${item_padding_vertical}px ${item_padding_horizontal}px;
+    border-radius: ${item_border_radius}px;
+    margin: ${item_margin}px 0;
+    min-width: ${item_min_width}px;
+}
+
+QMenu::item:selected {
+    background: $selected_background;
+    color: $selected_text;
+    border: 1px solid $selected_border;
+}
+
+QMenu::item:disabled {
+    color: $disabled_text;
+}
+
+QMenu::item:checked {
+    background: $selected_background;
+    color: $selected_text;
+    border: 1px solid $selected_border;
+}
+
+QMenu::icon {
+    padding-left: ${icon_padding_left}px;
+    padding-right: ${icon_padding_right}px;
+}
+
+QMenu::separator {
+    height: ${separator_height}px;
+    background: $separator_color;
+    margin: ${separator_margin_vertical}px ${separator_margin_horizontal}px;
+}

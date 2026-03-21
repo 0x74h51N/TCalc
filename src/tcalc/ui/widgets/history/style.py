@@ -6,11 +6,10 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QAbstractItemView, QListWidget
 
+from tcalc.theme import get_theme
 from tcalc.ui.config import calc_config
 from tcalc.ui.config import history_style as style
-
-from ....theme import get_theme
-from ...styles import build_subs, load_qss
+from tcalc.ui.styles import build_subs, load_qss
 
 _QSS = Path(__file__).with_suffix(".qss")
 

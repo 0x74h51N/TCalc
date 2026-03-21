@@ -1,63 +1,22 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtWidgets import QMenuBar
 
-from ...theme import get_theme
-from .config import style
+from tcalc.theme import get_theme
+from tcalc.ui.config import manubar_style
+from tcalc.ui.styles import build_subs, load_qss
 
-
-def _build_menu_stylesheet() -> str:
-    theme = get_theme()
-    c = theme.colors
-    s = style
-
-    return f"""
-QMenu {{
-    background: {c["background_medium"]};
-    color: {c["text_primary"]};
-    border: 1px solid {c["border_light"]};
-    padding: {s["menu_padding"]}px;
-    font-size: {s["font_size"]}px;
-}}
-
-QMenu::item {{
-    padding: {s["item_padding_vertical"]}px {s["item_padding_horizontal"]}px;
-    border-radius: {s["item_border_radius"]}px;
-    margin: {s["item_margin"]}px 0;
-    min-width: {s["item_min_width"]}px;
-}}
-
-QMenu::item:selected {{
-    background: {c["selection_background"]};
-    color: {c["selection_text"]};
-    border: 1px solid {c["border_focus"]};
-}}
-
-QMenu::item:disabled {{
-    color: {c["text_secondary"]};
-}}
-
-QMenu::item:checked {{
-    background: {c["selection_background"]};
-    color: {c["selection_text"]};
-    border: 1px solid {c["border_focus"]};
-}}
-
-QMenu::icon {{
-    padding-left: {s["icon_padding_left"]}px;
-    padding-right: {s["icon_padding_right"]}px;
-}}
-
-QMenu::separator {{
-    height: {s["separator_height"]}px;
-    background: {c["border_light"]};
-    margin: {s["separator_margin_vertical"]}px {s["separator_margin_horizontal"]}px;
-}}
-"""
+_QSS = Path(__file__).with_suffix(".qss")
 
 
 def apply_menu_styles(menu_bar: QMenuBar) -> None:
-    base = menu_bar.styleSheet()
-    sheet = _build_menu_stylesheet()
-    merged = sheet if not base else f"{base}\n{sheet}"
-    menu_bar.setStyleSheet(merged)
+    subs = build_subs()
+    c = get_theme().colors
+
+    for k, v in manubar_style.items():
+        subs[k] = c[v] if isinstance(v, str) else str(int(v))
+
+    sheet = load_qss(_QSS, subs)
+    menu_bar.setStyleSheet(sheet)
