@@ -32,7 +32,7 @@ QWidget#historyItem QWidget[exprSlot="true"] QLineEdit {
 }
 
 QWidget#radicandSlot, QWidget#radicandSlot:focus {
-    border-top: 2px solid $selection_text;  /* make this global and other math expression styles */
+    border-top: ${root_border_width}px solid $selection_text;
 }
 
 QWidget#historyItem QScrollArea#historyExprScroll {

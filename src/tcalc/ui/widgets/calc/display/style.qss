@@ -35,16 +35,3 @@ QFrame#displayDivider {
     max-height: ${divider_height}px;
 }
 
-/* Topbar memory buttons */
-QPushButton[keypadRole="memory"] {
-    background-color: $memory_bg;
-    color: $accent_text;
-    border: none;
-    padding: ${compact_pad_y}px ${compact_pad_x}px;
-}
-QPushButton[keypadRole="memory"]:hover {
-    background-color: $memory_bg_hover;
-}
-QPushButton[keypadRole="memory"]:pressed, QPushButton[keypadRole="memory"][pressed="true"] {
-    background-color: $memory_bg_pressed;
-}

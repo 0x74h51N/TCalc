@@ -1,0 +1,16 @@
+QPushButton[keypadRole="memory"] {
+    background-color: $memory_bg;
+    color: $accent_text;
+    border: none;
+    padding: ${memory_pad_y}px ${memory_pad_x}px;
+}
+QPushButton[keypadRole="memory"]:hover {
+    background-color: $memory_bg_hover;
+}
+QPushButton[keypadRole="memory"]:pressed, QPushButton[keypadRole="memory"][pressed="true"] {
+    background-color: $memory_bg_pressed;
+}
+QPushButton[keypadRole="memory"]:disabled {
+    background-color: $memory_disabled_bg;
+    color: $memory_disabled_text;
+}

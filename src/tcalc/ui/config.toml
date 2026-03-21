@@ -25,7 +25,9 @@ tooltip_padding = 2
 
 # OptionGroup (reusable radio-button group) style
 [style.option_group]
+checked_base = "accent"
 checked_alpha = 0.25
+hover_base = "secondary_hover"
 hover_alpha = 0.35
 padding_y = 4
 padding_x = 10
@@ -113,7 +115,9 @@ display_stretch = 5
 divider_line_width = 1
 
 [calc.style]
+disabled_background_base = "secondary_hover"
 disabled_background_alpha = 0.1
+disabled_text_base = "accent_text"
 disabled_text_alpha = 0.3
 compact_button_padding_y = 4
 compact_button_padding_x = 8
@@ -150,7 +154,16 @@ bottom_margin = 5
 grid_spacing = 2
 spacer_stretch = 1
 
-# Memory button alpha multipliers
+# Memory button padding (px)
+memory_padding_y = 8
+memory_padding_x = 14
+
+# Memory button colors (base = theme color key, alpha = opacity)
+memory_background_base = "accent"
 memory_background_alpha = 0.2
 memory_background_hover_alpha = 0.28
 memory_background_pressed_alpha = 0.38
+memory_disabled_base = "secondary_hover"
+memory_disabled_alpha = 0.1
+memory_disabled_text_base = "accent_text"
+memory_disabled_text_alpha = 0.3

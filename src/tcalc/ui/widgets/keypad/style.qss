@@ -56,7 +56,6 @@ QPushButton[keypadRole="equals"]:pressed, QPushButton[keypadRole="equals"][press
 QPushButton[keypadRole="trig"] {
     background-color: $action;
     color: $action_text;
-
 }
 QPushButton[keypadRole="trig"]:hover {
     border: 1px solid $accent_text;
