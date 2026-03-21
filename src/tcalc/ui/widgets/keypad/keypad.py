@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from tcalc.app_state import CalculatorMode, get_app_state
+from tcalc.app_state import get_app_state
 from tcalc.core.ops import Operation
 from tcalc.ui.widgets.keypad.utils import (
     KeyDef,
@@ -79,13 +79,6 @@ class Keypad(QWidget):
 
         # Sidebar keys
         add_keys_to_grid(SIDEBAR_KEYS, self._sidebar_grid, self._add_key)
-        self._buttons["Shift"].setVisible(get_app_state().mode != CalculatorMode.SIMPLE)
-        show_constants = get_app_state().show_constant_buttons
-        for label in ("π", "e"):
-            btn = self._buttons.get(label)
-            if btn is not None:
-                btn.setVisible(show_constants)
-
         self._update_button_fonts()
         QTimer.singleShot(0, self._update_button_fonts)
 
@@ -166,6 +159,15 @@ class Keypad(QWidget):
 
     def get_button(self, label: str) -> Optional[QPushButton]:
         return self._buttons.get(label)
+
+    def set_science_visible(self, visible: bool) -> None:
+        self._science_widget.setVisible(visible)
+
+    def set_shift_visible(self, visible: bool) -> None:
+        self._buttons["Shift"].setVisible(visible)
+
+    def set_shift_checked(self, checked: bool) -> None:
+        self._buttons["Shift"].setChecked(checked)
 
     #
     # -- Font scaling ----------------------------------------------------

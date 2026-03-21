@@ -13,14 +13,13 @@ from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
 
 from tcalc.app_state import CalculatorMode, get_app_state
 from tcalc.ui.keyboard import KeyboardHandler
-from tcalc.ui.widgets.keypad.keypad import Keypad
 
 from ..core import Calculator
 from .config import history_style, memory_style, window
 from .controller import CalculatorController, EditOperations
 from .controller.utils import format_result
 from .manubar.menu import Menubar
-from .widgets import CalcWidget, History, MemoryBar, SidePanel
+from .widgets import CalcWidget, History, Keypad, MemoryBar, SidePanel
 
 
 class MainWindow(QMainWindow):
@@ -28,18 +27,29 @@ class MainWindow(QMainWindow):
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        app_state = get_app_state()
 
         self.calculator: Calculator = Calculator()
         self.setWindowTitle("TCalc")
 
-        # --- Central widget: display + topbar ---
         self.calc_widget = CalcWidget(parent=self)
         self.setCentralWidget(self.calc_widget)
 
         self.menubar = Menubar(self)
 
-        # Keypad
+        self._setup_keypad_dock()
+        self._setup_history_dock()
+        self._setup_controller()
+        self._setup_keyboard()
+
+        self.update_layout()
+        self._restore_window_state()
+
+    # ------------------------------------------------------------------
+    # Setup helpers
+    # ------------------------------------------------------------------
+
+    def _setup_keypad_dock(self) -> None:
+        app_state = get_app_state()
         self.keypad = Keypad(parent=self)
 
         self._keypad_dock = QDockWidget("Keypad", self)
@@ -51,22 +61,20 @@ class MainWindow(QMainWindow):
             | Qt.DockWidgetArea.RightDockWidgetArea
         )
         self._keypad_dock.setMinimumWidth(window["calc_min_width"])
-
         self._keypad_dock.setVisible(app_state.show_keypad)
         self._keypad_dock.visibilityChanged.connect(self._on_keypad_visibility_changed)
 
-        # Connect settings menu to visibility changes
-        settings_menu = self.menubar.settings_menu
-        if settings_menu is not None:
-            settings_menu.window = self  # Pass window reference for UI updates
+    def _setup_history_dock(self) -> None:
+        app_state = get_app_state()
 
-        # Side panel: memory bar + history
         self.memory_bar = MemoryBar()
         self.history = History(mode=app_state.mode)
 
         self.side_panel = SidePanel(parent=self)
         self.side_panel.add_widget(self.memory_bar)
         self.side_panel.add_widget(self.history, stretch=1)
+
+        self._register_font_targets()
 
         self._history_dock = QDockWidget("History", self)
         self._history_dock.setObjectName("historyDock")
@@ -77,14 +85,12 @@ class MainWindow(QMainWindow):
             | Qt.DockWidgetArea.BottomDockWidgetArea
         )
         self._history_dock.setMinimumWidth(window["history_min_width"])
-
-        # Sync dock visibility with app_state
         self._history_dock.setVisible(app_state.show_history)
         self._history_dock.visibilityChanged.connect(self._on_history_visibility_changed)
 
-        # Register font targets on side panel
+    def _register_font_targets(self) -> None:
         self.side_panel.register_font_targets(
-            [self.memory_bar._memory_label, self.memory_bar._memory_value],
+            self.memory_bar.font_targets,
             int(memory_style["font_size"]),
             int(memory_style["max_pt"]),
         )
@@ -104,12 +110,10 @@ class MainWindow(QMainWindow):
             int(history_style["clr_btn_min_pt"]),
             int(history_style["clr_btn_max_pt"]),
         )
-        self.history.items_changed.connect(self.side_panel._update_fonts)
+        self.history.items_changed.connect(self.side_panel.update_fonts)
 
-        # Edit operations
+    def _setup_controller(self) -> None:
         self.edit_ops = EditOperations(self)
-
-        # Controller binding
         self.controller = CalculatorController(
             self.calculator,
             self.calc_widget.display,
@@ -123,34 +127,84 @@ class MainWindow(QMainWindow):
         self.calc_widget.topbar.key_pressed.connect(self.controller.handle_key)
         self.calc_widget.topbar.angle_changed.connect(self.controller.set_angle_unit)
 
-        # Keyboard handler for global shortcuts
+    def _setup_keyboard(self) -> None:
         self._keyboard_handler = KeyboardHandler(
             self.calc_widget.display.editor,
             self.keypad,
             self.controller,
         )
 
-        # Sync initial keypad state and size constraints
-        self.update_layout()
-        self._restore_window_state()
+    # ------------------------------------------------------------------
+    # Layout & state sync
+    # ------------------------------------------------------------------
+
+    def update_layout(self) -> None:
+        app_state = get_app_state()
+        self._sync_dock_visibility(app_state)
+        self._sync_mode_widgets(app_state)
+        self._sync_memory_state(app_state)
+
+    def _sync_dock_visibility(self, app_state) -> None:
+        self._history_dock.setVisible(app_state.show_history)
+        self._keypad_dock.setVisible(app_state.show_keypad)
+
+    def _sync_mode_widgets(self, app_state) -> None:
+        is_science = app_state.mode == CalculatorMode.SCIENCE
+        topbar = self.calc_widget.topbar
+
+        self.keypad.set_science_visible(is_science)
+        topbar.set_angle_visible(is_science)
+        self.keypad.set_shift_visible(app_state.mode != CalculatorMode.SIMPLE)
+
+        topbar.set_angle(app_state.angle_unit)
+
+        hyp_btn = self.keypad.get_button("Hyp")
+        if hyp_btn:
+            hyp_btn.setChecked(bool(app_state.hyp))
+
+        self.keypad.set_shift_checked(bool(app_state.shifted))
+
+        for label in ("π", "e"):
+            btn = self.keypad.get_button(label)
+            if btn is not None:
+                btn.setVisible(bool(app_state.show_constant_buttons))
+
+    def _sync_memory_state(self, app_state) -> None:
+        self.calc_widget.topbar.set_memory_available(app_state.memory is not None)
+        self.memory_bar.set_memory(
+            "" if app_state.memory is None else format_result(app_state.memory)
+        )
+
+    # ------------------------------------------------------------------
+    # Events & signals
+    # ------------------------------------------------------------------
 
     def keyPressEvent(self, event):
         if self._keyboard_handler.handle_key_press(event):
             return
         super().keyPressEvent(event)
 
+    def closeEvent(self, event) -> None:
+        self._save_window_state()
+        super().closeEvent(event)
+
     def _on_history_visibility_changed(self, visible: bool) -> None:
-        """Sync app_state when history dock is shown/hidden"""
+        """Sync app_state when history dock is shown/hidden."""
         app_state = get_app_state()
         if app_state.show_history != visible:
             app_state.show_history = visible
         self.menubar.settings_menu.sync_toggle("show_history", visible)
 
     def _on_keypad_visibility_changed(self, visible: bool) -> None:
+        """Sync app_state when keypad dock is shown/hidden."""
         app_state = get_app_state()
         if app_state.show_keypad != visible:
             app_state.show_keypad = visible
         self.menubar.settings_menu.sync_toggle("show_keypad", visible)
+
+    # ------------------------------------------------------------------
+    # Window state persistence
+    # ------------------------------------------------------------------
 
     def _restore_window_state(self) -> None:
         settings = QSettings("TCalc", "TCalc")
@@ -171,7 +225,6 @@ class MainWindow(QMainWindow):
         self._on_keypad_visibility_changed(self._keypad_dock.isVisible())
 
     def _save_window_state(self) -> None:
-
         settings = QSettings("TCalc", "TCalc")
         settings.setValue("window/geometry", self.saveGeometry())
         settings.setValue("window/state", self.saveState(self.WINDOW_STATE_VERSION))
@@ -183,38 +236,9 @@ class MainWindow(QMainWindow):
         self.setCorner(Qt.Corner.BottomRightCorner, Qt.DockWidgetArea.RightDockWidgetArea)
         self.setCorner(Qt.Corner.BottomLeftCorner, Qt.DockWidgetArea.LeftDockWidgetArea)
 
-    def closeEvent(self, event) -> None:
-        self._save_window_state()
-        super().closeEvent(event)
-
-    def update_layout(self) -> None:
-        app_state = get_app_state()
-        self._history_dock.setVisible(app_state.show_history)
-        self._keypad_dock.setVisible(app_state.show_keypad)
-
-        is_science = app_state.mode == CalculatorMode.SCIENCE
-        topbar = self.calc_widget.topbar
-        self.keypad._science_widget.setVisible(is_science)
-        topbar._angle_group.setVisible(is_science)
-        self.keypad._buttons["Shift"].setVisible(app_state.mode != CalculatorMode.SIMPLE)
-
-        topbar.set_angle(app_state.angle_unit)
-
-        hyp_btn = self.keypad.get_button("Hyp")
-        if hyp_btn:
-            hyp_btn.setChecked(bool(app_state.hyp))
-
-        self.keypad._buttons["Shift"].setChecked(bool(app_state.shifted))
-
-        for label in ("π", "e"):
-            btn = self.keypad.get_button(label)
-            if btn is not None:
-                btn.setVisible(bool(app_state.show_constant_buttons))
-
-        topbar.set_memory_available(app_state.memory is not None)
-        self.memory_bar.set_memory(
-            "" if app_state.memory is None else format_result(app_state.memory)
-        )
+    # ------------------------------------------------------------------
+    # Hints
+    # ------------------------------------------------------------------
 
     def sizeHint(self) -> QSize:
         return QSize(int(window["size_hint_width"]), int(window["size_hint_height"]))

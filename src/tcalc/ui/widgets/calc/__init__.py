@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from ...config import calc_config
 from .display.display import Display
@@ -37,10 +37,3 @@ class CalcWidget(QWidget):
         self.topbar.setAutoFillBackground(True)
         self.topbar.setPalette(self.display.palette())
         layout.addWidget(self.topbar)
-
-        # Horizontal line
-        line = QFrame(self)
-        line.setFrameShape(QFrame.Shape.HLine)
-        line.setFrameShadow(QFrame.Shadow.Sunken)
-        line.setLineWidth(calc_config["layout"]["divider_line_width"])
-        layout.addWidget(line)

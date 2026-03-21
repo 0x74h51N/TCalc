@@ -90,6 +90,9 @@ class TopBar(QWidget):
     def get_button(self, label: str) -> Optional[QPushButton]:
         return self._buttons.get(label)
 
+    def set_angle_visible(self, visible: bool) -> None:
+        self._angle_group.setVisible(visible)
+
     def set_angle(self, unit: AngleUnit) -> None:
         self._angle_group.set_current(unit)
 
