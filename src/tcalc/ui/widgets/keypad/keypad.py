@@ -13,15 +13,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from tcalc.app_state import CalculatorMode, get_app_state
-from tcalc.core import Operation
+from tcalc.app_state import get_app_state
+from tcalc.core.ops import Operation
+from tcalc.ui.widgets.keypad.utils import (
+    KeyDef,
+    add_keys_to_grid,
+    create_button,
+    handle_button_clicked,
+    make_grid,
+)
 
-from ...utils import apply_scaled_fonts
-from ..config import font_scale_config, keypad_config
-from ..style import apply_button_style
-from ..utils import KeyDef, add_keys_to_grid, create_button, handle_button_clicked, make_grid
+from ...config import keypad_config
+from ..common.utils import apply_button_style
+from ..utils import apply_scaled_fonts
 from .keypad_defins import NORMAL_MODE_KEYS, SCIENCE_MODE_KEYS, SIDEBAR_KEYS
-from .style import apply_keypad_style
 
 
 class Keypad(QWidget):
@@ -41,8 +46,6 @@ class Keypad(QWidget):
         self._button_group.buttonClicked.connect(self._on_button_clicked)
         self._base_key_def_by_button: dict[QAbstractButton, KeyDef] = {}
         self._key_def_by_button: dict[QAbstractButton, KeyDef] = {}
-
-        apply_keypad_style(self)
 
         # Root layout
         self._main_layout = QVBoxLayout(self)
@@ -76,13 +79,6 @@ class Keypad(QWidget):
 
         # Sidebar keys
         add_keys_to_grid(SIDEBAR_KEYS, self._sidebar_grid, self._add_key)
-        self._buttons["Shift"].setVisible(get_app_state().mode != CalculatorMode.SIMPLE)
-        show_constants = get_app_state().show_constant_buttons
-        for label in ("π", "e"):
-            btn = self._buttons.get(label)
-            if btn is not None:
-                btn.setVisible(show_constants)
-
         self._update_button_fonts()
         QTimer.singleShot(0, self._update_button_fonts)
 
@@ -164,12 +160,22 @@ class Keypad(QWidget):
     def get_button(self, label: str) -> Optional[QPushButton]:
         return self._buttons.get(label)
 
+    def set_science_visible(self, visible: bool) -> None:
+        self._science_widget.setVisible(visible)
+
+    def set_shift_visible(self, visible: bool) -> None:
+        self._buttons["Shift"].setVisible(visible)
+
+    def set_shift_checked(self, checked: bool) -> None:
+        self._buttons["Shift"].setChecked(checked)
+
     #
     # -- Font scaling ----------------------------------------------------
     #
     def _update_button_fonts(self) -> None:
-        scale = font_scale_config["keypad_buttons"]
-        apply_scaled_fonts(self, self._buttons.values(), int(scale["min_pt"]), int(scale["max_pt"]))
+        apply_scaled_fonts(
+            self, self._buttons.values(), int(keypad_config["min_pt"]), int(keypad_config["max_pt"])
+        )
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

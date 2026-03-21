@@ -56,6 +56,7 @@ DEFAULT_ACTION_SHORTCUTS: dict[ShortcutId, str] = {
     EditOperations.copy: "Ctrl+C",
     EditOperations.paste: "Ctrl+V",
     SettingsOperations.toggle_history: "Ctrl+H",
+    SettingsOperations.toggle_keypad: "Ctrl+K",
 }
 
 

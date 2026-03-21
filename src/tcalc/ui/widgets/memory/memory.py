@@ -40,6 +40,10 @@ class MemoryBar(QWidget):
         self.setVisible(False)
         self._memory_divider.setVisible(False)
 
+    @property
+    def font_targets(self) -> list[QLabel]:
+        return [self._memory_label, self._memory_value]
+
     def set_memory(self, text: str) -> None:
         """Set and show memorised values on Memory bar"""
         if text:

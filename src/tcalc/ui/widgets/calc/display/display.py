@@ -14,8 +14,8 @@ from PySide6.QtWidgets import (
 
 from tcalc.ui.widgets.calc.display.expression import Expression
 
+from ....config import calc_config
 from ...utils import apply_scaled_fonts
-from ..config import display_config, font_scale_config
 from .style import apply_display_style
 
 
@@ -26,14 +26,15 @@ class Display(QWidget):
         super().__init__(parent)
         self.setObjectName("displayWidget")
 
+        _display = calc_config["display"]
         layout = QVBoxLayout(self)
         layout.setContentsMargins(
-            display_config["margin"],
-            display_config["margin"],
-            display_config["margin"],
-            display_config["margin"],
+            _display["margin"],
+            _display["margin"],
+            _display["margin"],
+            _display["margin"],
         )
-        layout.setSpacing(display_config["spacing"])
+        layout.setSpacing(_display["spacing"])
 
         self.editor = Expression(self)
         self.editor.setObjectName("displayExpressionEditor")
@@ -63,7 +64,7 @@ class Display(QWidget):
         self.result_label.setObjectName("displayResult")
 
         result_font = QFont()
-        result_font.setPointSize(display_config["result_font_size"])
+        result_font.setPointSize(_display["result_font_size"])
         result_font.setBold(True)
 
         self.result_label.setFont(result_font)
@@ -79,7 +80,8 @@ class Display(QWidget):
         self.result_label.setText(result_text)
 
     def _update_fonts(self) -> None:
-        result_scale = font_scale_config["display_result"]
+
+        result_scale = calc_config["display"]["font_scale"]["result"]
         apply_scaled_fonts(
             self,
             [self.result_label],

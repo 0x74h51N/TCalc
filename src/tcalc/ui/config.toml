@@ -3,7 +3,7 @@
 [window]
 # Minimum dimensions (pixels)
 min_height = 520
-calc_min_width = 330
+calc_min_width = 450
 history_min_width = 320
 science_panel_width = 120
 
@@ -80,3 +80,77 @@ scale_script = 0.5
 font_size = 9
 max_pt = 13
 divider_spacing = 4
+
+
+[keypad]
+top_margin = 10
+side_margin = 10
+bottom_margin = 10
+grid_spacing = 2
+hbox_spacing = 18
+hbox_stretch = 1
+
+# Grid stretch ratios
+normal_mode_keys_stretch = 8
+right_side_grid_stretch = 2
+science_grid_stretch = 4
+
+column_split = 3
+
+min_pt = 4
+max_pt = 20
+
+keypad_stretch = 5
+
+# Base keypad button padding (px)
+button_padding = 10
+
+# ---------------------------------------------------------------------------
+# Calc widget (display + topbar)
+# ---------------------------------------------------------------------------
+[calc.layout]
+display_stretch = 5
+divider_line_width = 1
+
+[calc.style]
+disabled_background_alpha = 0.1
+disabled_text_alpha = 0.3
+compact_button_padding_y = 4
+compact_button_padding_x = 8
+
+[calc.display]
+margin = 10
+spacing = 6
+divider_height = 1
+root_border_width = 2
+
+# Font sizes
+expression_font_size = 14
+result_font_size = 16
+
+# Expression line sizing
+expression_height_factor = 1.8
+expression_min_height = 30
+
+# Font/height scale ratios by input kind (relative to MAIN)
+scale_main = 1.0
+scale_aux = 1.0
+scale_script = 0.5
+
+[calc.display.font_scale.expression]
+max_pt = 26
+
+[calc.display.font_scale.result]
+max_pt = 30
+
+[calc.topbar]
+side_margin = 10
+top_margin = 10
+bottom_margin = 5
+grid_spacing = 2
+spacer_stretch = 1
+
+# Memory button alpha multipliers
+memory_background_alpha = 0.2
+memory_background_hover_alpha = 0.28
+memory_background_pressed_alpha = 0.38

@@ -70,6 +70,9 @@ class SidePanel(QWidget):
         """Register *targets* for font scaling between *min_pt* and *max_pt*."""
         self._font_targets.append((targets, min_pt, max_pt, callback))
 
+    def update_fonts(self) -> None:
+        self._update_fonts()
+
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self._update_fonts()

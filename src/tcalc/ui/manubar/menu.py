@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class Menubar:
     def __init__(self, window: MainWindow) -> None:
         self.window = window
-        self.settings_menu: SettingsMenu | None = None
+        self.settings_menu: SettingsMenu
         self.shortcuts = ShortcutManager()
         self._create_menubar()
 

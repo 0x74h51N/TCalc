@@ -27,6 +27,12 @@ _memory = _config.get("memory", {})
 memory_style = _memory.get("style", {})
 
 
+keypad_config = _config["keypad"]
+
+# Calc widget (display + topbar)
+calc_config = _config["calc"]
+
+
 def get_history_width_from_total(total_width: int) -> int:
     # Calculate history width based on total width and ratio
 
