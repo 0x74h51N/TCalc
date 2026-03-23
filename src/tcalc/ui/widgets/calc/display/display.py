@@ -81,12 +81,12 @@ class Display(QWidget):
 
     def _update_fonts(self) -> None:
 
-        result_scale = calc_config["display"]["font_scale"]["result"]
+        rslt_max_pt = int(calc_config["display"]["rslt_max_pt"])
         apply_scaled_fonts(
             self,
             [self.result_label],
-            int(result_scale["max_pt"] * 0.5),
-            int(result_scale["max_pt"]),
+            rslt_max_pt // 2,
+            rslt_max_pt,
         )
         self.editor.update_input_fonts(self._expr_scroll)
 

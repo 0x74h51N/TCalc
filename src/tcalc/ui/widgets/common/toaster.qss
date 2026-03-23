@@ -1,0 +1,18 @@
+Toaster {
+    color: $text_primary;
+    padding: ${toast_pad_y}px ${toast_pad_x}px;
+    border-radius: ${toast_border_radius}px;
+    font-size: ${toast_font_size}px;
+}
+
+Toaster[toastLevel="info"] {
+    background: $toast_bg_info;
+}
+
+Toaster[toastLevel="warn"] {
+    background: $toast_bg_warn;
+}
+
+Toaster[toastLevel="error"] {
+    background: $toast_bg_error;
+}

@@ -27,6 +27,7 @@ from ...config import keypad_config
 from ..common.utils import apply_button_style
 from ..utils import apply_scaled_fonts
 from .keypad_defins import NORMAL_MODE_KEYS, SCIENCE_MODE_KEYS, SIDEBAR_KEYS
+from .style import apply_keypad_style
 
 
 class Keypad(QWidget):
@@ -91,6 +92,8 @@ class Keypad(QWidget):
         if hyp_btn is not None:
             hyp_btn.toggled.connect(lambda _checked: QTimer.singleShot(0, self._sync_trig_buttons))
             hyp_btn.setChecked(get_app_state().hyp)
+
+        apply_keypad_style(self)
 
     def _on_button_clicked(self, button: QAbstractButton) -> None:
         key_def = self._key_def_by_button.get(button)

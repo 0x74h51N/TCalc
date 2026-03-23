@@ -27,10 +27,16 @@ _memory = _config.get("memory", {})
 memory_style = _memory.get("style", {})
 
 
+# Toast
+toast_config = _config["toast"]
+
 keypad_config = _config["keypad"]
 
 # Calc widget (display + topbar)
 calc_config = _config["calc"]
+
+# Menu bar
+manubar_style = _config["manubar"]["style"]
 
 
 def get_history_width_from_total(total_width: int) -> int:

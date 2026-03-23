@@ -25,10 +25,25 @@ tooltip_padding = 2
 
 # OptionGroup (reusable radio-button group) style
 [style.option_group]
+checked_base = "accent"
 checked_alpha = 0.25
+hover_base = "secondary_hover"
 hover_alpha = 0.35
 padding_y = 4
 padding_x = 10
+
+# ---------------------------------------------------------------------------
+# Toast notifications
+# ---------------------------------------------------------------------------
+[toast]
+pad_y = 6
+pad_x = 10
+border_radius = 4
+font_size = 13
+alpha = 140
+info_base = "background_light"
+warn_base = "status_warn"
+error_base = "status_error"
 
 # ---------------------------------------------------------------------------
 # Side panel (reusable container for history / future left-panel / etc.)
@@ -113,10 +128,12 @@ display_stretch = 5
 divider_line_width = 1
 
 [calc.style]
-disabled_background_alpha = 0.1
-disabled_text_alpha = 0.3
-compact_button_padding_y = 4
-compact_button_padding_x = 8
+compact_pad_y = 4
+compact_pad_x = 8
+
+[calc.style.colors]
+disabled_bg = ["secondary_hover", 0.1]
+disabled_text = ["accent_text", 0.3]
 
 [calc.display]
 margin = 10
@@ -137,11 +154,8 @@ scale_main = 1.0
 scale_aux = 1.0
 scale_script = 0.5
 
-[calc.display.font_scale.expression]
-max_pt = 26
-
-[calc.display.font_scale.result]
-max_pt = 30
+expr_max_pt = 26
+rslt_max_pt = 30
 
 [calc.topbar]
 side_margin = 10
@@ -150,7 +164,44 @@ bottom_margin = 5
 grid_spacing = 2
 spacer_stretch = 1
 
-# Memory button alpha multipliers
-memory_background_alpha = 0.2
-memory_background_hover_alpha = 0.28
-memory_background_pressed_alpha = 0.38
+# Memory button layout (px)
+memory_pad_y = 8
+memory_pad_x = 14
+
+# Memory button colors: [base, alpha] pairs  (base = theme color key)
+[calc.topbar.memory_colors]
+memory_bg = ["accent", 0.2]
+memory_bg_hover = ["accent", 0.28]
+memory_bg_pressed = ["accent", 0.38]
+memory_disabled_bg = ["secondary_hover", 0.1]
+memory_disabled_text = ["accent_text", 0.3]
+
+# ---------------------------------------------------------------------------
+# Menu bar
+# ---------------------------------------------------------------------------
+[manubar.style]
+menu_font_size = 14
+item_padding_horizontal = 12
+item_padding_vertical = 4
+item_margin = 2
+item_min_width = 70
+item_border_radius = 6
+
+icon_padding_left = 6
+icon_padding_right = 4
+
+separator_height = 1
+separator_margin_vertical = 4
+separator_margin_horizontal = 2
+
+menu_padding = 4
+
+# Color references (theme color keys)
+menu_background = "background_medium"
+menu_text = "text_primary"
+menu_border = "border_light"
+selected_background = "selection_background"
+selected_text = "selection_text"
+selected_border = "border_focus"
+disabled_text = "text_secondary"
+separator_color = "border_light"

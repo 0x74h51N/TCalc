@@ -23,6 +23,7 @@ from ...keypad.utils import (
     make_grid,
 )
 from .defins import ANGLE_OPTIONS, MEMORY_L_KEYS, MemoryKey
+from .style import apply_topbar_style
 
 
 class TopBar(QWidget):
@@ -63,6 +64,7 @@ class TopBar(QWidget):
         # Memory keys
         self._memory_widget = QWidget(self)
         self._memory_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        apply_topbar_style(self._memory_widget)
 
         memory_grid = make_grid(topbar["grid_spacing"], self._memory_widget)
         add_keys_to_grid(MEMORY_L_KEYS, memory_grid, self._add_key)
