@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
-from calc_native import ParenKind
 from PySide6.QtWidgets import QLineEdit
 
 from tcalc.core.ops import Operation
@@ -12,6 +11,7 @@ from tcalc.ui.widgets.calc.display.expression.expression import Expression
 from tcalc.ui.widgets.math.expression_node import ExpressionNode, ExpressionSlot
 from tcalc.ui.widgets.math.widgets import (
     BraceWidget,
+    BracketWidget,
     FractionWidget,
     PowWidget,
     RootWidget,
@@ -20,6 +20,20 @@ from tcalc.ui.widgets.math.widgets import (
 
 DIV_SYM = Operation.DIV.symbol
 POW_SYM = Operation.POW.symbol
+
+########################################
+#
+#
+#
+#
+#
+# TODO: Make these tests dry as hell!
+#
+#
+#
+#
+#
+########################################
 
 
 def _fail_tree(expression_widget: Expression, t, message: str, node=None) -> None:
@@ -88,6 +102,7 @@ class ExpressionNodeCase:
     total_slot_count: int
     total_segment_count: int
     total_edit_count: int
+    expected_plain_text: str
 
 
 def expression_node_case(**kwargs) -> ExpressionNodeCase:
@@ -104,6 +119,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=2,
             total_segment_count=5,
             total_edit_count=4,
+            expected_plain_text="\\frac{}{}",
         ),
         id="fracNode-0",
     ),
@@ -116,6 +132,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=2,
             total_segment_count=5,
             total_edit_count=4,
+            expected_plain_text="\\pow{}{}",
         ),
         id="powNode-0",
     ),
@@ -128,6 +145,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=2,
             total_segment_count=5,
             total_edit_count=4,
+            expected_plain_text="\\root{}{}",
         ),
         id="rootNode-0",
     ),
@@ -140,6 +158,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=2,
             total_segment_count=5,
             total_edit_count=4,
+            expected_plain_text="\\frac{1}{2}",
         ),
         id="fracNode-1",
     ),
@@ -152,6 +171,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=2,
             total_segment_count=5,
             total_edit_count=4,
+            expected_plain_text="\\pow{2}{3}",
         ),
         id="powNode-1",
     ),
@@ -164,6 +184,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=2,
             total_segment_count=5,
             total_edit_count=4,
+            expected_plain_text="\\root{2}{3}",
         ),
         id="rootNode-1",
     ),
@@ -176,6 +197,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=2,
             total_segment_count=5,
             total_edit_count=4,
+            expected_plain_text="1 + \\frac{1}{2}",
         ),
         id="frac-plus",
     ),
@@ -188,6 +210,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
+            expected_plain_text="\\frac{1}{2} + \\frac{3}{4}",
         ),
         id="frac-plus-frac",
     ),
@@ -200,6 +223,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=2,
             total_segment_count=5,
             total_edit_count=4,
+            expected_plain_text="1 + \\pow{2}{3}",
         ),
         id="pow-plus",
     ),
@@ -212,6 +236,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=2,
             total_segment_count=5,
             total_edit_count=4,
+            expected_plain_text="1 + \\root{2}{3}",
         ),
         id="root-plus",
     ),
@@ -224,6 +249,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
+            expected_plain_text="\\frac{1}{2}\\root{2}{3}",
         ),
         id="implicit-multiplation-nodes",
     ),
@@ -236,6 +262,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
+            expected_plain_text="\\frac{\\frac{1}{2}}{3}",
         ),
         id="frac-nested-left",
     ),
@@ -252,6 +279,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=6,
             total_segment_count=13,
             total_edit_count=10,
+            expected_plain_text="\\frac{\\frac{1}{2}}{\\frac{3}{4}}",
         ),
         id="frac-nested-both",
     ),
@@ -264,6 +292,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
+            expected_plain_text="\\pow{2}{\\pow{3}{4}}",
         ),
         id="pow-nested-exp",
     ),
@@ -276,6 +305,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
+            expected_plain_text="\\pow{\\pow{2}{3}}{4}",
         ),
         id="pow-nested-base",
     ),
@@ -288,6 +318,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
+            expected_plain_text="\\root{2}{\\root{3}{4}}",
         ),
         id="root-nested-radicand",
     ),
@@ -300,6 +331,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
+            expected_plain_text="\\root{\\root{2}{3}}{4}",
         ),
         id="root-nested-degree",
     ),
@@ -316,6 +348,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=6,
             total_segment_count=13,
             total_edit_count=10,
+            expected_plain_text="\\frac{\\pow{2}{3}}{\\pow{4}{5}}",
         ),
         id="frac-with-two-pows",
     ),
@@ -332,6 +365,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=6,
             total_segment_count=13,
             total_edit_count=10,
+            expected_plain_text="\\frac{\\pow{2}{3}}{\\root{4}{5}}",
         ),
         id="frac-with-pow-root",
     ),
@@ -348,6 +382,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=6,
             total_segment_count=13,
             total_edit_count=10,
+            expected_plain_text="\\pow{\\frac{1}{2}}{\\root{2}{3}}",
         ),
         id="pow-with-frac-root",
     ),
@@ -364,6 +399,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=6,
             total_segment_count=13,
             total_edit_count=10,
+            expected_plain_text="\\root{2}{\\frac{\\pow{3}{4}}{5}}",
         ),
         id="root-with-frac-pow",
     ),
@@ -376,6 +412,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
+            expected_plain_text="\\frac{1 + \\pow{2}{3}}{4}",
         ),
         id="frac-nested-with-text",
     ),
@@ -388,6 +425,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
+            expected_plain_text="\\pow{1 + \\frac{2}{3}}{4}",
         ),
         id="pow-nested-with-text",
     ),
@@ -400,8 +438,214 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
+            expected_plain_text="\\root{1 + \\pow{2}{3}}{4}",
         ),
         id="root-nested-with-text",
+    ),
+    #############################################################
+    #   Paren Widget Tests
+    #############################################################
+    pytest.param(
+        expression_node_case(
+            expression="(1)+\\frac{2}{3}",
+            expected_widget_cls_idx=[(0, FractionWidget)],
+            idx_slot_count=[(0, 2)],
+            idx_segment_count=[(0, 2)],
+            total_slot_count=2,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="(1) + \\frac{2}{3}",
+        ),
+        id="non-parenNode",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="(1)+\\frac{2}{3})",
+            expected_widget_cls_idx=[(0, FractionWidget)],
+            idx_slot_count=[(0, 2)],
+            idx_segment_count=[(0, 2)],
+            total_slot_count=2,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="(1) + \\frac{2}{3})",
+        ),
+        id="non-parenNode-w-close",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="(1)+(\\frac{2}{3})",
+            expected_widget_cls_idx=[(0, RoundParenWidget), (1, FractionWidget)],
+            idx_slot_count=[(0, 1), (1, 2)],
+            idx_segment_count=[(0, 5), (1, 2)],
+            total_slot_count=3,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text="(1) + (\\frac{2}{3})",
+        ),
+        id="render-parenNode",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="(1)+(2+\\frac{2}{3})",
+            expected_widget_cls_idx=[(0, RoundParenWidget), (1, FractionWidget)],
+            idx_slot_count=[(0, 1), (1, 2)],
+            idx_segment_count=[(0, 5), (1, 2)],
+            total_slot_count=3,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text="(1) + (2 + \\frac{2}{3})",
+        ),
+        id="paren-with-prefix-text",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="{\\frac{2}{3}}",
+            expected_widget_cls_idx=[(0, BraceWidget), (1, FractionWidget)],
+            idx_slot_count=[(0, 1), (1, 2)],
+            idx_segment_count=[(0, 5), (1, 2)],
+            total_slot_count=3,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text="{\\frac{2}{3}}",
+        ),
+        id="brace-widget",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="{\\frac{2}{3})",
+            expected_widget_cls_idx=[(0, BraceWidget), (1, FractionWidget)],
+            idx_slot_count=[(0, 1), (1, 2)],
+            idx_segment_count=[(0, 4), (1, 2)],
+            total_slot_count=3,
+            total_segment_count=8,
+            total_edit_count=5,
+            expected_plain_text="{\\frac{2}{3})",
+        ),
+        id="non-closed-brace-widget",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="{+\\frac{2}{3}",
+            expected_widget_cls_idx=[(0, BraceWidget), (1, FractionWidget)],
+            idx_slot_count=[(0, 1), (1, 2)],
+            idx_segment_count=[(0, 4), (1, 2)],
+            total_slot_count=3,
+            total_segment_count=8,
+            total_edit_count=5,
+            expected_plain_text="{+\\frac{2}{3}",
+        ),
+        id="open-brace-leading-op",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="(1)+{2+\\root{2}{3}}",
+            expected_widget_cls_idx=[(0, BraceWidget), (1, RootWidget)],
+            idx_slot_count=[(0, 1), (1, 2)],
+            idx_segment_count=[(0, 5), (1, 2)],
+            total_slot_count=3,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text="(1) + {2 + \\root{2}{3}}",
+        ),
+        id="brace-in-sum",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="[\\frac{2}{3}]",
+            expected_widget_cls_idx=[(0, BracketWidget), (1, FractionWidget)],
+            idx_slot_count=[(0, 1), (1, 2)],
+            idx_segment_count=[(0, 5), (1, 2)],
+            total_slot_count=3,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text="[\\frac{2}{3}]",
+        ),
+        id="bracket-widget",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="(1)+{2+[\\pow{2}{3}]+4}",
+            expected_widget_cls_idx=[
+                (0, BraceWidget),
+                (1, BracketWidget),
+                (2, PowWidget),
+            ],
+            idx_slot_count=[(0, 1), (1, 1), (2, 2)],
+            idx_segment_count=[(0, 5), (1, 5), (2, 2)],
+            total_slot_count=4,
+            total_segment_count=15,
+            total_edit_count=8,
+            expected_plain_text="(1) + {2 + [\\pow{2}{3}] + 4}",
+        ),
+        id="outer-first-nested-parens",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="(1)+{2+[\\frac{2}{3}+4+(\\pow{2}{3})]}",
+            expected_widget_cls_idx=[
+                (0, BraceWidget),
+                (1, BracketWidget),
+                (2, FractionWidget),
+                (3, RoundParenWidget),
+                (4, PowWidget),
+            ],
+            idx_slot_count=[(0, 1), (1, 1), (2, 2), (3, 1), (4, 2)],
+            idx_segment_count=[(0, 5), (1, 7), (2, 2), (3, 5), (4, 2)],
+            total_slot_count=7,
+            total_segment_count=24,
+            total_edit_count=13,
+            expected_plain_text="(1) + {2 + [\\frac{2}{3} + 4 + (\\pow{2}{3})]}",
+        ),
+        id="nested-brace-bracket-paren",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="(1)+{2+[\\frac{2}{3}+4+(\\pow{2}{3}",
+            expected_widget_cls_idx=[
+                (0, BraceWidget),
+                (1, BracketWidget),
+                (2, FractionWidget),
+                (3, RoundParenWidget),
+                (4, PowWidget),
+            ],
+            idx_slot_count=[(0, 1), (1, 1), (2, 2), (3, 1), (4, 2)],
+            idx_segment_count=[(0, 3), (1, 5), (2, 2), (3, 4), (4, 2)],
+            total_slot_count=7,
+            total_segment_count=18,
+            total_edit_count=10,
+            expected_plain_text="(1) + {2 + [\\frac{2}{3} + 4 + (\\pow{2}{3}",
+        ),
+        id="nested-brace-bracket-paren-open-only",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="\\frac{1}{2} + sin(90)",
+            expected_widget_cls_idx=[
+                (0, FractionWidget),
+            ],
+            idx_slot_count=[(0, 2)],
+            idx_segment_count=[(0, 2)],
+            total_slot_count=2,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="\\frac{1}{2} + sin(90)",
+        ),
+        id="trig-parens-non-paren",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="1 + \\frac{2}{3 + cos(90)}",
+            expected_widget_cls_idx=[
+                (0, FractionWidget),
+            ],
+            idx_slot_count=[(0, 2)],
+            idx_segment_count=[(0, 2)],
+            total_slot_count=2,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="1 + \\frac{2}{3 + cos(90)}",
+        ),
+        id="trig-parens-non-paren-2",
     ),
 ]
 
@@ -479,222 +723,14 @@ class TestExpressionNode:
             label="total edit count",
         )
 
-
-@dataclass(frozen=True)
-class ParenWidgetCase:
-    expression: str
-    expected_count: int
-    expected_parenKind_idx: list[tuple[int, ParenKind]]
-    idx_segments_count: list[tuple[int, int]]
-    total_segment_count: int
-    total_edit_count: int
-
-
-def paren_widget_case(**kwargs) -> ParenWidgetCase:
-    return ParenWidgetCase(**kwargs)
-
-
-PAREN_WIDGET_CASES = [
-    pytest.param(
-        paren_widget_case(
-            expression="(1)+\\frac{2}{3}",
-            expected_count=0,
-            expected_parenKind_idx=[],
-            idx_segments_count=[],
-            total_segment_count=5,
-            total_edit_count=4,
-        ),
-        id="non-parenNode",
-    ),
-    pytest.param(
-        paren_widget_case(
-            expression="(1)+\\frac{2}{3})",
-            expected_count=0,
-            expected_parenKind_idx=[],
-            idx_segments_count=[],
-            total_segment_count=5,
-            total_edit_count=4,
-        ),
-        id="non-parenNode-w-close",
-    ),
-    pytest.param(
-        paren_widget_case(
-            expression="(1)+(\\frac{2}{3})",
-            expected_count=1,
-            expected_parenKind_idx=[(0, ParenKind.Paren)],
-            idx_segments_count=[(0, 5)],
-            total_segment_count=10,
-            total_edit_count=6,
-        ),
-        id="render-parenNode",
-    ),
-    pytest.param(
-        paren_widget_case(
-            expression="(1)+(2+\\frac{2}{3})",
-            expected_count=1,
-            expected_parenKind_idx=[(0, ParenKind.Paren)],
-            idx_segments_count=[(0, 5)],
-            total_segment_count=10,
-            total_edit_count=6,
-        ),
-        id="paren-with-prefix-text",
-    ),
-    pytest.param(
-        paren_widget_case(
-            expression="{\\frac{2}{3}}",
-            expected_count=1,
-            expected_parenKind_idx=[(0, ParenKind.Brace)],
-            idx_segments_count=[(0, 5)],
-            total_segment_count=10,
-            total_edit_count=6,
-        ),
-        id="brace-widget",
-    ),
-    pytest.param(
-        paren_widget_case(
-            expression="{\\frac{2}{3})",
-            expected_count=1,
-            expected_parenKind_idx=[(0, ParenKind.Brace)],
-            idx_segments_count=[(0, 4)],
-            total_segment_count=8,
-            total_edit_count=5,
-        ),
-        id="non-closed-brace-widget",
-    ),
-    pytest.param(
-        paren_widget_case(
-            expression="{+\\frac{2}{3}",
-            expected_count=1,
-            expected_parenKind_idx=[(0, ParenKind.Brace)],
-            idx_segments_count=[(0, 4)],
-            total_segment_count=8,
-            total_edit_count=5,
-        ),
-        id="open-brace-leading-op",
-    ),
-    pytest.param(
-        paren_widget_case(
-            expression="(1)+{2+\\root{2}{3}}",
-            expected_count=1,
-            expected_parenKind_idx=[(0, ParenKind.Brace)],
-            idx_segments_count=[(0, 5)],
-            total_segment_count=10,
-            total_edit_count=6,
-        ),
-        id="brace-in-sum",
-    ),
-    pytest.param(
-        paren_widget_case(
-            expression="[\\frac{2}{3}]",
-            expected_count=1,
-            expected_parenKind_idx=[(0, ParenKind.Bracket)],
-            idx_segments_count=[(0, 5)],
-            total_segment_count=10,
-            total_edit_count=6,
-        ),
-        id="bracket-widget",
-    ),
-    pytest.param(
-        paren_widget_case(
-            expression="(1)+{2+[\\pow{2}{3}]+4}",
-            expected_count=2,
-            expected_parenKind_idx=[(0, ParenKind.Brace), (1, ParenKind.Bracket)],
-            idx_segments_count=[(0, 5), (1, 5)],
-            total_segment_count=15,
-            total_edit_count=8,
-        ),
-        id="outer-first-nested-parens",
-    ),
-    pytest.param(
-        paren_widget_case(
-            expression="(1)+{2+[\\frac{2}{3}+4+(\\pow{2}{3})]}",
-            expected_count=3,
-            expected_parenKind_idx=[
-                (0, ParenKind.Brace),
-                (1, ParenKind.Bracket),
-                (2, ParenKind.Paren),
-            ],
-            idx_segments_count=[(0, 5), (1, 7), (2, 5)],
-            total_segment_count=24,
-            total_edit_count=13,
-        ),
-        id="nested-brace-bracket-paren",
-    ),
-    pytest.param(
-        paren_widget_case(
-            expression="(1)+{2+[\\frac{2}{3}+4+(\\pow{2}{3}",
-            expected_count=3,
-            expected_parenKind_idx=[
-                (0, ParenKind.Brace),
-                (1, ParenKind.Bracket),
-                (2, ParenKind.Paren),
-            ],
-            idx_segments_count=[(0, 3), (1, 5), (2, 4)],
-            total_segment_count=18,
-            total_edit_count=10,
-        ),
-        id="nested-brace-bracket-paren-open-only",
-    ),
-]
-
-
-@pytest.mark.parametrize("case", PAREN_WIDGET_CASES)
-class TestParenWidget:
-    """Test readyExpression ParenWidget render pipeline."""
-
-    def _snapshot(self, expression_widget, set_expression, expression):
-        set_expression(expression)
-        return snapshot_tree(expression_widget)
-
-    def test_paren_count(self, expression_widget, set_expression, case):
-        t = self._snapshot(expression_widget, set_expression, case.expression)
-        if len(t.parens) != case.expected_count:
-            _fail_tree(
-                expression_widget,
-                t,
-                f"Expected {case.expected_count} ParenWidget(s), got {len(t.parens)}",
-            )
-
-    def test_paren_kinds(self, expression_widget, set_expression, case):
+    def test_plain_text(self, expression_widget, set_expression, case):
         t = self._snapshot(expression_widget, set_expression, case.expression)
         _check_indexed(
             expression_widget,
             t,
-            case.expected_parenKind_idx,
-            get_actual=lambda idx: t.parens[idx].paren_kind,
-            label="ParenWidget kind",
-        )
-
-    def test_paren_segments(self, expression_widget, set_expression, case):
-        t = self._snapshot(expression_widget, set_expression, case.expression)
-        _check_indexed(
-            expression_widget,
-            t,
-            case.idx_segments_count,
-            get_actual=lambda idx: len(t.parens[idx].slots[0].segments),
-            label="ParenWidget segments",
-            get_node=lambda idx: t.parens[idx],
-        )
-
-    def test_total_segment_count(self, expression_widget, set_expression, case):
-        t = self._snapshot(expression_widget, set_expression, case.expression)
-        total_segments = sum(len(slot.segments) for slot in t.all_slots)
-        _check_indexed(
-            expression_widget,
-            t,
-            [(0, case.total_segment_count)],
-            get_actual=lambda _: total_segments,
-            label="total segment count",
-        )
-
-    def test_total_edit_count(self, expression_widget, set_expression, case):
-        t = self._snapshot(expression_widget, set_expression, case.expression)
-        _check_indexed(
-            expression_widget,
-            t,
-            [(0, case.total_edit_count)],
-            get_actual=lambda _: len(t.all_edits),
-            label="total edit count",
+            [(0, case.expected_plain_text)],
+            get_actual=lambda _: expression_widget.get_plain_text(),
+            label="plain text",
         )
 
 

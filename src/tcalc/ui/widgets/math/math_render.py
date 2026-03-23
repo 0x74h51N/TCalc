@@ -146,7 +146,7 @@ class MathRender(QWidget):
 
         classified = calc_native.classify_tokens(tokens)
 
-        if classified.expr_indices or classified.open_paren_indices:
+        if classified.expr_indices:
             pending.append((target, classified))
         else:
             target.setText(calc_native.tokens_to_text(tokens))
