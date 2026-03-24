@@ -19,11 +19,19 @@ from .config import history_style, memory_style, window
 from .controller import CalculatorController, EditOperations
 from .controller.utils import format_result
 from .manubar.menu import Menubar
-from .widgets import CalcWidget, History, Keypad, MemoryBar, SidePanel
+from .widgets import (
+    CalcWidget,
+    FunctionsKeypad,
+    History,
+    MainKeypad,
+    MemoryBar,
+    SidePanel,
+    TrigPowerKeypad,
+)
 
 
 class MainWindow(QMainWindow):
-    WINDOW_STATE_VERSION = 2
+    WINDOW_STATE_VERSION = 3
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -36,7 +44,7 @@ class MainWindow(QMainWindow):
 
         self.menubar = Menubar(self)
 
-        self._setup_keypad_dock()
+        self._setup_keypads()
         self._setup_history_dock()
         self._setup_controller()
         self._setup_keyboard()
@@ -48,21 +56,39 @@ class MainWindow(QMainWindow):
     # Setup helpers
     # ------------------------------------------------------------------
 
-    def _setup_keypad_dock(self) -> None:
-        app_state = get_app_state()
-        self.keypad = Keypad(parent=self)
-
-        self._keypad_dock = QDockWidget("Keypad", self)
-        self._keypad_dock.setObjectName("keypadDock")
-        self._keypad_dock.setWidget(self.keypad)
-        self._keypad_dock.setAllowedAreas(
+    def _make_dock(
+        self,
+        widget: QWidget,
+        title: str,
+        object_name: str,
+        allowed: Qt.DockWidgetArea = (
             Qt.DockWidgetArea.BottomDockWidgetArea
             | Qt.DockWidgetArea.LeftDockWidgetArea
             | Qt.DockWidgetArea.RightDockWidgetArea
-        )
+        ),
+    ) -> QDockWidget:
+        dock = QDockWidget(title, self)
+        dock.setObjectName(object_name)
+        dock.setWidget(widget)
+        dock.setAllowedAreas(allowed)
+        return dock
+
+    def _setup_keypads(self) -> None:
+        app_state = get_app_state()
+
+        self.keypad = MainKeypad(parent=self)
+        self._keypad_dock = self._make_dock(self.keypad, "Keypad", "keypadDock")
         self._keypad_dock.setMinimumWidth(window["calc_min_width"])
         self._keypad_dock.setVisible(app_state.show_keypad)
         self._keypad_dock.visibilityChanged.connect(self._on_keypad_visibility_changed)
+
+        self.functions_keypad = FunctionsKeypad(parent=self)
+        self._functions_dock = self._make_dock(self.functions_keypad, "Functions", "functionsDock")
+
+        self.trig_power_keypad = TrigPowerKeypad(parent=self)
+        self._trig_power_dock = self._make_dock(
+            self.trig_power_keypad, "Trig / Power", "trigPowerDock"
+        )
 
     def _setup_history_dock(self) -> None:
         app_state = get_app_state()
@@ -76,14 +102,7 @@ class MainWindow(QMainWindow):
 
         self._register_font_targets()
 
-        self._history_dock = QDockWidget("History", self)
-        self._history_dock.setObjectName("historyDock")
-        self._history_dock.setWidget(self.side_panel)
-        self._history_dock.setAllowedAreas(
-            Qt.DockWidgetArea.LeftDockWidgetArea
-            | Qt.DockWidgetArea.RightDockWidgetArea
-            | Qt.DockWidgetArea.BottomDockWidgetArea
-        )
+        self._history_dock = self._make_dock(self.side_panel, "History", "historyDock")
         self._history_dock.setMinimumWidth(window["history_min_width"])
         self._history_dock.setVisible(app_state.show_history)
         self._history_dock.visibilityChanged.connect(self._on_history_visibility_changed)
@@ -124,6 +143,8 @@ class MainWindow(QMainWindow):
         )
 
         self.keypad.key_pressed.connect(self.controller.handle_key)
+        self.functions_keypad.key_pressed.connect(self.controller.handle_key)
+        self.trig_power_keypad.key_pressed.connect(self.controller.handle_key)
         self.calc_widget.topbar.key_pressed.connect(self.controller.handle_key)
         self.calc_widget.topbar.angle_changed.connect(self.controller.set_angle_unit)
 
@@ -149,20 +170,10 @@ class MainWindow(QMainWindow):
         self._keypad_dock.setVisible(app_state.show_keypad)
 
     def _sync_mode_widgets(self, app_state) -> None:
-        is_science = app_state.mode == CalculatorMode.SCIENCE
         topbar = self.calc_widget.topbar
 
-        self.keypad.set_science_visible(is_science)
-        topbar.set_angle_visible(is_science)
-        self.keypad.set_shift_visible(app_state.mode != CalculatorMode.SIMPLE)
-
+        topbar.set_angle_visible(app_state.mode == CalculatorMode.SCIENCE)
         topbar.set_angle(app_state.angle_unit)
-
-        hyp_btn = self.keypad.get_button("Hyp")
-        if hyp_btn:
-            hyp_btn.setChecked(bool(app_state.hyp))
-
-        self.keypad.set_shift_checked(bool(app_state.shifted))
 
         for label in ("π", "e"):
             btn = self.keypad.get_button(label)
@@ -231,6 +242,8 @@ class MainWindow(QMainWindow):
 
     def _apply_default_dock_layout(self) -> None:
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._keypad_dock)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._functions_dock)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._trig_power_dock)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._history_dock)
 
         self.setCorner(Qt.Corner.BottomRightCorner, Qt.DockWidgetArea.RightDockWidgetArea)

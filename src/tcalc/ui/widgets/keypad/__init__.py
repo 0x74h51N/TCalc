@@ -1,3 +1,4 @@
 from .keypad import Keypad
+from .widgets import FunctionsKeypad, MainKeypad, TrigPowerKeypad
 
-__all__ = ["Keypad"]
+__all__ = ["FunctionsKeypad", "Keypad", "MainKeypad", "TrigPowerKeypad"]

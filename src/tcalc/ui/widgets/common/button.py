@@ -13,12 +13,45 @@ from PySide6.QtCore import Signal
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QButtonGroup,
+    QGridLayout,
     QHBoxLayout,
     QPushButton,
     QRadioButton,
     QSizePolicy,
     QWidget,
 )
+
+from .types import KeyDef
+
+
+class KeyButton(QPushButton):
+    """Push button created from a ``KeyDef`` with grid placement support."""
+
+    def __init__(self, key_def: KeyDef, role: str, parent: QWidget | None = None) -> None:
+        super().__init__(str(key_def.get("label", "")), parent)
+
+        tooltip = key_def.get("tooltip")
+        if tooltip:
+            self.setToolTip(str(tooltip).capitalize())
+
+        self.setEnabled(key_def.get("enabled", True))
+        if key_def.get("checkable"):
+            self.setCheckable(True)
+
+        self.setObjectName("keypadButton")
+        self.setProperty("keypadRole", role)
+        self.style().unpolish(self)
+        self.style().polish(self)
+
+    def place(self, grid: QGridLayout, key_def: KeyDef) -> None:
+        """Add this button to *grid* at the position specified in *key_def*."""
+        grid.addWidget(
+            self,
+            key_def.get("row", 0),
+            key_def.get("col", 0),
+            key_def.get("rowspan", 1),
+            key_def.get("colspan", 1),
+        )
 
 
 class IconButton(QPushButton):

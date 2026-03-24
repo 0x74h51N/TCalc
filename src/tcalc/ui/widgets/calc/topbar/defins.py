@@ -4,6 +4,8 @@ from enum import Enum
 
 import calc_native
 
+from tcalc.ui.widgets.common.types import KeyDef
+
 ANGLE_OPTIONS: list[tuple[calc_native.AngleUnit, str]] = [
     (calc_native.AngleUnit.DEG, "Deg"),
     (calc_native.AngleUnit.RAD, "Rad"),
@@ -19,39 +21,35 @@ class MemoryKey(str, Enum):
     M_MINUS = "M-"
 
 
-MEMORY_KEYS = [
-    {
-        "label": MemoryKey.MC.value,
-        "operation": MemoryKey.MC.value,
-        "enabled": False,
-        "row": 0,
-        "col": 0,
-        "tooltip": "memory clear",
-    },
-    {
-        "label": MemoryKey.MR.value,
-        "operation": MemoryKey.MR.value,
-        "enabled": False,
-        "row": 0,
-        "col": 1,
-        "tooltip": "memory recall",
-    },
-    {
-        "label": MemoryKey.MS.value,
-        "operation": MemoryKey.MS.value,
-        "row": 0,
-        "col": 2,
-        "tooltip": "memory store",
-    },
-    {
-        "label": MemoryKey.M_PLUS.value,
-        "operation": MemoryKey.M_PLUS.value,
-        "row": 0,
-        "col": 3,
-        "tooltip": "memory add",
-    },
+MEMORY_KEYS: list[KeyDef] = [
+    KeyDef(
+        label=MemoryKey.MC.value,
+        operation=MemoryKey.MC.value,
+        enabled=False,
+        row=0,
+        col=0,
+        tooltip="memory clear",
+    ),
+    KeyDef(
+        label=MemoryKey.MR.value,
+        operation=MemoryKey.MR.value,
+        enabled=False,
+        row=0,
+        col=1,
+        tooltip="memory recall",
+    ),
+    KeyDef(
+        label=MemoryKey.MS.value, operation=MemoryKey.MS.value, row=0, col=2, tooltip="memory store"
+    ),
+    KeyDef(
+        label=MemoryKey.M_PLUS.value,
+        operation=MemoryKey.M_PLUS.value,
+        row=0,
+        col=3,
+        tooltip="memory add",
+    ),
 ]
 
-MEMORY_L_KEYS = {"memory": MEMORY_KEYS}
+MEMORY_L_KEYS: dict[str, list[KeyDef]] = {"memory": MEMORY_KEYS}
 
 __all__ = ["ANGLE_OPTIONS", "MEMORY_L_KEYS", "MemoryKey", "MEMORY_KEYS"]

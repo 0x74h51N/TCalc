@@ -18,7 +18,7 @@ from .keymap import OVERRIDE_SHORTCUTS, get_expression_action_for_key, get_opera
 if TYPE_CHECKING:
     from tcalc.ui.controller import CalculatorController
     from tcalc.ui.widgets.calc.display.expression import Expression
-    from tcalc.ui.widgets.keypad.keypad import Keypad
+    from tcalc.ui.widgets.keypad.widgets import MainKeypad as Keypad
 
 
 class KeyboardHandler(QObject):
