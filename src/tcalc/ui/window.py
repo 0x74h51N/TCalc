@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QByteArray, QSettings, QSize
+from PySide6.QtCore import QByteArray, QSettings, QSize, QTimer
 from PySide6.QtGui import Qt
 from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
 
@@ -61,6 +61,8 @@ class MainWindow(QMainWindow):
         widget: QWidget,
         title: str,
         object_name: str,
+        state_attr: str,
+        min_width: int,
         allowed: Qt.DockWidgetArea = (
             Qt.DockWidgetArea.BottomDockWidgetArea
             | Qt.DockWidgetArea.LeftDockWidgetArea
@@ -71,23 +73,39 @@ class MainWindow(QMainWindow):
         dock.setObjectName(object_name)
         dock.setWidget(widget)
         dock.setAllowedAreas(allowed)
+        dock.setMinimumWidth(min_width)
+        dock.setVisible(getattr(get_app_state(), state_attr))
+        dock.visibilityChanged.connect(
+            lambda visible, attr=state_attr: self._on_dock_visibility_changed(attr, visible)
+        )
         return dock
 
     def _setup_keypads(self) -> None:
-        app_state = get_app_state()
-
-        self.keypad = MainKeypad(parent=self)
-        self._keypad_dock = self._make_dock(self.keypad, "Keypad", "keypadDock")
-        self._keypad_dock.setMinimumWidth(window["calc_min_width"])
-        self._keypad_dock.setVisible(app_state.show_keypad)
-        self._keypad_dock.visibilityChanged.connect(self._on_keypad_visibility_changed)
+        self.numpad = MainKeypad(parent=self)
+        self._numpad_dock = self._make_dock(
+            self.numpad,
+            "Numpad",
+            "numpadDock",
+            state_attr="show_numpad",
+            min_width=window["numpad_min_width"],
+        )
 
         self.functions_keypad = FunctionsKeypad(parent=self)
-        self._functions_dock = self._make_dock(self.functions_keypad, "Functions", "functionsDock")
+        self._functions_dock = self._make_dock(
+            self.functions_keypad,
+            "Functions",
+            "functionsDock",
+            state_attr="show_funcpad",
+            min_width=window["funcpad_min_width"],
+        )
 
         self.trig_power_keypad = TrigPowerKeypad(parent=self)
         self._trig_power_dock = self._make_dock(
-            self.trig_power_keypad, "Trig / Power", "trigPowerDock"
+            self.trig_power_keypad,
+            "Trig / Power",
+            "trigPowerDock",
+            state_attr="show_trigpad",
+            min_width=window["trigpad_min_width"],
         )
 
     def _setup_history_dock(self) -> None:
@@ -102,10 +120,13 @@ class MainWindow(QMainWindow):
 
         self._register_font_targets()
 
-        self._history_dock = self._make_dock(self.side_panel, "History", "historyDock")
-        self._history_dock.setMinimumWidth(window["history_min_width"])
-        self._history_dock.setVisible(app_state.show_history)
-        self._history_dock.visibilityChanged.connect(self._on_history_visibility_changed)
+        self._history_dock = self._make_dock(
+            self.side_panel,
+            "History",
+            "historyDock",
+            state_attr="show_history",
+            min_width=window["history_min_width"],
+        )
 
     def _register_font_targets(self) -> None:
         self.side_panel.register_font_targets(
@@ -142,7 +163,7 @@ class MainWindow(QMainWindow):
             self.calc_widget.topbar,
         )
 
-        self.keypad.key_pressed.connect(self.controller.handle_key)
+        self.numpad.key_pressed.connect(self.controller.handle_key)
         self.functions_keypad.key_pressed.connect(self.controller.handle_key)
         self.trig_power_keypad.key_pressed.connect(self.controller.handle_key)
         self.calc_widget.topbar.key_pressed.connect(self.controller.handle_key)
@@ -151,7 +172,7 @@ class MainWindow(QMainWindow):
     def _setup_keyboard(self) -> None:
         self._keyboard_handler = KeyboardHandler(
             self.calc_widget.display.editor,
-            self.keypad,
+            self.numpad,
             self.controller,
         )
 
@@ -167,18 +188,15 @@ class MainWindow(QMainWindow):
 
     def _sync_dock_visibility(self, app_state) -> None:
         self._history_dock.setVisible(app_state.show_history)
-        self._keypad_dock.setVisible(app_state.show_keypad)
+        self._numpad_dock.setVisible(app_state.show_numpad)
+        self._functions_dock.setVisible(app_state.show_funcpad)
+        self._trig_power_dock.setVisible(app_state.show_trigpad)
 
     def _sync_mode_widgets(self, app_state) -> None:
         topbar = self.calc_widget.topbar
 
         topbar.set_angle_visible(app_state.mode == CalculatorMode.SCIENCE)
         topbar.set_angle(app_state.angle_unit)
-
-        for label in ("π", "e"):
-            btn = self.keypad.get_button(label)
-            if btn is not None:
-                btn.setVisible(bool(app_state.show_constant_buttons))
 
     def _sync_memory_state(self, app_state) -> None:
         self.calc_widget.topbar.set_memory_available(app_state.memory is not None)
@@ -199,19 +217,12 @@ class MainWindow(QMainWindow):
         self._save_window_state()
         super().closeEvent(event)
 
-    def _on_history_visibility_changed(self, visible: bool) -> None:
-        """Sync app_state when history dock is shown/hidden."""
+    def _on_dock_visibility_changed(self, attr: str, visible: bool) -> None:
+        """Sync app_state and menu toggle when any registered dock is shown/hidden."""
         app_state = get_app_state()
-        if app_state.show_history != visible:
-            app_state.show_history = visible
-        self.menubar.settings_menu.sync_toggle("show_history", visible)
-
-    def _on_keypad_visibility_changed(self, visible: bool) -> None:
-        """Sync app_state when keypad dock is shown/hidden."""
-        app_state = get_app_state()
-        if app_state.show_keypad != visible:
-            app_state.show_keypad = visible
-        self.menubar.settings_menu.sync_toggle("show_keypad", visible)
+        if getattr(app_state, attr) != visible:
+            setattr(app_state, attr, visible)
+        self.menubar.settings_menu.sync_toggle(attr, visible)
 
     # ------------------------------------------------------------------
     # Window state persistence
@@ -230,24 +241,32 @@ class MainWindow(QMainWindow):
             restored = self.restoreState(state, self.WINDOW_STATE_VERSION)
 
         if not restored:
-            self._apply_default_dock_layout()
+            self._default_dock_layout()
 
-        self._on_history_visibility_changed(self._history_dock.isVisible())
-        self._on_keypad_visibility_changed(self._keypad_dock.isVisible())
+        self._on_dock_visibility_changed("show_numpad", self._numpad_dock.isVisible())
+        self._on_dock_visibility_changed("show_funcpad", self._functions_dock.isVisible())
+        self._on_dock_visibility_changed("show_trigpad", self._trig_power_dock.isVisible())
+        self._on_dock_visibility_changed("show_history", self._history_dock.isVisible())
 
     def _save_window_state(self) -> None:
         settings = QSettings("TCalc", "TCalc")
         settings.setValue("window/geometry", self.saveGeometry())
         settings.setValue("window/state", self.saveState(self.WINDOW_STATE_VERSION))
 
-    def _apply_default_dock_layout(self) -> None:
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._keypad_dock)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._functions_dock)
-        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._trig_power_dock)
+    def _default_dock_layout(self) -> None:
+
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._trig_power_dock)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._numpad_dock)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._functions_dock)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._history_dock)
 
         self.setCorner(Qt.Corner.BottomRightCorner, Qt.DockWidgetArea.RightDockWidgetArea)
         self.setCorner(Qt.Corner.BottomLeftCorner, Qt.DockWidgetArea.LeftDockWidgetArea)
+
+    def apply_def_dock_layout(self) -> None:
+        self._default_dock_layout()
+        self.update_layout()
+        QTimer.singleShot(0, lambda: self.history.update_fonts(force_layout=True))
 
     # ------------------------------------------------------------------
     # Hints

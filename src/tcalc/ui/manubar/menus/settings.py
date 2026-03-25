@@ -2,16 +2,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenuBar
 
 from tcalc.app_state import get_app_state
 from tcalc.ui.controller.menubar import SettingsOperations
 
 from ..defins import SETTINGS_ACTIONS
-from ..menu_builder import MenuActionItem, MenuActionType, ToggleMenuContext
+from ..menu_builder import MenuActionType, ToggleMenuContext
 
 if TYPE_CHECKING:
+    from PySide6.QtGui import QAction
+
     from ...keyboard import ShortcutManager
     from ...window import MainWindow
 
@@ -26,25 +27,21 @@ class SettingsMenu:
 
         settings_menu = menu.addMenu("Settings")
 
-        settings_ctx: ToggleMenuContext[SettingsOperations] = ToggleMenuContext(
+        ctx: ToggleMenuContext[SettingsOperations] = ToggleMenuContext(
             window,
             shortcuts,
             ops=self.ops,
             app_state=self.app_state,
         )
-        for settings_item in SETTINGS_ACTIONS:
-            action = settings_item.add_to(settings_menu, settings_ctx)
 
-            if action and isinstance(settings_item, MenuActionItem) and settings_item.mode:
-                self._mode_actions[settings_item.mode] = action
-                action.triggered.connect(self._update_mode_selection)
-            if (
-                action
-                and isinstance(settings_item, MenuActionItem)
-                and settings_item.item_type == MenuActionType.TOGGLE
-                and settings_item.checked_attr
-            ):
-                self._toggle_actions[settings_item.checked_attr] = action
+        for item in SETTINGS_ACTIONS:
+            for defn, action in item.add_to(settings_menu, ctx):
+                if defn.mode:
+                    self._mode_actions[defn.mode] = action
+                    action.triggered.connect(self._update_mode_selection)
+                if defn.item_type == MenuActionType.TOGGLE and defn.checked_attr:
+                    self._toggle_actions[defn.checked_attr] = action
+
         self._update_mode_selection()
 
     def _update_mode_selection(self) -> None:

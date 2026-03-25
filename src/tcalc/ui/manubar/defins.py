@@ -7,15 +7,11 @@ from PySide6.QtWidgets import QMessageBox
 from tcalc.app_state import CalculatorMode
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, SettingsOperations
 
-from .menu_builder import MenuActionItem, MenuActionType, MenuSeparatorItem
+from .menu_builder import MenuActionItem, MenuActionType, MenuSeparatorItem, SubmenuItem
 
 
-def _open_keyboard_shortcuts(ctx) -> None:
-    QMessageBox.information(ctx.window, "Keyboard Shortcuts", "Coming soon.")
-
-
-def _open_tcalc_config(ctx) -> None:
-    QMessageBox.information(ctx.window, "TCalc Settings", "Coming soon.")
+def _coming_soon(ctx) -> None:
+    QMessageBox.information(ctx.window, "Coming soon", "Coming soon.")
 
 
 FILE_MENU_ACTIONS: Tuple[MenuActionItem, ...] = (
@@ -61,7 +57,7 @@ EDIT_MENU_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
     ),
 )
 
-SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
+SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     MenuActionItem(
         text="Simple Mode",
         icon="accessories-calculator",
@@ -88,16 +84,54 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
         mode=CalculatorMode.STATISTIC,
     ),
     MenuSeparatorItem(),
-    MenuActionItem(
-        text="Show Keypad",
-        icon="input-keyboard",
-        checkable=True,
-        item_type=MenuActionType.TOGGLE,
-        checked_attr="show_keypad",
-        fn=SettingsOperations.toggle_keypad,
+    SubmenuItem(
+        text="Keypads",
+        icon="./assets/keypads.svg",
+        items=(
+            MenuActionItem(
+                text="Numpad",
+                icon="./assets/numpad.svg",
+                checkable=True,
+                item_type=MenuActionType.TOGGLE,
+                checked_attr="show_numpad",
+                fn=SettingsOperations.toggle_numpad,
+            ),
+            MenuActionItem(
+                text="Functions Pad",
+                icon="./assets/func.svg",
+                checkable=True,
+                item_type=MenuActionType.TOGGLE,
+                checked_attr="show_funcpad",
+                fn=SettingsOperations.toggle_funcpad,
+            ),
+            MenuActionItem(
+                text="Trig / Power Pad",
+                icon="./assets/trig.svg",
+                checkable=True,
+                item_type=MenuActionType.TOGGLE,
+                checked_attr="show_trigpad",
+                fn=SettingsOperations.toggle_trigpad,
+            ),
+            MenuActionItem(
+                text="Constant Pad (Coming Soon)",
+                icon="format-text-symbol",
+                checkable=True,
+                enabled=False,
+                item_type=MenuActionType.TOGGLE,
+                checked_attr="show_constant_buttons",
+                fn=SettingsOperations.toggle_constants,
+            ),
+            MenuActionItem(
+                text="Add Custom Pad (Coming Soon)",
+                icon="./assets/custom_pad.svg",
+                enabled=False,
+                item_type=MenuActionType.BUTTON,
+                fn=_coming_soon,
+            ),
+        ),
     ),
     MenuActionItem(
-        text="Show History",
+        text="History",
         icon="document-open-recent",
         checkable=True,
         item_type=MenuActionType.TOGGLE,
@@ -105,25 +139,24 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
         fn=SettingsOperations.toggle_history,
     ),
     MenuActionItem(
-        text="Constant Buttons (Coming Soon)",
-        icon="format-text-symbol",
-        checkable=True,
-        enabled=False,
-        item_type=MenuActionType.TOGGLE,
-        checked_attr="show_constant_buttons",
-        fn=SettingsOperations.toggle_constants,
+        text="Restore Default Layout",
+        icon="view-restore",
+        item_type=MenuActionType.OPS,
+        fn=SettingsOperations.restore_default_layout,
     ),
     MenuSeparatorItem(),
     MenuActionItem(
         text="Configure Keyboard Shortcuts...",
         icon="input-keyboard",
+        enabled=False,
         item_type=MenuActionType.BUTTON,
-        fn=_open_keyboard_shortcuts,
+        fn=_coming_soon,
     ),
     MenuActionItem(
         text="Configure TCalc...",
         icon="configure",
+        enabled=False,
         item_type=MenuActionType.BUTTON,
-        fn=_open_tcalc_config,
+        fn=_coming_soon,
     ),
 )

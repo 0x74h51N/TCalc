@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import Mapping, Sequence
 
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QButtonGroup,
     QGridLayout,
@@ -20,6 +19,8 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QWidget,
 )
+
+from tcalc.ui.utils import get_icon
 
 from .types import KeyDef
 
@@ -66,7 +67,7 @@ class IconButton(QPushButton):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(text, parent)
-        self.setIcon(QIcon.fromTheme(icon_name))
+        self.setIcon(get_icon(icon_name))
 
         if tooltip:
             self.setToolTip(tooltip)

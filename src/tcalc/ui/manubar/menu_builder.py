@@ -1,3 +1,10 @@
+#
+#
+#
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -5,11 +12,12 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Callable, Generic, TypeVar, cast
 
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
 
 from tcalc.app_state import AppState, CalculatorMode
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, SettingsOperations
+from tcalc.ui.utils import get_icon
 
 if TYPE_CHECKING:
     from ..keyboard import ShortcutManager
@@ -24,13 +32,6 @@ class MenuActionType(Enum):
     OPS = "ops"  # fn(ops) - EditOperations/FileOperations/SettingsOperations
     TOGGLE = "toggle"  # fn(ops, checked) - with app_state
     BUTTON = "button"  # fn(ctx)
-
-
-def _get_icon(theme_name: str) -> QIcon:
-    if not theme_name:
-        return QIcon()
-    icon = QIcon.fromTheme(theme_name)
-    return icon if not icon.isNull() else QIcon()
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,13 +55,13 @@ TMenuContext = TypeVar("TMenuContext", bound=BaseMenuContext, contravariant=True
 
 class MenuItem(ABC, Generic[TMenuContext]):
     @abstractmethod
-    def add_to(self, menu: QMenu, ctx: TMenuContext) -> QAction | None: ...
+    def add_to(self, menu: QMenu, ctx: TMenuContext) -> list[tuple[MenuActionItem, QAction]]: ...
 
 
 class MenuSeparatorItem(MenuItem[BaseMenuContext]):
-    def add_to(self, menu: QMenu, ctx: BaseMenuContext) -> None:
+    def add_to(self, menu: QMenu, ctx: BaseMenuContext) -> list[tuple[MenuActionItem, QAction]]:
         menu.addSeparator()
-        return None
+        return []
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -77,7 +78,7 @@ class MenuActionItem(MenuItem[TMenuContext], Generic[TMenuContext]):
     mode: CalculatorMode | None = None
 
     def _create_action(self, ctx: BaseMenuContext) -> QAction:
-        action = QAction(_get_icon(self.icon), self.text, ctx.window)
+        action = QAction(get_icon(self.icon), self.text, ctx.window)
         action.setCheckable(self.checkable)
         action.setEnabled(self.enabled)
         return action
@@ -106,9 +107,25 @@ class MenuActionItem(MenuItem[TMenuContext], Generic[TMenuContext]):
                 assert callable(self.fn)
                 return lambda: self.fn(ctx)
 
-    def add_to(self, menu: QMenu, ctx: TMenuContext) -> QAction:
+    def add_to(self, menu: QMenu, ctx: TMenuContext) -> list[tuple[MenuActionItem, QAction]]:
         action = self._create_action(ctx)
         self._setup_initial_state(action, ctx)
         action.triggered.connect(self._build_callback(ctx))
         menu.addAction(action)
-        return action
+        return [(self, action)]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class SubmenuItem(MenuItem[TMenuContext], Generic[TMenuContext]):
+    """A submenu container. Adds a child QMenu and populates it with *items*."""
+
+    text: str
+    icon: str = ""
+    items: tuple[MenuItem, ...] = ()
+
+    def add_to(self, menu: QMenu, ctx: TMenuContext) -> list[tuple[MenuActionItem, QAction]]:
+        submenu = menu.addMenu(get_icon(self.icon), self.text)
+        results: list[tuple[MenuActionItem, QAction]] = []
+        for item in self.items:
+            results.extend(item.add_to(submenu, ctx))
+        return results
