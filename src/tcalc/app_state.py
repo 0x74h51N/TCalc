@@ -86,6 +86,9 @@ class AppState:
         self._show_history = value
         self._settings.setValue("show_history", value)
 
+    def set_show_history(self, value: bool) -> None:
+        self.show_history = value
+
     @property
     def history_mode(self) -> RenderMode:
         return self._history_mode
@@ -104,6 +107,9 @@ class AppState:
         self._show_numpad = value
         self._settings.setValue("show_numpad", value)
 
+    def set_show_numpad(self, value: bool) -> None:
+        self.show_numpad = value
+
     @property
     def show_funcpad(self) -> bool:
         return self._show_funcpad
@@ -112,6 +118,9 @@ class AppState:
     def show_funcpad(self, value: bool) -> None:
         self._show_funcpad = value
         self._settings.setValue("show_funcpad", value)
+
+    def set_show_funcpad(self, value: bool) -> None:
+        self.show_funcpad = value
 
     @property
     def show_trigpad(self) -> bool:
@@ -122,6 +131,9 @@ class AppState:
         self._show_trigpad = value
         self._settings.setValue("show_trigpad", value)
 
+    def set_show_trigpad(self, value: bool) -> None:
+        self.show_trigpad = value
+
     @property
     def show_constant_buttons(self) -> bool:
         return self._show_constant_buttons
@@ -130,6 +142,9 @@ class AppState:
     def show_constant_buttons(self, value: bool) -> None:
         self._show_constant_buttons = value
         self._settings.setValue("show_constant_buttons", value)
+
+    def set_show_constant_buttons(self, value: bool) -> None:
+        self.show_constant_buttons = value
 
 
 # Global singleton instance

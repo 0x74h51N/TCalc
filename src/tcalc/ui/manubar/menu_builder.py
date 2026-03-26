@@ -73,7 +73,7 @@ class MenuActionItem(MenuItem[TMenuContext], Generic[TMenuContext]):
     checkable: bool = False
     enabled: bool = True
     item_type: MenuActionType = MenuActionType.OPS
-    checked_attr: str = ""
+    checked_getter: Callable[[AppState], bool] | None = None
     fn: Callable
     mode: CalculatorMode | None = None
 
@@ -85,9 +85,9 @@ class MenuActionItem(MenuItem[TMenuContext], Generic[TMenuContext]):
 
     def _setup_initial_state(self, action: QAction, ctx: TMenuContext) -> None:
         """Setup checked state and shortcuts."""
-        if self.item_type == MenuActionType.TOGGLE and self.checked_attr:
+        if self.item_type == MenuActionType.TOGGLE and self.checked_getter is not None:
             toggle_ctx = cast(ToggleMenuContext, ctx)
-            action.setChecked(getattr(toggle_ctx.app_state, self.checked_attr))
+            action.setChecked(self.checked_getter(toggle_ctx.app_state))
 
         if self.item_type in (MenuActionType.OPS, MenuActionType.TOGGLE):
             ctx.shortcuts.bind_action(self.fn, action)

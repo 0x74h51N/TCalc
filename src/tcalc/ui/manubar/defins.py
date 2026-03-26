@@ -93,7 +93,7 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
                 icon="./assets/numpad.svg",
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
-                checked_attr="show_numpad",
+                checked_getter=lambda s: s.show_numpad,
                 fn=SettingsOperations.toggle_numpad,
             ),
             MenuActionItem(
@@ -101,7 +101,7 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
                 icon="./assets/func.svg",
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
-                checked_attr="show_funcpad",
+                checked_getter=lambda s: s.show_funcpad,
                 fn=SettingsOperations.toggle_funcpad,
             ),
             MenuActionItem(
@@ -109,7 +109,7 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
                 icon="./assets/trig.svg",
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
-                checked_attr="show_trigpad",
+                checked_getter=lambda s: s.show_trigpad,
                 fn=SettingsOperations.toggle_trigpad,
             ),
             MenuActionItem(
@@ -118,7 +118,7 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
                 checkable=True,
                 enabled=False,
                 item_type=MenuActionType.TOGGLE,
-                checked_attr="show_constant_buttons",
+                checked_getter=lambda s: s.show_constant_buttons,
                 fn=SettingsOperations.toggle_constants,
             ),
             MenuActionItem(
@@ -135,7 +135,7 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
         icon="document-open-recent",
         checkable=True,
         item_type=MenuActionType.TOGGLE,
-        checked_attr="show_history",
+        checked_getter=lambda s: s.show_history,
         fn=SettingsOperations.toggle_history,
     ),
     MenuActionItem(

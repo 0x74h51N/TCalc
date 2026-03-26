@@ -7,11 +7,14 @@
 
 from __future__ import annotations
 
+from typing import Callable
+
 from PySide6.QtCore import QByteArray, QSettings, QSize, QTimer
 from PySide6.QtGui import Qt
 from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
 
 from tcalc.app_state import CalculatorMode, get_app_state
+from tcalc.ui.controller.menubar import SettingsOperations
 from tcalc.ui.keyboard import KeyboardHandler
 
 from ..core import Calculator
@@ -61,7 +64,9 @@ class MainWindow(QMainWindow):
         widget: QWidget,
         title: str,
         object_name: str,
-        state_attr: str,
+        initial_visible: bool,
+        on_visibility: Callable[[bool], None],
+        menu_toggle_fn: Callable,
         min_width: int,
         allowed: Qt.DockWidgetArea = (
             Qt.DockWidgetArea.BottomDockWidgetArea
@@ -74,19 +79,24 @@ class MainWindow(QMainWindow):
         dock.setWidget(widget)
         dock.setAllowedAreas(allowed)
         dock.setMinimumWidth(min_width)
-        dock.setVisible(getattr(get_app_state(), state_attr))
+        dock.setVisible(initial_visible)
+        dock.visibilityChanged.connect(on_visibility)
         dock.visibilityChanged.connect(
-            lambda visible, attr=state_attr: self._on_dock_visibility_changed(attr, visible)
+            lambda visible: self.menubar.settings_menu.sync_toggle(menu_toggle_fn, visible)
         )
         return dock
 
     def _setup_keypads(self) -> None:
+        app_state = get_app_state()
+
         self.numpad = MainKeypad(parent=self)
         self._numpad_dock = self._make_dock(
             self.numpad,
             "Numpad",
             "numpadDock",
-            state_attr="show_numpad",
+            initial_visible=app_state.show_numpad,
+            on_visibility=app_state.set_show_numpad,
+            menu_toggle_fn=SettingsOperations.toggle_numpad,
             min_width=window["numpad_min_width"],
         )
 
@@ -95,7 +105,9 @@ class MainWindow(QMainWindow):
             self.functions_keypad,
             "Functions",
             "functionsDock",
-            state_attr="show_funcpad",
+            initial_visible=app_state.show_funcpad,
+            on_visibility=app_state.set_show_funcpad,
+            menu_toggle_fn=SettingsOperations.toggle_funcpad,
             min_width=window["funcpad_min_width"],
         )
 
@@ -104,7 +116,9 @@ class MainWindow(QMainWindow):
             self.trig_power_keypad,
             "Trig / Power",
             "trigPowerDock",
-            state_attr="show_trigpad",
+            initial_visible=app_state.show_trigpad,
+            on_visibility=app_state.set_show_trigpad,
+            menu_toggle_fn=SettingsOperations.toggle_trigpad,
             min_width=window["trigpad_min_width"],
         )
 
@@ -124,7 +138,9 @@ class MainWindow(QMainWindow):
             self.side_panel,
             "History",
             "historyDock",
-            state_attr="show_history",
+            initial_visible=app_state.show_history,
+            on_visibility=app_state.set_show_history,
+            menu_toggle_fn=SettingsOperations.toggle_history,
             min_width=window["history_min_width"],
         )
 
@@ -217,13 +233,6 @@ class MainWindow(QMainWindow):
         self._save_window_state()
         super().closeEvent(event)
 
-    def _on_dock_visibility_changed(self, attr: str, visible: bool) -> None:
-        """Sync app_state and menu toggle when any registered dock is shown/hidden."""
-        app_state = get_app_state()
-        if getattr(app_state, attr) != visible:
-            setattr(app_state, attr, visible)
-        self.menubar.settings_menu.sync_toggle(attr, visible)
-
     # ------------------------------------------------------------------
     # Window state persistence
     # ------------------------------------------------------------------
@@ -243,10 +252,11 @@ class MainWindow(QMainWindow):
         if not restored:
             self._default_dock_layout()
 
-        self._on_dock_visibility_changed("show_numpad", self._numpad_dock.isVisible())
-        self._on_dock_visibility_changed("show_funcpad", self._functions_dock.isVisible())
-        self._on_dock_visibility_changed("show_trigpad", self._trig_power_dock.isVisible())
-        self._on_dock_visibility_changed("show_history", self._history_dock.isVisible())
+        app_state = get_app_state()
+        app_state.set_show_numpad(self._numpad_dock.isVisible())
+        app_state.set_show_funcpad(self._functions_dock.isVisible())
+        app_state.set_show_trigpad(self._trig_power_dock.isVisible())
+        app_state.set_show_history(self._history_dock.isVisible())
 
     def _save_window_state(self) -> None:
         settings = QSettings("TCalc", "TCalc")

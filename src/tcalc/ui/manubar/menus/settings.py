@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from PySide6.QtWidgets import QMenuBar
 
@@ -23,7 +23,7 @@ class SettingsMenu:
         self.window = window
         self.ops = SettingsOperations(window)
         self._mode_actions: dict = {}
-        self._toggle_actions: dict[str, QAction] = {}
+        self._toggle_actions: dict[Callable, QAction] = {}
 
         settings_menu = menu.addMenu("Settings")
 
@@ -39,8 +39,8 @@ class SettingsMenu:
                 if defn.mode:
                     self._mode_actions[defn.mode] = action
                     action.triggered.connect(self._update_mode_selection)
-                if defn.item_type == MenuActionType.TOGGLE and defn.checked_attr:
-                    self._toggle_actions[defn.checked_attr] = action
+                if defn.item_type == MenuActionType.TOGGLE:
+                    self._toggle_actions[defn.fn] = action
 
         self._update_mode_selection()
 
@@ -48,8 +48,8 @@ class SettingsMenu:
         for mode, action in self._mode_actions.items():
             action.setChecked(mode == self.app_state.mode)
 
-    def sync_toggle(self, attr: str, value: bool) -> None:
-        action = self._toggle_actions.get(attr)
+    def sync_toggle(self, toggle_fn: Callable, value: bool) -> None:
+        action = self._toggle_actions.get(toggle_fn)
         if action is None:
             return
         if action.isChecked() == value:
