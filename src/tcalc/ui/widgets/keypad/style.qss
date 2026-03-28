@@ -91,3 +91,53 @@ QPushButton[keypadRole="function"],
 QPushButton[keypadRole="power"] {
     padding: ${compact_pad_y}px ${compact_pad_x}px;
 }
+
+/* Custom pad toolbar */
+QSpinBox[customPadToolbar="true"] {
+    background-color: $custom_spin_bg;
+    color: $custom_spin_text;
+    border: 1px solid $custom_spin_border;
+    border-radius: ${radius_small}px;
+    padding: 1px 2px;
+}
+
+/* Custom pad context menu */
+QMenu[customPadMenu="true"] {
+    background-color: $custom_context_menu_bg;
+    color: $custom_context_menu_text;
+    border: 1px solid $custom_picker_border;
+}
+QMenu[customPadMenu="true"]::item:selected {
+    background-color: $custom_context_menu_hover;
+}
+/* Searchable picker popup */
+SearchablePicker {
+    background-color: $custom_picker_bg;
+    border: 1px solid $custom_picker_border;
+}
+SearchablePicker QLineEdit {
+    background-color: $custom_picker_search_bg;
+    color: $custom_picker_search_text;
+    border: 1px solid $custom_picker_border;
+    padding: 2px 4px;
+}
+SearchablePicker QListView {
+    background-color: $custom_picker_list_bg;
+    color: $custom_picker_list_text;
+    border: none;
+}
+SearchablePicker QListView::item:hover {
+    background-color: $custom_picker_list_hover;
+}
+
+QMenu[customPadMenu="true"]::separator {
+    background-color: $accent;
+}
+
+QPushButton[addButton="true"] {
+    background-color: $accent;
+}
+
+QPushButton[addButton="true"]::hover {
+    background-color: $secondary_hover;
+}

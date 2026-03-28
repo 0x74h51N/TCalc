@@ -34,5 +34,8 @@ class SettingsOperations:
         self._app_state.show_trigpad = checked
         self._window.update_layout()
 
+    def add_custom_pad(self) -> None:
+        self._window.add_custom_pad()
+
     def restore_default_layout(self) -> None:
         self._window.apply_def_dock_layout()

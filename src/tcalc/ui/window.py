@@ -16,6 +16,7 @@ from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
 from tcalc.app_state import CalculatorMode, get_app_state
 from tcalc.ui.controller.menubar import SettingsOperations
 from tcalc.ui.keyboard import KeyboardHandler
+from tcalc.ui.widgets.keypad.custom_pad import CustomPad
 
 from ..core import Calculator
 from .config import history_style, memory_style, window
@@ -50,6 +51,7 @@ class MainWindow(QMainWindow):
         self._setup_keypads()
         self._setup_history_dock()
         self._setup_controller()
+        self._restore_custom_pads()
         self._setup_keyboard()
 
         self.update_layout()
@@ -121,6 +123,9 @@ class MainWindow(QMainWindow):
             menu_toggle_fn=SettingsOperations.toggle_trigpad,
             min_width=window["trigpad_min_width"],
         )
+        # Dynamic custom pads (restored after controller is ready)
+        self._custom_pads: dict[int, tuple[CustomPad, QDockWidget]] = {}
+        self._settings = QSettings("TCalc", "TCalc")
 
     def _setup_history_dock(self) -> None:
         app_state = get_app_state()
@@ -238,6 +243,8 @@ class MainWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _restore_window_state(self) -> None:
+
+        self._default_dock_layout()
         settings = QSettings("TCalc", "TCalc")
 
         geometry = settings.value("window/geometry", None)
@@ -269,6 +276,8 @@ class MainWindow(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._numpad_dock)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self._functions_dock)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self._history_dock)
+        for _, dock in self._custom_pads.values():
+            self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
 
         self.setCorner(Qt.Corner.BottomRightCorner, Qt.DockWidgetArea.RightDockWidgetArea)
         self.setCorner(Qt.Corner.BottomLeftCorner, Qt.DockWidgetArea.LeftDockWidgetArea)
@@ -279,8 +288,60 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, lambda: self.history.update_fonts(force_layout=True))
 
     # ------------------------------------------------------------------
-    # Hints
+    # Dynamic custom pads
     # ------------------------------------------------------------------
+
+    _CUSTOM_PAD_IDS_KEY = "custom_pads/ids"
+
+    def _next_pad_id(self) -> int:
+        if not self._custom_pads:
+            return 0
+        return max(self._custom_pads) + 1
+
+    def _setup_custom_pad(self, pad_id: int) -> tuple[CustomPad, QDockWidget]:
+        """Create a CustomPad + dock, wire signals, register internally."""
+        pad = CustomPad(pad_id=pad_id, parent=self)
+        dock = QDockWidget(pad.label, self)
+        dock.setObjectName(f"customPad_{pad_id}")
+        dock.setWidget(pad)
+        dock.setAllowedAreas(
+            Qt.DockWidgetArea.BottomDockWidgetArea
+            | Qt.DockWidgetArea.LeftDockWidgetArea
+            | Qt.DockWidgetArea.RightDockWidgetArea
+        )
+        pad.key_pressed.connect(self.controller.handle_key)
+        pad.pad_removed.connect(lambda pid=pad_id: self._remove_custom_pad(pid))
+        pad.pad_renamed.connect(dock.setWindowTitle)
+        self._custom_pads[pad_id] = (pad, dock)
+        return pad, dock
+
+    def add_custom_pad(self) -> CustomPad:
+        """Create a new custom pad, dock it, and connect to controller."""
+        pad_id = self._next_pad_id()
+        pad, dock = self._setup_custom_pad(pad_id)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
+        self._save_custom_pad_ids()
+        return pad
+
+    def _remove_custom_pad(self, pad_id: int) -> None:
+        entry = self._custom_pads.pop(pad_id, None)
+        if entry is None:
+            return
+        pad, dock = entry
+        pad.key_pressed.disconnect(self.controller.handle_key)
+        self.removeDockWidget(dock)
+        dock.deleteLater()
+        self._save_custom_pad_ids()
+
+    def _save_custom_pad_ids(self) -> None:
+        self._settings.setValue(self._CUSTOM_PAD_IDS_KEY, list(self._custom_pads.keys()))
+
+    def _restore_custom_pads(self) -> None:
+        raw = self._settings.value(self._CUSTOM_PAD_IDS_KEY, [])
+        ids = [int(i) for i in raw] if isinstance(raw, list) else []
+        for pad_id in ids:
+            _, dock = self._setup_custom_pad(pad_id)
+            self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
 
     def sizeHint(self) -> QSize:
         return QSize(int(window["size_hint_width"]), int(window["size_hint_height"]))

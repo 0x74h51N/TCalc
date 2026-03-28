@@ -114,13 +114,55 @@ science_grid_stretch = 4
 
 column_split = 3
 
-min_pt = 7
-max_pt = 16
+min_pt = 8
+max_pt = 14
 
 keypad_stretch = 5
 
 # Base keypad button padding (px)
 button_padding = 0
+
+[keypad.custom]
+default_grid_count = 1
+default_max_rows = 6
+
+# Limits
+min_grids = 1
+max_grids = 6
+min_rows = 1
+max_rows = 24
+
+# Toolbar (edit mode)
+toolbar_margin = 2
+toolbar_spacing = 4
+spin_width = 80
+
+# Operation picker popup
+picker_min_width = 200
+picker_margin = 4
+picker_spacing = 2
+picker_list_height = 240
+picker_list_margin_left = 10
+picker_list_margin_top = 2
+picker_list_margin_right = 2
+picker_list_margin_bottom = 2
+
+# Colors (theme color key references)
+[keypad.custom.colors]
+context_menu_bg = "background_medium"
+context_menu_text = "text_primary"
+context_menu_hover = "selection_background"
+picker_bg = "background_medium"
+picker_text = "text_primary"
+picker_border = "border_light"
+picker_search_bg = "background_dark"
+picker_search_text = "text_primary"
+picker_list_bg = "background_dark"
+picker_list_hover = "selection_background"
+picker_list_text = "text_primary"
+spin_bg = "secondary"
+spin_text = "secondary_text"
+spin_border = "accent"
 
 # ---------------------------------------------------------------------------
 # Calc widget (display + topbar)

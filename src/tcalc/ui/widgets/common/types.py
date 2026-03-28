@@ -24,3 +24,5 @@ class KeyDef(TypedDict, total=False):
     checkable: bool
     enabled: bool
     shifted: ShiftedDef
+    bg_color: str
+    text_color: str

@@ -31,6 +31,7 @@ memory_style = _memory.get("style", {})
 toast_config = _config["toast"]
 
 keypad_config = _config["keypad"]
+custom_pad_config = _config["keypad"]["custom"]
 
 # Calc widget (display + topbar)
 calc_config = _config["calc"]

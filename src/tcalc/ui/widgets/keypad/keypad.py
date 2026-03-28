@@ -1,3 +1,10 @@
+#
+#
+#
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
 from __future__ import annotations
 
 from typing import Optional, cast
@@ -60,24 +67,14 @@ class Keypad(QWidget):
         root.setContentsMargins(margin, int(cfg["top_margin"]), margin, int(cfg["bottom_margin"]))
         root.setSpacing(grid_spacing)
 
-        hbox = QHBoxLayout()
-        hbox.setSpacing(gap)
-        root.addLayout(hbox, int(cfg["hbox_stretch"]))
+        self._hbox = QHBoxLayout()
+        self._hbox.setSpacing(gap)
+        root.addLayout(self._hbox, int(cfg["hbox_stretch"]))
 
-        for keys, stretch in self.grid_defs():
-            wrapper = QWidget(self)
-            grid = make_grid(grid_spacing, wrapper)
-            add_keys_to_grid(keys, grid, self._add_key)
-            hbox.addWidget(wrapper, stretch)
-            self._grid_widgets.append(wrapper)
-
+        self._build_grids()
         self._update_button_fonts()
         QTimer.singleShot(0, self._update_button_fonts)
         apply_keypad_style(self)
-
-    # ------------------------------------------------------------------
-    # Subclass API
-    # ------------------------------------------------------------------
 
     def grid_defs(self) -> list[GridDef]:
         """Return [(key_defs_dict, stretch), ...] for each grid column."""
@@ -86,6 +83,40 @@ class Keypad(QWidget):
     # ------------------------------------------------------------------
     # Grid construction
     # ------------------------------------------------------------------
+
+    def _build_grids(self) -> None:
+        """Populate ``_hbox`` from ``grid_defs()``."""
+        cfg = keypad_config
+        grid_spacing = int(cfg["grid_spacing"])
+
+        for keys, stretch in self.grid_defs():
+            wrapper = QWidget(self)
+            grid = make_grid(grid_spacing, wrapper)
+            add_keys_to_grid(keys, grid, self._add_key)
+            self._hbox.addWidget(wrapper, stretch)
+            self._grid_widgets.append(wrapper)
+
+    def _rebuild_grids(self) -> None:
+        """Tear down existing grids and rebuild from ``grid_defs()``."""
+        # Remove old grid widgets
+        for w in self._grid_widgets:
+            self._hbox.removeWidget(w)
+            w.deleteLater()
+        self._grid_widgets.clear()
+
+        # Clear button tracking
+        for btn in list(self._button_group.buttons()):
+            self._button_group.removeButton(btn)
+        self._buttons.clear()
+        self._shiftable_buttons.clear()
+        self._op_buttons.clear()
+        self._base_key_def_by_button.clear()
+        self._key_def_by_button.clear()
+
+        # Rebuild
+        self._build_grids()
+        self._update_button_fonts()
+        QTimer.singleShot(0, self._update_button_fonts)
 
     def _add_key(self, key_def: KeyDef, role: str, grid: QGridLayout) -> None:
         button = KeyButton(key_def, role, grid.parentWidget() or self)
@@ -114,10 +145,6 @@ class Keypad(QWidget):
         if not isinstance(key_def, dict):
             return
         handle_button_clicked(self.key_pressed, key_def)
-
-    # ------------------------------------------------------------------
-    # Shift support
-    # ------------------------------------------------------------------
 
     def apply_shift(self, shifted: bool) -> None:
         for button in self._shiftable_buttons:
