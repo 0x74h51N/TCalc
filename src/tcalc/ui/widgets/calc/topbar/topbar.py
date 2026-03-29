@@ -74,7 +74,7 @@ class TopBar(QWidget):
         button.clicked.connect(
             lambda _=False, kd=key_def: handle_button_clicked(self.key_pressed, kd)
         )
-        self._buttons[str(key_def.get("label", ""))] = button
+        self._buttons[key_def.label] = button
         button.place(grid, key_def)
 
     def get_button(self, label: str) -> Optional[QPushButton]:

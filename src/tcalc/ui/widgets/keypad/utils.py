@@ -31,8 +31,11 @@ def add_keys_to_grid(
 
 
 def handle_button_clicked(key_pressed: SignalInstance, key_def: KeyDef) -> None:
-    operation = key_def.get("operation")
-    if operation is None:
+    if key_def.operation is None:
         return
-    value = operation.symbol if isinstance(operation, Operation) else str(operation)
-    key_pressed.emit(value, operation)
+    value = (
+        key_def.operation.symbol
+        if isinstance(key_def.operation, Operation)
+        else str(key_def.operation)
+    )
+    key_pressed.emit(value, key_def.operation)

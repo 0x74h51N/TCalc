@@ -49,7 +49,7 @@ NUMBER_KEYS: list[KeyDef] = []
 for _d, (_row, _col) in DIGIT_POSITIONS.items():
     _key: KeyDef = KeyDef(label=str(_d), operation=str(_d), row=_row, col=_col)
     if _d == 0:
-        _key["colspan"] = 2
+        _key.colspan = 2
     NUMBER_KEYS.append(_key)
 
 NUMBER_KEYS.append(KeyDef(label=".", operation=Operation.DOT, row=4, col=2))

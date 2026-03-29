@@ -29,14 +29,13 @@ class KeyButton(QPushButton):
     """Push button created from a ``KeyDef`` with grid placement support."""
 
     def __init__(self, key_def: KeyDef, role: str, parent: QWidget | None = None) -> None:
-        super().__init__(str(key_def.get("label", "")), parent)
+        super().__init__(key_def.label, parent)
 
-        tooltip = key_def.get("tooltip")
-        if tooltip:
-            self.setToolTip(str(tooltip).capitalize())
+        if key_def.tooltip:
+            self.setToolTip(key_def.tooltip.capitalize())
 
-        self.setEnabled(key_def.get("enabled", True))
-        if key_def.get("checkable"):
+        self.setEnabled(key_def.enabled)
+        if key_def.checkable:
             self.setCheckable(True)
 
         self.setObjectName("keypadButton")
@@ -46,13 +45,7 @@ class KeyButton(QPushButton):
 
     def place(self, grid: QGridLayout, key_def: KeyDef) -> None:
         """Add this button to *grid* at the position specified in *key_def*."""
-        grid.addWidget(
-            self,
-            key_def.get("row", 0),
-            key_def.get("col", 0),
-            key_def.get("rowspan", 1),
-            key_def.get("colspan", 1),
-        )
+        grid.addWidget(self, key_def.row, key_def.col, key_def.rowspan, key_def.colspan)
 
 
 class IconButton(QPushButton):

@@ -7,7 +7,8 @@
 
 from __future__ import annotations
 
-from typing import Optional, cast
+import dataclasses
+from typing import Optional
 
 from PySide6.QtCore import QTimer, Signal
 from PySide6.QtWidgets import (
@@ -125,13 +126,12 @@ class Keypad(QWidget):
         self._button_group.addButton(button)
         self._base_key_def_by_button[button] = key_def
         self._key_def_by_button[button] = key_def
-        self._buttons[str(key_def.get("label", ""))] = button
+        self._buttons[key_def.label] = button
 
-        op = key_def.get("operation")
-        if isinstance(op, Operation):
-            self._op_buttons[op] = button
+        if isinstance(key_def.operation, Operation):
+            self._op_buttons[key_def.operation] = button
 
-        if key_def.get("shifted"):
+        if key_def.shifted is not None:
             self._shiftable_buttons.append(button)
 
         button.place(grid, key_def)
@@ -142,23 +142,28 @@ class Keypad(QWidget):
 
     def _on_button_clicked(self, button: QAbstractButton) -> None:
         key_def = self._key_def_by_button.get(button)
-        if not isinstance(key_def, dict):
+        if key_def is None:
             return
         handle_button_clicked(self.key_pressed, key_def)
 
     def apply_shift(self, shifted: bool) -> None:
         for button in self._shiftable_buttons:
-            base = self._base_key_def_by_button.get(button, {})
-            shifted_def = base.get("shifted")
-            active = (
-                cast(KeyDef, {**base, **shifted_def})
-                if shifted and isinstance(shifted_def, dict)
-                else base
-            )
+            base = self._base_key_def_by_button.get(button)
+            if base is None:
+                continue
+            shifted_def = base.shifted
+            if shifted and shifted_def is not None:
+                active = dataclasses.replace(
+                    base,
+                    label=shifted_def.label,
+                    operation=shifted_def.operation,
+                    tooltip=shifted_def.tooltip,
+                )
+            else:
+                active = base
             self._key_def_by_button[button] = active
-            button.setText(str(active.get("label", "")))
-            tooltip = active.get("tooltip")
-            button.setToolTip(str(tooltip).capitalize() if tooltip else "")
+            button.setText(active.label)
+            button.setToolTip(active.tooltip.capitalize() if active.tooltip else "")
 
     # ------------------------------------------------------------------
     # Public accessors
