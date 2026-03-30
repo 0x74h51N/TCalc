@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QRadioButton,
     QSizePolicy,
+    QSpinBox,
     QWidget,
 )
 
@@ -140,3 +141,26 @@ class OptionGroup(QWidget):
     def buttons(self) -> dict[object, QRadioButton]:
         """Return the internal ``{key: QRadioButton}`` mapping."""
         return self._buttons
+
+
+class KSSpinBox(QSpinBox):
+    """Spin box with a prefix label, range, and optional fixed width."""
+
+    def __init__(
+        self,
+        prefix: str,
+        tooltip: str,
+        min_val: int,
+        max_val: int,
+        value: int,
+        width: int | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setButtonSymbols(QSpinBox.ButtonSymbols.PlusMinus)
+        self.setPrefix(prefix)
+        self.setRange(min_val, max_val)
+        self.setValue(value)
+        self.setToolTip(tooltip)
+        if width is not None:
+            self.setFixedWidth(width)

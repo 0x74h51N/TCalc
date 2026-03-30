@@ -7,12 +7,12 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
 
 from PySide6.QtCore import QPoint, QSettings, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractButton,
     QColorDialog,
+    QFrame,
     QGridLayout,
     QHBoxLayout,
     QInputDialog,
@@ -20,14 +20,13 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSizePolicy,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from tcalc.core.ops import Operation
 from tcalc.theme import get_theme
-from tcalc.ui.widgets.common.button import IconButton, KeyButton
+from tcalc.ui.widgets.common.button import IconButton, KeyButton, KSSpinBox
 from tcalc.ui.widgets.common.flow_layout import FlowLayout
 from tcalc.ui.widgets.common.picker import SearchablePicker
 from tcalc.ui.widgets.common.types import KeyDef
@@ -41,115 +40,146 @@ _ROLE = "custom"
 
 
 # ---------------------------------------------------------------------------
-# GridData
+# Key helpers
 # ---------------------------------------------------------------------------
 
 
-@dataclass()
-class GridData:
-    """Key list for a single grid panel."""
+def _recalc_positions(keys: list[KeyDef], max_rows: int) -> None:
+    for i, kd in enumerate(keys):
+        kd.row = i % max_rows
+        kd.col = i // max_rows
 
-    keys: list[KeyDef] = field(default_factory=list)
 
-    @staticmethod
-    def _make_key_def(op: Operation, row: int, col: int) -> KeyDef:
-        return KeyDef(
-            label=op.symbol,
-            operation=op,
-            row=row,
-            col=col,
-            tooltip=op.name.lower().replace("_", " "),
-        )
+def _add_operation(keys: list[KeyDef], op: Operation, max_rows: int) -> None:
+    idx = len(keys)
+    keys.append(KeyDef.from_op(op, idx % max_rows, idx // max_rows))
 
-    def add_operation(self, op: Operation, max_rows: int) -> None:
-        idx = len(self.keys)
-        self.keys.append(self._make_key_def(op, idx % max_rows, idx // max_rows))
 
-    def replace_operation(self, index: int, op: Operation) -> None:
-        if 0 <= index < len(self.keys):
-            kd = self.keys[index]
-            self.keys[index] = self._make_key_def(op, kd.row, kd.col)
+def _replace_operation(keys: list[KeyDef], index: int, op: Operation) -> None:
+    if not (0 <= index < len(keys)):
+        return
 
-    def remove_key(self, index: int, max_rows: int) -> None:
-        if 0 <= index < len(self.keys):
-            self.keys.pop(index)
-            self._recalc_positions(max_rows)
+    old = keys[index]
+    new = KeyDef.from_op(op, old.row, old.col)
+    new.bg_color = old.bg_color
+    new.text_color = old.text_color
+    keys[index] = new
 
-    def _recalc_positions(self, max_rows: int) -> None:
-        for i, kd in enumerate(self.keys):
-            kd.row = i % max_rows
-            kd.col = i // max_rows
 
-    def set_color(self, index: int, bg: str | None = None, text: str | None = None) -> None:
-        if 0 <= index < len(self.keys):
-            kd = self.keys[index]
-            if bg is not None:
-                kd.bg_color = bg
-            if text is not None:
-                kd.text_color = text
+def _remove_key(keys: list[KeyDef], index: int, max_rows: int) -> None:
+    if not (0 <= index < len(keys)):
+        return
+    keys.pop(index)
+    _recalc_positions(keys, max_rows)
 
-    def serialize(self) -> list[dict[str, str]]:
-        result: list[dict[str, str]] = []
-        for kd in self.keys:
-            entry: dict[str, str] = {
-                "operation": kd.operation.name if isinstance(kd.operation, Operation) else ""
-            }
-            if kd.bg_color:
-                entry["bg_color"] = kd.bg_color
-            if kd.text_color:
-                entry["text_color"] = kd.text_color
-            result.append(entry)
-        return result
 
-    @staticmethod
-    def deserialize(data: list[dict[str, str]], max_rows: int) -> GridData:
-        gd = GridData()
-        for entry in data:
-            try:
-                gd.add_operation(Operation[entry["operation"]], max_rows)
-            except (KeyError, TypeError):
-                continue
-            kd = gd.keys[-1]
-            if entry.get("bg_color"):
-                kd.bg_color = entry["bg_color"]
-            if entry.get("text_color"):
-                kd.text_color = entry["text_color"]
-        return gd
+def _set_key_color(
+    keys: list[KeyDef],
+    index: int,
+    bg: str | None = None,
+    text: str | None = None,
+) -> None:
+    if not (0 <= index < len(keys)):
+        return
+
+    kd = keys[index]
+    if bg is not None:
+        kd.bg_color = bg
+    if text is not None:
+        kd.text_color = text
+
+
+def _load_keys(data: list[dict[str, str]], max_rows: int) -> list[KeyDef]:
+    keys: list[KeyDef] = []
+
+    for i, entry in enumerate(data):
+        op_name = entry.get("operation")
+        if not op_name:
+            continue
+
+        try:
+            op = Operation[op_name]
+        except KeyError:
+            continue
+
+        kd = KeyDef.from_op(op, i % max_rows, i // max_rows)
+        kd.bg_color = entry.get("bg_color", "")
+        kd.text_color = entry.get("text_color", "")
+        keys.append(kd)
+
+    return keys
 
 
 # ---------------------------------------------------------------------------
-# KSGrid
+# KuStomGrid
 # ---------------------------------------------------------------------------
 
 
 class KSGrid(QWidget):
-    """Single grid panel for CustomPad. Holds keys + optional add button."""
+    """Kustom grid panel for CustomPad. Holds keys + optional add button."""
 
-    key_clicked = Signal(str, object)  # (value, operation)
-    add_requested = Signal(int)  # grid_index
-    key_context_requested = Signal(int, int, QAbstractButton)  # grid_index, key_index, button
+    key_clicked = Signal(str, object)
+    add_requested = Signal(int)
+    key_context_requested = Signal(int, int, QAbstractButton)
+    edit_menu_requested = Signal(int, QPoint)  # grid_index, global_pos
 
     def __init__(
         self,
         grid_index: int,
-        data: GridData,
+        keys: list[KeyDef],
         max_rows: int,
         editing: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self._grid_index = grid_index
-        self._data = data
+        self._keys = keys
         self._max_rows = max_rows
         self._editing = editing
         self._buttons: list[QPushButton] = []
         self._add_button: IconButton | None = None
 
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(2)
+
+        self._toolbar = QWidget(self)
+        toolbar_layout = QHBoxLayout(self._toolbar)
+        toolbar_layout.setContentsMargins(0, 0, 0, 0)
+        toolbar_layout.setSpacing(4)
+
+        spin_width = int(_cfg["spin_width"])
+        self._row_spin = KSSpinBox(
+            "Rows: ",
+            "Max rows",
+            int(_cfg["min_rows"]),
+            int(_cfg["max_rows"]),
+            max_rows,
+            spin_width,
+            self._toolbar,
+        )
+        self._row_spin.valueChanged.connect(self._on_max_rows_changed)
+        toolbar_layout.addWidget(self._row_spin)
+
+        self._edit_btn = IconButton("document-edit", "Edit keys", "", None, self._toolbar)
+        self._edit_btn.clicked.connect(self._on_edit_clicked)
+        toolbar_layout.addWidget(self._edit_btn)
+
+        self._remove_btn = IconButton("edit-delete", "Delete keys", "", None, self._toolbar)
+        self._remove_btn.clicked.connect(self._confirm_remove_grid_keys)
+        toolbar_layout.addWidget(self._remove_btn)
+
+        toolbar_layout.addStretch()
+        self._toolbar.setVisible(editing)
+        root.addWidget(self._toolbar)
+
+        grid_widget = QWidget(self)
         spacing = int(keypad_config["grid_spacing"])
-        self._grid = QGridLayout(self)
+        self._grid = QGridLayout(grid_widget)
         self._grid.setContentsMargins(0, 0, 0, 0)
         self._grid.setHorizontalSpacing(spacing)
         self._grid.setVerticalSpacing(spacing)
+        root.addWidget(grid_widget, 1)
 
         self._build()
 
@@ -164,8 +194,8 @@ class KSGrid(QWidget):
         self._grid_index = value
 
     @property
-    def data(self) -> GridData:
-        return self._data
+    def keys(self) -> list[KeyDef]:
+        return self._keys
 
     @property
     def max_rows(self) -> int:
@@ -174,8 +204,15 @@ class KSGrid(QWidget):
     @max_rows.setter
     def max_rows(self, value: int) -> None:
         self._max_rows = value
-        self._data._recalc_positions(value)
-        self.rebuild()
+        _recalc_positions(self._keys, value)
+        self._relayout()
+
+    def _on_max_rows_changed(self, value: int) -> None:
+        self.max_rows = value
+
+    def _on_edit_clicked(self) -> None:
+        pos = self._edit_btn.mapToGlobal(self._edit_btn.rect().bottomLeft())
+        self.edit_menu_requested.emit(self._grid_index, pos)
 
     @property
     def editing(self) -> bool:
@@ -184,15 +221,19 @@ class KSGrid(QWidget):
     @editing.setter
     def editing(self, value: bool) -> None:
         self._editing = value
-        self.rebuild()
+        self._toolbar.setVisible(value)
+        if value:
+            self._place_add_button()
+        else:
+            self._remove_add_button()
 
     # -- Build / Rebuild ---------------------------------------------------
 
     def _build(self) -> None:
-        for r in range(self._max_rows):
-            self._grid.setRowStretch(r, 1)
+        for r in range(max(self._grid.rowCount(), self._max_rows)):
+            self._grid.setRowStretch(r, 1 if r < self._max_rows else 0)
 
-        for ki, kd in enumerate(self._data.keys):
+        for ki, kd in enumerate(self._keys):
             btn = KeyButton(kd, _ROLE, self)
             btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             btn.place(self._grid, kd)
@@ -201,12 +242,11 @@ class KSGrid(QWidget):
             btn.customContextMenuRequested.connect(self._make_context_handler(ki, btn))
             self._buttons.append(btn)
 
-            # Per-key custom colors
             if kd.bg_color or kd.text_color:
-                self._apply_key_color(btn, kd.bg_color, kd.text_color)
+                self._style_button(btn, kd.bg_color, kd.text_color)
 
         if self._editing:
-            idx = len(self._data.keys)
+            idx = len(self._keys)
             self._add_button = IconButton("./assets/custom_pad.svg", tooltip="Add key", parent=self)
             self._add_button.setProperty("addButton", True)
             self._add_button.setSizePolicy(
@@ -214,6 +254,20 @@ class KSGrid(QWidget):
             )
             self._grid.addWidget(self._add_button, idx % self._max_rows, idx // self._max_rows)
             self._add_button.clicked.connect(lambda: self.add_requested.emit(self._grid_index))
+
+    def _relayout(self) -> None:
+        for r in range(max(self._grid.rowCount(), self._max_rows)):
+            self._grid.setRowStretch(r, 1 if r < self._max_rows else 0)
+
+        for btn, kd in zip(self._buttons, self._keys):
+            self._grid.addWidget(btn, kd.row, kd.col, kd.rowspan, kd.colspan)
+
+        if self._add_button is not None:
+            idx = len(self._keys)
+            self._grid.addWidget(self._add_button, idx % self._max_rows, idx // self._max_rows)
+
+        self._grid.invalidate()
+        self._grid.activate()
 
     def rebuild(self) -> None:
         """Tear down all widgets and rebuild from current data."""
@@ -229,12 +283,36 @@ class KSGrid(QWidget):
 
         self._build()
 
+    # -- Add button management ---------------------------------------------
+
+    def _place_add_button(self) -> None:
+        if self._add_button is not None:
+            return
+        self._add_button = IconButton("./assets/custom_pad.svg", tooltip="Add key", parent=self)
+        self._add_button.setProperty("addButton", True)
+        self._add_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._add_button.clicked.connect(lambda: self.add_requested.emit(self._grid_index))
+        self._move_add_button()
+
+    def _remove_add_button(self) -> None:
+        if self._add_button is None:
+            return
+        self._grid.removeWidget(self._add_button)
+        self._add_button.deleteLater()
+        self._add_button = None
+
+    def _move_add_button(self) -> None:
+        if self._add_button is None:
+            return
+        idx = len(self._keys)
+        self._grid.addWidget(self._add_button, idx % self._max_rows, idx // self._max_rows)
+
     # -- Helpers -----------------------------------------------------------
 
     def _make_key_handler(self, kd: KeyDef):
         """Create a click handler for a key button."""
 
-        def handler(_checked: bool = False) -> None:
+        def handler(_: bool = False) -> None:
             if kd.operation is None:
                 return
             value = (
@@ -252,8 +330,19 @@ class KSGrid(QWidget):
 
         return handler
 
-    @staticmethod
-    def _apply_key_color(btn: QPushButton, bg: str, text: str) -> None:
+    def apply_color(self, key_index: int, bg: str | None = None, text: str | None = None) -> None:
+        """Update color on data + button for a single key."""
+        _set_key_color(self._keys, key_index, bg=bg, text=text)
+        if 0 <= key_index < len(self._buttons):
+            kd = self._keys[key_index]
+            self._style_button(self._buttons[key_index], kd.bg_color, kd.text_color)
+
+    def apply_color_all(self, bg: str | None = None, text: str | None = None) -> None:
+        """Update color on data + button for all keys."""
+        for i in range(len(self._keys)):
+            self.apply_color(i, bg=bg, text=text)
+
+    def _style_button(self, btn: QPushButton, bg: str, text: str) -> None:
         btn.setProperty("padKey", True)
         parts = ['QPushButton[padKey="true"] {']
         if bg:
@@ -263,11 +352,17 @@ class KSGrid(QWidget):
         parts.append("}")
         btn.setStyleSheet(" ".join(parts))
 
-    def button_at(self, key_index: int) -> QPushButton | None:
-        """Return the button widget for the given key index."""
-        if 0 <= key_index < len(self._buttons):
-            return self._buttons[key_index]
-        return None
+    def _confirm_remove_grid_keys(self) -> None:
+        reply = QMessageBox.warning(
+            self,
+            "Remove Grid Keys",
+            "Are you sure you want to remove all keys in this grid?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._keys.clear()
+            self.rebuild()
 
 
 # ===========================================================================
@@ -290,10 +385,11 @@ class CustomPad(QWidget):
         self._settings_key = f"custom_pad/{pad_id}/layout"
         self._label = f"CustomPad {pad_id}"
         self._editing = False
-        self._grid_count = int(_cfg["default_grid_count"])
-        self._max_rows = int(_cfg["default_max_rows"])
+        self._cols = int(_cfg["default_cols"])
+        self._rows = int(_cfg["default_rows"])
         self._settings = QSettings("TCalc", "TCalc")
-        self._grid_data: list[GridData] = [GridData()]
+        self._grid_keys: list[list[KeyDef]] = [[]]
+        self._grid_max_rows: list[int] = [int(_cfg["default_max_rows"])]
         self._load()
         self._grids: list[KSGrid] = []
         self._pending_edit: tuple[int, int] | None = None
@@ -306,9 +402,9 @@ class CustomPad(QWidget):
             margin, int(kcfg["top_margin"]), margin, int(kcfg["bottom_margin"])
         )
         self._root.setSpacing(int(kcfg["grid_spacing"]))
-        self._hbox = QHBoxLayout()
-        self._hbox.setSpacing(int(kcfg["hbox_spacing"]))
-        self._root.addLayout(self._hbox, int(kcfg["hbox_stretch"]))
+        self._grid_layout = QGridLayout()
+        self._grid_layout.setSpacing(int(kcfg["hbox_spacing"]))
+        self._root.addLayout(self._grid_layout, int(kcfg["hbox_stretch"]))
         self._build_grids()
         # Pickers
         self._op_picker = self._make_picker(
@@ -338,15 +434,18 @@ class CustomPad(QWidget):
     # Grid management
     # ------------------------------------------------------------------
     def _build_grids(self) -> None:
-        for i, gd in enumerate(self._grid_data):
-            grid = KSGrid(i, gd, self._max_rows, self._editing, self)
+        default_max = int(_cfg["default_max_rows"])
+        for i, keys in enumerate(self._grid_keys):
+            max_rows = self._grid_max_rows[i] if i < len(self._grid_max_rows) else default_max
+            grid = KSGrid(i, keys, max_rows, self._editing, self)
             self._wire_grid(grid)
-            self._hbox.addWidget(grid, 1)
+            row, col = divmod(i, self._cols)
+            self._grid_layout.addWidget(grid, row, col)
             self._grids.append(grid)
 
     def _rebuild_grids(self) -> None:
         for g in self._grids:
-            self._hbox.removeWidget(g)
+            self._grid_layout.removeWidget(g)
             g.deleteLater()
         self._grids.clear()
         self._build_grids()
@@ -355,6 +454,7 @@ class CustomPad(QWidget):
         grid.key_clicked.connect(self.key_pressed)
         grid.add_requested.connect(self._on_add_requested)
         grid.key_context_requested.connect(self._show_key_context_menu)
+        grid.edit_menu_requested.connect(self._show_grid_edit_menu)
 
     # ------------------------------------------------------------------
     # Picker factory
@@ -373,48 +473,64 @@ class CustomPad(QWidget):
     # ------------------------------------------------------------------
     # Toolbar
     # ------------------------------------------------------------------
-    @staticmethod
-    def _make_toolbar_spin(prefix: str, min_val: int, max_val: int, value: int) -> QSpinBox:
-        spin = QSpinBox()
-        spin.setButtonSymbols(QSpinBox.ButtonSymbols.PlusMinus)
-        spin.setPrefix(prefix)
-        spin.setRange(min_val, max_val)
-        spin.setValue(value)
-        spin.setProperty("customPadToolbar", True)
-        spin.setFixedWidth(int(_cfg["spin_width"]))
-        return spin
-
     def _insert_toolbar(self) -> None:
-        self._toolbar_widget = QWidget(self)
-        sp = self._toolbar_widget.sizePolicy()
+        self._toolbar = QWidget(self)
+        sp = self._toolbar.sizePolicy()
         sp.setHeightForWidth(True)
-        self._toolbar_widget.setSizePolicy(sp)
-        self._toolbar_layout = FlowLayout(
-            self._toolbar_widget,
+        self._toolbar.setSizePolicy(sp)
+
+        toolbar_layout = FlowLayout(
+            self._toolbar,
             margin=int(_cfg["toolbar_margin"]),
             spacing=int(_cfg["toolbar_spacing"]),
         )
-        self._grid_count_spin = self._make_toolbar_spin(
-            "Grids: ",
-            int(_cfg["min_grids"]),
-            int(_cfg["max_grids"]),
-            self._grid_count,
+
+        spin_width = int(_cfg["spin_width"])
+        padding = 7
+        self._cols_spin = KSSpinBox(
+            "vGrids: ",
+            "Vertical Grids",
+            int(_cfg["min_cols"]),
+            int(_cfg["max_cols"]),
+            self._cols,
+            spin_width + padding,
+            self._toolbar,
         )
-        self._grid_count_spin.valueChanged.connect(self._on_grid_count_changed)
-        self._toolbar_layout.addWidget(self._grid_count_spin)
-        self._row_spin = self._make_toolbar_spin(
-            "Rows: ",
-            int(_cfg["min_rows"]),
-            int(_cfg["max_rows"]),
-            self._max_rows,
+        self._cols_spin.valueChanged.connect(self._on_cols_changed)
+        toolbar_layout.addWidget(self._cols_spin)
+
+        self._rows_spin = KSSpinBox(
+            "hGrids: ",
+            "Horizontal Grids",
+            int(_cfg["min_grid_rows"]),
+            int(_cfg["max_grid_rows"]),
+            self._rows,
+            spin_width + padding,
+            self._toolbar,
         )
-        self._row_spin.valueChanged.connect(self._on_max_rows_changed)
-        self._toolbar_layout.addWidget(self._row_spin)
-        self._rename_btn = IconButton("document-edit", "Rename pad", "", None, self._toolbar_widget)
-        self._rename_btn.clicked.connect(self._rename_pad)
-        self._toolbar_layout.addWidget(self._rename_btn)
-        self._toolbar_widget.hide()
-        self._root.insertWidget(0, self._toolbar_widget)
+        self._rows_spin.valueChanged.connect(self._on_rows_changed)
+        toolbar_layout.addWidget(self._rows_spin)
+
+        rename_btn = IconButton("insert-text", "Rename pad", "", None, self._toolbar)
+        rename_btn.clicked.connect(self._rename_pad)
+        toolbar_layout.addWidget(rename_btn)
+
+        remove_keys_btn = IconButton("edit-delete", "Remove keys", "", None, self._toolbar)
+        remove_keys_btn.clicked.connect(self._confirm_remove_all_keys)
+        toolbar_layout.addWidget(remove_keys_btn)
+
+        remove_pad_btn = IconButton("edit-delete-shred", "Remove pad", "", None, self._toolbar)
+        remove_pad_btn.clicked.connect(self._confirm_remove_pad)
+        toolbar_layout.addWidget(remove_pad_btn)
+
+        self._toolbar_sep = QFrame(self)
+        self._toolbar_sep.setFrameShape(QFrame.Shape.HLine)
+        self._toolbar_sep.hide()
+
+        self._toolbar.hide()
+        self._root.insertWidget(0, self._toolbar_sep)
+        self._root.insertWidget(0, self._toolbar)
+
         self.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.customContextMenuRequested.connect(self._show_context_menu)
 
@@ -424,17 +540,8 @@ class CustomPad(QWidget):
     def _show_context_menu(self, pos: QPoint) -> None:
         menu = self._styled_menu(self)
         if self._editing:
-            edit_all = self._styled_menu(self, parent_menu=menu, title="Edit Buttons")
-            edit_all.addAction(
-                "BG Color",
-                lambda: self._open_color_picker(_ALL_KEYS, "bg", self.mapToGlobal(pos)),
-            )
-            edit_all.addAction(
-                "Text Color",
-                lambda: self._open_color_picker(_ALL_KEYS, "text", self.mapToGlobal(pos)),
-            )
-            edit_all.addSeparator()
-            edit_all.addAction("Remove All Keys", self._confirm_remove_all_keys)
+            global_pos = self.mapToGlobal(pos)
+            self._add_edit_submenu(menu, _ALL_KEYS, global_pos)
             menu.addAction("Rename", self._rename_pad)
             menu.addAction("Remove Pad", self._confirm_remove_pad)
             menu.addSeparator()
@@ -443,10 +550,37 @@ class CustomPad(QWidget):
             menu.addAction("Edit", lambda: self._toggle_edit(True))
         menu.exec(self.mapToGlobal(pos))
 
+    def _show_grid_edit_menu(self, grid_index: int, global_pos: QPoint) -> None:
+        """Edit menu for a single grid."""
+        menu = self._styled_menu(self)
+        loc = (grid_index, -1)
+        self._add_edit_submenu(menu, loc, global_pos, inline=True)
+        menu.exec(global_pos)
+
+    def _add_edit_submenu(
+        self,
+        menu: QMenu,
+        loc: tuple[int, int],
+        global_pos: QPoint,
+        inline: bool = False,
+    ) -> None:
+        """Populate *menu* with BG Color / Teinsert-textRemove All Keys actions."""
+        target = menu if inline else self._styled_menu(self, parent_menu=menu, title="Edit Buttons")
+        target.addAction("BG Color", lambda: self._open_color_picker(loc, "bg", global_pos))
+        target.addAction("Text Color", lambda: self._open_color_picker(loc, "text", global_pos))
+        target.addSeparator()
+        if loc == _ALL_KEYS:
+            target.addAction("Remove All Keys", self._confirm_remove_all_keys)
+        else:
+            gi = loc[0]
+            target.addAction("Remove All Keys", lambda: self._grids[gi]._confirm_remove_grid_keys())
+
     def _show_key_context_menu(
         self, grid_index: int, key_index: int, button: QAbstractButton
     ) -> None:
         if not self._editing:
+            pos = button.mapTo(self, button.rect().center())
+            self._show_context_menu(pos)
             return
         gi, ki = grid_index, key_index
         menu = self._styled_menu(self)
@@ -493,13 +627,8 @@ class CustomPad(QWidget):
     # ------------------------------------------------------------------
     def _toggle_edit(self, editing: bool) -> None:
         self._editing = editing
-        self._toolbar_widget.setVisible(editing)
-        self._toolbar_layout.invalidate()
-        self._toolbar_widget.updateGeometry()
-        self._toolbar_layout.activate()
-        if self._root is not None:
-            self._root.invalidate()
-            self._root.activate()
+        self._toolbar.setVisible(editing)
+        self._toolbar_sep.setVisible(editing)
         for g in self._grids:
             g.editing = editing
         if not editing:
@@ -528,12 +657,12 @@ class CustomPad(QWidget):
             gi, ki = self._pending_edit
             self._pending_edit = None
             if gi < len(self._grids):
-                self._grids[gi].data.replace_operation(ki, op)
+                _replace_operation(self._grids[gi].keys, ki, op)
                 self._grids[gi].rebuild()
         else:
             gi = self._pending_grid_index
             if gi < len(self._grids):
-                self._grids[gi].data.add_operation(op, self._max_rows)
+                _add_operation(self._grids[gi].keys, op, self._grids[gi].max_rows)
                 self._grids[gi].rebuild()
 
     def _on_color_picked(self, color_value: str | None) -> None:
@@ -552,19 +681,18 @@ class CustomPad(QWidget):
         text_val = color_value if not is_bg else None
         if (gi, ki) == _ALL_KEYS:
             for g in self._grids:
-                for idx in range(len(g.data.keys)):
-                    g.data.set_color(idx, bg=bg_val, text=text_val)
-                g.rebuild()
+                g.apply_color_all(bg=bg_val, text=text_val)
+        elif gi < len(self._grids) and ki == -1:
+            self._grids[gi].apply_color_all(bg=bg_val, text=text_val)
         elif gi < len(self._grids):
-            self._grids[gi].data.set_color(ki, bg=bg_val, text=text_val)
-            self._grids[gi].rebuild()
+            self._grids[gi].apply_color(ki, bg=bg_val, text=text_val)
 
     # ------------------------------------------------------------------
     # Key / pad removal
     # ------------------------------------------------------------------
     def _remove_key(self, grid_idx: int, key_idx: int) -> None:
         if grid_idx < len(self._grids):
-            self._grids[grid_idx].data.remove_key(key_idx, self._max_rows)
+            _remove_key(self._grids[grid_idx].keys, key_idx, self._grids[grid_idx].max_rows)
             self._grids[grid_idx].rebuild()
 
     def _confirm_remove_all_keys(self) -> None:
@@ -577,7 +705,7 @@ class CustomPad(QWidget):
         )
         if reply == QMessageBox.StandardButton.Yes:
             for g in self._grids:
-                g.data.keys.clear()
+                g.keys.clear()
                 g.rebuild()
 
     def _confirm_remove_pad(self) -> None:
@@ -602,17 +730,26 @@ class CustomPad(QWidget):
     # ------------------------------------------------------------------
     # Grid / row count changes
     # ------------------------------------------------------------------
-    def _on_grid_count_changed(self, value: int) -> None:
-        self._grid_count = value
-        self._grid_data = [
-            self._grids[i].data if i < len(self._grids) else GridData() for i in range(value)
-        ]
-        self._rebuild_grids()
+    def _on_cols_changed(self, value: int) -> None:
+        self._cols = value
+        self._sync_grid_count()
 
-    def _on_max_rows_changed(self, value: int) -> None:
-        self._max_rows = value
-        for g in self._grids:
-            g.max_rows = value
+    def _on_rows_changed(self, value: int) -> None:
+        self._rows = value
+        self._sync_grid_count()
+
+    def _sync_grid_count(self) -> None:
+        total = self._rows * self._cols
+        default_max = int(_cfg["default_max_rows"])
+
+        self._grid_keys = [
+            self._grids[i].keys if i < len(self._grids) else [] for i in range(total)
+        ]
+        self._grid_max_rows = [
+            self._grids[i].max_rows if i < len(self._grids) else default_max for i in range(total)
+        ]
+
+        self._rebuild_grids()
 
     # ------------------------------------------------------------------
     # Persistence
@@ -620,9 +757,15 @@ class CustomPad(QWidget):
     def _save(self) -> None:
         data = {
             "label": self._label,
-            "grid_count": self._grid_count,
-            "max_rows": self._max_rows,
-            "grids": [g.data.serialize() for g in self._grids],
+            "cols": self._cols,
+            "rows": self._rows,
+            "grids": [
+                {
+                    "max_rows": g.max_rows,
+                    "keys": [kd.to_settings() for kd in g.keys],
+                }
+                for g in self._grids
+            ],
         }
         self._settings.setValue(self._settings_key, json.dumps(data))
 
@@ -630,15 +773,28 @@ class CustomPad(QWidget):
         raw = self._settings.value(self._settings_key, "")
         if not raw:
             return
+
         try:
             data = json.loads(str(raw))
         except (json.JSONDecodeError, TypeError):
             return
+
         self._label = data.get("label", self._label)
-        self._grid_count = int(data.get("grid_count", _cfg["default_grid_count"]))
-        self._max_rows = int(data.get("max_rows", _cfg["default_max_rows"]))
-        grids_raw = data.get("grids", [])
-        self._grid_data = [
-            GridData.deserialize(grids_raw[i], self._max_rows) if i < len(grids_raw) else GridData()
-            for i in range(self._grid_count)
-        ]
+        self._cols = int(data.get("cols", _cfg["default_cols"]))
+        self._rows = int(data.get("rows", _cfg["default_rows"]))
+
+        default_max = int(_cfg["default_max_rows"])
+        total = self._rows * self._cols
+
+        self._grid_keys = []
+        self._grid_max_rows.clear()
+
+        for entry in data.get("grids", [])[:total]:
+            max_rows = int(entry.get("max_rows", default_max))
+            keys = _load_keys(entry.get("keys", []), max_rows)
+            self._grid_keys.append(keys)
+            self._grid_max_rows.append(max_rows)
+
+        for _ in range(total - len(self._grid_keys)):
+            self._grid_keys.append([])
+            self._grid_max_rows.append(default_max)

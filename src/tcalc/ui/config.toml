@@ -123,19 +123,22 @@ keypad_stretch = 5
 button_padding = 0
 
 [keypad.custom]
-default_grid_count = 1
+default_cols = 1
+default_rows = 1
 default_max_rows = 6
 
 # Limits
-min_grids = 1
-max_grids = 6
+min_cols = 1
+max_cols = 6
+min_grid_rows = 1
+max_grid_rows = 4
 min_rows = 1
 max_rows = 24
 
 # Toolbar (edit mode)
 toolbar_margin = 2
 toolbar_spacing = 4
-spin_width = 80
+spin_width = 70
 
 # Operation picker popup
 picker_min_width = 200
@@ -152,6 +155,7 @@ picker_list_margin_bottom = 2
 context_menu_bg = "background_medium"
 context_menu_text = "text_primary"
 context_menu_hover = "selection_background"
+
 picker_bg = "background_medium"
 picker_text = "text_primary"
 picker_border = "border_light"
@@ -160,9 +164,50 @@ picker_search_text = "text_primary"
 picker_list_bg = "background_dark"
 picker_list_hover = "selection_background"
 picker_list_text = "text_primary"
-spin_bg = "secondary"
+
+spin_bg = "accent"
 spin_text = "secondary_text"
-spin_border = "accent"
+spin_focus_border = "accent_text"
+
+separator = "accent"
+toolbar_separator = "accent"
+
+add_button_bg = "accent"
+add_button_hover_bg = "secondary_hover"
+
+key_bg = "secondary"
+key_text = "secondary_text"
+key_hover_border = "accent_text"
+key_pressed_bg = "secondary_hover"
+key_disabled_bg = "disabled_bg"
+key_disabled_text = "disabled_text"
+key_disabled_border = "disabled_bg"
+key_checked_bg = "action_hover"
+
+operator_bg = "accent"
+operator_text = "accent_text"
+operator_pressed_bg = "accent_hover"
+
+action_bg = "action"
+action_text = "action_text"
+action_pressed_bg = "action_hover"
+
+equals_bg = "primary"
+equals_text = "primary_text"
+equals_border = "border_focus"
+equals_pressed_bg = "primary_hover"
+
+trig_bg = "action"
+trig_text = "action_text"
+trig_pressed_bg = "action_hover"
+
+function_bg = "accent"
+function_text = "accent_text"
+function_pressed_bg = "accent_hover"
+
+power_bg = "secondary"
+power_text = "secondary_text"
+power_pressed_bg = "secondary_hover"
 
 # ---------------------------------------------------------------------------
 # Calc widget (display + topbar)

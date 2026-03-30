@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QRect, QSize, Qt
+from PySide6.QtCore import QEvent, QPoint, QRect, QSize, Qt
 from PySide6.QtWidgets import QLayout, QLayoutItem, QStyle, QWidget
 
 
@@ -13,6 +13,14 @@ class FlowLayout(QLayout):
         self._h_spacing = spacing
         self._v_spacing = spacing
         self._items: list[QLayoutItem] = []
+        if parent is not None:
+            parent.installEventFilter(self)
+
+    def eventFilter(self, obj: object, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.Show and obj is self.parentWidget():
+            self.invalidate()
+            self.activate()
+        return False
 
     # -- QLayout interface -------------------------------------------------
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .button import IconButton, KeyButton, OptionGroup
+from .button import IconButton, KeyButton, KSSpinBox, OptionGroup
 from .flow_layout import FlowLayout
 from .picker import SearchablePicker
 from .toaster import Toaster, ToastLevel
@@ -13,6 +13,7 @@ __all__ = [
     "IconButton",
     "KeyButton",
     "KeyDef",
+    "KSSpinBox",
     "OptionGroup",
     "SearchablePicker",
     "ShiftedDef",
