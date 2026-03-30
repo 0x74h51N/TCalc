@@ -8,9 +8,9 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 - [ ] History panel
   - [x] Add history panel with open/close shortcut
   - [x] Make separate history for calc modes
-  - [ ] Make history items design more pleasant and add copy icon (auto copy -> copy icon)
+  - [x] Make history items design more pleasant and add copy icon (auto copy -> copy icon)
   - [ ] Make max history item count configurable in general settings
-  - [ ] Make human readable history items formatter (LaTeX -> math symbols)
+  - [x] Make human readable history items formatter (LaTeX -> math symbols)
   - [ ] Allow disabling history persistence (local storage) via settings
   - [ ] Export as text file
 
@@ -20,8 +20,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 
 - [x] Memory for all modes MS, MC, MR, M+ Buttons
 
-- [x] Input / Parser / Eval
-
+- [ ] Input / Parser / Eval
   - [x] Expression pipeline: tokenize -> shunting-yard -> RPN Evaluation
     - [x] Tokenize Parser
       - [x] Add native tokenize and shunting-yard functions
@@ -36,11 +35,22 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
       - [x] Add structural indices for LaTeX expressions and parentheses
       - [x] Add normalize function for implicit multiplications or plus to minus
     - [x] Add Shunting-yard
-    - [x] Add RPN evaluation in Python (for minimal boilerplate)  
+    - [x] Add RPN evaluation in Python (for minimal boilerplate)
     - [x] Unary/prefix/postfix handling + mode-based domain behavior (sqrt(-4): real MathError, complex 2i)
   - [x] Undo/redo integrates with history navigation (rebuild expression from previous calc and auto-eval)
   - [x] Error mapping spec (engine -> UI)
   - [x] Test edge cases
+  - [ ] Add ans / previous-result reference
+  - [ ] Add line-based calculation
+    - [ ] Add row-based expression model (one expression per line)
+    - [ ] Allow referencing previous lines / session values
+    - [ ] Keep line evaluation isolated so one failed line does not break others
+    - [ ] Add line actions (insert, remove, duplicate, reorder)
+  - [ ] Add variable assignment
+    - [ ] Parse assignments
+    - [ ] Add variable store for current session
+    - [ ] Allow assigned variables in other lines
+    - [ ] Define overwrite / invalid-name / undefined-variable behavior
 
 - [ ] Calc Modes
 
@@ -95,6 +105,8 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [ ] Configure TCalc
       - [ ] General conf
         - [ ] Max number of digits, precision
+        - [ ] Math render mode settings
+          - [ ] Per-expression render policy toggles (fraction, root, etc.)
       - [ ] Fonts
       - [ ] Themes
       - [ ] Constants
@@ -102,13 +114,26 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 
 - [ ] GUI / UX / Accessibility
   - [ ] Improve styles and layout design
-  - [ ] Add mathematical expression GUI nodes
+    - [x] Add dock layout
+    - [x] Split keypads (e.g. num, func, etc.) into dock widgets
+    - [ ] Add custom pad
+      - [x] Allow creating multiple custom pads
+      - [x] Operation key assignment
+      - [ ] Constant key assignment
+      - [x] Custom grid layout
+      - [x] Add edit mode and persist changes on exit
+      - [x] Add context menu
+        - [x] Rename or remove custom pad
+        - [x] Add customizable background and text colors
+        - [x] Add option to remove or change key operation  
+  - [ ] Add mathematical expression GUI nodes (math render)
     - [x] Add ExpressionNode and ExpressionSlot class
       - [x] Make separate QLineEdits in math widgets (e.g., numerator/denominator, base/exponent)
     - [ ] Add fraction, pow, root, log widgets
     - [x] Add ParenNode to cover math expression
       - [x] Add draw object for each parentheses kind
     - [ ] Make toggleable for mathematical expressions (rawStr <-> rendered)
+    - [ ] Add selective render mode in main display
     - [ ] Test edge cases and add GUI tests
   - [ ] Tab order + focus behavior
   - [ ] High-DPI/font scaling sanity pass
@@ -126,7 +151,6 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [ ] Unhandled exception hook -> log file
     - [ ] Help/About: "Open logs folder" or "Copy debug info"
   - [ ] Windows packaging
-    - [ ] Build artifact (PyInstaller or Nuitka)
     - [ ] installer .exe
   - [ ] Linux packaging
     - [ ] Flatpak
@@ -153,11 +177,8 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 
 ### v2 Roadmap
 
-- [ ] Science mode improvements
-  - [ ] Variable-based expression support (function input)
-    - [ ] Support identifiers (start with `x`) in tokenizer/parser
-    - [ ] Evaluation context: evaluate expressions with `x = value`
-    - [ ] Function-style input (optional): `f(x) = <expr>` / reuse `<expr>` directly
+- [ ] Science calc improvements
+  - [ ] Improve Variable-based expression (function input)
   - [ ] Calculus (numeric)
     - [ ] Derivative (numeric)
       - [ ] `d/dx` at a point: `f'(a)` (auto step size)
@@ -167,9 +188,14 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [ ] Limit (numeric)
       - [ ] `lim x->a f(x)` with side options: both / left / right
       - [ ] Detect non-convergence / undefined cases and show proper error
-  - [ ] Vector and operations: length, dot, cross
-    - [ ] Vector Mode: add `vec(a,b,...)` input and typed eval (Scalar or Vector)
-    - [ ] Rules: `s*v` / `v*s` scales, `v+v` / `v-v` only if same dimension, `v/s` ok, `v+s` and `v*v` invalid (use `dot(v,w)`, `cross(v,w)`), `length(v)` -> scalar
+  - [ ] Add vector and operations
+    - [ ] Add vector input and typed eval (Scalar or Vector)
+    - [ ] Rules: `s*v` / `v*s` scales, `v+v` / `v-v` only if same dimension, `v/s` ok, `v+s` and `v*v` invalid
+    - [ ] Add vector functions `dot(v,w)`, `cross(v,w)`, `length(v)`, `normalize(v)`, `angle(v,w)` -> scalar
+  - [ ] Add matrix and operations
+    - [ ] Add matrix input and typed eval (Scalar, Vector, Matrix)
+    - [ ] Rules: `A+B` same shape, `A*B` multiply, `A*s` scale, `A^T`, `det(A)`, `inv(A)`
+    - [ ] Add matrix functions `trace(A)`, `rank(A)`
 - [ ] Programmer Mode (Numeral system)
   - [ ] Binary input and output
   - [ ] Hex, dec, oct, bin modes
