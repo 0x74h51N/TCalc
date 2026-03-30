@@ -26,7 +26,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 - [ ] GUI / UX / Accessibility
   - [ ] Expression GUI nodes (fractions, pow, root, log)
   - [ ] Toggleable LaTeX rendering (raw string <-> rendered)
-  - [ ] Layout, tab order, high-DPI support, tooltips
+  - [ ] Layout, tab order, high-DPI support, tooltips, dock
 - [ ] Menubar / Settings
   - [ ] File, Edit, Constant, Help, Settings menus
   - [ ] Configurable constants, keyboard shortcuts, themes, precision
@@ -35,7 +35,6 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 ### v2 Roadmap
 
 - [ ] Science mode improvements
-  - [ ] Variable-based expressions and function input
   - [ ] Numeric calculus: derivative, definite integral, limit
   - [ ] Vector operations (dot, cross, length)
 - [ ] Programmer mode
