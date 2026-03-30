@@ -10,15 +10,43 @@ from __future__ import annotations
 from typing import Mapping, Sequence
 
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QButtonGroup,
+    QGridLayout,
     QHBoxLayout,
     QPushButton,
     QRadioButton,
     QSizePolicy,
+    QSpinBox,
     QWidget,
 )
+
+from tcalc.ui.utils import get_icon
+
+from .types import KeyDef
+
+
+class KeyButton(QPushButton):
+    """Push button created from a ``KeyDef`` with grid placement support."""
+
+    def __init__(self, key_def: KeyDef, role: str, parent: QWidget | None = None) -> None:
+        super().__init__(key_def.label, parent)
+
+        if key_def.tooltip:
+            self.setToolTip(key_def.tooltip.capitalize())
+
+        self.setEnabled(key_def.enabled)
+        if key_def.checkable:
+            self.setCheckable(True)
+
+        self.setObjectName("keypadButton")
+        self.setProperty("keypadRole", role)
+        self.style().unpolish(self)
+        self.style().polish(self)
+
+    def place(self, grid: QGridLayout, key_def: KeyDef) -> None:
+        """Add this button to *grid* at the position specified in *key_def*."""
+        grid.addWidget(self, key_def.row, key_def.col, key_def.rowspan, key_def.colspan)
 
 
 class IconButton(QPushButton):
@@ -33,7 +61,7 @@ class IconButton(QPushButton):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(text, parent)
-        self.setIcon(QIcon.fromTheme(icon_name))
+        self.setIcon(get_icon(icon_name))
 
         if tooltip:
             self.setToolTip(tooltip)
@@ -113,3 +141,26 @@ class OptionGroup(QWidget):
     def buttons(self) -> dict[object, QRadioButton]:
         """Return the internal ``{key: QRadioButton}`` mapping."""
         return self._buttons
+
+
+class KSSpinBox(QSpinBox):
+    """Spin box with a prefix label, range, and optional fixed width."""
+
+    def __init__(
+        self,
+        prefix: str,
+        tooltip: str,
+        min_val: int,
+        max_val: int,
+        value: int,
+        width: int | None = None,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.setButtonSymbols(QSpinBox.ButtonSymbols.PlusMinus)
+        self.setPrefix(prefix)
+        self.setRange(min_val, max_val)
+        self.setValue(value)
+        self.setToolTip(tooltip)
+        if width is not None:
+            self.setFixedWidth(width)

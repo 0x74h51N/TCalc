@@ -3,11 +3,13 @@ from __future__ import annotations
 from typing import Callable, Optional
 
 from PySide6.QtCore import SignalInstance
-from PySide6.QtWidgets import QGridLayout, QPushButton, QWidget
+from PySide6.QtWidgets import QGridLayout, QWidget
 
 from tcalc.core.ops import Operation
 
-KeyDef = dict[str, object]
+from ..common.types import KeyDef, ShiftedDef
+
+__all__ = ["KeyDef", "ShiftedDef", "add_keys_to_grid", "handle_button_clicked", "make_grid"]
 
 
 def make_grid(spacing: int, parent: Optional[QWidget] = None) -> QGridLayout:
@@ -28,24 +30,12 @@ def add_keys_to_grid(
             add_key(key_def, role, grid)
 
 
-def create_button(key_def: KeyDef, role: str, parent: QWidget) -> QPushButton:
-    label = str(key_def["label"])
-    button = QPushButton(label, parent)
-
-    tooltip = key_def.get("tooltip")
-    if tooltip:
-        button.setToolTip(str(tooltip).capitalize())
-
-    button.setEnabled(bool(key_def.get("enabled", True)))
-
-    if key_def.get("checkable"):
-        button.setCheckable(True)
-
-    button.setProperty("keypadRole", role)
-    return button
-
-
 def handle_button_clicked(key_pressed: SignalInstance, key_def: KeyDef) -> None:
-    operation = key_def["operation"]
-    value = operation.symbol if isinstance(operation, Operation) else str(operation)
-    key_pressed.emit(value, operation)
+    if key_def.operation is None:
+        return
+    value = (
+        key_def.operation.symbol
+        if isinstance(key_def.operation, Operation)
+        else str(key_def.operation)
+    )
+    key_pressed.emit(value, key_def.operation)

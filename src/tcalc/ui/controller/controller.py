@@ -58,7 +58,7 @@ class CalculatorController:
         self._error_text: Optional[str] = None
         self._force_error_display = False
 
-        self._memory_ops = {str(k["operation"]) for k in MEMORY_KEYS}
+        self._memory_ops = {str(k.operation) for k in MEMORY_KEYS}
 
         # Build handlers dictionary
         self._handlers: Dict[Operation, Callable[[str], None]] = self._build_handlers()

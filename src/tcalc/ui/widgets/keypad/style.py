@@ -5,7 +5,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QWidget
 
 from tcalc.theme import get_theme
-from tcalc.ui.config import calc_config, keypad_config
+from tcalc.ui.config import calc_config, custom_pad_config, keypad_config
 from tcalc.ui.styles import build_subs, load_qss
 from tcalc.ui.utils import rgba
 
@@ -24,6 +24,9 @@ def apply_keypad_style(widget: QWidget) -> None:
 
     for k, (base, alpha) in _style["colors"].items():
         subs[k] = rgba(c[base], float(alpha))
+
+    for k, theme_key in custom_pad_config.get("colors", {}).items():
+        subs[f"custom_{k}"] = c.get(theme_key, theme_key)
 
     sheet = load_qss(_QSS, subs)
     widget.setStyleSheet(sheet)

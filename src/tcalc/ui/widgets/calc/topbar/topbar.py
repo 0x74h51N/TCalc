@@ -11,14 +11,12 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.app_state import AngleUnit
-from tcalc.ui.widgets.common import OptionGroup
-from tcalc.ui.widgets.common.utils import apply_button_style
+from tcalc.ui.widgets.common import KeyButton, OptionGroup
+from tcalc.ui.widgets.common.types import KeyDef
 
 from ....config import calc_config
 from ...keypad.utils import (
-    KeyDef,
     add_keys_to_grid,
-    create_button,
     handle_button_clicked,
     make_grid,
 )
@@ -71,23 +69,13 @@ class TopBar(QWidget):
         layout.addWidget(self._memory_widget)
 
     def _add_key(self, key_def: KeyDef, role: str, grid) -> None:
-        button = create_button(key_def, role, grid.parentWidget() or self)
-        assert isinstance(button, QPushButton)
+        button = KeyButton(key_def, role, grid.parentWidget() or self)
         button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-
-        apply_button_style(button, role)
         button.clicked.connect(
             lambda _=False, kd=key_def: handle_button_clicked(self.key_pressed, kd)
         )
-        self._buttons[str(key_def["label"])] = button
-
-        grid.addWidget(
-            button,
-            key_def.get("row", 0),
-            key_def.get("col", 0),
-            key_def.get("rowspan", 1),
-            key_def.get("colspan", 1),
-        )
+        self._buttons[key_def.label] = button
+        button.place(grid, key_def)
 
     def get_button(self, label: str) -> Optional[QPushButton]:
         return self._buttons.get(label)

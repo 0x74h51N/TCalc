@@ -1,4 +1,5 @@
 from tcalc.core.ops import Operation
+from tcalc.ui.widgets.keypad.utils import KeyDef, ShiftedDef
 
 # Custom labels for buttons (where symbol differs from display)
 NEGATE_LABEL = "+/-"
@@ -10,48 +11,23 @@ POW_LABEL = "xʸ"
 ROOT_LABEL = "x¹ᐟʸ"
 INTDIV_LABEL = "intDiv"
 POW10_LABEL = "10ˣ"
+ENTER_LABEL = "↵"
 
-SHIFTED_KEYS = {
-    Operation.SIN: {
-        "label": Operation.ASIN.symbol,
-        "operation": Operation.ASIN,
-        "tooltip": "inverse sine",
-    },
-    Operation.COS: {
-        "label": Operation.ACOS.symbol,
-        "operation": Operation.ACOS,
-        "tooltip": "inverse cosine",
-    },
-    Operation.TAN: {
-        "label": Operation.ATAN.symbol,
-        "operation": Operation.ATAN,
-        "tooltip": "inverse tangent",
-    },
-    Operation.LOG: {"label": POW10_LABEL, "operation": Operation.POW10, "tooltip": "10 power"},
-    Operation.LN: {"label": "eˣ", "operation": Operation.EXP, "tooltip": "exponential func"},
-    Operation.MOD: {
-        "label": INTDIV_LABEL,
-        "operation": Operation.INTDIV,
-        "tooltip": "integer division",
-    },
-    Operation.PERMUTE: {
-        "label": Operation.CHOOSE.symbol,
-        "operation": Operation.CHOOSE,
-        "tooltip": "n choose m",
-    },
-    Operation.FACT: {
-        "label": Operation.GAMMA.symbol,
-        "operation": Operation.GAMMA,
-        "tooltip": "gamma",
-    },
-    Operation.SQR: {"label": "x³", "operation": Operation.CUBE, "tooltip": "cube"},
-    Operation.POW: {"label": ROOT_LABEL, "operation": Operation.ROOT, "tooltip": "root"},
-    Operation.IMAG: {
-        "label": Operation.POLAR.symbol,
-        "operation": Operation.POLAR,
-        "tooltip": "polar complex",
-    },
-    Operation.SQRT: {"label": "³√x", "operation": Operation.CBRT, "tooltip": "cube root"},
+SHIFTED_KEYS: dict[Operation, ShiftedDef] = {
+    Operation.SIN: ShiftedDef(
+        label=Operation.ASIN.symbol, operation=Operation.ASIN, tooltip="inverse sine"
+    ),
+    Operation.COS: ShiftedDef(
+        label=Operation.ACOS.symbol, operation=Operation.ACOS, tooltip="inverse cosine"
+    ),
+    Operation.TAN: ShiftedDef(
+        label=Operation.ATAN.symbol, operation=Operation.ATAN, tooltip="inverse tangent"
+    ),
+    Operation.LOG: ShiftedDef(label=POW10_LABEL, operation=Operation.POW10, tooltip="10 power"),
+    Operation.LN: ShiftedDef(label="eˣ", operation=Operation.EXP, tooltip="exponential func"),
+    Operation.SQR: ShiftedDef(label="x³", operation=Operation.CUBE, tooltip="cube"),
+    Operation.POW: ShiftedDef(label=ROOT_LABEL, operation=Operation.ROOT, tooltip="root"),
+    Operation.SQRT: ShiftedDef(label="³√x", operation=Operation.CBRT, tooltip="cube root"),
 }
 
 
@@ -68,253 +44,195 @@ DIGIT_POSITIONS = {
     0: (4, 0),
 }
 
-NUMBER_KEYS = []
+NUMBER_KEYS: list[KeyDef] = []
 
-for d, (row, col) in DIGIT_POSITIONS.items():
-    key = {
-        "label": str(d),
-        "operation": str(d),
-        "row": row,
-        "col": col,
-    }
-    if d == 0:
-        key["colspan"] = 2
-    NUMBER_KEYS.append(key)
+for _d, (_row, _col) in DIGIT_POSITIONS.items():
+    _key: KeyDef = KeyDef(label=str(_d), operation=str(_d), row=_row, col=_col)
+    if _d == 0:
+        _key.colspan = 2
+    NUMBER_KEYS.append(_key)
 
-NUMBER_KEYS.append(
-    {
-        "label": ".",
-        "operation": Operation.DOT,
-        "row": 4,
-        "col": 2,
-    }
-)
+NUMBER_KEYS.append(KeyDef(label=".", operation=Operation.DOT, row=4, col=2))
 
-MATH_OPERATOR_KEYS = [
-    {
-        "label": Operation.ADD.symbol,
-        "operation": Operation.ADD,
-        "row": 1,
-        "col": 3,
-        "rowspan": 2,
-        "tooltip": "add",
-    },
-    {
-        "label": Operation.SUB.symbol,
-        "operation": Operation.SUB,
-        "row": 0,
-        "col": 3,
-        "tooltip": "subtract",
-    },
-    {
-        "label": Operation.MUL.symbol,
-        "operation": Operation.MUL,
-        "row": 0,
-        "col": 2,
-        "tooltip": "multiply",
-    },
-    {
-        "label": Operation.DIV.symbol,
-        "operation": Operation.DIV,
-        "row": 0,
-        "col": 1,
-        "tooltip": "divide",
-    },
-    {
-        "label": Operation.PERCENT.symbol,
-        "operation": Operation.PERCENT,
-        "row": 0,
-        "col": 0,
-        "tooltip": "percent",
-    },
-    {
-        "label": Operation.EQUALS.symbol,
-        "operation": Operation.EQUALS,
-        "row": 3,
-        "col": 3,
-        "rowspan": 2,
-        "tooltip": "equals",
-    },
+MATH_OPERATOR_KEYS: list[KeyDef] = [
+    KeyDef(
+        label=Operation.ADD.symbol, operation=Operation.ADD, row=1, col=3, rowspan=2, tooltip="add"
+    ),
+    KeyDef(label=Operation.SUB.symbol, operation=Operation.SUB, row=0, col=3, tooltip="subtract"),
+    KeyDef(label=Operation.MUL.symbol, operation=Operation.MUL, row=0, col=2, tooltip="multiply"),
+    KeyDef(label=Operation.DIV.symbol, operation=Operation.DIV, row=0, col=1, tooltip="divide"),
+    KeyDef(
+        label=Operation.PERCENT.symbol, operation=Operation.PERCENT, row=0, col=0, tooltip="percent"
+    ),
+    KeyDef(
+        label=Operation.EQUALS.symbol,
+        operation=Operation.EQUALS,
+        row=3,
+        col=3,
+        rowspan=2,
+        tooltip="equals",
+    ),
 ]
 
-PARANTHES_KEYS = [
-    {
-        "label": Operation.OPEN_PAREN.symbol,
-        "operation": Operation.OPEN_PAREN,
-        "row": 3,
-        "col": 0,
-        "tooltip": "open paren",
-    },
-    {
-        "label": Operation.CLOSE_PAREN.symbol,
-        "operation": Operation.CLOSE_PAREN,
-        "row": 4,
-        "col": 0,
-        "tooltip": "close paren",
-    },
+PARANTHES_KEYS: list[KeyDef] = [
+    KeyDef(
+        label=Operation.OPEN_PAREN.symbol,
+        operation=Operation.OPEN_PAREN,
+        row=3,
+        col=0,
+        tooltip="open paren",
+    ),
+    KeyDef(
+        label=Operation.CLOSE_PAREN.symbol,
+        operation=Operation.CLOSE_PAREN,
+        row=4,
+        col=0,
+        tooltip="close paren",
+    ),
 ]
 
-ACTION_KEYS = [
-    {
-        "label": "Shift",
-        "operation": "shift",
-        "checkable": True,
-        "row": 0,
-        "col": 0,
-        "tooltip": "Second Functions",
-    },
-    {
-        "label": Operation.BACKSPACE.symbol,
-        "operation": Operation.BACKSPACE,
-        "row": 1,
-        "col": 0,
-        "tooltip": "backspace",
-    },
-    {
-        "label": Operation.CLEAR.symbol,
-        "operation": Operation.CLEAR,
-        "row": 2,
-        "col": 0,
-        "tooltip": "clear",
-    },
-    {"label": NEGATE_LABEL, "operation": Operation.NEGATE, "row": 5, "col": 0, "tooltip": "negate"},
-    {"label": "π", "operation": "π", "row": 6, "col": 0, "tooltip": "pi"},
-    {"label": "e", "operation": "e", "row": 7, "col": 0, "tooltip": "Euler's number"},
+ACTION_KEYS: list[KeyDef] = [
+    KeyDef(
+        label=Operation.BACKSPACE.symbol,
+        operation=Operation.BACKSPACE,
+        row=0,
+        col=0,
+        tooltip="backspace",
+    ),
+    KeyDef(label=Operation.CLEAR.symbol, operation=Operation.CLEAR, row=1, col=0, tooltip="clear"),
+    KeyDef(label=NEGATE_LABEL, operation=Operation.NEGATE, row=2, col=0, tooltip="negate"),
+    KeyDef(label=ENTER_LABEL, operation=None, row=5, col=0, tooltip="enter"),
 ]
 
 
-# Science mode keys (left panel, 2 columns x 7 rows) - grouped by role
-TRIG_KEYS = [
-    {
-        "label": Operation.HYP.symbol.capitalize(),
-        "operation": Operation.HYP,
-        "checkable": True,
-        "row": 0,
-        "col": 0,
-        "tooltip": "hyperbolic",
-    },
-    {
-        "label": Operation.SIN.symbol,
-        "operation": Operation.SIN,
-        "row": 1,
-        "col": 0,
-        "tooltip": "sine",
-        "shifted": SHIFTED_KEYS[Operation.SIN],
-    },
-    {
-        "label": Operation.COS.symbol,
-        "operation": Operation.COS,
-        "row": 2,
-        "col": 0,
-        "tooltip": "cosine",
-        "shifted": SHIFTED_KEYS[Operation.COS],
-    },
-    {
-        "label": Operation.TAN.symbol,
-        "operation": Operation.TAN,
-        "row": 3,
-        "col": 0,
-        "tooltip": "tangent",
-        "shifted": SHIFTED_KEYS[Operation.TAN],
-    },
+# Trig keys (with shift/hyp support)
+TRIG_KEYS: list[KeyDef] = [
+    KeyDef(
+        label="Shift", operation="shift", checkable=True, row=0, col=0, tooltip="Second Functions"
+    ),
+    KeyDef(
+        label=Operation.HYP.symbol.capitalize(),
+        operation=Operation.HYP,
+        checkable=True,
+        row=0,
+        col=1,
+        tooltip="hyperbolic",
+    ),
+    KeyDef(
+        label=Operation.SIN.symbol,
+        operation=Operation.SIN,
+        row=1,
+        col=0,
+        tooltip="sine",
+        shifted=SHIFTED_KEYS[Operation.SIN],
+    ),
+    KeyDef(
+        label=Operation.COS.symbol,
+        operation=Operation.COS,
+        row=2,
+        col=0,
+        tooltip="cosine",
+        shifted=SHIFTED_KEYS[Operation.COS],
+    ),
+    KeyDef(
+        label=Operation.TAN.symbol,
+        operation=Operation.TAN,
+        row=3,
+        col=0,
+        tooltip="tangent",
+        shifted=SHIFTED_KEYS[Operation.TAN],
+    ),
 ]
 
-FUNCTION_KEYS = [
-    {
-        "label": Operation.MOD.symbol,
-        "operation": Operation.MOD,
-        "row": 0,
-        "col": 1,
-        "tooltip": "modulo",
-        "shifted": SHIFTED_KEYS[Operation.MOD],
-    },
-    {
-        "label": Operation.PERMUTE.symbol,
-        "operation": Operation.PERMUTE,
-        "row": 1,
-        "col": 1,
-        "tooltip": "n permute m",
-        "shifted": SHIFTED_KEYS[Operation.PERMUTE],
-    },
-    {
-        "label": FACT_LABEL,
-        "operation": Operation.FACT,
-        "row": 2,
-        "col": 1,
-        "tooltip": "factorial",
-        "shifted": SHIFTED_KEYS[Operation.FACT],
-    },
-    {
-        "label": Operation.LOG.symbol,
-        "operation": Operation.LOG,
-        "row": 4,
-        "col": 0,
-        "tooltip": "logarithm to base 10",
-        "shifted": SHIFTED_KEYS[Operation.LOG],
-    },
-    {
-        "label": Operation.LN.symbol,
-        "operation": Operation.LN,
-        "row": 5,
-        "col": 0,
-        "tooltip": "natural log",
-        "shifted": SHIFTED_KEYS[Operation.LN],
-    },
-    {
-        "label": RECIP_LABEL,
-        "operation": Operation.RECIP,
-        "row": 3,
-        "col": 1,
-        "tooltip": "reciprocal",
-    },
+# Function keys (flat, no shift)
+FUNCTION_KEYS: list[KeyDef] = [
+    KeyDef(label=Operation.MOD.symbol, operation=Operation.MOD, row=0, col=0, tooltip="modulo"),
+    KeyDef(
+        label=INTDIV_LABEL, operation=Operation.INTDIV, row=0, col=1, tooltip="integer division"
+    ),
+    KeyDef(
+        label=Operation.PERMUTE.symbol,
+        operation=Operation.PERMUTE,
+        row=1,
+        col=0,
+        tooltip="n permute m",
+    ),
+    KeyDef(
+        label=Operation.CHOOSE.symbol,
+        operation=Operation.CHOOSE,
+        row=1,
+        col=1,
+        tooltip="n choose m",
+    ),
+    KeyDef(label=FACT_LABEL, operation=Operation.FACT, row=2, col=0, tooltip="factorial"),
+    KeyDef(label=Operation.GAMMA.symbol, operation=Operation.GAMMA, row=2, col=1, tooltip="gamma"),
+    KeyDef(
+        label=Operation.LOG.symbol,
+        operation=Operation.LOG,
+        row=3,
+        col=0,
+        tooltip="logarithm base 10",
+    ),
+    KeyDef(label=POW10_LABEL, operation=Operation.POW10, row=3, col=1, tooltip="10 power"),
+    KeyDef(label=Operation.LN.symbol, operation=Operation.LN, row=4, col=0, tooltip="natural log"),
+    KeyDef(label="eˣ", operation=Operation.EXP, row=4, col=1, tooltip="exponential func"),
+    KeyDef(label=RECIP_LABEL, operation=Operation.RECIP, row=5, col=0, tooltip="reciprocal"),
+    KeyDef(
+        label=Operation.TRUNC.symbol, operation=Operation.TRUNC, row=5, col=1, tooltip="truncate"
+    ),
+    KeyDef(label=Operation.FLOOR.symbol, operation=Operation.FLOOR, row=6, col=0, tooltip="floor"),
+    KeyDef(label=Operation.CEIL.symbol, operation=Operation.CEIL, row=6, col=1, tooltip="ceiling"),
 ]
 
-POWER_KEYS = [
-    {
-        "label": SQR_LABEL,
-        "operation": Operation.SQR,
-        "row": 4,
-        "col": 1,
-        "tooltip": "square",
-        "shifted": SHIFTED_KEYS[Operation.SQR],
-    },
-    {
-        "label": SQRT_LABEL,
-        "operation": Operation.SQRT,
-        "row": 5,
-        "col": 1,
-        "tooltip": "square root",
-        "shifted": SHIFTED_KEYS[Operation.SQRT],
-    },
-    {
-        "label": POW_LABEL,
-        "operation": Operation.POW,
-        "row": 6,
-        "col": 1,
-        "tooltip": "power",
-        "shifted": SHIFTED_KEYS[Operation.POW],
-    },
-    {
-        "label": Operation.IMAG.symbol,
-        "operation": Operation.IMAG,
-        "row": 6,
-        "col": 0,
-        "tooltip": "imaginary",
-        "shifted": SHIFTED_KEYS[Operation.IMAG],
-    },
+# Power keys (with shift support)
+POWER_KEYS: list[KeyDef] = [
+    KeyDef(
+        label=SQR_LABEL,
+        operation=Operation.SQR,
+        row=3,
+        col=1,
+        tooltip="square",
+        shifted=SHIFTED_KEYS[Operation.SQR],
+    ),
+    KeyDef(
+        label=SQRT_LABEL,
+        operation=Operation.SQRT,
+        row=4,
+        col=1,
+        tooltip="square root",
+        shifted=SHIFTED_KEYS[Operation.SQRT],
+    ),
+    KeyDef(
+        label=POW_LABEL,
+        operation=Operation.POW,
+        row=5,
+        col=1,
+        tooltip="power",
+        shifted=SHIFTED_KEYS[Operation.POW],
+    ),
+    KeyDef(
+        label=Operation.IMAG.symbol, operation=Operation.IMAG, row=5, col=0, tooltip="imaginary"
+    ),
+    KeyDef(
+        label=Operation.POLAR.symbol,
+        operation=Operation.POLAR,
+        row=4,
+        col=0,
+        tooltip="polar complex",
+    ),
+    KeyDef(label="π", operation="π", row=1, col=1, tooltip="pi"),
+    KeyDef(label="e", operation="e", row=2, col=1, tooltip="Euler's number"),
 ]
+
+FUNCTION_GROUP: dict[str, list[KeyDef]] = {"function": FUNCTION_KEYS}
+
+TRIG_POWER_GROUP: dict[str, list[KeyDef]] = {"trig": TRIG_KEYS, "power": POWER_KEYS}
 
 # Key Groups
 
-NORMAL_MODE_KEYS = {
+NORMAL_MODE_KEYS: dict[str, list[KeyDef]] = {
     "digit": NUMBER_KEYS,
     "operator": MATH_OPERATOR_KEYS,
 }
 
-SIDEBAR_KEYS = {"operator": PARANTHES_KEYS, "action": ACTION_KEYS}
-
-SCIENCE_MODE_KEYS = {
-    "trig": TRIG_KEYS,
-    "function": FUNCTION_KEYS,
-    "power": POWER_KEYS,
-}
+SIDEBAR_KEYS: dict[str, list[KeyDef]] = {"operator": PARANTHES_KEYS, "action": ACTION_KEYS}

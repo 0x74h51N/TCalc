@@ -22,6 +22,20 @@ class SettingsOperations:
         self._app_state.show_constant_buttons = checked
         self._window.update_layout()
 
-    def toggle_keypad(self, checked: bool) -> None:
-        self._app_state.show_keypad = checked
+    def toggle_numpad(self, checked: bool) -> None:
+        self._app_state.show_numpad = checked
         self._window.update_layout()
+
+    def toggle_funcpad(self, checked: bool) -> None:
+        self._app_state.show_funcpad = checked
+        self._window.update_layout()
+
+    def toggle_trigpad(self, checked: bool) -> None:
+        self._app_state.show_trigpad = checked
+        self._window.update_layout()
+
+    def add_custom_pad(self) -> None:
+        self._window.add_custom_pad()
+
+    def restore_default_layout(self) -> None:
+        self._window.apply_def_dock_layout()
