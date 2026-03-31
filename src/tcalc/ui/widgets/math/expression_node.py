@@ -406,6 +406,7 @@ class ExpressionSlot(QWidget):
 
         node.deleteLater()
         focus.setFocus()
+        self._schedule_margin_update()
         if self._on_node_removed:
             self._on_node_removed()
         return focus
