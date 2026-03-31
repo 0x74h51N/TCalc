@@ -1825,6 +1825,51 @@ def node_backspace_case(**kwargs) -> NodeBackspaceCase:
 NODE_BACKSPACE_CASES = [
     pytest.param(
         node_backspace_case(
+            init_expr="\\frac{1}{2} + 3",
+            target_path=("root", 2),
+            cursor_pos=3,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=1,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="\\frac{1}{2}3",
+            expected_focus_cursor=(("root", 2), 0),
+        ),
+        id="backspace-whitespace-after-binary-op",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="\\frac{1}{2} + 3",
+            target_path=("root", 2),
+            cursor_pos=2,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=1,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="\\frac{1}{2}3",
+            expected_focus_cursor=(("root", 2), 0),
+        ),
+        id="backspace-whitespace-after-binary-op-2",
+    ),
+    pytest.param(
+        node_backspace_case(
+            init_expr="\\frac{1}{2} + 3",
+            target_path=("root", 2),
+            cursor_pos=1,
+            expected_widget_cls_idx=None,
+            expected_inner_segments_idx=None,
+            total_node_count=1,
+            total_segment_count=5,
+            total_edit_count=4,
+            expected_plain_text="\\frac{1}{2} + 3",
+            expected_focus_cursor=(("root", 2), 0),
+        ),
+        id="backspace-whitespace-before-binary-op",
+    ),
+    pytest.param(
+        node_backspace_case(
             init_expr="\\frac{2}{}",
             target_path=("node", 0, "denominator", 0),
             cursor_pos=0,
