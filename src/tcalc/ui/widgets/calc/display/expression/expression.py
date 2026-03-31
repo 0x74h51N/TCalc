@@ -223,10 +223,11 @@ class Expression(QWidget):
 
         if pos and text[pos - 1] == " ":
             left = pos - 2
-            start = left - (left > 0 and text[left - 1] == " ")
-            target.setText(text[:start] + text[pos:])
-            target.setCursorPosition(start)
-            return
+            if left > 0:
+                start = left - (left > 0 and text[left - 1] == " ")
+                target.setText(text[:start] + text[pos:])
+                target.setCursorPosition(start)
+                return
 
         slot = target.parent()
         if isinstance(slot, ExpressionSlot) and not pos and not text:
