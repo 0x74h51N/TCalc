@@ -49,7 +49,7 @@ class ExpressionNode(QWidget):
         super().__init__()
         self._editor: Expression | None = None
 
-        self._left_slot: ExpressionSlot | None = None
+        self._left_slot: ExpressionSlot
         self._right_slot: ExpressionSlot | None = None
         self._top_slot: ExpressionSlot | None = None
         self._bottom_slot: ExpressionSlot | None = None
@@ -86,8 +86,6 @@ class ExpressionNode(QWidget):
         """Serialize to LaTeX-style format: \\symbol{left}{right}."""
         # unary / paren node
         if not self.SYMBOL:
-            if self._left_slot is None:
-                return ""
             return self._left_slot.to_plain_text()
 
         # binary node
@@ -408,6 +406,7 @@ class ExpressionSlot(QWidget):
 
         node.deleteLater()
         focus.setFocus()
+        self._schedule_margin_update()
         if self._on_node_removed:
             self._on_node_removed()
         return focus

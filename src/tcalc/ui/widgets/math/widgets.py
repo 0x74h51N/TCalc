@@ -107,7 +107,7 @@ class PowWidget(ExpressionNode):
             align=InputAlign.LEFT,
         )
 
-        grid.addWidget(self.base, 1, 0, 1, 2, InputAlign.RIGHT.value)
+        grid.addWidget(self.base, 3, 0, 3, 2, InputAlign.RIGHT.value)
 
         self.exponent = ExpressionSlot(
             kind=InputKind.SCRIPT,
@@ -115,7 +115,7 @@ class PowWidget(ExpressionNode):
             align=InputAlign.RIGHTB,
         )
 
-        grid.addWidget(self.exponent, 0, 1, 1, 2, InputAlign.RIGHT.value)
+        grid.addWidget(self.exponent, 1, 1, 3, 2, InputAlign.RIGHT.value)
 
         self._left_slot = self.base
         self._right_slot = self.exponent
@@ -123,7 +123,7 @@ class PowWidget(ExpressionNode):
         self._bottom_slot = self.base
 
     def anchor_y(self) -> int:
-        return self.exponent.height() + self.base.height() // 2
+        return self.base.height() // 2 + self.exponent.height() // 3
 
     def focus_default(self) -> None:
         base_input = self.base.default_input()
@@ -165,17 +165,17 @@ class RootWidget(ExpressionNode):
 
         self.degree.setContentsMargins(0, 0, self.DEGREE_RIGHT_MARGIN, 0)
 
-        grid.addWidget(self.degree, 0, 0, 2, 1, InputAlign.LEFTB.value)
+        grid.addWidget(self.degree, 1, 0, 3, 1, InputAlign.LEFTB.value)
 
         self.sqrt_symbol = SqrtSymbol(grid)
 
-        grid.addWidget(self.sqrt_symbol, 2, 0, 2, 4, InputAlign.RIGHT.value)
+        grid.addWidget(self.sqrt_symbol, 3, 0, 3, 4, InputAlign.RIGHT.value)
         self.radicand = ExpressionSlot(
             kind=InputKind.AUX,
             key="radicand",
             align=InputAlign.LEFTT,
         )
-        grid.addWidget(self.radicand, 2, 4, 2, 2, InputAlign.RIGHTB.value)
+        grid.addWidget(self.radicand, 3, 4, 3, 2, InputAlign.RIGHTB.value)
 
         self.radicand.setObjectName("radicandSlot")
         self.radicand.setContentsMargins(0, self.BORDER_PADDING, 0, 0)
@@ -185,14 +185,8 @@ class RootWidget(ExpressionNode):
         self._top_slot = self.degree
         self._bottom_slot = self.radicand
 
-        self.dHeight = self.degree.height()
-
     def anchor_y(self) -> int:
-        return (
-            self.radicand.height()
-            if self.degree.height() < self.dHeight
-            else self.degree.height() + self.radicand.height() // 2
-        )
+        return self.degree.height() + self.radicand.height() // 3
 
     def focus_default(self) -> None:
         base_input = self.radicand.default_input()

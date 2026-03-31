@@ -163,12 +163,8 @@ class Expression(QWidget):
                 if isinstance(seg, QLineEdit):
                     yield seg
                 elif isinstance(seg, ExpressionNode):
-                    node_inputs = seg.line_edits()
-                    if direction < 0:
-                        node_inputs.reverse()
-                    for le in node_inputs:
-                        yield le
-
+                    edits = seg._left_slot._direct_edits
+                    yield edits[-1] if direction < 0 else edits[0]
             node = slot.parent()
             if not isinstance(node, ExpressionNode):
                 break
@@ -195,7 +191,6 @@ class Expression(QWidget):
         return False
 
     def _navigate_vertical(self, direction: int) -> bool:
-        """Climb the slot→node tree to find a vertical neighbor slot."""
         target = self._resolve_target()
         pos = target.cursorPosition()
         slot = target.parent()
@@ -207,7 +202,10 @@ class Expression(QWidget):
             if neighbor:
                 le = neighbor.default_input()
                 le.setFocus()
-                le.setCursorPosition(min(pos, len(le.text())))
+                if len(slot._direct_edits) == 1 and len(neighbor._direct_edits) == 1:
+                    le.setCursorPosition(min(pos, len(le.text())))
+                else:
+                    le.setCursorPosition(len(le.text()))
                 return True
             slot = node.parent()
         return False
@@ -225,10 +223,11 @@ class Expression(QWidget):
 
         if pos and text[pos - 1] == " ":
             left = pos - 2
-            start = left - (left > 0 and text[left - 1] == " ")
-            target.setText(text[:start] + text[pos:])
-            target.setCursorPosition(start)
-            return
+            if left > 0:
+                start = left - (left > 0 and text[left - 1] == " ")
+                target.setText(text[:start] + text[pos:])
+                target.setCursorPosition(start)
+                return
 
         slot = target.parent()
         if isinstance(slot, ExpressionSlot) and not pos and not text:
@@ -255,7 +254,11 @@ class Expression(QWidget):
                     self.plain_text_changed.emit(self.get_plain_text())
                     return
                 if isinstance(prev, ExpressionNode):
-                    self.navigate_left()
+                    edits = prev.line_edits()
+                    if edits:
+                        le = edits[-1]
+                        le.setFocus()
+                        le.setCursorPosition(len(le.text()))
                     return
                 if isinstance(prev, QLineEdit):
                     self._focus_backspace(prev)

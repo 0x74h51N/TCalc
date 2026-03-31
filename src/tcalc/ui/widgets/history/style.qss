@@ -38,3 +38,7 @@ QWidget#radicandSlot, QWidget#radicandSlot:focus {
 QWidget#historyItem QScrollArea#historyExprScroll {
     background: transparent;
 }
+
+QWidget[exprSlot="true"][exprSlotKind="aux"] {
+    background-color: transparent;
+}

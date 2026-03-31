@@ -8,7 +8,7 @@ QLineEdit[exprInput="true"] {
 }
 
 QWidget[exprSlot="true"][exprSlotKind="aux"] {
-    background-color: $background_dark;
+    background-color: transparent;
 }
 
 QWidget[exprSlot="true"][exprSlotKind="aux"] QLineEdit[exprKind="aux"]:focus,
