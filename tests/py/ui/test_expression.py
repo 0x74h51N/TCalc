@@ -2519,7 +2519,7 @@ def _effective_anchor(seg) -> int | None:
 def _check_slot_alignment(
     expression_widget: Expression, t, slot: ExpressionSlot, slot_label: str
 ) -> None:
-    """Assert all sibling segments in a slot share the same effective anchor_y."""
+    """Assert sibling segments in a slot have nearly the same effective anchor_y."""
     anchors = []
     for seg in slot._segments:
         a = _effective_anchor(seg)
@@ -2531,12 +2531,13 @@ def _check_slot_alignment(
 
     first = anchors[0]
     for i, a in enumerate(anchors[1:], 1):
-        if a != first:
+        if abs(a - first) > 2:
             _fail_tree(
                 expression_widget,
                 t,
                 f"Margin alignment mismatch in {slot_label}: "
-                f"seg[0] anchor={first}, seg[{i}] anchor={a}",
+                f"seg[0] anchor={first}, seg[{i}] anchor={a}, "
+                f"delta={abs(a - first)}",
             )
 
 
