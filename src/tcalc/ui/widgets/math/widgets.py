@@ -123,7 +123,7 @@ class PowWidget(ExpressionNode):
         self._bottom_slot = self.base
 
     def anchor_y(self) -> int:
-        return self.base.height() // 2 + self.exponent.height() // 3
+        return self.base.y() - self.contentsMargins().top() + self.base.anchor_y()
 
     def focus_default(self) -> None:
         base_input = self.base.default_input()
@@ -186,7 +186,12 @@ class RootWidget(ExpressionNode):
         self._bottom_slot = self.radicand
 
     def anchor_y(self) -> int:
-        return self.degree.height() + self.radicand.height() // 3
+        return (
+            self.radicand.y()
+            - self.contentsMargins().top()
+            + self.radicand.contentsMargins().top()
+            + self.radicand.anchor_y()
+        )
 
     def focus_default(self) -> None:
         base_input = self.radicand.default_input()

@@ -481,6 +481,32 @@ class ExpressionSlot(QWidget):
             return open_par + inner + close_par
         return inner
 
+    @staticmethod
+    def _seg_anchor(seg: QWidget) -> tuple[int, int] | None:
+        """Return (above, below) anchor distances for a segment, or None."""
+        if isinstance(seg, ExpressionNode):
+            a = seg.anchor_y()
+            b = seg.height() - seg.contentsMargins().top() - a
+            return a, b
+        if isinstance(seg, ExpressionSlot):
+            top_margin = seg.contentsMargins().top()
+            h = seg.height() - top_margin
+            a = h // 2
+            return a, h - a
+        if isinstance(seg, QLineEdit):
+            a = seg.fontMetrics().height() // 2
+            return a, a
+        return None
+
+    def anchor_y(self) -> int:
+        """Return the maximum anchor-above across all segments in this slot."""
+        max_anchor = 0
+        for seg in self._segments:
+            ab = self._seg_anchor(seg)
+            if ab is not None and ab[0] > max_anchor:
+                max_anchor = ab[0]
+        return max_anchor
+
     def _update_segment_margins(self) -> None:
         """
         Align all segments in this slot to a common anchor_y position.
@@ -500,42 +526,28 @@ class ExpressionSlot(QWidget):
         max_below = 0
 
         for seg in self._segments:
-            if isinstance(seg, ExpressionNode):
-                a = seg.anchor_y()
-                b = seg.height() - seg.contentsMargins().top() - a
-            elif isinstance(seg, ExpressionSlot):
-                top_margin = seg.contentsMargins().top()
-                h = seg.height() - top_margin
-                a = h // 2
-                b = h - a
-            elif isinstance(seg, QLineEdit):
-                a = seg.fontMetrics().height() // 2
-                b = a
-            else:
+            ab = self._seg_anchor(seg)
+            if ab is None:
                 continue
-            if a > max_anchor:
-                max_anchor = a
-            if b > max_below:
-                max_below = b
+            if ab[0] > max_anchor:
+                max_anchor = ab[0]
+            if ab[1] > max_below:
+                max_below = ab[1]
 
         for seg in self._segments:
-            if isinstance(seg, ExpressionNode):
-                own_anchor = seg.anchor_y()
+            ab = self._seg_anchor(seg)
+            if ab is not None:
+                own_anchor = ab[0]
                 top = max(0, max_anchor - own_anchor)
-                if seg.contentsMargins().top() != top:
-                    seg.setContentsMargins(0, top, 0, 0)
-            elif isinstance(seg, ExpressionSlot):
-                top_margin = seg.contentsMargins().top()
-                h = seg.height() - top_margin
-                own_anchor = h // 2
-                top = max(0, max_anchor - own_anchor)
-                if top_margin != top:
-                    seg.setContentsMargins(0, top, 0, 0)
-            elif isinstance(seg, QLineEdit):
-                own_anchor = seg.fontMetrics().height() // 2
-                top = max(0, max_anchor - own_anchor)
-                if seg.textMargins().top() != top:
-                    seg.setTextMargins(0, top, 0, 0)
+                if isinstance(seg, ExpressionNode):
+                    if seg.contentsMargins().top() != top:
+                        seg.setContentsMargins(0, top, 0, 0)
+                elif isinstance(seg, ExpressionSlot):
+                    if seg.contentsMargins().top() != top:
+                        seg.setContentsMargins(0, top, 0, 0)
+                elif isinstance(seg, QLineEdit):
+                    if seg.textMargins().top() != top:
+                        seg.setTextMargins(0, top, 0, 0)
             elif isinstance(seg, ParenGlyph):
                 seg.setFixedHeight(max_anchor + max_below)
 
@@ -544,7 +556,6 @@ class ExpressionSlot(QWidget):
 
         if self._margin_scheduled:
             return
-
         self._margin_scheduled = True
         QTimer.singleShot(0, self._do_margin_update)
 
