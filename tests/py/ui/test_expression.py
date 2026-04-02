@@ -2609,6 +2609,44 @@ MARGIN_ALIGN_CASES = [
         ),
         id="sick-level-nested-nodes-2-siblings-w-paren",
     ),
+    pytest.param(
+        margin_align_case(expression="\\root{1}{2} + 3"),
+        id="root-simple-with-suffix",
+    ),
+    pytest.param(
+        margin_align_case(expression="\\frac{1}{2} + \\root{3}{4}"),
+        id="frac-and-root-siblings",
+    ),
+    pytest.param(
+        margin_align_case(expression="1 + \\root{2 + 3 + \\pow{4}{5}}{6} + 7"),
+        id="root-radicand-with-nested-pow",
+    ),
+    pytest.param(
+        margin_align_case(expression="1 + \\root{2 + \\frac{3}{4} + 5}{3} + 6"),
+        id="root-radicand-with-nested-frac",
+    ),
+    pytest.param(
+        margin_align_case(
+            expression="1 + \\root{2 + \\frac{3}{\\frac{4}{\\frac{5}{6}}} + 7}{3} + 8"
+        ),
+        id="root-radicand-with-deep-nested-frac",
+    ),
+    pytest.param(
+        margin_align_case(
+            expression="\\pow{3}{\\frac{4}{\\frac{6}{\\frac{6}{\\frac{6}{\\frac{5}{\\frac{6}{\\frac{6}{6}}}}}}}} + \\frac{43}{3} + \\root{3}{3}"
+        ),
+        id="pow-deep-exponent-with-frac-and-root",
+    ),
+    pytest.param(
+        margin_align_case(expression="2 + (\\frac{5}{7} + \\root{6}{3} + 5) + 5 + \\pow{3}{3}"),
+        id="paren-with-frac-root-and-pow-siblings",
+    ),
+    pytest.param(
+        margin_align_case(
+            expression="2 + \\pow{(\\frac{5}{7} + \\root{2}{3} + 4) + 5}{5} + \\pow{3}{3}"
+        ),
+        id="pow-base-with-paren-frac-root",
+    ),
 ]
 
 
