@@ -142,9 +142,7 @@ class ExpressionNode(QWidget):
         if not isinstance(parent, ExpressionSlot):
             return
 
-        if self._left_slot and any(
-            isinstance(seg, ExpressionNode) for seg in self._left_slot._segments
-        ):
+        if self._left_slot and self._left_slot._child_nodes:
             segments = list(self._left_slot._segments)
             self._left_slot.remove_segments(segments, delete=False)
             focus = parent.replace_with(self, segments)
@@ -162,7 +160,7 @@ class ExpressionNode(QWidget):
             paren = slot.parent()
             if not isinstance(paren, ParenWidget):
                 break
-            if any(isinstance(s, ExpressionNode) for s in slot._segments):
+            if slot._child_nodes:
                 break
 
             plain = paren.to_plain_text()
@@ -214,6 +212,7 @@ class ExpressionSlot(QWidget):
         self._editor: Expression | None = None
         self._segments: list[QWidget] = []
         self._direct_edits: list[QLineEdit] = []
+        self._child_nodes: list[ExpressionNode] = []
 
         self.setProperty("exprSlot", True)
         self.setProperty("exprSlotKind", kind.value)
@@ -229,6 +228,7 @@ class ExpressionSlot(QWidget):
         self.append_input()
 
         self._margin_scheduled = False
+        self._suppress_margins = False
         self._on_node_removed: Callable[[], None] | None = None
         self._on_margin_updated: Callable[[], None] | None = None
 
@@ -288,6 +288,8 @@ class ExpressionSlot(QWidget):
     def insert_widget(self, index: int, w: QWidget) -> None:
         self._layout.insertWidget(index, w, 0, self._align.value)
         self._segments.insert(index, w)
+        if isinstance(w, ExpressionNode):
+            self._child_nodes.append(w)
 
     def insert_input(self, index: int) -> QLineEdit:
         le = self._create_input(self._input_key())
@@ -311,6 +313,8 @@ class ExpressionSlot(QWidget):
         self._segments.remove(seg)
         if isinstance(seg, QLineEdit) and seg in self._direct_edits:
             self._direct_edits.remove(seg)
+        elif isinstance(seg, ExpressionNode) and seg in self._child_nodes:
+            self._child_nodes.remove(seg)
         if delete:
             seg.deleteLater()
 
@@ -343,6 +347,8 @@ class ExpressionSlot(QWidget):
             self._segments.insert(idx + off, w)
             if isinstance(w, QLineEdit):
                 self._direct_edits.append(w)
+            elif isinstance(w, ExpressionNode):
+                self._child_nodes.append(w)
             off += 1
 
         focus: QLineEdit | None = None
@@ -455,6 +461,7 @@ class ExpressionSlot(QWidget):
             le.deleteLater()
         self._segments = []
         self._direct_edits = []
+        self._child_nodes = []
 
         return self.append_input()
 
@@ -553,27 +560,30 @@ class ExpressionSlot(QWidget):
 
     def _schedule_margin_update(self) -> None:
         """Update margins after first frame render."""
-
+        self.setUpdatesEnabled(False)
         if self._margin_scheduled:
             return
         self._margin_scheduled = True
         QTimer.singleShot(0, self._do_margin_update)
 
     def _do_margin_update(self) -> None:
-        if not isValid(self):
-            return
-        self._update_segment_margins()
-        self._margin_scheduled = False
-        # Propagate margin child to parent
-        node = self.parent()
-        if isinstance(node, ExpressionNode):
-            parent_slot = node.parent()
-            if isinstance(parent_slot, ExpressionSlot):
-                parent_slot._schedule_margin_update()
+        try:
+            if not isValid(self):
                 return
-
-        if self._on_margin_updated is not None:
-            self._on_margin_updated()
+            self._update_segment_margins()
+            self._margin_scheduled = False
+            # Propagate margin child to parent
+            node = self.parent()
+            if isinstance(node, ExpressionNode):
+                parent_slot = node.parent()
+                if isinstance(parent_slot, ExpressionSlot):
+                    parent_slot._schedule_margin_update()
+                    return
+        finally:
+            if self._on_margin_updated is not None:
+                self._on_margin_updated()
+            if isValid(self):
+                self.setUpdatesEnabled(True)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

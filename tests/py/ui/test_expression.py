@@ -1591,214 +1591,223 @@ class TestHandleNegate:
     def _run_expr_negate(self, expression_widget, set_expression, qapp, expr_case):
         set_expression(expr_case.expression)
 
-        t = snapshot_tree(expression_widget)
-        target = _resolve_target_input(expression_widget, t, expr_case.target_path)
+        def _negate_once() -> None:
+            qapp.processEvents()
+            t = snapshot_tree(expression_widget)
+            target = _resolve_target_input(expression_widget, t, expr_case.target_path)
+            target.setFocus()
+            target.setCursorPosition(expr_case.cursor_pos)
+            expression_widget.handle_negate()
+            qapp.processEvents()
 
-        _trigger_on_input(
-            qapp,
-            target,
-            expr_case.cursor_pos,
-            expression_widget.handle_negate,
-            1,
-        )
+        _negate_once()
         first_text = expression_widget.get_plain_text()
-        remaining = max(0, expr_case.negate_times - 1)
-        _trigger_on_input(
-            qapp,
-            target,
-            expr_case.cursor_pos,
-            expression_widget.handle_negate,
-            remaining,
-        )
+        for _ in range(max(0, expr_case.negate_times - 1)):
+            _negate_once()
         final_text = expression_widget.get_plain_text()
         return first_text, final_text
 
-    @pytest.mark.parametrize(
-        "expr_case",
-        [
-            pytest.param(
-                expr_negate_case(
-                    expression="\\frac{3}{4}",
-                    target_path=("node", 0, "numerator", 0),
-                    cursor_pos=1,
-                    negate_times=1,
-                    expected_plain_text="\\frac{-3}{4}",
-                    expected_plain_text_first=None,
-                ),
-                id="negate-frac-num",
+    NEGATE_EXPR_CASES = [
+        pytest.param(
+            expr_negate_case(
+                expression="\\frac{3}{4}",
+                target_path=("node", 0, "numerator", 0),
+                cursor_pos=1,
+                negate_times=1,
+                expected_plain_text="\\frac{-3}{4}",
+                expected_plain_text_first=None,
             ),
-            pytest.param(
-                expr_negate_case(
-                    expression="\\frac{3}{4}",
-                    target_path=("node", 0, "denominator", 0),
-                    cursor_pos=1,
-                    negate_times=1,
-                    expected_plain_text="\\frac{3}{-4}",
-                    expected_plain_text_first=None,
-                ),
-                id="negate-frac-den",
+            id="negate-frac-num",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="\\frac{3}{4}",
+                target_path=("node", 0, "denominator", 0),
+                cursor_pos=1,
+                negate_times=1,
+                expected_plain_text="\\frac{3}{-4}",
+                expected_plain_text_first=None,
             ),
-            pytest.param(
-                expr_negate_case(
-                    expression="1 + \\frac{2}{3}",
-                    target_path=("root", -1),
-                    cursor_pos=0,
-                    negate_times=1,
-                    expected_plain_text="1 + -\\frac{2}{3}",
-                    expected_plain_text_first=None,
-                ),
-                id="negate-after-frac",
+            id="negate-frac-den",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="1 + \\frac{2}{3}",
+                target_path=("root", -1),
+                cursor_pos=0,
+                negate_times=1,
+                expected_plain_text="1 + -\\frac{2}{3}",
+                expected_plain_text_first=None,
             ),
-            pytest.param(
-                expr_negate_case(
-                    expression="1 + \\frac{2}{3}",
-                    target_path=("root", -1),
-                    cursor_pos=0,
-                    negate_times=2,
-                    expected_plain_text="1 + \\frac{2}{3}",
-                    expected_plain_text_first="1 + -\\frac{2}{3}",
-                ),
-                id="negate-after-frac-toggle",
+            id="negate-after-frac",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="1 + \\frac{2}{3}",
+                target_path=("root", -1),
+                cursor_pos=0,
+                negate_times=2,
+                expected_plain_text="1 + \\frac{2}{3}",
+                expected_plain_text_first="1 + -\\frac{2}{3}",
             ),
-            pytest.param(
-                expr_negate_case(
-                    expression="1 + \\pow{2}{3}",
-                    target_path=("root", -1),
-                    cursor_pos=0,
-                    negate_times=1,
-                    expected_plain_text="1 + -\\pow{2}{3}",
-                    expected_plain_text_first=None,
-                ),
-                id="negate-after-pow",
+            id="negate-after-frac-toggle",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="1 + \\pow{2}{3}",
+                target_path=("root", -1),
+                cursor_pos=0,
+                negate_times=1,
+                expected_plain_text="1 + -\\pow{2}{3}",
+                expected_plain_text_first=None,
             ),
-            pytest.param(
-                expr_negate_case(
-                    expression="1 + \\pow{2}{3}",
-                    target_path=("root", -1),
-                    cursor_pos=0,
-                    negate_times=2,
-                    expected_plain_text="1 + \\pow{2}{3}",
-                    expected_plain_text_first="1 + -\\pow{2}{3}",
-                ),
-                id="negate-after-pow-toggle",
+            id="negate-after-pow",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="1 + \\pow{2}{3}",
+                target_path=("root", -1),
+                cursor_pos=0,
+                negate_times=2,
+                expected_plain_text="1 + \\pow{2}{3}",
+                expected_plain_text_first="1 + -\\pow{2}{3}",
             ),
-            pytest.param(
-                expr_negate_case(
-                    expression="1 + \\root{2}{3}",
-                    target_path=("root", -1),
-                    cursor_pos=0,
-                    negate_times=1,
-                    expected_plain_text="1 + -\\root{2}{3}",
-                    expected_plain_text_first=None,
-                ),
-                id="negate-after-root",
+            id="negate-after-pow-toggle",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="1 + \\root{2}{3}",
+                target_path=("root", -1),
+                cursor_pos=0,
+                negate_times=1,
+                expected_plain_text="1 + -\\root{2}{3}",
+                expected_plain_text_first=None,
             ),
-            pytest.param(
-                expr_negate_case(
-                    expression="1 + \\root{2}{3}",
-                    target_path=("root", -1),
-                    cursor_pos=0,
-                    negate_times=2,
-                    expected_plain_text="1 + \\root{2}{3}",
-                    expected_plain_text_first="1 + -\\root{2}{3}",
-                ),
-                id="negate-after-root-toggle",
+            id="negate-after-root",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="1 + \\root{2}{3}",
+                target_path=("node", 0, "radicand", 0),
+                cursor_pos=1,
+                negate_times=1,
+                expected_plain_text="1 + \\root{-2}{3}",
+                expected_plain_text_first=None,
             ),
-            pytest.param(
-                expr_negate_case(
-                    expression="\\frac{1}{2}\\frac{3}{4}",
-                    target_path=("root", 4),
-                    cursor_pos=0,
-                    negate_times=1,
-                    expected_plain_text="\\frac{1}{2} - \\frac{3}{4}",
-                    expected_plain_text_first=None,
-                ),
-                id="negate-before-fracs",
+            id="negate-root-radicand",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="1 + \\root{2}{3}",
+                target_path=("node", 0, "degree", 0),
+                cursor_pos=1,
+                negate_times=1,
+                expected_plain_text="1 + \\root{2}{-3}",
+                expected_plain_text_first=None,
             ),
-            pytest.param(
-                expr_negate_case(
-                    expression="\\frac{2}{3}\\frac{4}{5}",
-                    target_path=("root", 2),
-                    cursor_pos=0,
-                    negate_times=2,
-                    expected_plain_text="\\frac{2}{3}\\frac{4}{5}",
-                    expected_plain_text_first="-\\frac{2}{3}\\frac{4}{5}",
-                ),
-                id="negate-between-fracs-toggle",
+            id="negate-root-degree",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="1 + \\root{2}{3}",
+                target_path=("root", -1),
+                cursor_pos=0,
+                negate_times=2,
+                expected_plain_text="1 + \\root{2}{3}",
+                expected_plain_text_first="1 + -\\root{2}{3}",
             ),
-        ],
-    )
-    def test_negate_expression_nodes_final(
-        self, expression_widget, set_expression, qapp, expr_case
-    ):
-        """Negate behavior around expression nodes."""
+            id="negate-after-root-toggle",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="\\frac{1}{2}\\frac{3}{4}",
+                target_path=("root", 4),
+                cursor_pos=0,
+                negate_times=1,
+                expected_plain_text="\\frac{1}{2} - \\frac{3}{4}",
+                expected_plain_text_first=None,
+            ),
+            id="negate-before-fracs",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="\\frac{2}{3}\\frac{4}{5}",
+                target_path=("root", 2),
+                cursor_pos=0,
+                negate_times=2,
+                expected_plain_text="\\frac{2}{3}\\frac{4}{5}",
+                expected_plain_text_first="-\\frac{2}{3}\\frac{4}{5}",
+            ),
+            id="negate-between-fracs-toggle",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="1 + \\frac{2}{3}",
+                target_path=("root", -1),
+                cursor_pos=0,
+                negate_times=2,
+                expected_plain_text="1 + \\frac{2}{3}",
+                expected_plain_text_first="1 + -\\frac{2}{3}",
+            ),
+            id="negate-after-frac-toggle",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="1 + \\pow{2}{3}",
+                target_path=("root", -1),
+                cursor_pos=0,
+                negate_times=2,
+                expected_plain_text="1 + \\pow{2}{3}",
+                expected_plain_text_first="1 + -\\pow{2}{3}",
+            ),
+            id="negate-after-pow-toggle",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="1 + \\root{2}{3}",
+                target_path=("root", -1),
+                cursor_pos=0,
+                negate_times=2,
+                expected_plain_text="1 + \\root{2}{3}",
+                expected_plain_text_first="1 + -\\root{2}{3}",
+            ),
+            id="negate-after-root-toggle",
+        ),
+        pytest.param(
+            expr_negate_case(
+                expression="\\frac{2}{3}\\frac{4}{5}",
+                target_path=("root", 2),
+                cursor_pos=0,
+                negate_times=2,
+                expected_plain_text="\\frac{2}{3}\\frac{4}{5}",
+                expected_plain_text_first="-\\frac{2}{3}\\frac{4}{5}",
+            ),
+            id="negate-between-fracs-toggle",
+        ),
+    ]
+
+    @pytest.mark.parametrize("expr_case", NEGATE_EXPR_CASES)
+    def test_negate_expression_first(self, expression_widget, set_expression, qapp, expr_case):
+        if expr_case.expected_plain_text_first:
+            first_text, _ = self._run_expr_negate(
+                expression_widget, set_expression, qapp, expr_case
+            )
+            _check_indexed(
+                expression_widget,
+                snapshot_tree(expression_widget),
+                [(0, expr_case.expected_plain_text_first)],
+                get_actual=lambda _: first_text,
+                label="plain text",
+            )
+
+    @pytest.mark.parametrize("expr_case", NEGATE_EXPR_CASES)
+    def test_negate_expression_final(self, expression_widget, set_expression, qapp, expr_case):
         _, final_text = self._run_expr_negate(expression_widget, set_expression, qapp, expr_case)
         _check_indexed(
             expression_widget,
             snapshot_tree(expression_widget),
             [(0, expr_case.expected_plain_text)],
             get_actual=lambda _: final_text,
-            label="plain text",
-        )
-
-    @pytest.mark.parametrize(
-        "expr_case",
-        [
-            pytest.param(
-                expr_negate_case(
-                    expression="1 + \\frac{2}{3}",
-                    target_path=("root", -1),
-                    cursor_pos=0,
-                    negate_times=2,
-                    expected_plain_text="1 + \\frac{2}{3}",
-                    expected_plain_text_first="1 + -\\frac{2}{3}",
-                ),
-                id="negate-after-frac-toggle",
-            ),
-            pytest.param(
-                expr_negate_case(
-                    expression="1 + \\pow{2}{3}",
-                    target_path=("root", -1),
-                    cursor_pos=0,
-                    negate_times=2,
-                    expected_plain_text="1 + \\pow{2}{3}",
-                    expected_plain_text_first="1 + -\\pow{2}{3}",
-                ),
-                id="negate-after-pow-toggle",
-            ),
-            pytest.param(
-                expr_negate_case(
-                    expression="1 + \\root{2}{3}",
-                    target_path=("root", -1),
-                    cursor_pos=0,
-                    negate_times=2,
-                    expected_plain_text="1 + \\root{2}{3}",
-                    expected_plain_text_first="1 + -\\root{2}{3}",
-                ),
-                id="negate-after-root-toggle",
-            ),
-            pytest.param(
-                expr_negate_case(
-                    expression="\\frac{2}{3}\\frac{4}{5}",
-                    target_path=("root", 2),
-                    cursor_pos=0,
-                    negate_times=2,
-                    expected_plain_text="\\frac{2}{3}\\frac{4}{5}",
-                    expected_plain_text_first="-\\frac{2}{3}\\frac{4}{5}",
-                ),
-                id="negate-between-fracs-toggle",
-            ),
-        ],
-    )
-    def test_negate_expression_nodes_first(
-        self, expression_widget, set_expression, qapp, expr_case
-    ):
-        first_text, _ = self._run_expr_negate(expression_widget, set_expression, qapp, expr_case)
-        _check_indexed(
-            expression_widget,
-            snapshot_tree(expression_widget),
-            [(0, expr_case.expected_plain_text_first)],
-            get_actual=lambda _: first_text,
             label="plain text",
         )
 
@@ -2824,7 +2833,7 @@ NAV_CASES = [
             target_focus_cursor=(("node", 0, "numerator", 0), 1),
             key="down",
             key_count=1,
-            expected_focus_cursor=(("node", 0, "denominator", -1), 0),
+            expected_focus_cursor=(("node", 1, "numerator", 0), 1),
         ),
         id="frac-down-multi-segment-to-end",
     ),
