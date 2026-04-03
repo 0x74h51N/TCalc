@@ -64,6 +64,7 @@ class Expression(QWidget):
         self._last_focused = self._root.default_input()
 
         self._pending_seg: Optional[QLineEdit] = None
+        self._restoring: bool = False
         self._pending_parens: dict[calc_native.ParenKind, list[ParenWidget]] = {}
         self.renderer.editor = self
         self.renderer.pending_parens = self._pending_parens
@@ -119,6 +120,7 @@ class Expression(QWidget):
         if le.text() == text:
             self.plain_text_changed.emit(self.get_plain_text())
             return
+        self._restoring = True
         le.setText(text)
 
     def insert_text(self, text: str) -> None:
@@ -391,6 +393,12 @@ class Expression(QWidget):
             self._add_exp_node(self._pending_seg)
             self.plain_text_changed.emit(self.get_plain_text())
             self._pending_seg = None
+        if self._restoring:
+            self._restoring = False
+            last = self._root.default_input()
+            last.setFocus()
+            last.setCursorPosition(len(last.text()))
+            self._last_focused = last
 
     def _on_input_changed(self, seg: QLineEdit):
         if self.renderer.is_rendering:
