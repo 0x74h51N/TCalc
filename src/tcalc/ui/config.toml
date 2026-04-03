@@ -246,6 +246,10 @@ scale_script = 0.5
 expr_max_pt = 26
 rslt_max_pt = 30
 
+# Scroll animation
+scroll_anim_duration = 140
+scroll_anim_curve = "InCubic"
+
 [calc.topbar]
 side_margin = 10
 top_margin = 10

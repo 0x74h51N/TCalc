@@ -43,6 +43,7 @@ class Expression(QWidget):
 
     plain_text_changed = Signal(str)
     input_created = Signal(object)
+    focused_input_changed = Signal(object)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -85,6 +86,7 @@ class Expression(QWidget):
     def _on_app_focus_changed(self, _old, new) -> None:
         if isinstance(new, QLineEdit) and self.isAncestorOf(new):
             self._last_focused = new
+            self.focused_input_changed.emit(new)
 
     def _resolve_target(self) -> QLineEdit:
         """Return the input that should receive edits (focus or last focused)."""
