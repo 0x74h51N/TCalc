@@ -560,27 +560,30 @@ class ExpressionSlot(QWidget):
 
     def _schedule_margin_update(self) -> None:
         """Update margins after first frame render."""
-
+        self.setUpdatesEnabled(False)
         if self._margin_scheduled:
             return
         self._margin_scheduled = True
         QTimer.singleShot(0, self._do_margin_update)
 
     def _do_margin_update(self) -> None:
-        if not isValid(self):
-            return
-        self._update_segment_margins()
-        self._margin_scheduled = False
-        # Propagate margin child to parent
-        node = self.parent()
-        if isinstance(node, ExpressionNode):
-            parent_slot = node.parent()
-            if isinstance(parent_slot, ExpressionSlot):
-                parent_slot._schedule_margin_update()
+        try:
+            if not isValid(self):
                 return
-
-        if self._on_margin_updated is not None:
-            self._on_margin_updated()
+            self._update_segment_margins()
+            self._margin_scheduled = False
+            # Propagate margin child to parent
+            node = self.parent()
+            if isinstance(node, ExpressionNode):
+                parent_slot = node.parent()
+                if isinstance(parent_slot, ExpressionSlot):
+                    parent_slot._schedule_margin_update()
+                    return
+        finally:
+            if self._on_margin_updated is not None:
+                self._on_margin_updated()
+            if isValid(self):
+                self.setUpdatesEnabled(True)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
