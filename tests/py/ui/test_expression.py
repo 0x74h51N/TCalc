@@ -2824,7 +2824,7 @@ NAV_CASES = [
             target_focus_cursor=(("node", 0, "numerator", 0), 1),
             key="down",
             key_count=1,
-            expected_focus_cursor=(("node", 0, "denominator", -1), 0),
+            expected_focus_cursor=(("node", 1, "numerator", 0), 1),
         ),
         id="frac-down-multi-segment-to-end",
     ),

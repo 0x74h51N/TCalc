@@ -30,7 +30,7 @@ from tcalc.ui.widgets.math.expression_node import (
 )
 from tcalc.ui.widgets.math.math_render import MathRender
 from tcalc.ui.widgets.math.utils import split_operand
-from tcalc.ui.widgets.math.widgets import ParenWidget
+from tcalc.ui.widgets.math.widgets import FractionWidget, ParenWidget
 from tcalc.ui.widgets.utils import InputAlign
 
 from .utils import space_binary_ops
@@ -200,9 +200,16 @@ class Expression(QWidget):
                 break
             neighbor = node.slot_above(slot) if direction < 0 else node.slot_below(slot)
             if neighbor:
-                le = neighbor.default_input()
+                # Descend through nested child nodes toward the target direction
+                while neighbor._child_nodes:
+                    child = neighbor._child_nodes[0]
+                    entry = child._top_slot if direction > 0 else child._bottom_slot
+                    if entry is None:
+                        break
+                    neighbor = entry
+                le = neighbor._direct_edits[0]
                 le.setFocus()
-                if len(slot._direct_edits) == 1 and len(neighbor._direct_edits) == 1:
+                if isinstance(slot.parent(), FractionWidget):
                     le.setCursorPosition(min(pos, len(le.text())))
                 else:
                     le.setCursorPosition(len(le.text()))
@@ -405,7 +412,6 @@ class Expression(QWidget):
 
     def _add_exp_node(self, seg: QLineEdit) -> None:
         self.renderer.is_rendering = True
-
         try:
             parent = seg.parent()
 
@@ -482,7 +488,6 @@ class Expression(QWidget):
             le = line_edits[0]
             le.setFocus()
             le.setCursorPosition(0)
-
         return True
 
     def _try_close_paren(
@@ -546,9 +551,7 @@ class Expression(QWidget):
                     if isinstance(parent_slot, ExpressionSlot):
                         parent_slot.adopt_segments(detached)
 
-            if not any(
-                isinstance(s, ExpressionNode) for s in pw.slot._segments
-            ):  # if not have any ExpressionNode dissolve pw -> text
+            if not pw.slot._child_nodes:
                 pw.dissolve()
 
             return True
@@ -558,9 +561,11 @@ class Expression(QWidget):
     def _split_seg(self, seg, tokens, idx, slot):
         before_toks = tokens[:idx]
         after_toks = tokens[idx + 1 :]
-        right = slot._segments[slot.index_of(seg) + 1 :]
         detached: list[QWidget] = []
-        if any(isinstance(s, ExpressionNode) for s in right):
+        seg_idx = slot.index_of(seg)
+        seg_idx = slot.index_of(seg)
+        has_node_right = bool(slot._child_nodes) and slot.index_of(slot._child_nodes[-1]) > seg_idx
+        if has_node_right:
             detached = slot.detach_right_of(seg)
             if detached and isinstance(detached[-1], ParenGlyph):
                 slot.insert_widget(len(slot._segments), detached.pop())
