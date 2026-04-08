@@ -1,3 +1,9 @@
+#
+#
+#
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
 """Expression widget rendering benchmark tests.
 
 Tests the performance of Expression widget's node creation and rendering.

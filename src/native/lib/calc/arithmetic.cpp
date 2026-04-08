@@ -34,6 +34,7 @@ double Calculator::pow(double a, long long b) const {
     double base = a;
 
     if (exp < 0) {
+        calc_detail::require_nonzero(base);
         exp = -exp;
         base = 1.0 / base;
     }
@@ -50,6 +51,7 @@ double Calculator::pow(double a, long long b) const {
 }
 
 double Calculator::pow(double a, double b) const {
+    calc_detail::require(b >= 0 || a != 0.0);
     return std::pow(a, b);
 }
 
@@ -92,6 +94,7 @@ BigReal Calculator::intdiv(const BigReal &a, const BigReal &b) const {
 }
 
 BigReal Calculator::pow(const BigReal &a, const BigReal &b) const {
+    calc_detail::require(b >= 0 || a != 0);
     using boost::multiprecision::pow;
     return pow(a, b);
 }
@@ -115,6 +118,61 @@ BigReal Calculator::floor(const BigReal &a) const {
 BigReal Calculator::ceil(const BigReal &a) const {
     using boost::multiprecision::ceil;
     return ceil(a);
+}
+
+// -----------------
+// Rational
+// -----------------
+
+Rational Calculator::add(const Rational &a, const Rational &b) const {
+    return Rational(a.frac + b.frac);
+}
+
+Rational Calculator::sub(const Rational &a, const Rational &b) const {
+    return Rational(a.frac - b.frac);
+}
+
+Rational Calculator::mul(const Rational &a, const Rational &b) const {
+    return Rational(a.frac * b.frac);
+}
+
+Rational Calculator::div(const Rational &a, const Rational &b) const {
+    calc_detail::require_nonzero(b.frac);
+    return Rational(a.frac / b.frac);
+}
+
+Rational Calculator::pow(const Rational &base, const Rational &exp) const {
+    calc_detail::require(exp.denominator() == 1);
+
+    long long e = exp.numerator();
+    calc_detail::require(e >= 0 || base.frac != 0);
+
+    if (e == 0)
+        return Rational(1);
+
+    bool neg_exp = e < 0;
+    if (neg_exp) {
+        calc_detail::require_nonzero(base.frac);
+        e = -e;
+    }
+
+    boost::rational<std::int64_t> result(1);
+    boost::rational<std::int64_t> b = base.frac;
+    long long rem = e;
+
+    while (rem > 0) {
+        if (rem & 1)
+            result *= b;
+        rem >>= 1;
+        if (rem > 0)
+            b *= b;
+    }
+
+    if (neg_exp) {
+        result = boost::rational<std::int64_t>(result.denominator(), result.numerator());
+    }
+
+    return Rational(result);
 }
 
 // -----------------

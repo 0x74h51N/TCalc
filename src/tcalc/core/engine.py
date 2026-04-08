@@ -11,6 +11,7 @@ from __future__ import annotations
 import calc_native
 from calc_native import Calculator as NativeCalculator
 from calc_native import CalculatorError as NativeCalculatorError
+from calc_native import Rational as NativeRational
 
 try:
     from calc_native import BigComplex as NativeBigComplex
@@ -28,6 +29,25 @@ from tcalc.errors import ErrorKind, raise_error
 from .constants import E
 from .ops import Operation
 
+_I64_MAX = (1 << 63) - 1
+_I64_MIN = -(1 << 63)
+
+
+def _to_rational(v: object) -> NativeRational | None:
+    """Convert int to Rational; floats are never coerced."""
+    if isinstance(v, NativeRational):
+        return v
+    if not isinstance(v, int) or isinstance(v, bool):
+        return None
+    if v < _I64_MIN or v > _I64_MAX:
+        return None
+    return NativeRational(v)
+
+
+def _rational_downcast(args: tuple[object, ...]) -> tuple[object, ...]:
+    """Downcast all Rational values to float."""
+    return tuple(a.to_double() if isinstance(a, NativeRational) else a for a in args)
+
 
 class Calculator:
     """Python wrapper for the native C++ calculator engine."""
@@ -38,11 +58,15 @@ class Calculator:
     def _to_big(self, v: object):
         if isinstance(v, NativeBigReal):
             return v
+        if isinstance(v, NativeRational):
+            return NativeBigReal(repr(v.to_double()))
         return NativeBigReal(repr(v))
 
     def _to_big_complex(self, v: object):
         if isinstance(v, NativeBigComplex):
             return v
+        if isinstance(v, NativeRational):
+            return NativeBigComplex(repr(v.to_double()))
         if not isinstance(v, (complex, NativeBigReal, int, float)):
             return v
         if isinstance(v, complex):
@@ -54,6 +78,8 @@ class Calculator:
     def _to_complex(self, value: object) -> object:
         if isinstance(value, complex):
             return value
+        if isinstance(value, NativeRational):
+            return complex(value.to_double(), 0.0)
         if isinstance(value, (int, float)):
             return complex(float(value), 0.0)
         return value
@@ -66,29 +92,42 @@ class Calculator:
         supports_big = bool(op is not None and getattr(op, "big_supported", False))
         supports_bigcx = bool(op is not None and getattr(op, "bigcomplex_supported", False))
 
+        has_rational = any(isinstance(a, NativeRational) for a in args)
         has_complex = any(isinstance(a, complex) for a in args)
         has_big = any(isinstance(a, NativeBigReal) for a in args)
         has_big_complex = any(isinstance(a, NativeBigComplex) for a in args)
 
+        # BigComplex > Complex > BigReal > Rational
         if supports_bigcx and (has_big_complex or (has_big and has_complex)):
             return tuple(self._to_big_complex(a) for a in args)
 
         if has_complex:
             return tuple(self._to_complex(a) for a in args)
 
-        # If any operand is BigReal, keep in BigReal for supported ops; otherwise downcast.
         if has_big:
             if supports_big:
                 return tuple(self._to_big(a) if self._is_num_or_big(a) else a for a in args)
-
             return tuple(a for a in args)
+
+        # Rational is the default numeric type.
+        # Coerce all args to Rational when possible, otherwise downcast to float.
+        if has_rational:
+            coerced = []
+            for a in args:
+                r = _to_rational(a)
+                if r is None:
+                    return _rational_downcast(args)
+                coerced.append(r)
+            return tuple(coerced)
 
         return args
 
     def _is_num_or_big(self, value: object) -> bool:
-        return isinstance(value, (int, float, NativeBigReal))
+        return isinstance(value, (int, float, NativeBigReal, NativeRational))
 
     def negate(self, a):
+        if isinstance(a, NativeRational):
+            return -a
         return self.sub(0, a)
 
     def unaryplus(self, a):
@@ -116,6 +155,7 @@ class Calculator:
         # Only attempt complex domain-promotion for float/int inputs.
         # BigReal values can be far outside float range; converting them to float
         # for domain checks can underflow to 0.0 and incorrectly force complex ops.
+        # Rational inputs are handled via float fallback when the op raises TypeError.
         if (
             len(args) < 1
             or not isinstance(args[0], (int, float))
@@ -152,15 +192,24 @@ class Calculator:
         if not callable(attr):
             return attr
 
+        def _float_fallback(original_args, kwargs):
+            float_args = _rational_downcast(original_args)
+            float_args = self._promote_complex(name, float_args)
+            float_args = self._coerce_args(name, float_args)
+            try:
+                return attr(*float_args, **kwargs)
+            except (TypeError, NativeCalculatorError) as exc:
+                raise_error(ErrorKind.MATH_ERR, exc)
+
         def wrapper(*args, **kwargs):
+            original_args = args
             args = self._promote_complex(name, args)
             args = self._coerce_args(name, args)
-
             try:
                 return attr(*args, **kwargs)
-            except TypeError as exc:
-                raise_error(ErrorKind.MATH_ERR, exc)
-            except NativeCalculatorError as exc:
+            except (TypeError, NativeCalculatorError) as exc:
+                if any(isinstance(a, NativeRational) for a in original_args):
+                    return _float_fallback(original_args, kwargs)
                 raise_error(ErrorKind.MATH_ERR, exc)
 
         return wrapper

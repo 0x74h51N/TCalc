@@ -19,6 +19,7 @@ void bind_calculator(py::module_ &m) {
     using Z = Calculator::Complex;
     using B = BigReal;
     using BC = BigComplex;
+    using R = Rational;
     using U = Calculator::AngleUnit;
 
     py::class_<C> cls(m, "Calculator");
@@ -41,6 +42,11 @@ void bind_calculator(py::module_ &m) {
         py::overload_cast<const BC &, const BC &>(&C::add, py::const_),
         py::arg("a"),
         py::arg("b"));
+    cls.def(
+        "add",
+        py::overload_cast<const R &, const R &>(&C::add, py::const_),
+        py::arg("a"),
+        py::arg("b"));
 
     cls.def(
         "sub", py::overload_cast<double, double>(&C::sub, py::const_), py::arg("a"), py::arg("b"));
@@ -57,6 +63,11 @@ void bind_calculator(py::module_ &m) {
     cls.def(
         "sub",
         py::overload_cast<const BC &, const BC &>(&C::sub, py::const_),
+        py::arg("a"),
+        py::arg("b"));
+    cls.def(
+        "sub",
+        py::overload_cast<const R &, const R &>(&C::sub, py::const_),
         py::arg("a"),
         py::arg("b"));
 
@@ -83,6 +94,11 @@ void bind_calculator(py::module_ &m) {
         py::overload_cast<const BC &, const BC &>(&C::mul, py::const_),
         py::arg("a"),
         py::arg("b"));
+    cls.def(
+        "mul",
+        py::overload_cast<const R &, const R &>(&C::mul, py::const_),
+        py::arg("a"),
+        py::arg("b"));
 
     cls.def(
         "div",
@@ -105,6 +121,11 @@ void bind_calculator(py::module_ &m) {
     cls.def(
         "div",
         py::overload_cast<const BC &, const BC &>(&C::div, py::const_),
+        py::arg("a"),
+        py::arg("b"));
+    cls.def(
+        "div",
+        py::overload_cast<const R &, const R &>(&C::div, py::const_),
         py::arg("a"),
         py::arg("b"));
 
@@ -166,6 +187,41 @@ void bind_calculator(py::module_ &m) {
     cls.def(
         "pow",
         py::overload_cast<const BC &, const BC &>(&C::pow, py::const_),
+        py::arg("a"),
+        py::arg("b"));
+    cls.def(
+        "pow",
+        [](const C &calc, const R &a, const R &b) -> py::object {
+            double da = a.to_double(), db = b.to_double();
+            long long p = b.numerator(), q = b.denominator();
+
+            // Double/BigReal overflow check.
+            if (pow_to_big(da, db, q == 1)) {
+                return py::cast(calc.pow(B(da), B(db)));
+            }
+
+            // Integer exponent: use Calculator::pow(Rational, Rational).
+            if (q == 1) {
+                if (calc_detail::rational_pow_overflows(a, p)) {
+                    return promote_inf_to_big(
+                        calc.pow(da, p), [&] { return calc.pow(B(da), B(db)); });
+                }
+                return py::cast(calc.pow(a, b));
+            }
+
+            // Fractional exponent (p/q): compute base^p, then try exact q-th root.
+            if (!calc_detail::rational_pow_overflows(a, p)) {
+                R powered = calc.pow(a, R(p));
+                auto nr = calc_detail::exact_int_root(powered.numerator(), q);
+                auto dr = calc_detail::exact_int_root(powered.denominator(), q);
+                if (nr && dr) {
+                    return py::cast(R(*nr, *dr));
+                }
+            }
+
+            // Not exact fall back to double.
+            return py::float_(calc.pow(da, db));
+        },
         py::arg("a"),
         py::arg("b"));
 
@@ -324,4 +380,16 @@ void bind_calculator(py::module_ &m) {
 
     cls.def("permute", &C::permute, py::arg("n"), py::arg("r"));
     cls.def("choose", &C::choose, py::arg("n"), py::arg("r"));
+
+    // GCD / LCM
+    cls.def(
+        "gcd",
+        [](const C &calc, long long a, long long b) { return calc.gcd(a, b); },
+        py::arg("a"),
+        py::arg("b"));
+    cls.def(
+        "lcm",
+        [](const C &calc, long long a, long long b) { return calc.lcm(a, b); },
+        py::arg("a"),
+        py::arg("b"));
 }

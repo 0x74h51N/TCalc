@@ -1,3 +1,9 @@
+#
+#
+#
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
 """Expression UI integration benchmark tests.
 
 Measures incremental edit performance: after initial render,

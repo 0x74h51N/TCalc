@@ -27,6 +27,7 @@ find_package(pybind11 CONFIG REQUIRED)
 
 add_library(calc_core STATIC
   lib/calc/arithmetic.cpp
+  lib/calc/function.cpp
   lib/calc/transcendental.cpp
   lib/calc/trig.cpp
   lib/calc/combinatorics.cpp
@@ -39,6 +40,7 @@ target_include_directories(calc_core PUBLIC
 add_executable(native_tests
   tests/main.cpp
   tests/unit/test_arithmetic.cpp
+  tests/unit/test_rational.cpp
   tests/unit/test_transcendental.cpp
   tests/unit/test_trig.cpp
   tests/unit/test_combinatorics.cpp
@@ -60,6 +62,7 @@ pybind11_add_module(calc_native
   python/module.cpp
   python/bindings/bind_bigreal.cpp
   python/bindings/bind_bigcomplex.cpp
+  python/bindings/bind_rational.cpp
   python/bindings/bind_angle_unit.cpp
   python/bindings/bind_calculator.cpp
   python/bindings/bind_parser.cpp

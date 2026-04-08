@@ -1,3 +1,10 @@
+#
+#
+#
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
 from __future__ import annotations
 
 import math
@@ -5,7 +12,9 @@ from decimal import Decimal
 
 import pytest
 
-calc_native = pytest.importorskip("calc_native")
+pytest.importorskip("calc_native")
+import calc_native
+
 param = pytest.param
 
 
@@ -130,8 +139,11 @@ def _eval(expr: str) -> object:
 def test_native_eval_golden(expr: str, expected_type: str, expected_value: object) -> None:
     if expected_type == "float":
         out = _eval(expr)
-        assert isinstance(out, (int, float))
-        assert float(out) == pytest.approx(expected_value)
+        if isinstance(out, calc_native.Rational):
+            assert float(out.to_double()) == pytest.approx(expected_value)
+        else:
+            assert isinstance(out, (int, float))
+            assert float(out) == pytest.approx(expected_value)
         return
 
     if expected_type == "complex":
@@ -154,19 +166,198 @@ def test_pow_boundary_exactness() -> None:
     assert Decimal(str(out)) == Decimal(1)
 
 
-def test_pow_exponent_is_int_after_parser_number_coercion() -> None:
-    from tcalc.core import parser as parser_mod
+# ============================================================================
+# Rational arithmetic edge cases
+# ============================================================================
 
-    tokens = parser_mod.tokenize_string("2^3")
-    number_literals = [t.as_number().value for t in tokens if t.as_number() is not None]
-    assert len(number_literals) >= 2
 
-    exponent = parser_mod._coerce_token(number_literals[-1])
-    assert exponent == 3
-    assert isinstance(exponent, int)
+class TestRational:
+    """Rational arithmetic: exact results, downcast, promotion, errors, no-crash."""
 
-    tokens = parser_mod.tokenize_string("2^3.0")
-    number_literals = [t.as_number().value for t in tokens if t.as_number() is not None]
-    exponent = parser_mod._coerce_token(number_literals[-1])
-    assert exponent == pytest.approx(3.0)
-    assert isinstance(exponent, float)
+    # -- Exact Rational results (num/den check) --
+    @pytest.mark.parametrize(
+        ("expr", "num", "den"),
+        [
+            # basic four ops
+            param("1+2", 3, 1, id="add-integers"),
+            param("7-3", 4, 1, id="sub-integers"),
+            param("3*4", 12, 1, id="mul-integers"),
+            param("10/3", 10, 3, id="div-integers-non-trivial"),
+            param("1/3 + 2/3", 1, 1, id="frac-add-to-one"),
+            param("1/2 + 1/3", 5, 6, id="frac-add-diff-denom"),
+            param("3/4 - 1/4", 1, 2, id="frac-sub-same-denom"),
+            param("2/3 * 3/4", 1, 2, id="frac-mul-cancels"),
+            param("(2/3) / (4/5)", 5, 6, id="frac-div-frac"),
+            # unary / negate
+            param("-5", -5, 1, id="negate-int"),
+            param("-(1/3)", -1, 3, id="negate-frac"),
+            param("--5", 5, 1, id="double-negate"),
+            # percent
+            param("50%", 1, 2, id="percent-half"),
+            param("200*50%", 100, 1, id="percent-mul"),
+            param("1%", 1, 100, id="percent-one"),
+            param("1/3 + 0.5", 5, 6, id="frac-plus-decimal-half"),
+            param("0.25 + 0.75", 1, 1, id="decimal-quarter-sum"),
+            param("0.1 + 0.2", 3, 10, id="decimal-point-one-plus-point-two"),
+            param("6/4", 3, 2, id="auto-normalization"),
+            param("(-6)/4", -3, 2, id="negative-result-normalization"),
+            # identities
+            param("(7/11) * 1", 7, 11, id="mul-identity"),
+            param("(7/11) + 0", 7, 11, id="add-identity"),
+            param("(3/7) - (3/7)", 0, 1, id="subtract-self-zero"),
+            param("(3/7) * (7/3)", 1, 1, id="mul-reciprocal-one"),
+            param("(-3) * (-4)", 12, 1, id="neg-times-neg"),
+            param("0 + 0", 0, 1, id="zero-rational"),
+            param("1/2/3/4/5/6/7", 1, 5040, id="chained-division"),
+            # pow
+            param("2^3", 8, 1, id="pow-int-cubed"),
+            param("3^4", 81, 1, id="pow-int-fourth"),
+            param("(1/2)^3", 1, 8, id="pow-frac-cubed"),
+            param("(2/3)^2", 4, 9, id="pow-frac-squared"),
+            param("(3/5)^3", 27, 125, id="pow-frac-cubed-general"),
+            param("5^0", 1, 1, id="pow-any-to-zero"),
+            param("(7/11)^0", 1, 1, id="pow-frac-to-zero"),
+            param("(7/11)^1", 7, 11, id="pow-frac-to-one"),
+            param("(-2)^2", 4, 1, id="pow-neg-base-even"),
+            param("(-2)^3", -8, 1, id="pow-neg-base-odd"),
+            param("(-1/2)^4", 1, 16, id="pow-neg-frac-even"),
+            param("(-1/2)^3", -1, 8, id="pow-neg-frac-odd"),
+            param("1^100", 1, 1, id="pow-one-to-large"),
+            param("(-1)^99", -1, 1, id="pow-neg-one-odd"),
+            param("(-1)^100", 1, 1, id="pow-neg-one-even"),
+            param("2^(-1)", 1, 2, id="pow-int-neg-one"),
+            param("2^(-3)", 1, 8, id="pow-int-neg-three"),
+            param("(2/3)^(-1)", 3, 2, id="pow-frac-reciprocal"),
+            param("(2/3)^(-2)", 9, 4, id="pow-frac-neg-two"),
+            param("(3/4)^(-3)", 64, 27, id="pow-frac-neg-three"),
+            param("(-2)^(-1)", -1, 2, id="pow-neg-base-neg-exp"),
+            param("(-2)^(-2)", 1, 4, id="pow-neg-base-neg-even"),
+            param("2^61", 2**61, 1, id="pow-i64-boundary-fits"),
+            param("(1/2)^(-61)", 2**61, 1, id="pow-neg-exp-i64-boundary-fits"),
+            param("(1/4)^(1/2)", 1, 2, id="pow-frac-exp-exact-half"),
+            param("8^(1/3)", 2, 1, id="pow-frac-exp-cbrt8"),
+            param("27^(2/3)", 9, 1, id="pow-frac-exp-27-2-3"),
+            param("4^(1/2)", 2, 1, id="pow-frac-exp-sqrt4"),
+            param("9^(1/2)", 3, 1, id="pow-frac-exp-sqrt9"),
+            param("16^(1/4)", 2, 1, id="pow-frac-exp-fourth-root"),
+            param("4^(3/2)", 8, 1, id="pow-frac-exp-4-3-2"),
+            param("(-8)^(1/3)", -2, 1, id="pow-neg-base-cube-root"),
+            param("2^2^2^2", 65536, 1, id="pow-chain-2-2-2-2"),
+            param("(2^3) + (3^2)", 17, 1, id="pow-then-add"),
+            param("(1/2)^2 * 8", 2, 1, id="pow-then-mul"),
+        ],
+    )
+    def test_stays_rational(self, expr: str, num: int, den: int) -> None:
+        out = _eval(expr)
+        assert isinstance(out, calc_native.Rational), (
+            f"Expected Rational, got {type(out).__name__}: {out}"
+        )
+        assert out.numerator == num, f"numerator: expected {num}, got {out.numerator}"
+        assert out.denominator == den, f"denominator: expected {den}, got {out.denominator}"
+
+    # -- Downcast to float --
+    @pytest.mark.parametrize(
+        ("expr", "expected_approx"),
+        [
+            # irrational functions
+            param("sqrt(2)", 1.4142135623730951, id="sqrt-irrational"),
+            param("sqrt(3)", 1.7320508075688772, id="sqrt-three"),
+            param("ln(2)", 0.6931471805599453, id="ln-drops-rational"),
+            param("log(10)", 1.0, id="log10-drops-rational"),
+            param("sin(1)", None, id="sin-drops-rational"),
+            param("cos(1)", None, id="cos-drops-rational"),
+            param("tan(1)", None, id="tan-drops-rational"),
+            param("exp(1)", 2.718281828459045, id="exp-drops-rational"),
+            param("exp(0)", 1.0, id="exp-zero"),
+            # fractional exponent => irrational result
+            param("2^(1/2)", 1.4142135623730951, id="pow-frac-exp-sqrt2"),
+            param("3^(1/3)", 1.4422495703074083, id="pow-frac-exp-cbrt3"),
+            # factorial
+            param("5!", 120.0, id="factorial-drops-rational"),
+            param("0!", 1.0, id="factorial-zero"),
+            param("3^40", 3.0**40, id="pow-i64-overflow"),
+            param("2^62", 2.0**62, id="pow-i64-boundary-overflows"),
+            param("(1/2)^(-62)", 2.0**62, id="pow-neg-exp-i64-boundary-overflows"),
+            param("(3/2)^100", (3 / 2) ** 100, id="pow-frac-overflow"),
+        ],
+    )
+    def test_downcasts_to_float(self, expr: str, expected_approx: float | None) -> None:
+        out = _eval(expr)
+        assert isinstance(out, (int, float)), f"Expected float, got {type(out).__name__}: {out}"
+        if expected_approx is not None:
+            assert float(out) == pytest.approx(expected_approx)
+
+    # -- Promote to complex --
+    @pytest.mark.parametrize(
+        ("expr", "exp_real", "exp_imag"),
+        [
+            param("sqrt(-1)", 0.0, 1.0, id="sqrt-neg-to-complex"),
+            param("sqrt(-4)", 0.0, 2.0, id="sqrt-neg4-to-complex"),
+            param("ln(-1)", 0.0, math.pi, id="ln-neg-to-complex"),
+            param("log(-1)", 0.0, 1.364376353841841, id="log-neg-to-complex"),
+        ],
+    )
+    def test_promotes_to_complex(self, expr: str, exp_real: float, exp_imag: float) -> None:
+        out = _eval(expr)
+        assert isinstance(out, complex), f"Expected complex, got {type(out).__name__}: {out}"
+        assert out.real == pytest.approx(exp_real)
+        assert out.imag == pytest.approx(exp_imag)
+
+    # -- Promote to BigReal --
+    @pytest.mark.parametrize(
+        "expr",
+        [
+            param("1/3 + 10^309", id="rational-plus-bigreal"),
+            param("10^309 - 1", id="bigreal-minus-rational"),
+            param("2 * 10^309", id="rational-times-bigreal"),
+            param("2^1024", id="pow-2-1024"),
+            param("10^400", id="pow-10-400"),
+            param("3^700", id="pow-3-700"),
+        ],
+    )
+    def test_promotes_to_bigreal(self, expr: str) -> None:
+        out = _eval(expr)
+        assert isinstance(out, calc_native.BigReal), (
+            f"Expected BigReal, got {type(out).__name__}: {out}"
+        )
+
+    # -- Math errors --
+    @pytest.mark.parametrize(
+        "expr",
+        [
+            param("1/0", id="div-by-zero"),
+            param("0/0", id="zero-div-zero"),
+            param("(1/3)/0", id="frac-div-by-zero"),
+            param("0^(-1)", id="zero-to-neg-power"),
+            param("0^(-2)", id="zero-to-neg-even-power"),
+            param("0^(-3)", id="zero-frac-neg-odd"),
+            param("(0/1)^(-2)", id="zero-frac-neg-exp"),
+        ],
+    )
+    def test_raises_math_error(self, expr: str) -> None:
+        from tcalc.errors import Error
+
+        with pytest.raises(Error, match="Math Error"):
+            _eval(expr)
+
+    # -- No-crash stress --
+    @pytest.mark.parametrize(
+        "expr",
+        [
+            param("2^63", id="pow-i64-overflow"),
+            param("2^100", id="pow-huge-overflow"),
+            param("(2^31) * (2^31)", id="large-numerator-mul"),
+            param("1/(1+1/(1+1/(1+1/(1+1/2))))", id="deeply-nested-fraction"),
+            param("2^20^20^20", id="pow-chain-huge"),
+            param("2^(-200)", id="pow-large-neg-exp"),
+            param("(1/2)^200", id="pow-frac-base-large-exp"),
+        ],
+    )
+    def test_no_crash(self, expr: str) -> None:
+        from tcalc.errors import Error
+
+        try:
+            out = _eval(expr)
+        except Error:
+            return
+        assert isinstance(out, (int, float, complex, calc_native.BigReal, calc_native.Rational))

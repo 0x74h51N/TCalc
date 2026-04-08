@@ -37,7 +37,11 @@ def apply_hyp_variant(op: Operation, hyp_enabled: bool) -> Operation:
 
 
 def format_result(value) -> str:
-    """Format a numeric result (float or complex) for display."""
+    """Format a numeric result (float, complex, Rational, etc.) for display."""
+
+    if isinstance(value, calc_native.Rational):
+        # Display as decimal value for now; fraction widget will use .numerator/.denominator
+        return format_result(value.to_double())
 
     if isinstance(value, calc_native.BigReal):
         return str(value)

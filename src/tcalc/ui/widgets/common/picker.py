@@ -1,3 +1,10 @@
+#
+#
+#
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
 from __future__ import annotations
 
 from typing import Any
@@ -17,7 +24,6 @@ class SearchablePicker(QWidget):
     def __init__(
         self,
         items: list[tuple[str, Any]],
-        *,
         separator_after: int | None = None,
         min_width: int = 200,
         margin: int = 4,

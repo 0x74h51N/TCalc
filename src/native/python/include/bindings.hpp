@@ -10,7 +10,9 @@
 
 #include <cmath>
 #include <utility>
+#include "calc/internal/helpers.hpp"
 #include "parser/pub/parser.hpp"
+#include "types.hpp"
 
 namespace py = pybind11;
 namespace p = tcalc::parser;
@@ -18,6 +20,7 @@ namespace p = tcalc::parser;
 // Python binding declarations for calculator native extension
 void bind_bigreal(pybind11::module_ &m);
 void bind_bigcomplex(pybind11::module_ &m);
+void bind_rational(pybind11::module_ &m);
 void bind_angle_unit(pybind11::module_ &m);
 void bind_calculator(pybind11::module_ &m);
 void bind_parser(pybind11::module_ &m);

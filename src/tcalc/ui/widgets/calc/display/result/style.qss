@@ -1,0 +1,15 @@
+QLabel#displayResult {
+    color: $text_primary;
+}
+
+QPushButton#fracToggleBtn {
+    background-color: $frac_bg;
+    border: none;
+    border-radius: ${btn_radius}px;
+}
+QPushButton#fracToggleBtn:hover {
+    background-color: $frac_bg_hover;
+}
+QPushButton#fracToggleBtn:pressed {
+    background-color: $frac_bg_pressed;
+}

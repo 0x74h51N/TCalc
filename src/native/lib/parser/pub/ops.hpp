@@ -68,6 +68,9 @@ enum class OpId : std::uint8_t {
     Floor,
     Ceil,
 
+    Gcd,
+    Lcm,
+
     /// Sentinel: not a real op; used for number tokens.
     Count,
 };
@@ -533,6 +536,26 @@ inline constexpr std::array kOps{
         .aliases = {"ceil"},
         .method = "ceil",
         .flags = Flags::BigSupported,
+    },
+    OpSpec{
+        .id = OpId::Gcd,
+        .symbol = "gcd",
+        .precedence = 4,
+        .associativity = Assoc::Right,
+        .arity = Arity::Binary,
+        .aliases = {},
+        .method = "gcd",
+        .flags = Flags::None,
+    },
+    OpSpec{
+        .id = OpId::Lcm,
+        .symbol = "lcm",
+        .precedence = 4,
+        .associativity = Assoc::Right,
+        .arity = Arity::Binary,
+        .aliases = {},
+        .method = "lcm",
+        .flags = Flags::None,
     },
 };
 

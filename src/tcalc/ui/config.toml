@@ -232,7 +232,6 @@ root_border_width = 2
 
 # Font sizes
 expression_font_size = 14
-result_font_size = 16
 
 # Expression line sizing
 expression_height_factor = 1.8
@@ -244,11 +243,26 @@ scale_aux = 1.0
 scale_script = 0.5
 
 expr_max_pt = 26
-rslt_max_pt = 30
 
 # Scroll animation
 scroll_anim_duration = 140
 scroll_anim_curve = "InCubic"
+
+[calc.display.result]
+height = 90
+font_size = 24
+max_pt = 32
+font_norm = 8  # FractionWidget font size normalizer
+
+btn_size = 32
+btn_padding = 6
+btn_radius = 4
+
+[calc.display.result.colors]
+frac_bg = ["accent", 0.2]
+frac_bg_hover = ["accent", 0.28]
+frac_bg_pressed = ["accent", 0.38]
+frac_icon = ["accent_text", 1.0]
 
 [calc.topbar]
 side_margin = 10

@@ -54,7 +54,7 @@ class MathRender(QWidget):
         BracketWidget.PAREN_KIND: BracketWidget,
     }
 
-    def __init__(self, *, read_only: bool = False) -> None:
+    def __init__(self, read_only: bool = False) -> None:
         super().__init__()
         self._rendering: bool = False
         self._read_only: bool = read_only

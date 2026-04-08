@@ -1,3 +1,10 @@
+#
+#
+#
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
 """E2E pipeline benchmark tests."""
 
 from __future__ import annotations

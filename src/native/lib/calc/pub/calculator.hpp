@@ -74,6 +74,13 @@ class Calculator {
     Complex sqrt(Complex a) const;
     Complex root(Complex a, Complex b) const;
 
+    // Rational ops
+    Rational add(const Rational &a, const Rational &b) const;
+    Rational sub(const Rational &a, const Rational &b) const;
+    Rational mul(const Rational &a, const Rational &b) const;
+    Rational div(const Rational &a, const Rational &b) const;
+    Rational pow(const Rational &base, const Rational &exp) const;
+
     // BigComplex ops
     BigComplex add(const BigComplex &a, const BigComplex &b) const { return a + b; }
     BigComplex sub(const BigComplex &a, const BigComplex &b) const { return a - b; }
@@ -140,7 +147,11 @@ class Calculator {
     Complex log(Complex a) const;
     Complex ln(Complex a) const;
 
-    // Fuctorial
+    // GCD / LCM
+    long long gcd(long long a, long long b) const;
+    long long lcm(long long a, long long b) const;
+
+    // Factorial
     double fact(double a) const;
     double gamma(double a) const;
 

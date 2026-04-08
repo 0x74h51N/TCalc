@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Mapping, Sequence
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QSize, Signal
 from PySide6.QtWidgets import (
     QButtonGroup,
     QGridLayout,
@@ -59,9 +59,11 @@ class IconButton(QPushButton):
         text: str = "",
         size: int | None = None,
         parent: QWidget | None = None,
+        padding: int = 4,
+        tint: str | None = None,
     ) -> None:
         super().__init__(text, parent)
-        self.setIcon(get_icon(icon_name))
+        self.setIcon(get_icon(icon_name, tint=tint))
 
         if tooltip:
             self.setToolTip(tooltip)
@@ -70,7 +72,10 @@ class IconButton(QPushButton):
 
         if size is not None:
             self.setFixedSize(size, size)
-            self.setFlat(True)
+
+            icon_size = size - (padding * 2)
+            self.setIconSize(QSize(icon_size, icon_size))
+            self.setContentsMargins(padding, padding, padding, padding)
 
 
 class OptionGroup(QWidget):
