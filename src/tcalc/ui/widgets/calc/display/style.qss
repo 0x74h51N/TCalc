@@ -9,6 +9,7 @@ QLineEdit[exprInput="true"] {
 
 QWidget[exprSlot="true"][exprSlotKind="aux"] {
     background-color: transparent;
+    font-size: bold;
 }
 
 QWidget[exprSlot="true"][exprSlotKind="aux"] QLineEdit[exprKind="aux"]:focus,
@@ -25,11 +26,6 @@ QScrollArea#displayExpression QWidget#qt_scrollarea_viewport,
 QWidget#displayExpressionEditor {
     background-color: $background_dark;
 }
-
-QLabel#displayResult {
-    color: $text_primary;
-}
-
 QFrame#displayDivider {
     min-height: ${divider_height}px;
     max-height: ${divider_height}px;

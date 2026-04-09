@@ -113,6 +113,8 @@ class CalculatorController:
     def _handle_clear(self) -> None:
         self._display.editor.set_plain_text("")
         self._expression = ""
+        self._result = None
+        self._display.result.clear_result()
         self._edit_ops.reset_navigation()
 
     def _handle_memory(self, op: str) -> None:
@@ -212,7 +214,7 @@ class CalculatorController:
         self, tokens: Sequence[calc_native.Token], calculator: Calculator
     ) -> CalcValue | None:
         try:
-            return cast(CalcValue, evaluate_tokens(tokens, calculator))
+            return evaluate_tokens(tokens, calculator)
         except Exception as exc:
             self._error_text = str(exc)
             _log.debug("Evaluate token native error: %s", exc)
@@ -237,6 +239,7 @@ class CalculatorController:
         _can_preview = self._can_compute_preview(self.tokens)
 
         result_text = ""
+        renderable = False
         if self._force_error_display or _can_preview:
             self._result = self._evaluate_tokens(self.tokens, self._calculator)
 
@@ -248,5 +251,13 @@ class CalculatorController:
             if _can_preview and not self._just_solved:
                 result_text = format_result(self._result)
 
+            # Check if result can be rendered as fraction
+            if isinstance(self._result, calc_native.Rational):
+                renderable = self._result.denominator != 1
+                if renderable:
+                    self._display.result.set_fraction(
+                        self._result.numerator, self._result.denominator
+                    )
+
         self._force_error_display = False
-        self._display.update_res(result_text)
+        self._display.result.update_res(result_text, renderable=renderable)

@@ -92,7 +92,9 @@ void bind_parser(py::module_ &m) {
         .value("Pow10", OpId::Pow10)
         .value("Trunc", OpId::Trunc)
         .value("Floor", OpId::Floor)
-        .value("Ceil", OpId::Ceil);
+        .value("Ceil", OpId::Ceil)
+        .value("Gcd", OpId::Gcd)
+        .value("Lcm", OpId::Lcm);
 
     py::class_<tcalc::parser::LatexEntry>(
         m, "LatexEntry", "LaTeX expression mapping: symbol -> ExprKind.")
@@ -297,8 +299,11 @@ void bind_parser(py::module_ &m) {
         .def_property_readonly(
             "big_supported",
             [](const tcalc::ops::OpSpec &op) { return tcalc::ops::big_supported(op); })
-        .def_property_readonly("big_complex_supported", [](const tcalc::ops::OpSpec &op) {
-            return tcalc::ops::big_complex_supported(op);
+        .def_property_readonly(
+            "big_complex_supported",
+            [](const tcalc::ops::OpSpec &op) { return tcalc::ops::big_complex_supported(op); })
+        .def_property_readonly("rational_supported", [](const tcalc::ops::OpSpec &op) {
+            return tcalc::ops::rational_supported(op);
         });
 
     m.def(

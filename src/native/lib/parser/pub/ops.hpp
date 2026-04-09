@@ -68,6 +68,9 @@ enum class OpId : std::uint8_t {
     Floor,
     Ceil,
 
+    Gcd,
+    Lcm,
+
     /// Sentinel: not a real op; used for number tokens.
     Count,
 };
@@ -89,7 +92,9 @@ struct OpSpec {
         /// BigReal supported.
         BigSupported = 1 << 1,
         /// BigComplex supported.
-        BigComplexSupported = 1 << 2
+        BigComplexSupported = 1 << 2,
+        /// Rational (exact fraction) supported.
+        RationalSupported = 1 << 3
     };
 
     /// Extra operator capabilities.
@@ -122,6 +127,11 @@ constexpr bool big_complex_supported(const OpSpec &op) {
     return has_flag(op.flags, OpSpec::OpFlags::BigComplexSupported);
 }
 
+/// True when Rational is supported for the op.
+constexpr bool rational_supported(const OpSpec &op) {
+    return has_flag(op.flags, OpSpec::OpFlags::RationalSupported);
+}
+
 /// Short alias for OpFlags.
 using Flags = OpSpec::OpFlags;
 
@@ -135,7 +145,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Binary,
         .aliases = {"add"},
         .method = "add",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported,
+        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Sub,
@@ -145,7 +155,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Binary,
         .aliases = {"sub"},
         .method = "sub",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported,
+        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Mul,
@@ -155,7 +165,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Binary,
         .aliases = {"*", "mul"},
         .method = "mul",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported,
+        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Div,
@@ -165,7 +175,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Binary,
         .aliases = {"/", "div"},
         .method = "div",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported,
+        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Pow,
@@ -175,7 +185,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Binary,
         .aliases = {"pow"},
         .method = "pow",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported,
+        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Percent,
@@ -185,7 +195,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Postfix,
         .aliases = {"percent"},
         .method = "percent",
-        .flags = Flags::None,
+        .flags = Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Negate,
@@ -195,7 +205,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {"negate"},
         .method = "negate",
-        .flags = Flags::None,
+        .flags = Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::UnaryPlus,
@@ -205,7 +215,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {"plus"},
         .method = "unaryplus",
-        .flags = Flags::None,
+        .flags = Flags::RationalSupported,
     },
 
     OpSpec{
@@ -368,7 +378,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Postfix,
         .aliases = {},
         .method = "recip",
-        .flags = Flags::None,
+        .flags = Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Fact,
@@ -451,7 +461,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Postfix,
         .aliases = {"sqr"},
         .method = "sqr",
-        .flags = Flags::None,
+        .flags = Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Cube,
@@ -461,7 +471,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Postfix,
         .aliases = {"cube"},
         .method = "cube",
-        .flags = Flags::None,
+        .flags = Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Sqrt,
@@ -492,7 +502,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {},
         .method = "exp",
-        .flags = Flags::BigSupported,
+        .flags = Flags::BigSupported | Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Pow10,
@@ -502,7 +512,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {},
         .method = "pow10",
-        .flags = Flags::None,
+        .flags = Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Trunc,
@@ -533,6 +543,26 @@ inline constexpr std::array kOps{
         .aliases = {"ceil"},
         .method = "ceil",
         .flags = Flags::BigSupported,
+    },
+    OpSpec{
+        .id = OpId::Gcd,
+        .symbol = "gcd",
+        .precedence = 4,
+        .associativity = Assoc::Right,
+        .arity = Arity::Binary,
+        .aliases = {},
+        .method = "gcd",
+        .flags = Flags::None,
+    },
+    OpSpec{
+        .id = OpId::Lcm,
+        .symbol = "lcm",
+        .precedence = 4,
+        .associativity = Assoc::Right,
+        .arity = Arity::Binary,
+        .aliases = {},
+        .method = "lcm",
+        .flags = Flags::None,
     },
 };
 

@@ -20,6 +20,7 @@ PYBIND11_MODULE(calc_native, m) {
 
     bind_bigreal(m);
     bind_bigcomplex(m);
+    bind_rational(m);
 
     using Z = Calculator::Complex;
     using D = double;

@@ -1,3 +1,10 @@
+#
+#
+#
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
 """Shared expression data and factory functions for benchmark & flamegraph tests."""
 
 from __future__ import annotations

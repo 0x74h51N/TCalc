@@ -1,11 +1,11 @@
 #include <chrono>
 #include <iostream>
 #include <string>
-#include <utility>
 
 #include "internal/test_helpers.hpp"
 
 void unit_arithmetic(TestContext &ctx);
+void unit_rational(TestContext &ctx);
 void unit_transcendental(TestContext &ctx);
 void unit_trig(TestContext &ctx);
 void unit_combinatorics(TestContext &ctx);
@@ -35,6 +35,8 @@ int main(int argc, char **argv) { // NOLINT(modernize-use-trailing-return-type)
     test_detail::run_suite(ctx, "unit ops", "src/native/tests/unit/test_ops.cpp", unit_ops);
     test_detail::run_suite(
         ctx, "unit arithmetic", "src/native/tests/unit/test_arithmetic.cpp", unit_arithmetic);
+    test_detail::run_suite(
+        ctx, "unit rational", "src/native/tests/unit/test_rational.cpp", unit_rational);
     test_detail::run_suite(
         ctx,
         "unit transcendental",

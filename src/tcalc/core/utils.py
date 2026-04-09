@@ -1,9 +1,17 @@
 import math
 from decimal import Decimal
+from typing import TypeAlias
 
 import calc_native
 
 from .constants import I_UNIT_CHARS
+
+_I64_MAX = (1 << 63) - 1
+_I64_MIN = -(1 << 63)
+
+CalcValue: TypeAlias = (
+    int | float | complex | calc_native.BigReal | calc_native.BigComplex | calc_native.Rational
+)
 
 
 def is_number_token(tok: calc_native.Token) -> bool:
@@ -28,10 +36,11 @@ def _parse_real_token(s: str) -> int | float | calc_native.BigReal:
     return result
 
 
-def parse_number_token(s: str) -> int | float | complex | calc_native.BigReal:
+def parse_number_token(
+    s: str,
+) -> CalcValue:
     if not s:
         return _parse_real_token(s)
-
     # normalize leading imag unit
     if s[0] in I_UNIT_CHARS:
         s = s[1:] + s[0]
@@ -45,7 +54,23 @@ def parse_number_token(s: str) -> int | float | complex | calc_native.BigReal:
             mag = float(real)
         return complex(mag, 0.0) * 1j
 
-    return _parse_real_token(s)
+    if "." not in s:
+        try:
+            v = int(s)
+            if _I64_MIN <= v <= _I64_MAX:
+                return v
+            return _parse_real_token(s)
+        except (ValueError, OverflowError):
+            return _parse_real_token(s)
+
+    # Decimal literal => Boost rational normalizes (GCD) internally.
+    try:
+        num, den = Decimal(s).as_integer_ratio()
+        if num < _I64_MIN or num > _I64_MAX or den > _I64_MAX:
+            return _parse_real_token(s)
+        return calc_native.Rational(num, den)
+    except Exception:
+        return _parse_real_token(s)
 
 
 def is_int_like(v: float, eps: float = 1e-12) -> bool:

@@ -1,3 +1,9 @@
+#
+#
+#
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
 from __future__ import annotations
 
 import math
@@ -187,6 +193,17 @@ class FakeNativeCalculatorError(Exception):
     pass
 
 
+class FakeRational(float):
+    def __new__(cls, *args):
+        if len(args) == 2:
+            value = args[0] / args[1]
+        elif len(args) == 1:
+            value = args[0]
+        else:
+            value = 0
+        return super().__new__(cls, value)
+
+
 class FakeParenType(Enum):
     Open = 0
     Close = 1
@@ -325,6 +342,7 @@ def _install_fake_calc_native() -> ModuleType:
 
     calc_native.BigReal = FakeBigReal
     calc_native.BigComplex = FakeBigComplex
+    calc_native.Rational = FakeRational
     calc_native.Calculator = DummyCalc
     calc_native.CalculatorError = FakeNativeCalculatorError
     calc_native.Token = FakeToken
@@ -395,6 +413,9 @@ def fake_parse_number(monkeypatch):
         return float(value)
 
     monkeypatch.setattr(parser_mod, "parse_number_token", parse)
+    monkeypatch.setattr(
+        parser_mod, "calc_native", SimpleNamespace(Rational=FakeRational), raising=False
+    )
 
 
 @pytest.fixture
@@ -404,7 +425,7 @@ def fake_calc_native(monkeypatch):
     monkeypatch.setattr(
         utils_mod,
         "calc_native",
-        SimpleNamespace(BigReal=FakeBigReal),
+        SimpleNamespace(BigReal=FakeBigReal, Rational=FakeRational),
         raising=False,
     )
 

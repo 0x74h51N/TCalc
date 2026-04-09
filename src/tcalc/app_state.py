@@ -1,10 +1,18 @@
+#
+#
+#
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
 from __future__ import annotations
 
 from enum import Enum
-from typing import TypeAlias
 
 import calc_native
 from PySide6.QtCore import QSettings
+
+from tcalc.core.utils import CalcValue
 
 
 class CalculatorMode(Enum):
@@ -24,9 +32,6 @@ class RenderMode(Enum):
 
 
 AngleUnit = calc_native.AngleUnit
-
-
-CalcValue: TypeAlias = int | float | complex | calc_native.BigReal | calc_native.BigComplex
 
 
 class AppState:

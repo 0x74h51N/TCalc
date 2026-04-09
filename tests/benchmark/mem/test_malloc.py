@@ -1,3 +1,10 @@
+#
+#
+#
+# TCalc - Copyright (C) 2025 Tahsin Önemli
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
 """Memory allocation benchmarks for expression rendering and native C++ code."""
 
 from __future__ import annotations

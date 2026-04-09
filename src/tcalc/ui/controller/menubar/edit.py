@@ -34,6 +34,7 @@ class EditOperations:
         self.app_state.history_index = next_idx
 
         if next_idx >= count:
+            self._display.result.clear_result()
             self._set_expression(self.app_state.redo_cached_exprs)
             if reset_on_end:
                 self.reset_navigation()
@@ -42,11 +43,12 @@ class EditOperations:
         self._history.highlight_item(next_idx)
         expr = self._get_history_expression(next_idx)
         if expr:
+            self._display.result.clear_result()
             self._set_expression(expr)
 
     def _do_clip(self, action: str, after: Optional[Callable[[], None]] = None) -> None:
         exprs = self._display.expression.expression_inputs()
-        cleaned = clean_for_expression(self._display.result_label.text())
+        cleaned = clean_for_expression(self._display.result.result_label.text())
         for expr in exprs:
             if expr.hasSelectedText():
                 getattr(expr, action)()
@@ -82,7 +84,7 @@ class EditOperations:
         self._do_clip("copy")
 
     def cut(self) -> None:
-        self._do_clip("cut", after=lambda: self._display.update_res(""))
+        self._do_clip("cut", after=lambda: self._display.result.clear_result())
 
     def paste(self) -> None:
         cleaned = clean_for_expression(self.clipboard.text())

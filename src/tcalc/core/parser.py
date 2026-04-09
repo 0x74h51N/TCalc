@@ -11,12 +11,12 @@ from typing import Iterable, List, Sequence
 
 import calc_native
 
-from tcalc.errors import ErrorKind, raise_error
+from tcalc.errors import CalculatorError, ErrorKind, raise_error
 
 from .constants import CONSTANTS
 from .engine import Calculator
 from .ops import OP_BY_ID, LatexExpr
-from .utils import is_number_token, parse_number_token
+from .utils import CalcValue, is_number_token, parse_number_token
 
 
 def tokenize_string(expression: str) -> List[calc_native.Token]:
@@ -33,13 +33,13 @@ def shunting_yard(tokens: Sequence[calc_native.Token]) -> List[calc_native.Token
     return list(calc_native.shunting_yard(tokens))
 
 
-def _pop_operand(operand_stack: List[object]) -> object:
+def _pop_operand(operand_stack: List[CalcValue]) -> CalcValue:
     if not operand_stack:
         raise_error(ErrorKind.MALFORMED, "Pop operand, not operand in stack.")
     return operand_stack.pop()
 
 
-def _coerce_token(tok: str | int | float) -> object:
+def _coerce_token(tok: str | int | float) -> CalcValue:
     if isinstance(tok, str):
         if tok in CONSTANTS:
             return CONSTANTS[tok]
@@ -47,11 +47,13 @@ def _coerce_token(tok: str | int | float) -> object:
             return parse_number_token(tok)
         except Exception as e:
             raise_error(ErrorKind.INVALID, f"Parse number token error: {e}")
+    if isinstance(tok, int):
+        return calc_native.Rational(tok)
     return tok
 
 
-def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator) -> object:
-    operand_stack: List[object] = []
+def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator) -> CalcValue:
+    operand_stack: List[CalcValue] = []
 
     for tok in rpn_tokens:
         if is_number_token(tok):
@@ -67,11 +69,15 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
                 expr_tok = tok.as_expr()
                 left_rpn = shunting_yard(expr_tok.left)
                 right_rpn = shunting_yard(expr_tok.right)
-                left_val = evaluate_rpn(left_rpn, calculator) if left_rpn else 0
-                right_val = evaluate_rpn(right_rpn, calculator) if right_rpn else 0
+                left_val = (
+                    evaluate_rpn(left_rpn, calculator) if left_rpn else calc_native.Rational(0)
+                )
+                right_val = (
+                    evaluate_rpn(right_rpn, calculator) if right_rpn else calc_native.Rational(0)
+                )
                 # Root with empty degree defaults to square root
                 if expr_tok.kind == calc_native.ExprKind.Root and not right_rpn:
-                    right_val = 2
+                    right_val = calc_native.Rational(2)
 
                 latex_spec = LatexExpr.get(expr_tok.kind)
                 op_spec = OP_BY_ID[latex_spec.opid]
@@ -80,6 +86,8 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
 
                 operand_stack.append(result)
                 continue
+            except CalculatorError:
+                raise
             except Exception as e:
                 raise_error(ErrorKind.INVALID, f"Parse expression token error: {e}")
 
@@ -117,5 +125,5 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
     return operand_stack[0]
 
 
-def evaluate_tokens(tokens: Sequence[calc_native.Token], calculator: Calculator) -> object:
+def evaluate_tokens(tokens: Sequence[calc_native.Token], calculator: Calculator) -> CalcValue:
     return evaluate_rpn(shunting_yard(tokens), calculator)
