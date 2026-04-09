@@ -299,8 +299,11 @@ void bind_parser(py::module_ &m) {
         .def_property_readonly(
             "big_supported",
             [](const tcalc::ops::OpSpec &op) { return tcalc::ops::big_supported(op); })
-        .def_property_readonly("big_complex_supported", [](const tcalc::ops::OpSpec &op) {
-            return tcalc::ops::big_complex_supported(op);
+        .def_property_readonly(
+            "big_complex_supported",
+            [](const tcalc::ops::OpSpec &op) { return tcalc::ops::big_complex_supported(op); })
+        .def_property_readonly("rational_supported", [](const tcalc::ops::OpSpec &op) {
+            return tcalc::ops::rational_supported(op);
         });
 
     m.def(

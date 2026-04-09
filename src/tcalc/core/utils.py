@@ -1,6 +1,5 @@
 import math
 from decimal import Decimal
-from math import gcd
 from typing import TypeAlias
 
 import calc_native
@@ -55,19 +54,18 @@ def parse_number_token(
             mag = float(real)
         return complex(mag, 0.0) * 1j
 
-    # Pure integer
     if "." not in s:
         try:
-            return calc_native.Rational(int(s))
+            v = int(s)
+            if _I64_MIN <= v <= _I64_MAX:
+                return v
+            return _parse_real_token(s)
         except (ValueError, OverflowError):
             return _parse_real_token(s)
 
-    # Decimal literal => compute num/den directly from the string
+    # Decimal literal => Boost rational normalizes (GCD) internally.
     try:
         num, den = Decimal(s).as_integer_ratio()
-        g = gcd(abs(num), den)
-        num //= g
-        den //= g
         if num < _I64_MIN or num > _I64_MAX or den > _I64_MAX:
             return _parse_real_token(s)
         return calc_native.Rational(num, den)

@@ -45,8 +45,17 @@ def _to_rational(v: object) -> NativeRational | None:
 
 
 def _rational_downcast(args: tuple[object, ...]) -> tuple[object, ...]:
-    """Downcast all Rational values to float."""
-    return tuple(a.to_double() if isinstance(a, NativeRational) else a for a in args)
+    """Downcast Rational values: integer Rationals become int, others become float."""
+    result: list[object] = []
+    for a in args:
+        if isinstance(a, NativeRational):
+            if a.denominator == 1:
+                result.append(a.numerator)
+            else:
+                result.append(a.to_double())
+        else:
+            result.append(a)
+    return tuple(result)
 
 
 class Calculator:
@@ -91,6 +100,7 @@ class Calculator:
             op = None
         supports_big = bool(op is not None and getattr(op, "big_supported", False))
         supports_bigcx = bool(op is not None and getattr(op, "bigcomplex_supported", False))
+        supports_rational = bool(op is not None and getattr(op, "rational_supported", False))
 
         has_rational = any(isinstance(a, NativeRational) for a in args)
         has_complex = any(isinstance(a, complex) for a in args)
@@ -109,9 +119,9 @@ class Calculator:
                 return tuple(self._to_big(a) if self._is_num_or_big(a) else a for a in args)
             return tuple(a for a in args)
 
-        # Rational is the default numeric type.
-        # Coerce all args to Rational when possible, otherwise downcast to float.
-        if has_rational:
+        # Rational: promote all args to Rational if the op supports it.
+        # This covers both Rational inputs (decimals) and int inputs.
+        if supports_rational:
             coerced = []
             for a in args:
                 r = _to_rational(a)
@@ -119,6 +129,9 @@ class Calculator:
                     return _rational_downcast(args)
                 coerced.append(r)
             return tuple(coerced)
+
+        if has_rational:
+            return _rational_downcast(args)
 
         return args
 

@@ -7,7 +7,6 @@
 #include <pybind11/pybind11.h>
 
 #include <sstream>
-#include <string>
 
 #include "bindings.hpp"
 #include "types.hpp"
@@ -26,13 +25,7 @@ void bind_rational(py::module_ &m) {
         .def_property_readonly("denominator", &Rational::denominator)
         .def("to_double", &Rational::to_double)
         .def("__neg__", [](const Rational &a) -> Rational { return Rational(-a.frac); })
-        .def(
-            "__abs__",
-            [](const Rational &a) -> Rational {
-                return Rational(
-                    boost::rational<std::int64_t>(
-                        std::abs(a.frac.numerator()), a.frac.denominator()));
-            })
+        .def("__abs__", [](const Rational &a) -> Rational { return Rational(boost::abs(a.frac)); })
 
         // Display
         .def(

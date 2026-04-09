@@ -65,6 +65,7 @@ class _UIOpSpec:
     aliases: tuple[str, ...] = ()
     big_supported: bool = False
     big_complex_supported: bool = False
+    rational_supported: bool = False
     angle_unit: bool = False
     method: str = ""
 
@@ -141,6 +142,11 @@ class OperationBase(str, Enum):
     def bigcomplex_supported(self) -> bool:
         """Whether BigComplex is supported."""
         return self._spec.big_complex_supported
+
+    @property
+    def rational_supported(self) -> bool:
+        """Whether Rational type is supported."""
+        return self._spec.rational_supported
 
     @property
     def angle_unit(self) -> bool:
