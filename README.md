@@ -17,14 +17,18 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 
 ### v1 Roadmap
 
+- [ ] Input / Parser / Eval
+  - [x] Expression pipeline (tokenize, shunting-yard, RPN)
+  - [x] Rational arithmetic with exact-when-possible results
+  - [ ] Line-based calculation with variable assignment and previous-result reference
 - [ ] History panel
 - [ ] Keyboard shortcuts (custom editable)
 - [ ] Calculator Modes
   - [x] Simple mode
-  - [x] Science mode (trig, log, pow, complex)
+  - [ ] Science mode
   - [ ] Statistic mode (dataset, summary)
 - [ ] GUI / UX / Accessibility
-  - [ ] Expression GUI nodes (fractions, pow, root, log)
+  - [ ] Expression GUI nodes (fractions, pow, root, log, summation, product)
   - [ ] Toggleable LaTeX rendering (raw string <-> rendered)
   - [ ] Layout, tab order, high-DPI support, tooltips, dock
 - [ ] Menubar / Settings
@@ -42,6 +46,8 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 - [ ] Graphic mode
   - [ ] Function plotting, zoom/pan, discontinuity handling
 - [ ] Localization
+
+See the detailed [roadmap](./docs/roadmap.md)
 
 ## Contributing & Feedback
 
