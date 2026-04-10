@@ -258,6 +258,9 @@ btn_size = 32
 btn_padding = 6
 btn_radius = 4
 
+frac_icon = "./assets/frac.svg"
+decimal_icon = "./assets/decimal.svg"
+
 [calc.display.result.colors]
 frac_bg = ["accent", 0.2]
 frac_bg_hover = ["accent", 0.28]

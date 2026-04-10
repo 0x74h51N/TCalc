@@ -232,6 +232,7 @@ class CalculatorController:
         # Keyboard typing
         self._expression = text
         self._compute_and_update()
+        self._just_solved = False
 
     def _compute_and_update(self) -> None:
         self._tokenized = tokenize(self._expression)
@@ -239,7 +240,6 @@ class CalculatorController:
         _can_preview = self._can_compute_preview(self.tokens)
 
         result_text = ""
-        renderable = False
         if self._force_error_display or _can_preview:
             self._result = self._evaluate_tokens(self.tokens, self._calculator)
 
@@ -251,13 +251,5 @@ class CalculatorController:
             if _can_preview and not self._just_solved:
                 result_text = format_result(self._result)
 
-            # Check if result can be rendered as fraction
-            if isinstance(self._result, calc_native.Rational):
-                renderable = self._result.denominator != 1
-                if renderable:
-                    self._display.result.set_fraction(
-                        self._result.numerator, self._result.denominator
-                    )
-
         self._force_error_display = False
-        self._display.result.update_res(result_text, renderable=renderable)
+        self._display.result.update_res(result_text, result=self._result)
