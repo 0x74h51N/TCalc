@@ -53,6 +53,7 @@ error_base = "status_error"
 [side_panel]
 margin = 10
 spacing = 6
+resize_debounce_ms = 30
 
 # ---------------------------------------------------------------------------
 # History panel

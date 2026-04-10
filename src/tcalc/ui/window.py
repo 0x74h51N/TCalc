@@ -175,16 +175,10 @@ class MainWindow(QMainWindow):
             callback=self.history.update_fonts,
         )
         self.side_panel.register_font_targets(
-            self.history.get_result_labels,
-            int(history_style["result_min_pt"]),
-            int(history_style["result_max_pt"]),
-        )
-        self.side_panel.register_font_targets(
             [self.history.clear_button],
             int(history_style["clr_btn_min_pt"]),
             int(history_style["clr_btn_max_pt"]),
         )
-        self.history.items_changed.connect(self.side_panel.update_fonts)
 
     def _setup_controller(self) -> None:
         self.edit_ops = EditOperations(self)

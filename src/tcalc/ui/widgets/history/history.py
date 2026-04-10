@@ -202,14 +202,15 @@ class History(QWidget):
 
     def update_history(self, entry: HistoryEntry) -> None:
         """Add a new entry to history and persist to storage."""
-        self._begin_batch_render()
-        try:
-            self._add_item_to_list(entry)
-            self._history_items.append(entry)
-        finally:
-            self._end_batch_render()
-            self.list.scrollToBottom()
-            save_history(self._history_items, self._calc_mode)
+        self._add_item_to_list(entry)
+        self._history_items.append(entry)
+        new_widget = self._item_widgets[-1]
+        new_widget.update_fonts()
+        new_widget.re_wrap()
+        new_widget.refresh_layout()
+        self.list.scrollToBottom()
+        self.items_changed.emit()
+        save_history(self._history_items, self._calc_mode)
 
     def get_history_item(self, index: int) -> str:
         return self._history_items[index].expression
@@ -384,6 +385,14 @@ class HistoryItem(QWidget):
             int(style["expr_min_pt"]),
             int(style["expr_max_pt"]),
         )
+
+        if hasattr(self, "result_label"):
+            apply_scaled_fonts(
+                sample,
+                [self.result_label],
+                int(style["result_min_pt"]),
+                int(style["result_max_pt"]),
+            )
 
         base_font = int(history_math["base_font"])
         max_pt = int(history_math["max_pt"])
