@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from tcalc.core.utils import CalcValue
 from tcalc.theme import get_theme
 from tcalc.ui.widgets.common.button import IconButton
 from tcalc.ui.widgets.math.expression_node import ExpressionSlot, InputKind
@@ -55,9 +56,11 @@ class Result(QWidget):
         btn_padding = self._config["btn_padding"]
         icon_base, _ = self._config["colors"]["frac_icon"]
         icon_tint = get_theme().colors[icon_base]
+        self._frac_btn_tooltip = "Show as fraction"
+        self._decimal_tooltip = "Show as decimal"
         self._frac_btn = IconButton(
-            icon_name="./assets/frac.svg",
-            tooltip="Show as fraction",
+            icon_name=self._config["frac_icon"],
+            tooltip=self._frac_btn_tooltip,
             size=btn_size,
             padding=btn_padding,
             tint=icon_tint,
@@ -69,35 +72,47 @@ class Result(QWidget):
         self._layout.addWidget(self._frac_btn, 0)
 
         self._frac_visible = False
-        self._frac_renderable = False
 
         apply_style(self)
         QTimer.singleShot(0, self._update_fonts)
 
-    def update_res(self, result_text: str, renderable: bool = False) -> None:
-        self.result_label.setText(result_text)
-        self._frac_renderable = renderable
-        self._update_fonts()
-        if not renderable:
-            self._frac_btn.hide()
-            self._hide_fraction_view()
-        else:
-            self._frac_btn.show()
+    def update_res(self, result_text: str, result: CalcValue | None) -> None:
+        self.setUpdatesEnabled(False)
+        try:
+            self.result_label.setText(result_text)
 
-    def set_fraction(self, numerator: int, denominator: int) -> None:
-        """Render fraction widget into the result slot."""
-        self._create_fract(numerator, denominator)
+            # Check if result can be rendered as fraction
+            if isinstance(result, calc_native.Rational):
+                if result.denominator != 1:
+                    self._create_fract(result.numerator, result.denominator)
+                    self._frac_btn.show()
+            else:
+                self._frac_btn.hide()
+                self._hide_fraction_view()
+            self._update_fonts()
+        finally:
+            self.setUpdatesEnabled(True)
 
-    def _toggle_fraction_view(self) -> None:
+    def _sync_fraction_ui(self) -> None:
+        self._frac_btn.update_icon(
+            self._config["decimal_icon"] if self._frac_visible else self._config["frac_icon"]
+        )
+        self._frac_btn.update_tooltip(
+            self._decimal_tooltip if self._frac_visible else self._frac_btn_tooltip
+        )
+
         if self._frac_visible:
-            self._hide_fraction_view()
-        else:
             self._show_fraction_view()
+        else:
+            self._hide_fraction_view()
+
+    def _toggle_fraction_view(self):
+        self._frac_visible = not self._frac_visible
+        self._sync_fraction_ui()
         self._update_fonts()
 
     def _show_fraction_view(self) -> None:
-        if not self._frac_renderable:
-            return
+
         self._frac_visible = True
         self._res_slot.show()
         self.result_label.hide()
@@ -142,7 +157,7 @@ class Result(QWidget):
 
     def clear_result(self) -> None:
         self._clear_slot()
-        self.update_res("", False)
+        self.update_res("", None)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

@@ -5,21 +5,6 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 
 ### v1 Roadmap
 
-- [ ] History panel
-  - [x] Add history panel with open/close shortcut
-  - [x] Make separate history for calc modes
-  - [x] Make history items design more pleasant and add copy icon (auto copy -> copy icon)
-  - [ ] Make max history item count configurable in general settings
-  - [x] Make human readable history items formatter (LaTeX -> math symbols)
-  - [ ] Allow disabling history persistence (local storage) via settings
-  - [ ] Export as text file
-
-- [ ] Keyboard shortcuts
-  - [x] Basic shortcuts and handlers (cut, copy, undo, redo, quit etc.)
-  - [ ] Configurable shortcuts, bind/apply via a configuration window
-
-- [x] Memory for all modes MS, MC, MR, M+ Buttons
-
 - [ ] Input / Parser / Eval
   - [x] Expression pipeline: tokenize -> shunting-yard -> RPN Evaluation
     - [x] Tokenize Parser
@@ -41,6 +26,11 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [x] Error mapping spec (engine -> UI)
   - [x] Test edge cases
   - [ ] Add ans / previous-result reference
+  - [x] Add Rational support
+    - [x] Extend ops with rational arithmetic (add, sub, mul, div, pow, root)
+    - [x] Toggle any result between decimal and fraction view
+    - [x] Keep results exact whenever possible, fall back to high-precision BigReal or float on overflow
+    - [x] Resolve fractional exponents exactly when the result is a clean integer or fraction
   - [ ] Add line-based calculation
     - [ ] Add row-based expression model (one expression per line)
     - [ ] Allow referencing previous lines / session values
@@ -56,9 +46,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 
   - [x] Mode state, layout update, binding and side effects
   - [x] Simple Mode
-
-  - [x] Science mode
-
+  - [ ] Science mode
     - [x] UI / Controls
       - [x] Science keypad panel
       - [x] Angle unit radios (Deg/Rad/Grad) - state/binding
@@ -69,9 +57,9 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
       - [x] inverse trig via Shift (asin/acos/atan or asinh/acosh/atanh)
     - [x] Functions - log10/ln, 1/x, x!, mod, permutation/choose
     - [x] Power / Complex - sqrt, x², xʸ, i, complex domain rules
+    - [ ] Iterated ops - summation (Σ), product (Π) over a bound variable and range
     - [x] Parser parity - Implement ops in native + pybind
     - [x] Edge cases + error messages
-
   - [ ] Statistic mode
     - [ ] Data store
       - [ ] Add/remove/clear data points
@@ -90,7 +78,6 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [ ] Edge cases + error messages
 
 - [ ] Menubar
-
   - [x] File menu
   - [x] Edit menu (undo, redo, cut, copy, paste), binding/apply
   - [ ] Constant menu
@@ -112,6 +99,21 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
       - [ ] Constants
     - [ ] Configure keyboard shortcuts
 
+- [ ] History panel
+  - [x] Add history panel with open/close shortcut
+  - [x] Make separate history for calc modes
+  - [x] Make history items design more pleasant and add copy icon (auto copy -> copy icon)
+  - [ ] Make max history item count configurable in general settings
+  - [x] Make human readable history items formatter (LaTeX -> math symbols)
+  - [ ] Allow disabling history persistence (local storage) via settings
+  - [ ] Export as text file
+
+- [ ] Keyboard shortcuts
+  - [x] Basic shortcuts and handlers (cut, copy, undo, redo, quit etc.)
+  - [ ] Configurable shortcuts, bind/apply via a configuration window
+
+- [x] Memory for all modes MS, MC, MR, M+ Buttons
+
 - [ ] GUI / UX / Accessibility
   - [ ] Improve styles and layout design
     - [x] Add dock layout
@@ -129,7 +131,9 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [ ] Add mathematical expression GUI nodes (math render)
     - [x] Add ExpressionNode and ExpressionSlot class
       - [x] Make separate QLineEdits in math widgets (e.g., numerator/denominator, base/exponent)
-    - [ ] Add fraction, pow, root, log widgets
+    - [ ] Add fraction, pow, root, log, summation, product widgets
+    - [ ] Add absolute value `|x|` and floor/ceil `⌊x⌋` `⌈x⌉` widgets
+    - [ ] Add custom variable node with subscript (bound to user-defined variables from line-based calculation)
     - [x] Add ParenNode to cover math expression
       - [x] Add draw object for each parentheses kind
     - [ ] Make toggleable for mathematical expressions (rawStr <-> rendered)
@@ -178,24 +182,28 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 ### v2 Roadmap
 
 - [ ] Science calc improvements
-  - [ ] Improve Variable-based expression (function input)
   - [ ] Calculus (numeric)
     - [ ] Derivative (numeric)
       - [ ] `d/dx` at a point: `f'(a)` (auto step size)
+      - [ ] Add derivative expression widget (`d/dx` math render)
     - [ ] Definite integral (numeric)
       - [ ] `int_a^b f(x) dx` (choose method: Simpson / adaptive Simpson)
       - [ ] Handle invalid ranges / discontinuities with clear errors
+      - [ ] Add integral expression widget (`∫_a^b f dx` math render)
     - [ ] Limit (numeric)
       - [ ] `lim x->a f(x)` with side options: both / left / right
       - [ ] Detect non-convergence / undefined cases and show proper error
+      - [ ] Add limit expression widget (`lim_{x→a}` math render)
   - [ ] Add vector and operations
     - [ ] Add vector input and typed eval (Scalar or Vector)
     - [ ] Rules: `s*v` / `v*s` scales, `v+v` / `v-v` only if same dimension, `v/s` ok, `v+s` and `v*v` invalid
     - [ ] Add vector functions `dot(v,w)`, `cross(v,w)`, `length(v)`, `normalize(v)`, `angle(v,w)` -> scalar
+    - [ ] Add vector expression widget (column/row math render)
   - [ ] Add matrix and operations
     - [ ] Add matrix input and typed eval (Scalar, Vector, Matrix)
     - [ ] Rules: `A+B` same shape, `A*B` multiply, `A*s` scale, `A^T`, `det(A)`, `inv(A)`
     - [ ] Add matrix functions `trace(A)`, `rank(A)`
+    - [ ] Add matrix expression widget (m×n grid math render)
 - [ ] Programmer Mode (Numeral system)
   - [ ] Binary input and output
   - [ ] Hex, dec, oct, bin modes

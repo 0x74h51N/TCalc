@@ -63,7 +63,8 @@ class IconButton(QPushButton):
         tint: str | None = None,
     ) -> None:
         super().__init__(text, parent)
-        self.setIcon(get_icon(icon_name, tint=tint))
+        self._tint = tint
+        self.setIcon(get_icon(icon_name, tint=self._tint))
 
         if tooltip:
             self.setToolTip(tooltip)
@@ -76,6 +77,12 @@ class IconButton(QPushButton):
             icon_size = size - (padding * 2)
             self.setIconSize(QSize(icon_size, icon_size))
             self.setContentsMargins(padding, padding, padding, padding)
+
+    def update_icon(self, icon_name: str) -> None:
+        self.setIcon(get_icon(icon_name, tint=self._tint))
+
+    def update_tooltip(self, tooltip: str) -> None:
+        self.setToolTip(tooltip)
 
 
 class OptionGroup(QWidget):
