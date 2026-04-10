@@ -126,4 +126,34 @@ inline std::optional<std::int64_t> exact_int_root(std::int64_t val, long long q)
     return std::nullopt;
 }
 
+/// Try to compute base^exp as an exact Rational.
+/// Returns nullopt if the result is not exactly representable:
+///   - integer exp: int64 overflow
+///   - fractional exp (p/q): either overflow in base^p, or p-th power's
+///     numerator/denominator is not a perfect q-th power
+/// Caller is expected to fall back to double / BigReal.
+inline std::optional<Rational>
+try_rational_pow(const Calculator &calc, const Rational &base, const Rational &exp) {
+    const long long p = exp.numerator();
+    const long long q = exp.denominator();
+
+    // Integer exponent.
+    if (q == 1) {
+        if (rational_pow_overflows(base, p))
+            return std::nullopt;
+        return calc.pow(base, exp);
+    }
+
+    // Fractional exponent p/q: compute base^p exactly, then try exact q-th root.
+    if (rational_pow_overflows(base, p))
+        return std::nullopt;
+
+    const Rational powered = calc.pow(base, Rational(p));
+    const auto nr = exact_int_root(powered.numerator(), q);
+    const auto dr = exact_int_root(powered.denominator(), q);
+    if (!nr || !dr)
+        return std::nullopt;
+    return Rational(*nr, *dr);
+}
+
 } // namespace calc_detail

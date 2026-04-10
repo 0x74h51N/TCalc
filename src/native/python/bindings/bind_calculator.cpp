@@ -192,35 +192,7 @@ void bind_calculator(py::module_ &m) {
     cls.def(
         "pow",
         [](const C &calc, const R &a, const R &b) -> py::object {
-            double da = a.to_double(), db = b.to_double();
-            long long p = b.numerator(), q = b.denominator();
-
-            // Double/BigReal overflow check.
-            if (pow_to_big(da, db, q == 1)) {
-                return py::cast(calc.pow(B(da), B(db)));
-            }
-
-            // Integer exponent: use Calculator::pow(Rational, Rational).
-            if (q == 1) {
-                if (calc_detail::rational_pow_overflows(a, p)) {
-                    return promote_inf_to_big(
-                        calc.pow(da, p), [&] { return calc.pow(B(da), B(db)); });
-                }
-                return py::cast(calc.pow(a, b));
-            }
-
-            // Fractional exponent (p/q): compute base^p, then try exact q-th root.
-            if (!calc_detail::rational_pow_overflows(a, p)) {
-                R powered = calc.pow(a, R(p));
-                auto nr = calc_detail::exact_int_root(powered.numerator(), q);
-                auto dr = calc_detail::exact_int_root(powered.denominator(), q);
-                if (nr && dr) {
-                    return py::cast(R(*nr, *dr));
-                }
-            }
-
-            // Not exact fall back to double.
-            return py::float_(calc.pow(da, db));
+            return rational_pow(calc, a, b);
         },
         py::arg("a"),
         py::arg("b"));
@@ -236,8 +208,16 @@ void bind_calculator(py::module_ &m) {
     cls.def("sqrt", py::overload_cast<Z>(&C::sqrt, py::const_), py::arg("a").noconvert());
     cls.def("sqrt", py::overload_cast<const B &>(&C::sqrt, py::const_), py::arg("a"));
     cls.def("sqrt", py::overload_cast<const BC &>(&C::sqrt, py::const_), py::arg("a"));
+    cls.def(
+        "sqrt",
+        [](const C &calc, const R &a) -> py::object { return rational_root(calc, a, R(2)); },
+        py::arg("a"));
 
     cls.def("cbrt", py::overload_cast<double>(&C::cbrt, py::const_), py::arg("a"));
+    cls.def(
+        "cbrt",
+        [](const C &calc, const R &a) -> py::object { return rational_root(calc, a, R(3)); },
+        py::arg("a"));
     cls.def(
         "root",
         py::overload_cast<double, double>(&C::root, py::const_),
@@ -259,7 +239,13 @@ void bind_calculator(py::module_ &m) {
         py::overload_cast<const BC &, const BC &>(&C::root, py::const_),
         py::arg("a"),
         py::arg("b"));
-
+    cls.def(
+        "root",
+        [](const C &calc, const R &a, const R &b) -> py::object {
+            return rational_root(calc, a, b);
+        },
+        py::arg("a"),
+        py::arg("b"));
     cls.def(
         "sin", py::overload_cast<double, U>(&C::sin, py::const_), py::arg("a"), py::arg("unit"));
     cls.def(

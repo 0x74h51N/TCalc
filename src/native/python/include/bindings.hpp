@@ -13,6 +13,7 @@
 #include "calc/internal/helpers.hpp"
 #include "parser/pub/parser.hpp"
 #include "types.hpp"
+#include "calc/pub/calculator.hpp"
 
 namespace py = pybind11;
 namespace p = tcalc::parser;
@@ -75,4 +76,56 @@ def_readonly_ref(py::class_<Class> &c, const char *name, std::vector<T> Class::*
 
 template <typename T> const T *token_as(const p::Token &tok) {
     return std::get_if<T>(&tok.data);
+}
+
+/// Rational^Rational with promotion
+inline py::object rational_pow(const Calculator &calc, const Rational &a, const Rational &b) {
+    const double da = a.to_double();
+    const double db = b.to_double();
+    const bool exp_is_int = b.denominator() == 1;
+
+    if (pow_to_big(da, db, exp_is_int)) {
+        return py::cast(calc.pow(BigReal(da), BigReal(db)));
+    }
+    if (auto r = calc_detail::try_rational_pow(calc, a, b)) {
+        return py::cast(*r);
+    }
+    if (exp_is_int) {
+        return promote_inf_to_big(calc.pow(da, static_cast<double>(b.numerator())), [&] {
+            return calc.pow(BigReal(da), BigReal(db));
+        });
+    }
+    return py::float_(calc.pow(da, db));
+}
+
+/// Rational root: root(a, b) = a^(1/b).
+inline py::object rational_root(const Calculator &calc, const Rational &a, const Rational &b) {
+    calc_detail::require_nonzero(b.frac);
+    long long p = b.numerator();
+    long long q = b.denominator();
+    // Normalize sign onto numerator (boost::rational keeps den > 0, but after
+    // swapping num/den we must re-normalize manually).
+    if (p < 0) {
+        p = -p;
+        q = -q;
+    }
+    const Rational inv(q, p); // exp = 1/b = q/p
+
+    const double da = a.to_double();
+    const double db = b.to_double();
+    const double d_inv = static_cast<double>(q) / static_cast<double>(p);
+    const bool exp_is_int = inv.denominator() == 1;
+
+    if (pow_to_big(da, d_inv, exp_is_int)) {
+        return py::cast(calc.root(BigReal(da), BigReal(db)));
+    }
+    if (auto r = calc_detail::try_rational_pow(calc, a, inv)) {
+        return py::cast(*r);
+    }
+    if (exp_is_int) {
+        return promote_inf_to_big(calc.pow(da, static_cast<double>(inv.numerator())), [&] {
+            return calc.root(BigReal(da), BigReal(db));
+        });
+    }
+    return py::float_(calc.root(da, db));
 }
