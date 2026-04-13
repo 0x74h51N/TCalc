@@ -252,6 +252,11 @@ jobs:
         with:
           name: native-build-debug
 
+      - name: Seed benchmark history storage
+        run: |
+          . .venv/bin/activate
+          make seed-history
+
       - name: Run benchmark tests
         run: |
           . .venv/bin/activate

@@ -21,6 +21,7 @@ def run_benchmark(
     name: str = "",
     threshold_ms: float | None = None,
     rounds: int = ROUNDS_DEFAULT,
+    warmup_rounds: int = WARMUP_ROUNDS,
 ):
     """Run a pedantic benchmark with optional threshold assertion."""
     benchmark.group = group
@@ -31,7 +32,7 @@ def run_benchmark(
         except Exception as e:
             raise RuntimeError(f"Benchmark '{name}' crashed: {e}") from e
 
-    benchmark.pedantic(safe_func, rounds=rounds, warmup_rounds=WARMUP_ROUNDS)
+    benchmark.pedantic(safe_func, rounds=rounds, warmup_rounds=warmup_rounds)
 
     if benchmark.stats is None:
         return

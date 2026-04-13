@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import pytest
 
+from tcalc.app_state import CalculatorMode
+from tcalc.ui.widgets.history.history import History
+from tests.benchmark.conftest import HISTORY_SCENARIO_COUNTS
 from tests.benchmark.expressions import (
     EXPR_NO_ALIAS,
     EXPR_WITH_ALIAS,
@@ -113,3 +116,16 @@ def test_normalize_with_alias_flame(qapp, name: str):
         group="Normalize",
         name=f"with_alias_{name}",
     )
+
+
+@pytest.mark.flamegraph
+@pytest.mark.parametrize("history_seed", list(HISTORY_SCENARIO_COUNTS), indirect=True)
+def test_history_init_flame(qapp, history_seed):
+    def init_history():
+        h = History(mode=CalculatorMode.SCIENCE)
+        qapp.processEvents()
+        h.close()
+        h.deleteLater()
+        qapp.processEvents()
+
+    run_flamegraph(init_history, group="History Init", name=history_seed)
