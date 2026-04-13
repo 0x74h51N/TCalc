@@ -61,6 +61,8 @@ class History(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
+        self._renderer = MathRender(read_only=True)
+
         self.list = QListWidget()
         apply_history_style(self.list)
 
@@ -138,8 +140,9 @@ class History(QWidget):
 
     def _add_item_to_list(self, entry: HistoryEntry) -> None:
         """Add item to list widget with proper formatting."""
-
-        item_widget = HistoryItem(entry, self._app_state.history_mode, parrent=self)
+        item_widget = HistoryItem(
+            entry, self._app_state.history_mode, renderer=self._renderer, parrent=self
+        )
         self.display_mode_changed.connect(item_widget.set_display_mode)
 
         self._item_widgets.append(item_widget)
@@ -154,6 +157,8 @@ class History(QWidget):
         item.setSizeHint(item_widget.sizeHint())
         self.list.addItem(item)
         self.list.setItemWidget(item, item_widget)
+
+        item_widget.apply_math_fonts()
 
     def _on_current_changed(self, current: QListWidgetItem, previous: QListWidgetItem) -> None:
         if previous is not None:
@@ -251,6 +256,7 @@ class HistoryItem(QWidget):
         self,
         entry: HistoryEntry,
         mode: RenderMode,
+        renderer: MathRender,
         parrent: History,
     ) -> None:
         super().__init__(parrent)
@@ -263,7 +269,7 @@ class HistoryItem(QWidget):
         self._current_render_mode: RenderMode | None = None
         self._list_item: QListWidgetItem
 
-        self.renderer = MathRender(read_only=True)
+        self.renderer = renderer
 
         self._layout = QVBoxLayout(self)
         self.expression_label = QLabel(self)
@@ -294,7 +300,6 @@ class HistoryItem(QWidget):
         self._expr_slot = ExpressionSlot(
             kind=InputKind.MAIN, key="historyExpr", align=InputAlign.RIGHTT
         )
-        self._expr_slot._on_margin_updated = self.refresh_layout
         self._seg = self._expr_slot.default_input()
         self._seg.setReadOnly(True)
         self._seg.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -324,14 +329,25 @@ class HistoryItem(QWidget):
         self.renderer.is_rendering = True
 
         try:
-            if not entry.tokenized.expr_indices and not entry.tokenized.open_paren_indices:
+            if not entry.tokenized.expr_indices:
                 self._seg.setText(entry.expression)
-                return
-            self.renderer.render_node(self._seg, entry.tokenized)
-            self.update_fonts()
+            else:
+                self.renderer.render_node(self._seg, entry.tokenized)
         finally:
             self.renderer.is_rendering = False
             self.setUpdatesEnabled(True)
+
+    def apply_math_fonts(self) -> None:
+        """Set fixed point size on all math line edits."""
+
+        base_font = int(history_math["base_font"])
+        self.renderer.update_line_fonts(
+            self._expr_slot.line_edits(),
+            self.parrent,
+            base_font,
+            base_font,
+            history_math,
+        )
 
     def set_display_mode(self, mode: RenderMode, defer_layout: bool = False) -> None:
         if mode == self._current_render_mode:
@@ -342,17 +358,18 @@ class HistoryItem(QWidget):
                 self._display_widget = self._expr_scroll
                 self.expression_label.hide()
                 self._expr_scroll.show()
-                self.update_fonts()
-                self._current_render_mode = mode
+                self.apply_math_fonts()
+
                 if not defer_layout and not self.parrent._is_batch_rendering:
                     self.refresh_layout()
             else:
                 self._display_widget = self.expression_label
                 self._expr_scroll.hide()
                 self.expression_label.show()
-                self.update_fonts()
-                self._current_render_mode = mode
                 QTimer.singleShot(0, lambda m=mode: self._apply_label_text(m))
+                self.update_fonts()
+
+            self._current_render_mode = mode
         finally:
             self.setUpdatesEnabled(True)
 
@@ -379,26 +396,13 @@ class HistoryItem(QWidget):
     def update_fonts(self) -> None:
         """Update font scaling for expression inputs."""
         sample = self.parrent
-        apply_scaled_fonts(
-            sample,
-            [self.expression_label],
-            int(style["expr_min_pt"]),
-            int(style["expr_max_pt"]),
-        )
-
-        if hasattr(self, "result_label"):
+        if self._current_render_mode is not RenderMode.MATH:
             apply_scaled_fonts(
                 sample,
-                [self.result_label],
-                int(style["result_min_pt"]),
-                int(style["result_max_pt"]),
+                self.expression_label,
+                int(style["expr_min_pt"]),
+                int(style["expr_max_pt"]),
             )
-
-        base_font = int(history_math["base_font"])
-        max_pt = int(history_math["max_pt"])
-        self.renderer.update_line_fonts(
-            self._expr_slot.line_edits(), sample, base_font, max_pt, history_math
-        )
 
     def refresh_layout(self) -> None:
         """Recalculate item row height for QListWidget after font/mode changes in disgusting way."""
@@ -428,7 +432,7 @@ class HistoryItem(QWidget):
 
     def re_wrap(self) -> None:
         """Re-wrap expression label text using current font metrics."""
-        if self._current_render_mode is not None:
+        if self._current_render_mode in (RenderMode.FLAT, RenderMode.RAW):
             self.expression_label.setText(self._expression_text(self._current_render_mode))
 
     def resizeEvent(self, event: QResizeEvent) -> None:

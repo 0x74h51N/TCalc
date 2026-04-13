@@ -15,7 +15,7 @@ MAX_DIM = 500
 
 def apply_scaled_fonts(
     sample: QWidget,
-    targets: Iterable[QWidget],
+    targets: Iterable[QWidget] | QWidget,
     min_pt: int,
     max_pt: int,
 ) -> None:
@@ -34,10 +34,15 @@ def apply_scaled_fonts(
         ratio = (dim - MIN_DIM) / (MAX_DIM - MIN_DIM)
         point_size = int(min_pt + ratio * (max_pt - min_pt))
 
-    for widget in targets:
-        font = widget.font()
+    if isinstance(targets, Iterable):
+        for widget in targets:
+            font = widget.font()
+            font.setPointSize(point_size)
+            widget.setFont(font)
+    else:
+        font = targets.font()
         font.setPointSize(point_size)
-        widget.setFont(font)
+        targets.setFont(font)
 
 
 class InputAlign(Enum):

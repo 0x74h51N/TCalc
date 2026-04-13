@@ -572,6 +572,12 @@ class ExpressionSlot(QWidget):
                 return
             self._update_segment_margins()
             self._margin_scheduled = False
+
+            # Read-only slots have fixed fonts and content, so anchors never
+            # change after the first margin pass. Self-freeze to skip any
+            # future resize-driven cascade.
+            self._suppress_margins = self.editor is None
+
             # Propagate margin child to parent
             node = self.parent()
             if isinstance(node, ExpressionNode):
@@ -587,4 +593,6 @@ class ExpressionSlot(QWidget):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
+        if self._suppress_margins:
+            return
         self._schedule_margin_update()
