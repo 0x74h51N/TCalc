@@ -6,7 +6,10 @@
 #
 from __future__ import annotations
 
+import gc
+
 import pytest
+import shiboken6
 
 from tcalc.app_state import CalculatorMode
 from tcalc.ui.widgets.history.history import History
@@ -21,9 +24,7 @@ def test_history_init_benchmark(qapp, benchmark, history_seed):
     def init_history():
         h = History(mode=CalculatorMode.SCIENCE)
         qapp.processEvents()
-        h.close()
-        h.deleteLater()
-        qapp.processEvents()
+        shiboken6.delete(h)
 
     run_benchmark(
         benchmark,
@@ -33,3 +34,4 @@ def test_history_init_benchmark(qapp, benchmark, history_seed):
         rounds=5,
         warmup_rounds=2,
     )
+    gc.collect()

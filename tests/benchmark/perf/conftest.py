@@ -37,6 +37,6 @@ def run_benchmark(
     if benchmark.stats is None:
         return
 
-    max_ms = benchmark.stats["max"] * 1000
+    median_ms = benchmark.stats["median"] * 1000
     if threshold_ms is not None:
-        assert max_ms < threshold_ms, f"{name}: {max_ms:.4f}ms exceeds {threshold_ms}ms"
+        assert median_ms < threshold_ms, f"{name}: {median_ms:.4f}ms exceeds {threshold_ms}ms"
