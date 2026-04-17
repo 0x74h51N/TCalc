@@ -35,7 +35,7 @@ QWidget#radicandSlot, QWidget#radicandSlot:focus {
     border-top: ${root_border_width}px solid $selection_text;
 }
 
-QWidget#historyItem QScrollArea#historyExprScroll {
+QWidget#historyItem QScrollArea#historyExprScroll, QWidget#historyPaintWidget {
     background: transparent;
 }
 

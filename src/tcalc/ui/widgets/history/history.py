@@ -9,7 +9,7 @@ import logging
 from typing import Optional
 
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QResizeEvent
+from PySide6.QtGui import QFont, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -27,7 +27,7 @@ from tcalc.ui.config import history_math
 from tcalc.ui.config import history_style as style
 from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.common.utils import Align
-from tcalc.ui.widgets.math import ExpressionSlot, InputKind, MathRender
+from tcalc.ui.widgets.math import MathPainter, PaintCanvas
 from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
 
 from ..common import IconButton, Toaster, ToastLevel
@@ -60,7 +60,7 @@ class History(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self._renderer = MathRender(read_only=True)
+        self._painter = MathPainter()
 
         self.list = QListWidget()
         apply_history_style(self.list)
@@ -140,7 +140,7 @@ class History(QWidget):
     def _add_item_to_list(self, entry: HistoryEntry) -> None:
         """Add item to list widget with proper formatting."""
         item_widget = HistoryItem(
-            entry, self._app_state.history_mode, renderer=self._renderer, parrent=self
+            entry, self._app_state.history_mode, painter=self._painter, parrent=self
         )
         self.display_mode_changed.connect(item_widget.set_display_mode)
 
@@ -156,8 +156,6 @@ class History(QWidget):
         item.setSizeHint(item_widget.sizeHint())
         self.list.addItem(item)
         self.list.setItemWidget(item, item_widget)
-
-        item_widget.apply_math_fonts()
 
     def _on_current_changed(self, current: QListWidgetItem, previous: QListWidgetItem) -> None:
         if previous is not None:
@@ -255,7 +253,7 @@ class HistoryItem(QWidget):
         self,
         entry: HistoryEntry,
         mode: RenderMode,
-        renderer: MathRender,
+        painter: MathPainter,
         parrent: History,
     ) -> None:
         super().__init__(parrent)
@@ -268,7 +266,7 @@ class HistoryItem(QWidget):
         self._current_render_mode: RenderMode | None = None
         self._list_item: QListWidgetItem
 
-        self.renderer = renderer
+        self.painter = painter
 
         self._layout = QVBoxLayout(self)
         self.expression_label = QLabel(self)
@@ -296,22 +294,18 @@ class HistoryItem(QWidget):
 
         self.toaster = Toaster(self, horizontal=Align.LEFT, y_offset=-self._btn_size)
 
-        self._expr_slot = ExpressionSlot(
-            kind=InputKind.MAIN, key="historyExpr", align=InputAlign.RIGHTT
-        )
-        self._seg = self._expr_slot.default_input()
-        self._seg.setReadOnly(True)
-        self._seg.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._paint_canvas = PaintCanvas(parent=self)
+        self._paint_canvas.setObjectName("historyPaintWidget")
 
         self._expr_scroll = QScrollArea(self)
         self._expr_scroll.setObjectName("historyExprScroll")
+        self._expr_scroll.setAlignment(InputAlign.RIGHT.value)
+
         self._expr_scroll.setWidgetResizable(True)
-        self._expr_scroll.setWidget(self._expr_slot)
+        self._expr_scroll.setWidget(self._paint_canvas)
         self._expr_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._expr_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._expr_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-
-        self.render_math(self._entry)
         # Result label
         self.result_label = QLabel(entry.result, self)
         self.result_label.setAlignment(InputAlign.RIGHT.value)
@@ -322,31 +316,14 @@ class HistoryItem(QWidget):
 
         self.set_display_mode(mode, defer_layout=True)
 
-    def render_math(self, entry: HistoryEntry) -> None:
-        """Render expression as math widgets (read-only)."""
-        self.setUpdatesEnabled(False)
-        self.renderer.is_rendering = True
-
-        try:
-            if not entry.tokenized.expr_indices:
-                self._seg.setText(entry.expression)
-            else:
-                self.renderer.render_node(self._seg, entry.tokenized)
-        finally:
-            self.renderer.is_rendering = False
-            self.setUpdatesEnabled(True)
-
-    def apply_math_fonts(self) -> None:
-        """Set fixed point size on all math line edits."""
-
+    def _math_paint(self) -> None:
         base_font = int(history_math["base_font"])
-        self.renderer.update_line_fonts(
-            self._expr_slot.line_edits(),
-            self.parrent,
-            base_font,
-            base_font,
-            history_math,
-        )
+        f = QFont(self.parrent.font())
+        f.setPointSize(base_font)
+        self._font = f
+        if self._entry.tokenized is not None:
+            tree = self.painter.paint_tree(self._entry.tokenized, f)
+            self._paint_canvas.set_tree(tree, f)
 
     def set_display_mode(self, mode: RenderMode, defer_layout: bool = False) -> None:
         if mode == self._current_render_mode:
@@ -357,7 +334,7 @@ class HistoryItem(QWidget):
                 self._display_widget = self._expr_scroll
                 self.expression_label.hide()
                 self._expr_scroll.show()
-                self.apply_math_fonts()
+                self._math_paint()
 
                 if not defer_layout and not self.parrent._is_batch_rendering:
                     self.refresh_layout()
@@ -407,7 +384,7 @@ class HistoryItem(QWidget):
         """Recalculate item row height for QListWidget after font/mode changes in disgusting way."""
 
         # TODO: find a better way, delegate and heightForWidth override was worse
-        if self.renderer.is_rendering:
+        if self.painter.is_painting:
             return
 
         margin = int(style["item_margin"])
@@ -416,7 +393,8 @@ class HistoryItem(QWidget):
 
         if self._current_render_mode is RenderMode.MATH:
             scroll_sh = self._expr_scroll.sizeHint().height()
-            slot_h = self._expr_slot.sizeHint().height()
+            inner = self._paint_canvas
+            slot_h = inner.sizeHint().height()
             sb_h = self._expr_scroll.horizontalScrollBar().sizeHint().height()
             expr_h = max(scroll_sh, slot_h + sb_h)
         else:
