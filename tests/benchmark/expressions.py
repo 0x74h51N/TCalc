@@ -146,6 +146,7 @@ RENDER_EXPRESSIONS = {
 }
 
 RENDER_THRESHOLDS_MS = {"simple": 10, "medium": 20, "complex": 50, "heavy": 150, "sick": 250}
+HISTORY_FIRST_PAINT_THRESHOLDS_MS = {"render_exprs": 30, "50_items": 85, "150_items": 85}
 
 # //// Normalize expressions \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
