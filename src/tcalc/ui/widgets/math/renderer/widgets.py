@@ -19,19 +19,20 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.core.ops import LatexExpr
-from tcalc.ui.components.math_primitives import (
+from tcalc.ui.widgets.utils import InputAlign
+
+from ..math_primitives import (
     CurlyBrace,
     ParenGlyph,
     RoundParen,
     SqrtSymbol,
     SquareBracket,
 )
-from tcalc.ui.widgets.math.expression_node import (
+from .expression_node import (
     ExpressionNode,
     ExpressionSlot,
     InputKind,
 )
-from tcalc.ui.widgets.utils import InputAlign
 
 
 class FractionWidget(ExpressionNode):

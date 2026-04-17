@@ -20,10 +20,10 @@ from PySide6.QtWidgets import (
 )
 from shiboken6 import isValid
 
-from tcalc.ui.components.math_primitives import ParenGlyph
 from tcalc.ui.widgets.utils import InputAlign
 
-from .utils import update_autowidth
+from ..math_primitives import ParenGlyph
+from ..utils import update_autowidth
 
 _log = logging.getLogger("tcalc.ui.expression_node")
 
@@ -556,7 +556,7 @@ class ExpressionSlot(QWidget):
                     if seg.textMargins().top() != top:
                         seg.setTextMargins(0, top, 0, 0)
             elif isinstance(seg, ParenGlyph):
-                seg.setFixedHeight(max_anchor + max_below)
+                seg.setFixedHeight(max_anchor + max_below + 2)
 
     def _schedule_margin_update(self) -> None:
         """Update margins after first frame render."""

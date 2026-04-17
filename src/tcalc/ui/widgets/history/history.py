@@ -27,8 +27,7 @@ from tcalc.ui.config import history_math
 from tcalc.ui.config import history_style as style
 from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.common.utils import Align
-from tcalc.ui.widgets.math.expression_node import ExpressionSlot, InputKind
-from tcalc.ui.widgets.math.math_render import MathRender
+from tcalc.ui.widgets.math import ExpressionSlot, InputKind, MathRender
 from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
 
 from ..common import IconButton, Toaster, ToastLevel

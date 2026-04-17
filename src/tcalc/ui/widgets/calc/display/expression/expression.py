@@ -21,16 +21,17 @@ from PySide6.QtWidgets import (
 
 from tcalc.core.ops import Operation
 from tcalc.core.parser import tokenize
-from tcalc.ui.components.math_primitives import ParenGlyph
 from tcalc.ui.config import calc_config
-from tcalc.ui.widgets.math.expression_node import (
+from tcalc.ui.widgets.math import (
     ExpressionNode,
     ExpressionSlot,
+    FractionWidget,
     InputKind,
+    MathRender,
+    ParenWidget,
 )
-from tcalc.ui.widgets.math.math_render import MathRender
+from tcalc.ui.widgets.math.math_primitives import ParenGlyph
 from tcalc.ui.widgets.math.utils import split_operand
-from tcalc.ui.widgets.math.widgets import FractionWidget, ParenWidget
 from tcalc.ui.widgets.utils import InputAlign
 
 from .utils import space_binary_ops

@@ -14,10 +14,11 @@ from PySide6.QtWidgets import QLineEdit
 from tcalc.core.ops import Operation
 from tcalc.debug import dump_expression_tree, snapshot_tree
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
-from tcalc.ui.widgets.math.expression_node import ExpressionNode, ExpressionSlot
-from tcalc.ui.widgets.math.widgets import (
+from tcalc.ui.widgets.math import (
     BraceWidget,
     BracketWidget,
+    ExpressionNode,
+    ExpressionSlot,
     FractionWidget,
     PowWidget,
     RootWidget,
