@@ -42,7 +42,6 @@ def test_single_edit_benchmark(qapp, benchmark, name: str):
     finally:
         widget.close()
         widget.deleteLater()
-        qapp.processEvents()
 
 
 @pytest.mark.benchmark
@@ -61,4 +60,3 @@ def test_multi_edit_benchmark(qapp, benchmark, name: str):
     finally:
         widget.close()
         widget.deleteLater()
-        qapp.processEvents()

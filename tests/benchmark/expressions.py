@@ -10,10 +10,21 @@
 from __future__ import annotations
 
 import calc_native
+import shiboken6
+from PySide6.QtCore import QEventLoop
 
+from tcalc.app_state import CalculatorMode, RenderMode, get_app_state
 from tcalc.core.engine import Calculator
 from tcalc.core.parser import evaluate_tokens, tokenize_string
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
+from tcalc.ui.widgets.history.history import History
+
+_DRAIN_MAX_MS = 1000
+
+
+def drain_events(qapp) -> None:
+    qapp.processEvents(QEventLoop.ProcessEventsFlag.AllEvents, _DRAIN_MAX_MS)
+
 
 # //// Calc pipeline expressions \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -208,12 +219,11 @@ def make_shunting_func(expr: str):
 def make_render_func(qapp, expr: str):
     def render():
         widget = Expression()
-        widget.show()
         widget.set_plain_text(expr)
-        qapp.processEvents()
+        widget.show()
+        drain_events(qapp)
         widget.close()
         widget.deleteLater()
-        qapp.processEvents()
 
     return render
 
@@ -221,21 +231,20 @@ def make_render_func(qapp, expr: str):
 def make_normalize_func(qapp, expr: str):
     def normalize():
         widget = Expression()
-        widget.show()
         widget.set_plain_text(expr)
-        qapp.processEvents()
+        widget.show()
+        drain_events(qapp)
         widget.close()
         widget.deleteLater()
-        qapp.processEvents()
 
     return normalize
 
 
 def setup_widget(qapp, expr: str) -> Expression:
     widget = Expression()
-    widget.show()
     widget.set_plain_text(expr)
-    qapp.processEvents()
+    widget.show()
+    drain_events(qapp)
     return widget
 
 
@@ -253,9 +262,28 @@ def make_incremental_edit_func(qapp, widget: Expression):
             target.setText(text[:-1])
         else:
             target.setText(text + "1")
-        qapp.processEvents()
+        drain_events(qapp)
 
     return edit_step
+
+
+def make_history_init_func(qapp, math_mode: bool = False):
+    app_state = get_app_state()
+
+    def init_history():
+        prev_mode = app_state._history_mode
+        if math_mode:
+            app_state._history_mode = RenderMode.MATH
+        try:
+            h = History(mode=CalculatorMode.SCIENCE)
+            h.show()
+            drain_events(qapp)
+            shiboken6.delete(h)
+        finally:
+            if math_mode:
+                app_state._history_mode = prev_mode
+
+    return init_history
 
 
 def make_multi_edit_func(qapp, widget: Expression, num_steps: int = 5):
@@ -271,6 +299,6 @@ def make_multi_edit_func(qapp, widget: Expression, num_steps: int = 5):
                 target.setText(text[:-1])
             else:
                 target.setText(text + "1")
-        qapp.processEvents()
+        drain_events(qapp)
 
     return multi_edit

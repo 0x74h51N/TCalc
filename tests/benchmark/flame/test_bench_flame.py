@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import pytest
 
+from tests.benchmark.conftest import HISTORY_SCENARIO_COUNTS
 from tests.benchmark.expressions import (
     EXPR_NO_ALIAS,
     EXPR_WITH_ALIAS,
     PAREN_EXPRESSIONS,
     PIPELINE_EXPRESSIONS,
     RENDER_EXPRESSIONS,
+    make_history_init_func,
     make_incremental_edit_func,
     make_multi_edit_func,
     make_normalize_func,
@@ -112,4 +114,24 @@ def test_normalize_with_alias_flame(qapp, name: str):
         make_normalize_func(qapp, EXPR_WITH_ALIAS[name]),
         group="Normalize",
         name=f"with_alias_{name}",
+    )
+
+
+@pytest.mark.flamegraph
+@pytest.mark.parametrize("history_seed", list(HISTORY_SCENARIO_COUNTS), indirect=True)
+def test_history_init_flame(qapp, history_seed):
+    run_flamegraph(
+        make_history_init_func(qapp),
+        group="History Init",
+        name=history_seed,
+    )
+
+
+@pytest.mark.flamegraph
+@pytest.mark.parametrize("history_seed", list(HISTORY_SCENARIO_COUNTS), indirect=True)
+def test_history_init_math_mode_flame(qapp, history_seed):
+    run_flamegraph(
+        make_history_init_func(qapp, math_mode=True),
+        group="History Init (math)",
+        name=history_seed,
     )

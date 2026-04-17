@@ -25,3 +25,5 @@ stubs/
 
 *memray*
 *flamegraph*
+
+tests/benchmark/.fixtures/

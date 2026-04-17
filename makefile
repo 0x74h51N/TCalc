@@ -1,7 +1,7 @@
 .PHONY: dev hooks lint lint-fix typecheck check stubs clear-history
 .PHONY: py-format py-format-check
 .PHONY: native native-configure native-build native-test native-ctest native-clean native-release
-.PHONY: py-test py-test-ui py-benchmark py-flamegraph
+.PHONY: py-test py-test-ui py-benchmark py-flamegraph seed-history
 
 PY := ./.venv/bin/python
 PYTEST_ARGS ?= -vv -rA -s
@@ -37,6 +37,9 @@ py-test:
 
 py-test-ui:
 	PYTHONPATH=src $(PY) -m pytest tests/py/ui $(PYTEST_ARGS)
+
+seed-history:
+	PYTHONPATH=src:$(CURDIR) $(PY) scripts/seed_history.py
 
 py-benchmark:
 	PYTHONPATH=src $(PY) -m pytest tests/benchmark/perf $(PYTEST_ARGS)
