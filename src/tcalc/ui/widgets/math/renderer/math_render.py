@@ -19,8 +19,11 @@ from PySide6.QtWidgets import (
 )
 from shiboken6 import isValid
 
-from tcalc.ui.widgets.math.expression_node import ExpressionNode, ExpressionSlot, InputKind
-from tcalc.ui.widgets.math.widgets import (
+from tcalc.ui.widgets.utils import apply_scaled_fonts
+
+from ..utils import ExprSplit, ParenSplit, structural_split, update_autowidth
+from .expression_node import ExpressionNode, ExpressionSlot, InputKind
+from .widgets import (
     BraceWidget,
     BracketWidget,
     FractionWidget,
@@ -29,9 +32,6 @@ from tcalc.ui.widgets.math.widgets import (
     RootWidget,
     RoundParenWidget,
 )
-from tcalc.ui.widgets.utils import apply_scaled_fonts
-
-from .utils import split_operand, update_autowidth
 
 if TYPE_CHECKING:
     from tcalc.ui.widgets.calc.display.expression.expression import Expression
@@ -169,95 +169,43 @@ class MathRender(QWidget):
 
                 slot: ExpressionSlot = parent
 
-                tokens = tokenized.tokens
-                if not tokenized.expr_indices:
+                split = structural_split(list(tokenized.tokens), tokenized)
+                if split is None:
                     continue
 
-                no_match = calc_native.PAREN_NO_MATCH
-
-                expr_first = tokenized.expr_indices[0]
                 left_tokens: list[calc_native.Token] = []
                 right_tokens: list[calc_native.Token] = []
+                node: ExpressionNode
 
-                candidate = None
+                if isinstance(split, ParenSplit):
+                    paren_cls = self.PAREN_KIND_MAP.get(split.open_tok.kind)
+                    if paren_cls is None:
+                        _log.debug("render_node: no widget for paren kind=%s", split.open_tok.kind)
+                        return
 
-                # Paren path: open paren before the first expr token
-                # with a registered widget class in PAREN_KIND_MAP.
-                # This flow works for paren and latex expression render at same time
-                # Otherwise parentheses catch by _try_open_paren and _try_close_paren
-                for ind in tokenized.open_paren_indices:
-                    if ind >= expr_first:
-                        continue
+                    prefix_tokens = split.prefix
+                    left_tokens = split.left
+                    suffix_tokens = split.suffix
 
-                    pair_idx = tokens[ind].as_paren().pair_idx
+                    paren_node = paren_cls(split.open_tok, split.close_tok)
+                    node = paren_node
+                    suffix = split.has_close
 
-                    # 1) unmatched "("
-                    if pair_idx == no_match:
-                        candidate = ind
-                        break
-
-                    # 2) matched "(" and close after expr start
-                    if pair_idx > expr_first:
-                        candidate = ind
-                        break
-
-                open_paren_tok: calc_native.ParenToken | None = None
-                paren_cls: type[ParenWidget] | None = None
-
-                if candidate is not None:
-                    _ptok = tokens[candidate].as_paren()
-                    paren_cls = self.PAREN_KIND_MAP.get(_ptok.kind)
-                    if paren_cls is not None:
-                        open_paren_tok = _ptok
-
-                if open_paren_tok is not None and paren_cls is not None and candidate is not None:
-                    pair = open_paren_tok.pair_idx
-                    has_close = pair != no_match
-
-                    if has_close:
-                        paren_end = pair + 1
-                        close_tok = tokens[pair].as_paren()
-                    else:
-                        paren_end = len(tokens)
-                        close_tok = None
-
-                    prefix_tokens = tokens[:candidate]
-                    left_tokens = tokens[candidate + 1 : paren_end - (1 if has_close else 0)]
-                    suffix_tokens = tokens[paren_end:] if has_close else []
-
-                    paren_node = paren_cls(open_paren_tok, close_tok)
-                    node: ExpressionNode = paren_node
-                    suffix = has_close
-
-                    if not has_close:
-                        self._pending_parens.setdefault(open_paren_tok.kind, []).append(paren_node)
+                    if not split.has_close:
+                        self._pending_parens.setdefault(split.open_tok.kind, []).append(paren_node)
 
                     if not self._read_only:
                         node.editor = self.editor
-
                 else:
-                    idx = expr_first
-                    expr_tok = tokens[idx].as_expr()
-                    before_tokens = tokens[:idx]
-                    after_tokens = tokens[idx + 1 :]
+                    assert isinstance(split, ExprSplit)
+                    prefix_tokens = split.prefix
+                    left_tokens = split.left
+                    right_tokens = split.right
+                    suffix_tokens = split.suffix
 
-                    # If expr has content (pasted), use it; otherwise split from surrounding tokens
-                    if expr_tok.left:
-                        prefix_tokens, left_tokens = before_tokens, expr_tok.left
-                    else:
-                        prefix_tokens, left_tokens = split_operand(before_tokens)
-
-                    if expr_tok.right:
-                        right_tokens, suffix_tokens = expr_tok.right, after_tokens
-                    else:
-                        right_tokens, suffix_tokens = split_operand(
-                            after_tokens, lead=True, base_offset=idx + 1
-                        )
-
-                    widget_cls = self.EXPR_KIND_MAP.get(expr_tok.kind)
-
+                    widget_cls = self.EXPR_KIND_MAP.get(split.kind)
                     if widget_cls is None:
-                        _log.debug("render_node: no widget for kind=%s", expr_tok.kind.name)
+                        _log.debug("render_node: no widget for kind=%s", split.kind.name)
                         return
 
                     node = widget_cls()

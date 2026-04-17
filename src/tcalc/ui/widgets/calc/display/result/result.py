@@ -19,8 +19,7 @@ from PySide6.QtWidgets import (
 from tcalc.core.utils import CalcValue
 from tcalc.theme import get_theme
 from tcalc.ui.widgets.common.button import IconButton
-from tcalc.ui.widgets.math.expression_node import ExpressionSlot, InputKind
-from tcalc.ui.widgets.math.math_render import MathRender
+from tcalc.ui.widgets.math import ExpressionSlot, InputKind, MathRender
 from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
 
 from .style import apply_style, calc_config

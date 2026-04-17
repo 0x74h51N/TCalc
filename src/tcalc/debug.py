@@ -2,22 +2,20 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Generic, Literal, TypeVar
+from typing import Generic, Literal, TypeVar
 
 import calc_native
 from PySide6.QtWidgets import QLineEdit
 
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
-from tcalc.ui.widgets.math.expression_node import ExpressionNode, ExpressionSlot
-from tcalc.ui.widgets.math.widgets import (
+from tcalc.ui.widgets.math import (
+    ExpressionNode,
+    ExpressionSlot,
     FractionWidget,
     ParenWidget,
     PowWidget,
     RootWidget,
 )
-
-if TYPE_CHECKING:
-    from tcalc.ui.widgets.math.expression_node import ExpressionSlot
 
 _log = logging.getLogger("tcalc.debug")
 
