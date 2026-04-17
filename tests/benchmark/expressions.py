@@ -267,7 +267,7 @@ def make_incremental_edit_func(qapp, widget: Expression):
     return edit_step
 
 
-def make_history_init_func(qapp, math_mode: bool = False):
+def make_history_init_func(qapp, math_mode: bool = False, first_paint_only: bool = False):
     app_state = get_app_state()
 
     def init_history():
@@ -277,7 +277,10 @@ def make_history_init_func(qapp, math_mode: bool = False):
         try:
             h = History(mode=CalculatorMode.SCIENCE)
             h.show()
-            drain_events(qapp)
+            if first_paint_only:
+                qapp.sendPostedEvents()
+            else:
+                drain_events(qapp)
             shiboken6.delete(h)
         finally:
             if math_mode:

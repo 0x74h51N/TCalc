@@ -122,7 +122,7 @@ def test_normalize_with_alias_flame(qapp, name: str):
 def test_history_init_flame(qapp, history_seed):
     run_flamegraph(
         make_history_init_func(qapp),
-        group="History Init",
+        group="History Init - Full Load",
         name=history_seed,
     )
 
@@ -132,6 +132,26 @@ def test_history_init_flame(qapp, history_seed):
 def test_history_init_math_mode_flame(qapp, history_seed):
     run_flamegraph(
         make_history_init_func(qapp, math_mode=True),
-        group="History Init (math)",
+        group="History Init - Full Load (math)",
+        name=history_seed,
+    )
+
+
+@pytest.mark.flamegraph
+@pytest.mark.parametrize("history_seed", list(HISTORY_SCENARIO_COUNTS), indirect=True)
+def test_history_first_paint_flame(qapp, history_seed):
+    run_flamegraph(
+        make_history_init_func(qapp, first_paint_only=True),
+        group="History First Paint",
+        name=history_seed,
+    )
+
+
+@pytest.mark.flamegraph
+@pytest.mark.parametrize("history_seed", list(HISTORY_SCENARIO_COUNTS), indirect=True)
+def test_history_first_paint_math_mode_flame(qapp, history_seed):
+    run_flamegraph(
+        make_history_init_func(qapp, math_mode=True, first_paint_only=True),
+        group="History First Paint (math)",
         name=history_seed,
     )
