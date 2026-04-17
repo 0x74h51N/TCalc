@@ -5,11 +5,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QResizeEvent
+from PySide6.QtGui import QFont, QResizeEvent
 from PySide6.QtWidgets import (
     QApplication,
     QHBoxLayout,
@@ -27,7 +29,7 @@ from tcalc.ui.config import history_math
 from tcalc.ui.config import history_style as style
 from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.common.utils import Align
-from tcalc.ui.widgets.math import ExpressionSlot, InputKind, MathRender
+from tcalc.ui.widgets.math import MathPainter, PaintCanvas
 from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
 
 from ..common import IconButton, Toaster, ToastLevel
@@ -36,6 +38,8 @@ from .style import apply_history_style
 from .utils import wrap_expression
 
 _log = logging.getLogger(__name__)
+
+_HISTORY_PAGE_SIZE = 20
 
 
 class History(QWidget):
@@ -56,11 +60,13 @@ class History(QWidget):
 
         self._calc_mode = mode
         self._app_state = get_app_state()
+        self._pending_entries: list[HistoryEntry] = []
+        self._pending_timer: Optional[QTimer] = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self._renderer = MathRender(read_only=True)
+        self._painter = MathPainter()
 
         self.list = QListWidget()
         apply_history_style(self.list)
@@ -115,19 +121,60 @@ class History(QWidget):
             self._end_batch_render()
 
     def reload_from_storage(self, mode: CalculatorMode) -> None:
-        self._begin_batch_render()
+        self._cancel_pending_load()
         self._calc_mode = mode
-        loaded = load_history(mode)
         self.list.clear()
         self._item_widgets.clear()
         self._history_items = []
-        for entry in loaded:
+        self._pending_entries = load_history(mode)
+        self._load_next_batch()
+
+    def _schedule_next_batch(self) -> None:
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        timer.timeout.connect(self._load_next_batch)
+        self._pending_timer = timer
+        timer.start(0)
+
+    def _cancel_pending_load(self) -> None:
+        timer = self._pending_timer
+        if timer is not None:
+            timer.stop()
+            self._pending_timer = None
+        self._pending_entries = []
+
+    def _load_next_batch(self) -> None:
+        self._pending_timer = None
+        if not self._pending_entries:
+            return
+
+        split = max(0, len(self._pending_entries) - _HISTORY_PAGE_SIZE)
+        batch = self._pending_entries[split:]
+        self._pending_entries = self._pending_entries[:split]
+
+        sb = self.list.verticalScrollBar()
+        at_bottom = sb.value() >= sb.maximum() - 1
+
+        self._is_batch_rendering = True
+        new_widgets: list[HistoryItem] = []
+        for entry in reversed(batch):
             try:
-                self._add_item_to_list(entry)
-                self._history_items.append(entry)
+                widget = self._add_item_to_list(entry, index=0)
+                self._history_items.insert(0, entry)
+                new_widgets.append(widget)
             except Exception:
                 _log.debug("Skipping corrupt history entry", exc_info=True)
-        self._end_batch_render()
+        self._is_batch_rendering = False
+
+        self._update_widget_fonts(new_widgets, force_layout=True)
+
+        if at_bottom:
+            self.list.scrollToBottom()
+
+        self.items_changed.emit()
+
+        if self._pending_entries:
+            self._schedule_next_batch()
 
     def _begin_batch_render(self) -> None:
         self._is_batch_rendering = True
@@ -137,16 +184,19 @@ class History(QWidget):
         self.update_fonts(force_layout=True)
         self.items_changed.emit()
 
-    def _add_item_to_list(self, entry: HistoryEntry) -> None:
-        """Add item to list widget with proper formatting."""
+    def _add_item_to_list(self, entry: HistoryEntry, index: Optional[int] = None) -> HistoryItem:
+        """Add item to list widget. If index is None, append to end; else insert at index."""
         item_widget = HistoryItem(
-            entry, self._app_state.history_mode, renderer=self._renderer, parrent=self
+            entry, self._app_state.history_mode, painter=self._painter, parrent=self
         )
         self.display_mode_changed.connect(item_widget.set_display_mode)
 
-        self._item_widgets.append(item_widget)
+        if index is None:
+            self._item_widgets.append(item_widget)
+        else:
+            self._item_widgets.insert(index, item_widget)
 
-        item = QListWidgetItem(self.list)
+        item = QListWidgetItem()
         item.setData(Qt.ItemDataRole.UserRole, entry.expression)
         item_widget._list_item = item
 
@@ -154,10 +204,12 @@ class History(QWidget):
         item_widget.remove_clicked.connect(lambda i=item: self._remove_item(i))
 
         item.setSizeHint(item_widget.sizeHint())
-        self.list.addItem(item)
+        if index is None:
+            self.list.addItem(item)
+        else:
+            self.list.insertItem(index, item)
         self.list.setItemWidget(item, item_widget)
-
-        item_widget.apply_math_fonts()
+        return item_widget
 
     def _on_current_changed(self, current: QListWidgetItem, previous: QListWidgetItem) -> None:
         if previous is not None:
@@ -221,6 +273,7 @@ class History(QWidget):
 
     def clear_history(self) -> None:
         """Clear history from UI and storage."""
+        self._cancel_pending_load()
         self.list.clear()
         self._history_items.clear()
         self._item_widgets.clear()
@@ -228,12 +281,17 @@ class History(QWidget):
 
     def update_fonts(self, force_layout: bool = False) -> None:
         """Update fonts for all history items."""
+        self._update_widget_fonts(self._item_widgets, force_layout=force_layout)
+
+    def _update_widget_fonts(
+        self, widgets: list["HistoryItem"], force_layout: bool = False
+    ) -> None:
         if self._updating_fonts:
             return
 
         self._updating_fonts = True
         try:
-            for widget in self._item_widgets:
+            for widget in widgets:
                 widget.update_fonts()
                 widget.re_wrap()
                 if force_layout:
@@ -255,7 +313,7 @@ class HistoryItem(QWidget):
         self,
         entry: HistoryEntry,
         mode: RenderMode,
-        renderer: MathRender,
+        painter: MathPainter,
         parrent: History,
     ) -> None:
         super().__init__(parrent)
@@ -268,7 +326,7 @@ class HistoryItem(QWidget):
         self._current_render_mode: RenderMode | None = None
         self._list_item: QListWidgetItem
 
-        self.renderer = renderer
+        self.painter = painter
 
         self._layout = QVBoxLayout(self)
         self.expression_label = QLabel(self)
@@ -296,22 +354,18 @@ class HistoryItem(QWidget):
 
         self.toaster = Toaster(self, horizontal=Align.LEFT, y_offset=-self._btn_size)
 
-        self._expr_slot = ExpressionSlot(
-            kind=InputKind.MAIN, key="historyExpr", align=InputAlign.RIGHTT
-        )
-        self._seg = self._expr_slot.default_input()
-        self._seg.setReadOnly(True)
-        self._seg.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._paint_canvas = PaintCanvas(parent=self)
+        self._paint_canvas.setObjectName("historyPaintWidget")
 
         self._expr_scroll = QScrollArea(self)
         self._expr_scroll.setObjectName("historyExprScroll")
+        self._expr_scroll.setAlignment(InputAlign.RIGHT.value)
+
         self._expr_scroll.setWidgetResizable(True)
-        self._expr_scroll.setWidget(self._expr_slot)
+        self._expr_scroll.setWidget(self._paint_canvas)
         self._expr_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._expr_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._expr_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-
-        self.render_math(self._entry)
         # Result label
         self.result_label = QLabel(entry.result, self)
         self.result_label.setAlignment(InputAlign.RIGHT.value)
@@ -322,31 +376,14 @@ class HistoryItem(QWidget):
 
         self.set_display_mode(mode, defer_layout=True)
 
-    def render_math(self, entry: HistoryEntry) -> None:
-        """Render expression as math widgets (read-only)."""
-        self.setUpdatesEnabled(False)
-        self.renderer.is_rendering = True
-
-        try:
-            if not entry.tokenized.expr_indices:
-                self._seg.setText(entry.expression)
-            else:
-                self.renderer.render_node(self._seg, entry.tokenized)
-        finally:
-            self.renderer.is_rendering = False
-            self.setUpdatesEnabled(True)
-
-    def apply_math_fonts(self) -> None:
-        """Set fixed point size on all math line edits."""
-
+    def _math_paint(self) -> None:
         base_font = int(history_math["base_font"])
-        self.renderer.update_line_fonts(
-            self._expr_slot.line_edits(),
-            self.parrent,
-            base_font,
-            base_font,
-            history_math,
-        )
+        f = QFont(self.parrent.font())
+        f.setPointSize(base_font)
+        self._font = f
+        if self._entry.tokenized is not None:
+            tree = self.painter.paint_tree(self._entry.tokenized, f)
+            self._paint_canvas.set_tree(tree, f)
 
     def set_display_mode(self, mode: RenderMode, defer_layout: bool = False) -> None:
         if mode == self._current_render_mode:
@@ -357,7 +394,7 @@ class HistoryItem(QWidget):
                 self._display_widget = self._expr_scroll
                 self.expression_label.hide()
                 self._expr_scroll.show()
-                self.apply_math_fonts()
+                self._math_paint()
 
                 if not defer_layout and not self.parrent._is_batch_rendering:
                     self.refresh_layout()
@@ -407,7 +444,7 @@ class HistoryItem(QWidget):
         """Recalculate item row height for QListWidget after font/mode changes in disgusting way."""
 
         # TODO: find a better way, delegate and heightForWidth override was worse
-        if self.renderer.is_rendering:
+        if self.painter.is_painting:
             return
 
         margin = int(style["item_margin"])
@@ -416,7 +453,8 @@ class HistoryItem(QWidget):
 
         if self._current_render_mode is RenderMode.MATH:
             scroll_sh = self._expr_scroll.sizeHint().height()
-            slot_h = self._expr_slot.sizeHint().height()
+            inner = self._paint_canvas
+            slot_h = inner.sizeHint().height()
             sb_h = self._expr_scroll.horizontalScrollBar().sizeHint().height()
             expr_h = max(scroll_sh, slot_h + sb_h)
         else:
