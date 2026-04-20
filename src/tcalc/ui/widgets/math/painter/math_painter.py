@@ -14,6 +14,7 @@ from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QFont, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
+from tcalc.ui.widgets.math.math_primitives import PEN_WIDTH
 from tcalc.ui.widgets.math.utils import ExprSplit, ParenSplit, structural_split
 
 from .layout import EXPR_KIND_MAP, FontCache, PaintNode, Row, TextLeaf
@@ -139,12 +140,13 @@ class PaintCanvas(QWidget):
     def minimumSizeHint(self) -> QSize:
         return self._size
 
-    def paintEvent(self, event) -> None:
+    def paintEvent(self, _event) -> None:
         if self._tree is None:
             return
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         pen = QPen(self.palette().windowText().color())
+        pen.setWidthF(PEN_WIDTH)
         painter.setPen(pen)
         painter.setFont(self._font)
         self._tree.paint(painter)

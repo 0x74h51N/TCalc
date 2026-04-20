@@ -21,10 +21,8 @@ from ..math_primitives import (
 )
 
 SCRIPT_SCALE = 0.5
-FRACTION_BAR_H = 2
 FRACTION_PAD_X = 2
 FRACTION_PAD_Y = 2
-ROOT_OVERLINE_H = 2
 ROOT_OVERLINE_PAD = 2
 POW_OVERLAP = 0.4
 PAREN_X_PAD = 6
@@ -100,12 +98,10 @@ class TextLeaf(LayoutBox):
     def paint(self, painter: QPainter) -> None:
         if not self.text or self.font is None:
             return
-        painter.save()
         painter.setFont(self.font)
         rect = QRectF(self.x, self.y, self.w, self.h)
         flags = int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         painter.drawText(rect, flags, self.text)
-        painter.restore()
 
 
 @dataclass
