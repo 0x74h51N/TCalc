@@ -16,6 +16,8 @@ import pytest
 from tests.benchmark.expressions import (
     RENDER_EXPRESSIONS,
     RENDER_THRESHOLDS_MS,
+    make_editor_func,
+    make_painter_func,
     make_render_func,
 )
 
@@ -29,7 +31,35 @@ def test_expression_render_benchmark(qapp, benchmark, name: str):
     run_benchmark(
         benchmark,
         make_render_func(qapp, RENDER_EXPRESSIONS[name]),
-        group="Expression Node Widgets' Render",
+        group="Expression Node Widgets' Read-Only Render",
+        name=name,
+        threshold_ms=RENDER_THRESHOLDS_MS[name],
+        rounds=ROUNDS_RENDER,
+    )
+
+
+@pytest.mark.benchmark
+@pytest.mark.parametrize("name", list(RENDER_EXPRESSIONS))
+def test_expression_paint_benchmark(qapp, benchmark, name: str):
+    """Test that Expression widget rendering stays under threshold."""
+    run_benchmark(
+        benchmark,
+        make_painter_func(qapp, RENDER_EXPRESSIONS[name]),
+        group="Expression Node Widgets' Paint-Only Render",
+        name=name,
+        threshold_ms=RENDER_THRESHOLDS_MS[name],
+        rounds=ROUNDS_RENDER,
+    )
+
+
+@pytest.mark.benchmark
+@pytest.mark.parametrize("name", list(RENDER_EXPRESSIONS))
+def test_expression_editor_render_benchmark(qapp, benchmark, name: str):
+    """Test that Expression widget rendering stays under threshold."""
+    run_benchmark(
+        benchmark,
+        make_editor_func(qapp, RENDER_EXPRESSIONS[name]),
+        group="Expression Node Widgets' Editor Layer - Render",
         name=name,
         threshold_ms=RENDER_THRESHOLDS_MS[name],
         rounds=ROUNDS_RENDER,

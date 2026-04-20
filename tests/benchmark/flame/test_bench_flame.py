@@ -16,10 +16,12 @@ from tests.benchmark.expressions import (
     PAREN_EXPRESSIONS,
     PIPELINE_EXPRESSIONS,
     RENDER_EXPRESSIONS,
+    make_editor_func,
     make_history_init_func,
     make_incremental_edit_func,
     make_multi_edit_func,
     make_normalize_func,
+    make_painter_func,
     make_pipeline_func,
     make_render_func,
     make_shunting_func,
@@ -57,10 +59,30 @@ def test_tokenize_paren_flame(name: str):
 
 @pytest.mark.flamegraph
 @pytest.mark.parametrize("name", list(RENDER_EXPRESSIONS))
+def test_expression_editor_flame(qapp, name: str):
+    run_flamegraph(
+        make_editor_func(qapp, RENDER_EXPRESSIONS[name]),
+        group="Expression Editor",
+        name=name,
+    )
+
+
+@pytest.mark.flamegraph
+@pytest.mark.parametrize("name", list(RENDER_EXPRESSIONS))
 def test_expression_render_flame(qapp, name: str):
     run_flamegraph(
         make_render_func(qapp, RENDER_EXPRESSIONS[name]),
         group="Expression Render",
+        name=name,
+    )
+
+
+@pytest.mark.flamegraph
+@pytest.mark.parametrize("name", list(RENDER_EXPRESSIONS))
+def test_expression_painter_flame(qapp, name: str):
+    run_flamegraph(
+        make_painter_func(qapp, RENDER_EXPRESSIONS[name]),
+        group="Expression Painter",
         name=name,
     )
 
