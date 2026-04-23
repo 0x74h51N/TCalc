@@ -224,7 +224,7 @@ _FAKE_PAREN_TABLE: list[tuple[str, FakeParenType, FakeParenKind]] = [
 class FakeTokenKind:
     Number = "number"
     Op = "op"
-    Expr = "expr"
+    Latex = "latex"
     Paren = "paren"
 
 

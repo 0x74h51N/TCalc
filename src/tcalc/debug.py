@@ -31,8 +31,8 @@ def debug_tokens(tokens: list[calc_native.Token]) -> None:
             val = t.data.value
         elif isinstance(t.data, calc_native.OpToken):
             val = t.symbol
-        elif isinstance(t.data, calc_native.ExprToken):
-            val = f"Expr({t.data.kind.name})"
+        elif isinstance(t.data, calc_native.LatexToken):
+            val = f"Latex({t.data.kind.name})"
         else:
             val = str(t)
         out.append(f"{kind}: {val}")

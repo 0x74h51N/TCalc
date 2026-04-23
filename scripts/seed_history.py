@@ -23,7 +23,7 @@ ITEM_COUNT = 150
 
 def main() -> int:
     exprs = list(PAREN_EXPRESSIONS.values())
-    cache: dict[str, tuple[calc_native.TokenizeResult, str]] = {}
+    cache: dict[str, tuple[calc_native.TokensBranch, str]] = {}
     entries: list[HistoryEntry] = []
     for i in range(ITEM_COUNT):
         expr = exprs[i % len(exprs)]

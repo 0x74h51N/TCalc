@@ -46,16 +46,15 @@ class ParenSplit(Split):
 
 @dataclass
 class ExprSplit(Split):
-    kind: calc_native.ExprKind
-    expr_tok: calc_native.ExprToken
+    kind: calc_native.LatexKind
+    latex_tok: calc_native.LatexToken
 
 
 StructuralSplit = Union[ParenSplit, ExprSplit]
 
 
 def structural_split(
-    tokens: list[calc_native.Token],
-    classified: calc_native.TokenizeResult | None = None,
+    branch: calc_native.TokensBranch,
 ) -> StructuralSplit | None:
     """Find the next structural split point in *tokens*.
 
@@ -63,15 +62,10 @@ def structural_split(
     first expression token, ExprSplit for Frac/Pow/Root/Log, or None when there
     are no expressions left to mount.
     """
-    if not tokens:
-        return None
-    if classified is None:
-        classified = calc_native.classify_tokens(tokens)
-    if not classified.expr_indices:
-        return None
+    tokens = branch.tokens
 
     no_match = calc_native.PAREN_NO_MATCH
-    expr_first = classified.expr_indices[0]
+    expr_first = branch.latex_indices[0]
 
     candidate: int | None = None
 
@@ -79,7 +73,7 @@ def structural_split(
     # is either unmatched or closes after that expr token, wrap the inner
     # tokens and let the caller re-enter structural_split on them.
 
-    for ind in classified.open_paren_indices:
+    for ind in branch.open_paren_indices:
         if ind >= expr_first:
             continue
         pair = tokens[ind].as_paren().pair_idx
@@ -108,26 +102,26 @@ def structural_split(
         )
 
     idx = expr_first
-    expr_tok = tokens[idx].as_expr()
+    latex_tok = tokens[idx].as_latex()
     before = tokens[:idx]
     after = tokens[idx + 1 :]
 
-    if expr_tok.left:
+    if latex_tok.left:
         prefix = before
-        left = list(expr_tok.left)
+        left = list(latex_tok.left)
     else:
         prefix, left = split_operand(before)
 
-    if expr_tok.right:
-        right = list(expr_tok.right)
+    if latex_tok.right:
+        right = list(latex_tok.right)
         suffix = after
     else:
         right, suffix = split_operand(after, lead=True, base_offset=idx + 1)
 
     return ExprSplit(
         idx=idx,
-        kind=expr_tok.kind,
-        expr_tok=expr_tok,
+        kind=latex_tok.kind,
+        latex_tok=latex_tok,
         prefix=prefix,
         left=left,
         right=right,

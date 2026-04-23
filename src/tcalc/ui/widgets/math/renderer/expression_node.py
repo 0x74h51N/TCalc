@@ -55,7 +55,7 @@ class ExpressionNode(QWidget):
         self._bottom_slot: ExpressionSlot | None = None
 
     OP_ID: ClassVar[calc_native.OpId]
-    EXPR_KIND: ClassVar[calc_native.ExprKind]
+    LATEX_KIND: ClassVar[calc_native.LatexKind]
     SYMBOL: ClassVar[str | None] = None
 
     @property
@@ -93,7 +93,7 @@ class ExpressionNode(QWidget):
             return ""
 
         return calc_native.format_expr_str(
-            self.EXPR_KIND,
+            self.LATEX_KIND,
             self._left_slot.to_plain_text(),
             self._right_slot.to_plain_text(),
         )
@@ -272,7 +272,7 @@ class ExpressionSlot(QWidget):
         le.setObjectName(f"{self.EXPR_PREFIX}{key}")
         le.setAlignment(self._align.value)
         le.setProperty("exprInput", True)
-        le.setProperty("exprKind", self._kind.value)
+        le.setProperty("LatexKind", self._kind.value)
         if self._editor is not None:
             self._editor._register_input(le)
             QTimer.singleShot(0, lambda: self.schedule_autowidth(le))

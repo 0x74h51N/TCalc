@@ -288,8 +288,8 @@ inline std::string_view token_kind_name(
         return "Number";
     case tcalc::parser::TokenKind::Op:
         return "Op";
-    case tcalc::parser::TokenKind::Expr:
-        return "Expr";
+    case tcalc::parser::TokenKind::Latex:
+        return "Latex";
     case tcalc::parser::TokenKind::Paren:
         switch (pk) {
         case tcalc::parser::ParenKind::Paren:
@@ -342,9 +342,9 @@ inline void print_value(std::ostream &os, const tcalc::parser::Token &tok) {
                 }
             } else if constexpr (std::is_same_v<T, tcalc::parser::ParenToken>) {
                 os << "type=" << static_cast<int>(t.type) << ", kind=" << static_cast<int>(t.kind);
-            } else if constexpr (std::is_same_v<T, tcalc::parser::ExprToken>) {
-                os << "expr_kind=" << static_cast<int>(t.kind) << ", left.size=" << t.left.size()
-                   << ", right.size=" << t.right.size();
+            } else if constexpr (std::is_same_v<T, tcalc::parser::LatexToken>) {
+                os << "latex_kind=" << static_cast<int>(t.kind) << ", op_id=" << op_id_name(t.op_id)
+                   << ", left.size=" << t.left.size() << ", right.size=" << t.right.size();
             }
         },
         tok.data);
@@ -368,6 +368,26 @@ inline void print_value(std::ostream &os, const std::vector<tcalc::parser::Token
     }
 
     os << "]";
+}
+
+inline void print_value(std::ostream &os, const tcalc::parser::TokensBranch &r) {
+
+    os << "TokensBranch{\n";
+
+    os << "  tokens=\n";
+    print_value(os, r.tokens);
+    os << ",\n";
+
+    os << "  latex_indices=\n";
+    print_value(os, r.latex_indices);
+    os << "\n";
+    os << "  open_paren_indices=\n";
+    print_value(os, r.open_paren_indices);
+    os << "\n";
+    os << "  close_paren_indices=\n";
+    print_value(os, r.close_paren_indices);
+    os << "\n";
+    os << "}";
 }
 
 /// Print a double with full precision.

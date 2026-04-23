@@ -42,10 +42,10 @@ _log = logging.getLogger("tcalc.ui.math")
 
 class MathRender(QWidget):
     rendering = Signal(bool)
-    EXPR_KIND_MAP: dict[calc_native.ExprKind, type[ExpressionNode]] = {
-        FractionWidget.EXPR_KIND: FractionWidget,
-        PowWidget.EXPR_KIND: PowWidget,
-        RootWidget.EXPR_KIND: RootWidget,
+    LATEX_KIND_MAP: dict[calc_native.LatexKind, type[ExpressionNode]] = {
+        FractionWidget.LATEX_KIND: FractionWidget,
+        PowWidget.LATEX_KIND: PowWidget,
+        RootWidget.LATEX_KIND: RootWidget,
     }
 
     PAREN_KIND_MAP: dict[calc_native.ParenKind, type[ParenWidget]] = {
@@ -138,7 +138,7 @@ class MathRender(QWidget):
         self,
         target: QLineEdit | None,
         tokens: list[calc_native.Token],
-        pending: deque[tuple[QLineEdit, calc_native.TokenizeResult]],
+        pending: deque[tuple[QLineEdit, calc_native.TokensBranch]],
     ) -> QLineEdit | None:
 
         if target is None or not tokens:
@@ -146,14 +146,14 @@ class MathRender(QWidget):
 
         classified = calc_native.classify_tokens(tokens)
 
-        if classified.expr_indices:
+        if classified.latex_indices:
             pending.append((target, classified))
         else:
             target.setText(calc_native.tokens_to_text(tokens))
 
         return target
 
-    def render_node(self, seg, tokenized: calc_native.TokenizeResult) -> None:
+    def render_node(self, seg, tokenized: calc_native.TokensBranch) -> None:
         dirty_inputs: set[QLineEdit] = set()
         pending = deque([(seg, tokenized)])
 
@@ -169,7 +169,7 @@ class MathRender(QWidget):
 
                 slot: ExpressionSlot = parent
 
-                split = structural_split(list(tokenized.tokens), tokenized)
+                split = structural_split(tokenized)
                 if split is None:
                     continue
 
@@ -203,7 +203,7 @@ class MathRender(QWidget):
                     right_tokens = split.right
                     suffix_tokens = split.suffix
 
-                    widget_cls = self.EXPR_KIND_MAP.get(split.kind)
+                    widget_cls = self.LATEX_KIND_MAP.get(split.kind)
                     if widget_cls is None:
                         _log.debug("render_node: no widget for kind=%s", split.kind.name)
                         return
@@ -251,13 +251,13 @@ class MathRender(QWidget):
         config: dict | None = None,
     ):
         for le in lines:
-            kind_str = le.property("exprKind")
+            kind_str = le.property("LatexKind")
             scale = float(config.get(f"scale_{kind_str}", 1.0)) if config else 1.0
             # Propagate script kind to children
             parent = le.parent()
             if kind_str == InputKind.SCRIPT.value and isinstance(parent, ExpressionSlot):
                 for le in parent.line_edits():
-                    le.setProperty("exprKind", InputKind.SCRIPT.value)
+                    le.setProperty("LatexKind", InputKind.SCRIPT.value)
 
             min_pt = int(base_font * scale)
             scaled_max = int(max_pt * scale)

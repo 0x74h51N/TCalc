@@ -15,7 +15,7 @@ from tcalc.errors import CalculatorError, ErrorKind, raise_error
 
 from .constants import CONSTANTS
 from .engine import Calculator
-from .ops import OP_BY_ID, LatexExpr
+from .ops import OP_BY_ID
 from .utils import CalcValue, is_number_token, parse_number_token
 
 
@@ -24,7 +24,7 @@ def tokenize_string(expression: str) -> List[calc_native.Token]:
     return calc_native.tokenize_string(expression).tokens
 
 
-def tokenize(expression: str) -> calc_native.TokenizeResult:
+def tokenize(expression: str) -> calc_native.TokensBranch:
     """Tokenize expression and return full result with metadata."""
     return calc_native.tokenize_string(expression)
 
@@ -64,11 +64,11 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
         if tok.kind == calc_native.TokenKind.Paren:
             continue
 
-        if tok.kind == calc_native.TokenKind.Expr:
+        if tok.kind == calc_native.TokenKind.Latex:
             try:
-                expr_tok = tok.as_expr()
-                left_rpn = shunting_yard(expr_tok.left)
-                right_rpn = shunting_yard(expr_tok.right)
+                latex_tok = tok.as_latex()
+                left_rpn = shunting_yard(latex_tok.left)
+                right_rpn = shunting_yard(latex_tok.right)
                 left_val = (
                     evaluate_rpn(left_rpn, calculator) if left_rpn else calc_native.Rational(0)
                 )
@@ -76,11 +76,10 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
                     evaluate_rpn(right_rpn, calculator) if right_rpn else calc_native.Rational(0)
                 )
                 # Root with empty degree defaults to square root
-                if expr_tok.kind == calc_native.ExprKind.Root and not right_rpn:
+                if latex_tok.kind == calc_native.LatexKind.Root and not right_rpn:
                     right_val = calc_native.Rational(2)
 
-                latex_spec = LatexExpr.get(expr_tok.kind)
-                op_spec = OP_BY_ID[latex_spec.opid]
+                op_spec = OP_BY_ID[latex_tok.op_id]
                 func = getattr(calculator, op_spec.method)
                 result = func(left_val, right_val)
 

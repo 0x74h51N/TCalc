@@ -366,7 +366,7 @@ class Expression(QWidget):
         op_id = getattr(op._spec, "id", None)
         self.insert_text(space_binary_ops(op_id, label))
 
-    def insert_expr_str(self, expr_kind: calc_native.ExprKind) -> None:
+    def insert_expr_str(self, LATEX_KIND: calc_native.LatexKind) -> None:
         """Insert ExpressionNode via keystroke."""
         target = self._resolve_target()
         slot = target.parent()
@@ -374,7 +374,7 @@ class Expression(QWidget):
         if not isinstance(slot, ExpressionSlot):
             return
 
-        widget_cls = self.renderer.EXPR_KIND_MAP.get(expr_kind)
+        widget_cls = self.renderer.LATEX_KIND_MAP.get(LATEX_KIND)
         if widget_cls is None:
             return
 
@@ -382,7 +382,7 @@ class Expression(QWidget):
         text = target.text()
         cursor = target.cursorPosition()
         target.setText(
-            text[:cursor] + calc_native.format_expr_str(expr_kind, "", "") + text[cursor:]
+            text[:cursor] + calc_native.format_expr_str(LATEX_KIND, "", "") + text[cursor:]
         )
 
     #
@@ -431,7 +431,7 @@ class Expression(QWidget):
 
             slot: ExpressionSlot = parent
             text = seg.text()
-
+            _log.debug("Editor/Text: ", text)
             if not text:
                 return
 
@@ -439,11 +439,11 @@ class Expression(QWidget):
             tokens = result.tokens
 
             # Close-paren path: match against a pending open ParenWidget
-            if not result.expr_indices and self._pending_parens:
+            if not result.latex_indices and self._pending_parens:
                 if self._try_close_paren(seg, result, slot):
                     return
 
-            if not result.expr_indices:
+            if not result.latex_indices:
                 if self._try_open_paren(seg, result, slot):
                     return
                 if "\\" not in text:
@@ -460,7 +460,7 @@ class Expression(QWidget):
     def _try_open_paren(
         self,
         seg: QLineEdit,
-        result: calc_native.TokenizeResult,
+        result: calc_native.TokensBranch,
         slot: ExpressionSlot,
     ) -> bool:
         """Check if any token is an open paren with right-hand ExpressionNodes.
@@ -504,7 +504,7 @@ class Expression(QWidget):
     def _try_close_paren(
         self,
         seg: QLineEdit,
-        result: calc_native.TokenizeResult,
+        result: calc_native.TokensBranch,
         slot: ExpressionSlot,
     ) -> bool:
         """Check if any token is a close paren that matches a pending open.
