@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Callable
 
 import calc_native
 from PySide6.QtCore import QPointF
-from PySide6.QtGui import QPainter, QPainterPath, QPen
+from PySide6.QtGui import QPainter, QPainterPath
 
 from ..math_primitives import (
     PEN_WIDTH,
@@ -24,13 +24,11 @@ from ..math_primitives import (
 )
 from .layout import (
     EXPR_KIND_MAP,
-    FRACTION_BAR_H,
     FRACTION_PAD_X,
     FRACTION_PAD_Y,
     PAREN_GLYPH_W,
     PAREN_X_PAD,
     POW_OVERLAP,
-    ROOT_OVERLINE_H,
     ROOT_OVERLINE_PAD,
     SCRIPT_SCALE,
     PaintNode,
@@ -41,14 +39,9 @@ if TYPE_CHECKING:
 
 
 def _stroke_path(painter: QPainter, path: QPainterPath, x: float, y: float) -> None:
-    painter.save()
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    pen = QPen(painter.pen().color())
-    pen.setWidthF(PEN_WIDTH)
-    painter.setPen(pen)
     painter.translate(x, y)
     painter.drawPath(path)
-    painter.restore()
+    painter.translate(-x, -y)
 
 
 class FractionPaint(PaintNode):
@@ -61,8 +54,8 @@ class FractionPaint(PaintNode):
         self.right.measure(fm_cache, scale)
         inner_w = max(self.left.w, self.right.w) + FRACTION_PAD_X * 2
         self.w = inner_w
-        self.h = self.left.h + FRACTION_BAR_H + FRACTION_PAD_Y * 2 + self.right.h
-        self.above = self.left.h + FRACTION_PAD_Y + FRACTION_BAR_H / 2.0
+        self.h = self.left.h + PEN_WIDTH + FRACTION_PAD_Y * 2 + self.right.h
+        self.above = self.left.h + FRACTION_PAD_Y + PEN_WIDTH / 2.0
         self.below = self.h - self.above
 
     def place(self, x: float, y: float) -> None:
@@ -71,17 +64,12 @@ class FractionPaint(PaintNode):
         self.left.place(tx, y + FRACTION_PAD_Y)
         if self.right is not None:
             bx = x + (self.w - self.right.w) / 2.0
-            self.right.place(bx, y + self.left.h + FRACTION_BAR_H + FRACTION_PAD_Y)
+            self.right.place(bx, y + self.left.h + PEN_WIDTH + FRACTION_PAD_Y)
 
     def paint(self, painter: QPainter) -> None:
         super().paint(painter)
-        bar_y = self.y + self.left.h + FRACTION_PAD_Y + FRACTION_BAR_H / 2.0
-        pen = QPen(painter.pen().color())
-        pen.setWidthF(FRACTION_BAR_H)
-        painter.save()
-        painter.setPen(pen)
+        bar_y = self.y + self.left.h + FRACTION_PAD_Y + PEN_WIDTH / 2.0
         painter.drawLine(QPointF(self.x, bar_y), QPointF(self.x + self.w, bar_y))
-        painter.restore()
 
 
 class PowPaint(PaintNode):
@@ -119,7 +107,7 @@ class RootPaint(PaintNode):
         if self.right is not None:
             self.right.measure(fm_cache, scale * SCRIPT_SCALE)
 
-        radicand_h = self.left.h + ROOT_OVERLINE_H + ROOT_OVERLINE_PAD
+        radicand_h = self.left.h + PEN_WIDTH + ROOT_OVERLINE_PAD
         self.glyph_w = self.GLYPH_W
 
         index_w = self.right.w if self.right is not None else 0.0
@@ -132,15 +120,15 @@ class RootPaint(PaintNode):
             index_bump = max(0.0, degree_above_radicand_top)
 
         self.h = radicand_h + index_bump
-        self.above = index_bump + ROOT_OVERLINE_H + ROOT_OVERLINE_PAD + self.left.above
+        self.above = index_bump + PEN_WIDTH + ROOT_OVERLINE_PAD + self.left.above
         self.below = self.h - self.above
 
     def place(self, x: float, y: float) -> None:
         super().place(x, y)
         idx_w = 0.0
-        radicand_top = y + self.above - self.left.above - ROOT_OVERLINE_PAD - ROOT_OVERLINE_H
-        radicand_h = self.left.h + ROOT_OVERLINE_H + ROOT_OVERLINE_PAD
-        radicand_y = radicand_top + ROOT_OVERLINE_H + ROOT_OVERLINE_PAD
+        radicand_top = y + self.above - self.left.above - ROOT_OVERLINE_PAD - PEN_WIDTH
+        radicand_h = self.left.h + PEN_WIDTH + ROOT_OVERLINE_PAD
+        radicand_y = radicand_top + PEN_WIDTH + ROOT_OVERLINE_PAD
         if self.right is not None:
             glyph_left_y = radicand_top + radicand_h * SQRT_LEFT_RATIO
             degree_y = glyph_left_y - self.right.h
@@ -148,23 +136,16 @@ class RootPaint(PaintNode):
             idx_w = self.right.w
         self.left.place(x + idx_w + self.glyph_w, radicand_y)
 
-    def paint(self, painter: QPainter) -> None:
+    def paint(self, painter):
         super().paint(painter)
-        radicand_top = self.left.y - ROOT_OVERLINE_PAD - ROOT_OVERLINE_H
-        radicand_h = self.left.h + ROOT_OVERLINE_H + ROOT_OVERLINE_PAD
+        radicand_top = self.left.y - ROOT_OVERLINE_PAD - PEN_WIDTH
+        radicand_h = self.left.h + PEN_WIDTH + ROOT_OVERLINE_PAD
         glyph_x = self.left.x - self.glyph_w
         _stroke_path(painter, sqrt_path(self.glyph_w, radicand_h), glyph_x, radicand_top)
-
-        overline_y = radicand_top
-        pen = QPen(painter.pen().color())
-        pen.setWidthF(ROOT_OVERLINE_H)
-        painter.save()
-        painter.setPen(pen)
         painter.drawLine(
-            QPointF(self.left.x + ROOT_OVERLINE_PAD // 2, overline_y),
-            QPointF(self.left.x + self.left.w, overline_y),
+            QPointF(self.left.x + ROOT_OVERLINE_PAD // 2, radicand_top),
+            QPointF(self.left.x + self.left.w, radicand_top),
         )
-        painter.restore()
 
 
 _PAREN_PATH: dict[calc_native.ParenKind, Callable[[float, float, bool], QPainterPath]] = {
@@ -179,7 +160,7 @@ class ParenPaint(PaintNode):
         self,
         left: Row,
         right: Row | None = None,
-        kind: calc_native.ParenKind | None = None,
+        kind: calc_native.ParenKind = calc_native.ParenKind.Paren,
         open_visible: bool = True,
         close_visible: bool = True,
     ) -> None:
@@ -189,10 +170,9 @@ class ParenPaint(PaintNode):
         self.close_visible = close_visible
 
     def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
-        if self.kind is None:
-            return
         self.left.measure(fm_cache, scale)
         gw = PAREN_GLYPH_W.get(self.kind, 0.0)
+
         self.glyph_w = gw
         lw = (gw + PAREN_X_PAD) if self.open_visible else 0.0
         rw = (gw + PAREN_X_PAD) if self.close_visible else 0.0
@@ -208,16 +188,17 @@ class ParenPaint(PaintNode):
 
     def paint(self, painter: QPainter) -> None:
         self.left.paint(painter)
-        if self.kind is None:
-            return
-        builder = _PAREN_PATH.get(self.kind)
-        if builder is None:
-            return
+
+        builder = _PAREN_PATH[self.kind]
+        path = builder(self.glyph_w, self.h, True)
         if self.open_visible:
-            _stroke_path(painter, builder(self.glyph_w, self.h, True), self.x, self.y)
+            _stroke_path(painter, path, self.x, self.y)
         if self.close_visible:
-            right_x = self.x + self.w - self.glyph_w
-            _stroke_path(painter, builder(self.glyph_w, self.h, False), right_x, self.y)
+            painter.save()
+            painter.translate(self.x + self.w, self.y)
+            painter.scale(-1, 1)
+            painter.drawPath(path)
+            painter.restore()
 
 
 EXPR_KIND_MAP.update(

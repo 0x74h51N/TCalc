@@ -12,12 +12,17 @@ from __future__ import annotations
 import calc_native
 import shiboken6
 from PySide6.QtCore import QEventLoop
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from tcalc.app_state import CalculatorMode, RenderMode, get_app_state
 from tcalc.core.engine import Calculator
-from tcalc.core.parser import evaluate_tokens, tokenize_string
+from tcalc.core.parser import evaluate_tokens, tokenize, tokenize_string
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
 from tcalc.ui.widgets.history.history import History
+from tcalc.ui.widgets.math.painter.math_painter import MathPainter, PaintCanvas
+from tcalc.ui.widgets.math.renderer.expression_node import ExpressionSlot, InputKind
+from tcalc.ui.widgets.math.renderer.math_render import MathRender
+from tcalc.ui.widgets.utils import InputAlign
 
 _DRAIN_MAX_MS = 1000
 
@@ -217,7 +222,7 @@ def make_shunting_func(expr: str):
     return lambda: calc_native.shunting_yard(tokens)
 
 
-def make_render_func(qapp, expr: str):
+def make_editor_func(qapp, expr: str):
     def render():
         widget = Expression()
         widget.set_plain_text(expr)
@@ -225,6 +230,49 @@ def make_render_func(qapp, expr: str):
         drain_events(qapp)
         widget.close()
         widget.deleteLater()
+
+    return render
+
+
+def make_painter_func(qapp, expr: str):
+    tokenized = tokenize(expr)
+    mp = MathPainter()
+
+    def paint():
+        canvas = PaintCanvas()
+        font = canvas.font()
+        tree = mp.paint_tree(tokenized, font)
+        canvas.set_tree(tree, font)
+        canvas.show()
+        drain_events(qapp)
+        canvas.close()
+        canvas.deleteLater()
+
+    return paint
+
+
+def make_render_func(qapp, expr: str):
+    tokenized = tokenize(expr)
+
+    def render():
+        host = QWidget()
+        layout = QVBoxLayout(host)
+        layout.setContentsMargins(0, 0, 0, 0)
+        slot = ExpressionSlot(
+            kind=InputKind.MAIN,
+            key=InputKind.MAIN.value,
+            align=InputAlign.RIGHTT,
+        )
+        layout.addWidget(slot)
+        seg = slot.default_input()
+
+        renderer = MathRender(read_only=True)
+        renderer.render_node(seg, tokenized)
+
+        host.show()
+        drain_events(qapp)
+        host.close()
+        host.deleteLater()
 
     return render
 
