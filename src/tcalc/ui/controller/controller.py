@@ -52,7 +52,7 @@ class CalculatorController:
         self._expression = self._display.editor.get_plain_text()
 
         self.tokens: List[calc_native.Token] = []
-        self._tokenized: calc_native.TokenizeResult
+        self._tokenized: calc_native.TokensBranch
         self._result: CalcValue | None = None
         self._just_solved = False
         self._error_text: Optional[str] = None
@@ -183,13 +183,13 @@ class CalculatorController:
                 Operation.HYP: lambda _: self._toggle_hyp(),
                 Operation.IMAG: lambda _: self._handle_digit(Operation.IMAG.symbol),
                 Operation.DIV: lambda _: self._display.editor.insert_expr_str(
-                    calc_native.ExprKind.Frac
+                    calc_native.LatexKind.Frac
                 ),
                 Operation.POW: lambda _: self._display.editor.insert_expr_str(
-                    calc_native.ExprKind.Pow
+                    calc_native.LatexKind.Pow
                 ),
                 Operation.ROOT: lambda _: self._display.editor.insert_expr_str(
-                    calc_native.ExprKind.Root
+                    calc_native.LatexKind.Root
                 ),
             }
         )
@@ -223,7 +223,7 @@ class CalculatorController:
     def _can_compute_preview(self, tokens: List[calc_native.Token]) -> bool:
         if not tokens:
             return False
-        if len(tokens) == 1 and tokens[0].kind != calc_native.TokenKind.Expr:
+        if len(tokens) == 1 and tokens[0].kind != calc_native.TokenKind.Latex:
             return is_number_token(tokens[0])
 
         return True

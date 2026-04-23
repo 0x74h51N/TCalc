@@ -17,10 +17,10 @@ from PySide6.QtWidgets import QWidget
 from tcalc.ui.widgets.math.math_primitives import PEN_WIDTH
 from tcalc.ui.widgets.math.utils import ExprSplit, ParenSplit, structural_split
 
-from .layout import EXPR_KIND_MAP, FontCache, PaintNode, Row, TextLeaf
+from .layout import LATEX_KIND_MAP, FontCache, PaintNode, Row, TextLeaf
 from .widgets import ParenPaint
 
-PendingQueue = deque[tuple[Row, calc_native.TokenizeResult]]
+PendingQueue = deque[tuple[Row, calc_native.TokensBranch]]
 
 
 class MathPainter:
@@ -28,11 +28,11 @@ class MathPainter:
         self._fm_cache = FontCache()
         self.is_painting: bool = False
 
-    def paint_tree(self, tokenized: calc_native.TokenizeResult, font: QFont) -> Row:
+    def paint_tree(self, tokenized: calc_native.TokensBranch, font: QFont) -> Row:
         root: Row = Row()
         pending: PendingQueue = deque()
 
-        if tokenized.expr_indices:
+        if tokenized.latex_indices:
             pending.append((root, tokenized))
         else:
             root.children.append(
@@ -43,7 +43,7 @@ class MathPainter:
             row, tok_result = pending.popleft()
             tokens = list(tok_result.tokens)
 
-            split = structural_split(tokens, tok_result)
+            split = structural_split(tok_result)
             if split is None:
                 row.children.append(TextLeaf(text=calc_native.tokens_to_text(tokens), font=font))
                 continue
@@ -65,7 +65,7 @@ class MathPainter:
                 self._paint_node(row, node, split.left, None, font, pending)
             else:
                 assert isinstance(split, ExprSplit)
-                node_cls = EXPR_KIND_MAP.get(split.kind)
+                node_cls = LATEX_KIND_MAP.get(split.kind)
                 if node_cls is None:
                     row.children.append(
                         TextLeaf(text=calc_native.tokens_to_text(tokens), font=font)
@@ -93,7 +93,7 @@ class MathPainter:
         if not tokens:
             return
         classified = calc_native.classify_tokens(tokens)
-        if classified.expr_indices:
+        if classified.latex_indices:
             pending.append((row, classified))
         else:
             row.children.append(TextLeaf(text=calc_native.tokens_to_text(tokens), font=font))

@@ -18,29 +18,29 @@ namespace py = pybind11;
 namespace p = tcalc::parser;
 
 void bind_parser(py::module_ &m) {
-    using p::ExprKind;
-    using p::ExprToken;
+    using p::LatexKind;
+    using p::LatexToken;
     using p::NumberToken;
     using p::OpToken;
     using p::ParenKind;
     using p::ParenToken;
     using p::ParenType;
     using p::Token;
-    using p::TokenizeResult;
     using p::TokenKind;
+    using p::TokensBranch;
     using tcalc::ops::OpId;
 
     py::enum_<TokenKind>(m, "TokenKind", "Token categories produced by the native tokenizer.")
         .value("Number", TokenKind::Number)
         .value("Op", TokenKind::Op)
         .value("Paren", TokenKind::Paren)
-        .value("Expr", TokenKind::Expr);
+        .value("Latex", TokenKind::Latex);
 
-    py::enum_<ExprKind>(m, "ExprKind", "Expression kinds for compound Expr tokens.")
-        .value("Frac", ExprKind::Frac)
-        .value("Pow", ExprKind::Pow)
-        .value("Root", ExprKind::Root)
-        .value("Log", ExprKind::Log);
+    py::enum_<LatexKind>(m, "LatexKind", "Expression kinds for compound Latex tokens.")
+        .value("Frac", LatexKind::Frac)
+        .value("Pow", LatexKind::Pow)
+        .value("Root", LatexKind::Root)
+        .value("Log", LatexKind::Log);
 
     py::enum_<ParenType>(m, "ParenType")
         .value("Open", ParenType::Open)
@@ -97,7 +97,7 @@ void bind_parser(py::module_ &m) {
         .value("Lcm", OpId::Lcm);
 
     py::class_<tcalc::parser::LatexEntry>(
-        m, "LatexEntry", "LaTeX expression mapping: symbol -> ExprKind.")
+        m, "LatexEntry", "LaTeX expression mapping: symbol -> LatexKind.")
         .def_property_readonly(
             "symbol", [](const tcalc::parser::LatexEntry &e) { return std::string(e.symbol); })
         .def_readonly("kind", &tcalc::parser::LatexEntry::kind)
@@ -141,6 +141,12 @@ void bind_parser(py::module_ &m) {
 
     // ParenToken
     py::class_<ParenToken>(m, "ParenToken")
+        .def(
+            py::init([](ParenType type, ParenKind kind) {
+                return ParenToken{type, kind, tcalc::parser::kNoMatch};
+            }),
+            py::arg("type"),
+            py::arg("kind"))
         .def_readonly("type", &ParenToken::type)
         .def_readonly("kind", &ParenToken::kind)
         .def_readonly("pair_idx", &ParenToken::pair_idx)
@@ -159,8 +165,8 @@ void bind_parser(py::module_ &m) {
                         t[0].cast<ParenType>(), t[1].cast<ParenKind>(), t[2].cast<std::size_t>()};
                 }));
 
-    // ExprToken — forward-declare, pickle added after Token
-    py::class_<ExprToken> ExprToken_(m, "ExprToken");
+    // LatexToken — forward-declare, pickle added after Token
+    py::class_<LatexToken> LatexToken_(m, "LatexToken");
 
     auto Token_ = py::class_<Token>(m, "Token")
                       .def_readonly("kind", &Token::kind)
@@ -183,7 +189,7 @@ void bind_parser(py::module_ &m) {
 
         .def("as_paren", &token_as<ParenToken>, py::return_value_policy::reference_internal)
 
-        .def("as_expr", &token_as<ExprToken>, py::return_value_policy::reference_internal)
+        .def("as_latex", &token_as<LatexToken>, py::return_value_policy::reference_internal)
 
         .def_property_readonly(
             "symbol",
@@ -218,50 +224,52 @@ void bind_parser(py::module_ &m) {
                     case TokenKind::Paren:
                         tok.data = t[1].cast<ParenToken>();
                         break;
-                    case TokenKind::Expr:
-                        tok.data = t[1].cast<ExprToken>();
+                    case TokenKind::Latex:
+                        tok.data = t[1].cast<LatexToken>();
                         break;
                     }
                     return tok;
                 }));
 
-    // ExprToken — properties + pickle (after Token so recursive list[Token] resolves)
-    ExprToken_.def_readonly("kind", &ExprToken::kind);
-    def_readonly_ref(ExprToken_, "left", &ExprToken::left);
-    def_readonly_ref(ExprToken_, "right", &ExprToken::right);
-    ExprToken_.def(
-        py::pickle(
-            [](const ExprToken &t) { return py::make_tuple(t.kind, t.left, t.right); },
-            [](const py::tuple &t) {
-                if (t.size() != 3)
-                    throw std::runtime_error("Invalid ExprToken state");
-                return ExprToken{
-                    t[0].cast<ExprKind>(),
-                    t[1].cast<std::vector<Token>>(),
-                    t[2].cast<std::vector<Token>>()};
-            }));
-
-    py::class_<TokenizeResult>(m, "TokenizeResult", "Result of tokenization with metadata.")
-        .def_readonly("tokens", &TokenizeResult::tokens)
-        .def_readonly("expr_indices", &TokenizeResult::expr_indices)
-        .def_readonly("open_paren_indices", &TokenizeResult::open_paren_indices)
-        .def_readonly("close_paren_indices", &TokenizeResult::close_paren_indices)
+    py::class_<TokensBranch>(m, "TokensBranch", "Result of tokenization with metadata.")
+        .def_readonly("tokens", &TokensBranch::tokens)
+        .def_readonly("latex_indices", &TokensBranch::latex_indices)
+        .def_readonly("open_paren_indices", &TokensBranch::open_paren_indices)
+        .def_readonly("close_paren_indices", &TokensBranch::close_paren_indices)
         .def(
             py::pickle(
-                [](const TokenizeResult &r) {
+                [](const TokensBranch &r) {
                     return py::make_tuple(
-                        r.tokens, r.expr_indices, r.open_paren_indices, r.close_paren_indices);
+                        r.tokens, r.latex_indices, r.open_paren_indices, r.close_paren_indices);
                 },
                 [](const py::tuple &t) {
                     if (t.size() != 4)
-                        throw std::runtime_error("Invalid TokenizeResult state");
-                    TokenizeResult r;
+                        throw std::runtime_error("Invalid TokensBranch state");
+                    TokensBranch r;
                     r.tokens = t[0].cast<std::vector<Token>>();
-                    r.expr_indices = t[1].cast<std::vector<std::size_t>>();
+                    r.latex_indices = t[1].cast<std::vector<std::size_t>>();
                     r.open_paren_indices = t[2].cast<std::vector<std::size_t>>();
                     r.close_paren_indices = t[3].cast<std::vector<std::size_t>>();
                     return r;
                 }));
+
+    // LatexToken — properties + pickle (after TokensBranch so left/right resolve)
+    LatexToken_.def_readonly("kind", &LatexToken::kind);
+    LatexToken_.def_readonly("op_id", &LatexToken::op_id);
+    def_readonly_ref(LatexToken_, "left", &LatexToken::left);
+    def_readonly_ref(LatexToken_, "right", &LatexToken::right);
+    LatexToken_.def(
+        py::pickle(
+            [](const LatexToken &t) { return py::make_tuple(t.kind, t.op_id, t.left, t.right); },
+            [](const py::tuple &t) {
+                if (t.size() != 4)
+                    throw std::runtime_error("Invalid LatexToken state");
+                return LatexToken{
+                    t[0].cast<LatexKind>(),
+                    t[1].cast<OpId>(),
+                    t[2].cast<std::vector<Token>>(),
+                    t[3].cast<std::vector<Token>>()};
+            }));
 
     py::enum_<tcalc::ops::Assoc>(m, "OpAssoc", "Operator associativity.")
         .value("Left", tcalc::ops::Assoc::Left)
@@ -336,13 +344,8 @@ void bind_parser(py::module_ &m) {
     m.attr("PAREN_NO_MATCH") = tcalc::parser::kNoMatch;
 
     m.def("tokenize_string", &tcalc::parser::tokenize, py::arg("expression"));
+    m.def("classify_tokens", &tcalc::parser::classify_tokens, py::arg("tokens"));
     m.def("shunting_yard", &tcalc::parser::shunting_yard, py::arg("tokens"));
-    m.def(
-        "classify_tokens",
-        &tcalc::parser::classify_tokens,
-        py::arg("tokens"),
-        "Classify a token list into a TokenizeResult with expr/paren indices. "
-        "Recomputes local paren pairs without re-tokenizing the source text.");
 
     // format_expr_str / token_text / tokens_to_text / space_binary_op
 

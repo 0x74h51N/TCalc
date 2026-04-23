@@ -137,7 +137,7 @@ class PaintNode(LayoutBox):
     right: Row | None = None
     glyph_w: float = 0.0
 
-    EXPR_KIND: ClassVar[calc_native.ExprKind]
+    LATEX_KIND: ClassVar[calc_native.LatexKind]
 
     def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
         pass
@@ -151,4 +151,4 @@ class PaintNode(LayoutBox):
             self.right.paint(painter)
 
 
-EXPR_KIND_MAP: dict[calc_native.ExprKind, type[PaintNode]] = {}
+LATEX_KIND_MAP: dict[calc_native.LatexKind, type[PaintNode]] = {}

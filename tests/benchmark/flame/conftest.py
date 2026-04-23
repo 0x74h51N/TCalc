@@ -19,12 +19,12 @@ def run_flamegraph(
     func: Callable,
     group: str,
     name: str,
-    interval: float = 0.0005,
+    interval: float = 0.0001,
 ):
     """Profile *func* with pyinstrument and write an HTML flamegraph."""
     from pyinstrument import Profiler
 
-    profiler = Profiler(interval=interval, async_mode="disabled")
+    profiler = Profiler(interval=interval, async_mode="disabled", use_timing_thread=True)
     for _ in range(WARMUP_ROUNDS):
         try:
             func()

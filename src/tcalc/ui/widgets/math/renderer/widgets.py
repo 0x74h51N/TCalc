@@ -39,7 +39,7 @@ class FractionWidget(ExpressionNode):
     """UI node for a fraction with numerator and denominator slots."""
 
     OP_ID = calc_native.OpId.Div
-    EXPR_KIND = calc_native.ExprKind.Frac
+    LATEX_KIND = calc_native.LatexKind.Frac
     SYMBOL = LatexExpr.Frac.symbol
 
     def __init__(
@@ -87,7 +87,7 @@ class PowWidget(ExpressionNode):
     """UI node for power/exponent with base and exponent slots."""
 
     OP_ID = calc_native.OpId.Pow
-    EXPR_KIND = calc_native.ExprKind.Pow
+    LATEX_KIND = calc_native.LatexKind.Pow
     SYMBOL = LatexExpr.Pow.symbol
 
     def __init__(
@@ -138,7 +138,7 @@ class RootWidget(ExpressionNode):
     """UI node for root with radicand and degree slots."""
 
     OP_ID = calc_native.OpId.Root
-    EXPR_KIND = calc_native.ExprKind.Root
+    LATEX_KIND = calc_native.LatexKind.Root
     SYMBOL = LatexExpr.Root.symbol
 
     BORDER_WIDTH = 2
