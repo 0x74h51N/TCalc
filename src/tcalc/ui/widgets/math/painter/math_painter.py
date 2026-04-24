@@ -7,20 +7,15 @@
 
 from __future__ import annotations
 
-from collections import deque
-
 import calc_native
 from PySide6.QtCore import QSize, Qt
 from PySide6.QtGui import QFont, QPainter, QPen
 from PySide6.QtWidgets import QWidget
 
 from tcalc.ui.widgets.math.math_primitives import PEN_WIDTH
-from tcalc.ui.widgets.math.utils import ExprSplit, ParenSplit, structural_split
 
 from .layout import LATEX_KIND_MAP, FontCache, PaintNode, Row, TextLeaf
 from .widgets import ParenPaint
-
-PendingQueue = deque[tuple[Row, calc_native.TokensBranch]]
 
 
 class MathPainter:
@@ -30,88 +25,42 @@ class MathPainter:
 
     def paint_tree(self, tokenized: calc_native.TokensBranch, font: QFont) -> Row:
         root: Row = Row()
-        pending: PendingQueue = deque()
-
-        if tokenized.latex_indices:
-            pending.append((root, tokenized))
-        else:
-            root.children.append(
-                TextLeaf(text=calc_native.tokens_to_text(list(tokenized.tokens)), font=font)
-            )
-
-        while pending:
-            row, tok_result = pending.popleft()
-            tokens = list(tok_result.tokens)
-
-            split = structural_split(tok_result)
-            if split is None:
-                row.children.append(TextLeaf(text=calc_native.tokens_to_text(tokens), font=font))
-                continue
-
-            if split.prefix:
-                row.children.append(
-                    TextLeaf(text=calc_native.tokens_to_text(split.prefix), font=font)
-                )
-
-            node: PaintNode
-            if isinstance(split, ParenSplit):
-                inner_row = Row()
-                node = ParenPaint(
-                    left=inner_row,
-                    kind=split.open_tok.kind,
-                    open_visible=True,
-                    close_visible=split.has_close,
-                )
-                self._paint_node(row, node, split.left, None, font, pending)
-            else:
-                assert isinstance(split, ExprSplit)
-                node_cls = LATEX_KIND_MAP.get(split.kind)
-                if node_cls is None:
-                    row.children.append(
-                        TextLeaf(text=calc_native.tokens_to_text(tokens), font=font)
-                    )
-                    continue
-                left_row = Row()
-                right_row = Row() if split.right else None
-                node = node_cls(left=left_row, right=right_row)
-                self._paint_node(row, node, split.left, split.right, font, pending)
-
-            if split.suffix:
-                self._enqueue(row, split.suffix, font, pending)
-
+        self._emit(root, calc_native.build_math_nodes(tokenized), font)
         root.measure(self._fm_cache)
         root.place(0.0, 0.0)
         return root
 
-    def _enqueue(
-        self,
-        row: Row,
-        tokens: list[calc_native.Token],
-        font: QFont,
-        pending: PendingQueue,
-    ) -> None:
-        if not tokens:
-            return
-        classified = calc_native.classify_tokens(tokens)
-        if classified.latex_indices:
-            pending.append((row, classified))
-        else:
-            row.children.append(TextLeaf(text=calc_native.tokens_to_text(tokens), font=font))
-
-    def _paint_node(
-        self,
-        row: Row,
-        node: PaintNode,
-        left_tokens: list[calc_native.Token],
-        right_tokens: list[calc_native.Token] | None,
-        font: QFont,
-        pending: PendingQueue,
-    ) -> None:
-        row.children.append(node)
-        if node.left is not None:
-            self._enqueue(node.left, left_tokens, font, pending)
-        if node.right is not None and right_tokens:
-            self._enqueue(node.right, right_tokens, font, pending)
+    def _emit(self, row: Row, nodes: list[calc_native.MathNode], font: QFont) -> None:
+        for node in nodes:
+            kind = node.kind
+            if kind == calc_native.MathNodeKind.Text:
+                row.children.append(TextLeaf(text=node.as_text().text, font=font))
+                continue
+            if kind == calc_native.MathNodeKind.Paren:
+                paren = node.as_paren()
+                inner = Row()
+                self._emit(inner, paren.children, font)
+                row.children.append(
+                    ParenPaint(
+                        left=inner,
+                        kind=paren.kind,
+                        open_visible=True,
+                        close_visible=paren.has_close,
+                    )
+                )
+                continue
+            latex = node.as_latex()
+            node_cls = LATEX_KIND_MAP.get(latex.kind)
+            if node_cls is None:
+                continue
+            left_row = Row()
+            self._emit(left_row, latex.left, font)
+            right_row: Row | None = None
+            if latex.right:
+                right_row = Row()
+                self._emit(right_row, latex.right, font)
+            paint_node: PaintNode = node_cls(left=left_row, right=right_row)
+            row.children.append(paint_node)
 
 
 CANVAS_PAD = 4

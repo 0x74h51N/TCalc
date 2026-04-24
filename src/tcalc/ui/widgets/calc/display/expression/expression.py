@@ -431,7 +431,7 @@ class Expression(QWidget):
 
             slot: ExpressionSlot = parent
             text = seg.text()
-            _log.debug("Editor/Text: ", text)
+            _log.debug("Editor/Text: %s", text)
             if not text:
                 return
 

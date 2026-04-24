@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import logging
-from collections import deque
 from typing import TYPE_CHECKING
 
 import calc_native
@@ -21,7 +20,7 @@ from shiboken6 import isValid
 
 from tcalc.ui.widgets.utils import apply_scaled_fonts
 
-from ..utils import ExprSplit, ParenSplit, structural_split, update_autowidth
+from ..utils import update_autowidth
 from .expression_node import ExpressionNode, ExpressionSlot, InputKind
 from .widgets import (
     BraceWidget,
@@ -134,105 +133,104 @@ class MathRender(QWidget):
             seg.setText(new_text)
             seg.setCursorPosition(min(new_cursor, len(new_text)))
 
-    def _queue(
+    def _build_paren(self, node: calc_native.ParenNode) -> ExpressionNode:
+        paren_cls = self.PAREN_KIND_MAP[node.kind]
+
+        open_tok = calc_native.ParenToken(calc_native.ParenType.Open, node.kind)
+        close_tok = (
+            calc_native.ParenToken(calc_native.ParenType.Close, node.kind)
+            if node.has_close
+            else None
+        )
+        widget = paren_cls(open_tok, close_tok)
+        if not node.has_close:
+            self._pending_parens.setdefault(node.kind, []).append(widget)
+        return widget
+
+    def _build_latex(self, node: calc_native.LatexNode) -> ExpressionNode:
+        widget_cls = self.LATEX_KIND_MAP[node.kind]
+        return widget_cls()
+
+    def _render_row(
         self,
-        target: QLineEdit | None,
-        tokens: list[calc_native.Token],
-        pending: deque[tuple[QLineEdit, calc_native.TokensBranch]],
-    ) -> QLineEdit | None:
+        seg: QLineEdit,
+        nodes: list[calc_native.MathNode],
+        dirty_inputs: set[QLineEdit],
+        focus_queue: list[ExpressionNode],
+    ) -> None:
+        if not isValid(seg):
+            return
+        slot = seg.parent()
+        if not isinstance(slot, ExpressionSlot):
+            return
 
-        if target is None or not tokens:
-            return None
+        cur_seg: QLineEdit = seg
+        cur_seg.setText("")
+        dirty_inputs.add(cur_seg)
 
-        classified = calc_native.classify_tokens(tokens)
+        for node in nodes:
+            kind = node.kind
+            if kind == calc_native.MathNodeKind.Text:
+                cur_seg.setText(node.as_text().text)
+                cur_seg.setObjectName("prefix")
 
-        if classified.latex_indices:
-            pending.append((target, classified))
-        else:
-            target.setText(calc_native.tokens_to_text(tokens))
+                dirty_inputs.add(cur_seg)
+                continue
 
-        return target
+            widget: ExpressionNode
+            rows: list[list[calc_native.MathNode]]
+            if kind == calc_native.MathNodeKind.Paren:
+                paren = node.as_paren()
+                widget = self._build_paren(paren)
+                tail_needed = paren.has_close
+                rows = [paren.children]
+            else:
+                latex = node.as_latex()
+                widget = self._build_latex(latex)
+                tail_needed = True
+                rows = [latex.left, latex.right]
+
+            if not self._read_only:
+                widget.editor = self.editor
+
+            idx = slot.index_of(cur_seg)
+            if idx < 0:
+                return
+
+            slot.insert_widget(idx + 1, widget)
+
+            suffix_seg: QLineEdit | None = None
+            if tail_needed:
+                suffix_seg = slot.insert_input(idx + 2)
+                suffix_seg.setObjectName("suffix")
+                dirty_inputs.add(suffix_seg)
+
+            dirty_inputs.update(widget.line_edits())
+            focus_queue.append(widget)
+
+            slots = (widget._left_slot, widget._right_slot)
+            for child_slot, child_nodes in zip(slots, rows):
+                if child_slot is not None and child_nodes:
+                    self._render_row(
+                        child_slot.default_input(), child_nodes, dirty_inputs, focus_queue
+                    )
+
+            if suffix_seg is None:
+                return
+            cur_seg = suffix_seg
 
     def render_node(self, seg, tokenized: calc_native.TokensBranch) -> None:
+        from tcalc.debug import debug_math_nodes
+
         dirty_inputs: set[QLineEdit] = set()
-        pending = deque([(seg, tokenized)])
-
+        focus_queue: list[ExpressionNode] = []
         try:
-            while pending:
-                seg, tokenized = pending.popleft()
-                if not isValid(seg):
-                    continue
-                parent = seg.parent()
-
-                if not isinstance(parent, ExpressionSlot):
-                    continue
-
-                slot: ExpressionSlot = parent
-
-                split = structural_split(tokenized)
-                if split is None:
-                    continue
-
-                left_tokens: list[calc_native.Token] = []
-                right_tokens: list[calc_native.Token] = []
-                node: ExpressionNode
-
-                if isinstance(split, ParenSplit):
-                    paren_cls = self.PAREN_KIND_MAP.get(split.open_tok.kind)
-                    if paren_cls is None:
-                        _log.debug("render_node: no widget for paren kind=%s", split.open_tok.kind)
-                        return
-
-                    prefix_tokens = split.prefix
-                    left_tokens = split.left
-                    suffix_tokens = split.suffix
-
-                    paren_node = paren_cls(split.open_tok, split.close_tok)
-                    node = paren_node
-                    suffix = split.has_close
-
-                    if not split.has_close:
-                        self._pending_parens.setdefault(split.open_tok.kind, []).append(paren_node)
-
-                    if not self._read_only:
-                        node.editor = self.editor
-                else:
-                    assert isinstance(split, ExprSplit)
-                    prefix_tokens = split.prefix
-                    left_tokens = split.left
-                    right_tokens = split.right
-                    suffix_tokens = split.suffix
-
-                    widget_cls = self.LATEX_KIND_MAP.get(split.kind)
-                    if widget_cls is None:
-                        _log.debug("render_node: no widget for kind=%s", split.kind.name)
-                        return
-
-                    node = widget_cls()
-                    if not self._read_only:
-                        node.editor = self.editor
-                    suffix = True
-
-                suffix_seg = self.insert_node(slot, seg, prefix_tokens, node, suffix)
-
-                # Populate widget slots with token text
-                if node._left_slot:
-                    self._queue(node._left_slot.default_input(), left_tokens, pending)
-                if node._right_slot:
-                    self._queue(node._right_slot.default_input(), right_tokens, pending)
-
-                if not self._read_only:
-                    node.focus_default()
-
-                dirty_inputs.add(seg)
-                dirty_inputs.update(node.line_edits())
-                if suffix_seg is not None:
-                    dirty_inputs.add(suffix_seg)
-
-                # Enqueue suffix if it contains latex expressions
-                if suffix_seg is not None and suffix_tokens:
-                    self._queue(suffix_seg, suffix_tokens, pending)
-
+            nodes = calc_native.build_math_nodes(tokenized, self.seg_after_node(seg))
+            debug_math_nodes(nodes)
+            self._render_row(seg, nodes, dirty_inputs, focus_queue)
+            if not self._read_only:
+                for widget in focus_queue:
+                    widget.focus_default()
         except Exception:
             _log.debug("_add_exp_node failed", exc_info=True)
         finally:

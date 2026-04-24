@@ -6,6 +6,7 @@
 
 #include "parser/pub/parser.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <string>
 #include <utility>
@@ -362,6 +363,285 @@ TokensBranch tokenize(std::string_view s) {
     return result;
 }
 
+OperandSplit
+split_operand(std::span<const Token> tokens, std::size_t begin, std::size_t end, bool lead) {
+    if (begin >= end) {
+        return {};
+    }
+
+    std::size_t split_at = 0;
+
+    if (lead) {
+        const Token &first = tokens[begin];
+        if (first.kind == TokenKind::Paren) {
+            const auto &paren = std::get<ParenToken>(first.data);
+            if (paren.type == ParenType::Open) {
+                split_at = (paren.pair_idx != kNoMatch) ? (paren.pair_idx + 1) : end;
+                return {
+                    tokens.subspan(begin, split_at - begin),
+                    tokens.subspan(split_at, end - split_at),
+                };
+            }
+        }
+        if (first.kind == TokenKind::Number) {
+            return {
+                tokens.subspan(begin, 1),
+                tokens.subspan(begin + 1, end - begin - 1),
+            };
+        }
+        return {{}, tokens.subspan(begin, end - begin)};
+    }
+
+    const Token &last = tokens[end - 1];
+    if (last.kind == TokenKind::Paren) {
+        const auto &paren = std::get<ParenToken>(last.data);
+        if (paren.type == ParenType::Close) {
+            split_at = (paren.pair_idx != kNoMatch) ? paren.pair_idx : begin;
+            return {
+                tokens.subspan(begin, split_at - begin),
+                tokens.subspan(split_at, end - split_at),
+            };
+        }
+    }
+    if (last.kind == TokenKind::Number) {
+        return {
+            tokens.subspan(begin, end - begin - 1),
+            tokens.subspan(end - 1, 1),
+        };
+    }
+    return {tokens.subspan(begin, end - begin), {}};
+}
+
+std::optional<StructuralSplit> structural_split(const TokensBranch &branch) {
+    if (branch.latex_indices.empty()) {
+        return std::nullopt;
+    }
+
+    const auto &tokens = branch.tokens;
+    const std::size_t n = tokens.size();
+    const std::size_t expr_first = branch.latex_indices.front();
+
+    std::optional<std::size_t> candidate;
+    for (const std::size_t ind : branch.open_paren_indices) {
+        if (ind >= expr_first) {
+            continue;
+        }
+        const std::size_t pair = std::get<ParenToken>(tokens[ind].data).pair_idx;
+        if (pair == kNoMatch || pair > expr_first) {
+            candidate = ind;
+            break;
+        }
+    }
+
+    if (candidate.has_value()) {
+        const std::size_t c = *candidate;
+        const ParenToken open_tok = std::get<ParenToken>(tokens[c].data);
+        const std::size_t pair = open_tok.pair_idx;
+        const bool has_close = pair != kNoMatch;
+
+        const std::span<const Token> span{tokens};
+
+        ParenSplit split;
+        split.idx = c;
+        split.open_tok = open_tok;
+        split.prefix = span.subspan(0, c);
+
+        if (has_close) {
+            split.close_tok = std::get<ParenToken>(tokens[pair].data);
+            split.left = span.subspan(c + 1, pair - c - 1);
+            split.suffix = span.subspan(pair + 1, n - pair - 1);
+        } else {
+            split.close_tok.reset();
+            split.left = span.subspan(c + 1, n - c - 1);
+        }
+
+        return StructuralSplit{split};
+    }
+
+    const std::size_t idx = expr_first;
+    const LatexToken &latex_tok = std::get<LatexToken>(tokens[idx].data);
+
+    ExprSplit split;
+    split.idx = idx;
+    split.kind = latex_tok.kind;
+
+    const std::span<const Token> span{tokens};
+
+    if (!latex_tok.left.empty()) {
+        split.prefix = span.subspan(0, idx);
+        split.left = latex_tok.left;
+    } else {
+        std::tie(split.prefix, split.left) = split_operand(span, 0, idx, /*lead=*/false);
+    }
+
+    if (!latex_tok.right.empty()) {
+        split.right = latex_tok.right;
+        split.suffix = span.subspan(idx + 1, n - idx - 1);
+    } else {
+        std::tie(split.right, split.suffix) = split_operand(span, idx + 1, n, /*lead=*/true);
+    }
+
+    return StructuralSplit{split};
+}
+
+namespace detail {
+
+// Sorted latex/open-paren positions inside a span. Indices are local to the span.
+// Used for descending into latex_tok.left / .right vectors that carry their own pair_idx
+// and for recursing over sub-ranges of an already-classified branch.
+struct SpanIndices {
+    std::vector<std::size_t> latex;
+    std::vector<std::size_t> open_paren;
+};
+
+SpanIndices scan_span(std::span<const Token> tokens) {
+    SpanIndices ix;
+    for (std::size_t i = 0; i < tokens.size(); ++i) {
+        const auto &tok = tokens[i];
+        if (tok.kind == TokenKind::Latex) {
+            ix.latex.push_back(i);
+        } else if (tok.kind == TokenKind::Paren) {
+            const auto &p = std::get<ParenToken>(tok.data);
+            if (p.type == ParenType::Open) {
+                ix.open_paren.push_back(i);
+            }
+        }
+    }
+    return ix;
+}
+
+void build_row(
+    std::span<const Token> all,
+    const SpanIndices &ix,
+    std::size_t begin,
+    std::size_t end,
+    bool after_node,
+    std::vector<MathNode> &out);
+
+inline void push_text(
+    std::span<const Token> all,
+    std::size_t from,
+    std::size_t to,
+    bool after_node,
+    std::vector<MathNode> &out) {
+    if (from >= to) {
+        return;
+    }
+    out.emplace_back(TextNode{tokens_to_text(all.subspan(from, to - from), after_node)});
+}
+
+void build_row(
+    std::span<const Token> all,
+    const SpanIndices &ix,
+    std::size_t begin,
+    std::size_t end,
+    bool after_node,
+    std::vector<MathNode> &out) {
+
+    std::size_t cursor = begin;
+    bool ctx_after_node = after_node;
+
+    while (cursor < end) {
+        auto lat_it = std::lower_bound(ix.latex.begin(), ix.latex.end(), cursor);
+        if (lat_it == ix.latex.end() || *lat_it >= end) {
+            push_text(all, cursor, end, ctx_after_node, out);
+            return;
+        }
+        const std::size_t expr_first = *lat_it;
+
+        std::size_t paren_at = kNoMatch;
+        auto op_it = std::lower_bound(ix.open_paren.begin(), ix.open_paren.end(), cursor);
+        for (; op_it != ix.open_paren.end() && *op_it < expr_first; ++op_it) {
+            const std::size_t pair = std::get<ParenToken>(all[*op_it].data).pair_idx;
+            if (pair == kNoMatch || pair > expr_first) {
+                paren_at = *op_it;
+                break;
+            }
+        }
+
+        if (paren_at != kNoMatch) {
+            const std::size_t c = paren_at;
+            const ParenToken &open = std::get<ParenToken>(all[c].data);
+            const std::size_t pair = open.pair_idx;
+            const bool has_close = pair != kNoMatch;
+
+            push_text(all, cursor, c, ctx_after_node, out);
+
+            ParenNode pn{open.kind, has_close, {}};
+            const std::size_t inner_end = has_close ? pair : end;
+            build_row(all, ix, c + 1, inner_end, /*after_node=*/false, pn.children);
+            out.emplace_back(std::move(pn));
+
+            ctx_after_node = true;
+            if (!has_close) {
+                return;
+            }
+            cursor = pair + 1;
+            continue;
+        }
+
+        const std::size_t idx = expr_first;
+        const LatexToken &lt = std::get<LatexToken>(all[idx].data);
+
+        std::size_t prefix_end = 0;
+        std::size_t right_end = 0;
+        bool left_from_latex = !lt.left.empty();
+        bool right_from_latex = !lt.right.empty();
+
+        if (left_from_latex) {
+            prefix_end = idx;
+        } else {
+            auto [pfx, lft] = split_operand(all, cursor, idx, /*lead=*/false);
+            (void)lft;
+            prefix_end = cursor + pfx.size();
+        }
+
+        if (right_from_latex) {
+            right_end = idx + 1;
+        } else {
+            auto [rhs, suf] = split_operand(all, idx + 1, end, /*lead=*/true);
+            (void)suf;
+            right_end = idx + 1 + rhs.size();
+        }
+
+        push_text(all, cursor, prefix_end, ctx_after_node, out);
+
+        LatexNode ln{lt.kind, {}, {}};
+
+        if (left_from_latex) {
+            const SpanIndices inner_ix = scan_span(lt.left);
+            build_row(lt.left, inner_ix, 0, lt.left.size(), /*after_node=*/false, ln.left);
+        } else {
+            build_row(all, ix, prefix_end, idx, /*after_node=*/false, ln.left);
+        }
+
+        if (right_from_latex) {
+            const SpanIndices inner_ix = scan_span(lt.right);
+            build_row(lt.right, inner_ix, 0, lt.right.size(), /*after_node=*/false, ln.right);
+        } else if (right_end > idx + 1) {
+            build_row(all, ix, idx + 1, right_end, /*after_node=*/false, ln.right);
+        }
+
+        out.emplace_back(std::move(ln));
+        ctx_after_node = true;
+        cursor = right_end;
+    }
+}
+
+} // namespace detail
+
+std::vector<MathNode> build_math_nodes(const TokensBranch &branch, bool after_node) {
+    std::vector<MathNode> out;
+    if (branch.tokens.empty()) {
+        return out;
+    }
+    detail::SpanIndices ix;
+    ix.latex = branch.latex_indices;
+    ix.open_paren = branch.open_paren_indices;
+    detail::build_row(branch.tokens, ix, 0, branch.tokens.size(), after_node, out);
+    return out;
+}
+
 TokensBranch classify_tokens(std::vector<Token> tokens) {
     TokensBranch result;
     result.tokens = std::move(tokens);
@@ -634,7 +914,7 @@ std::string space_binary_op(ops::OpId op_id, const std::string &text, const bool
     return text;
 }
 
-std::string tokens_to_text(const std::vector<Token> &tokens, const bool &after_node) {
+std::string tokens_to_text(std::span<const Token> tokens, const bool &after_node) {
     std::string out;
     out.reserve(tokens.size() * 4);
 

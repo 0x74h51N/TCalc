@@ -110,6 +110,9 @@ class ExpressionNodeCase:
     total_segment_count: int
     total_edit_count: int
     expected_plain_text: str
+    expected_focus_cursor: tuple[tuple, int] | None = (
+        None  ## TODO: Add expected cursor position fields in some cases
+    )
 
 
 def expression_node_case(**kwargs) -> ExpressionNodeCase:
