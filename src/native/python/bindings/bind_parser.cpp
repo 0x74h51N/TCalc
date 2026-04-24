@@ -347,6 +347,118 @@ void bind_parser(py::module_ &m) {
     m.def("classify_tokens", &tcalc::parser::classify_tokens, py::arg("tokens"));
     m.def("shunting_yard", &tcalc::parser::shunting_yard, py::arg("tokens"));
 
+    using p::ExprSplit;
+    using p::ParenSplit;
+    using p::StructuralSplit;
+    using p::Token;
+
+    const auto span_to_list = [](std::span<const Token> src) {
+        py::list out;
+        for (const Token &t : src) {
+            out.append(py::cast(&t, py::return_value_policy::reference));
+        }
+        return out;
+    };
+
+    py::class_<ParenSplit>(m, "ParenSplit")
+        .def_readonly("idx", &ParenSplit::idx)
+        .def_readonly("open_tok", &ParenSplit::open_tok)
+        .def_property_readonly(
+            "close_tok",
+            [](const ParenSplit &s) -> py::object {
+                if (s.close_tok.has_value()) {
+                    return py::cast(*s.close_tok);
+                }
+                return py::none();
+            })
+        .def_property_readonly("has_close", &ParenSplit::has_close)
+        .def_property_readonly(
+            "prefix", [span_to_list](const ParenSplit &s) { return span_to_list(s.prefix); })
+        .def_property_readonly(
+            "left", [span_to_list](const ParenSplit &s) { return span_to_list(s.left); })
+        .def_property_readonly(
+            "suffix", [span_to_list](const ParenSplit &s) { return span_to_list(s.suffix); });
+
+    py::class_<ExprSplit>(m, "ExprSplit")
+        .def_readonly("idx", &ExprSplit::idx)
+        .def_readonly("kind", &ExprSplit::kind)
+        .def_property_readonly(
+            "prefix", [span_to_list](const ExprSplit &s) { return span_to_list(s.prefix); })
+        .def_property_readonly(
+            "left", [span_to_list](const ExprSplit &s) { return span_to_list(s.left); })
+        .def_property_readonly(
+            "right", [span_to_list](const ExprSplit &s) { return span_to_list(s.right); })
+        .def_property_readonly(
+            "suffix", [span_to_list](const ExprSplit &s) { return span_to_list(s.suffix); });
+
+    m.def(
+        "structural_split",
+        [](const p::TokensBranch &branch) -> py::object {
+            auto result = p::structural_split(branch);
+            if (!result.has_value()) {
+                return py::none();
+            }
+            return std::visit([](auto &&v) -> py::object { return py::cast(v); }, *result);
+        },
+        py::arg("branch"),
+        py::keep_alive<0, 1>(),
+        "Find the next structural split point in a TokensBranch.");
+
+    m.def(
+        "split_operand",
+        [](const std::vector<p::Token> &tokens, bool lead) {
+            auto [a, b] = p::split_operand(tokens, 0, tokens.size(), lead);
+            return py::make_tuple(
+                std::vector<p::Token>(a.begin(), a.end()),
+                std::vector<p::Token>(b.begin(), b.end()));
+        },
+        py::arg("tokens"),
+        py::arg("lead") = false,
+        "Extract leading/trailing operand; trailing returns (prefix, operand), "
+        "leading returns (operand, suffix).");
+
+    using p::LatexNode;
+    using p::MathNode;
+    using p::MathNodeKind;
+    using p::ParenNode;
+    using p::TextNode;
+
+    py::enum_<MathNodeKind>(m, "MathNodeKind", "MathNode variant tag.")
+        .value("Text", MathNodeKind::Text)
+        .value("Paren", MathNodeKind::Paren)
+        .value("Latex", MathNodeKind::Latex);
+
+    // Forward-register MathNode so std::vector<MathNode> fields below render
+    // as list[MathNode] in docstrings/stubs; accessors attached after leaves.
+    py::class_<MathNode> MathNode_(
+        m, "MathNode", "Render-tree element: text run, paren group, or latex expression.");
+
+    py::class_<TextNode>(m, "TextNode", "Pre-formatted text run.")
+        .def_readonly("text", &TextNode::text);
+
+    auto ParenNode_ = py::class_<ParenNode>(m, "ParenNode", "Paren group with inner row.")
+                          .def_readonly("kind", &ParenNode::kind)
+                          .def_readonly("has_close", &ParenNode::has_close);
+    def_readonly_ref(ParenNode_, "children", &ParenNode::children);
+
+    auto LatexNode_ = py::class_<LatexNode>(m, "LatexNode", "Latex expression (frac/pow/root/log).")
+                          .def_readonly("kind", &LatexNode::kind);
+    def_readonly_ref(LatexNode_, "left", &LatexNode::left);
+    def_readonly_ref(LatexNode_, "right", &LatexNode::right);
+
+    MathNode_.def_property_readonly("kind", &MathNode::kind)
+        .def("as_text", &math_as<TextNode>, py::return_value_policy::reference_internal)
+        .def("as_paren", &math_as<ParenNode>, py::return_value_policy::reference_internal)
+        .def("as_latex", &math_as<LatexNode>, py::return_value_policy::reference_internal);
+
+    m.def(
+        "build_math_nodes",
+        &p::build_math_nodes,
+        py::arg("branch"),
+        py::arg("after_node") = false,
+        "Build a flat row of MathNode descriptors from a TokensBranch — "
+        "dispatch with node.kind and node.as_text()/as_paren()/as_latex().");
+
     // format_expr_str / token_text / tokens_to_text / space_binary_op
 
     m.def(
@@ -365,7 +477,9 @@ void bind_parser(py::module_ &m) {
 
     m.def(
         "tokens_to_text",
-        &tcalc::parser::tokens_to_text,
+        [](const std::vector<p::Token> &tokens, bool after_node) {
+            return p::tokens_to_text(tokens, after_node);
+        },
         py::arg("tokens"),
         py::arg("after_node") = false,
         "Convert a token list to display text with proper binary-op spacing.");

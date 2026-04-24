@@ -22,10 +22,13 @@
 
 #include <cstdint>
 #include <ostream>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 #include <optional>
+#include <type_traits>
+#include <utility>
 #include <variant>
 #include "parser/pub/ops.hpp"
 
@@ -123,8 +126,8 @@ struct OpToken {
 inline constexpr std::size_t kNoMatch = static_cast<std::size_t>(-1);
 
 struct ParenToken {
-    ParenType type;
-    ParenKind kind;
+    ParenType type{};
+    ParenKind kind{};
     /// Token index of the matching open/close counterpart.
     /// Set by match_parens(); kNoMatch if unmatched.
     std::size_t pair_idx = kNoMatch;
@@ -263,6 +266,90 @@ inline bool operator==(const Token &a, const Token &b) {
     return visit_token(a.data, TokenEqual{&b.data});
 }
 
+/// Structural split payload for an (un)matched open paren appearing before the first latex token.
+/// Spans reference tokens inside the source TokensBranch, caller must keep branch alive.
+struct ParenSplit {
+    std::size_t idx = 0;
+    std::span<const Token> prefix;
+    std::span<const Token> left;
+    std::span<const Token> suffix;
+    ParenToken open_tok;
+    std::optional<ParenToken> close_tok;
+
+    bool has_close() const { return close_tok.has_value(); }
+};
+
+/// Structural split payload for a Frac/Pow/Root/Log latex token.
+/// Spans reference tokens inside the source TokensBranch, caller must keep branch alive.
+struct ExprSplit {
+    std::size_t idx = 0;
+    std::span<const Token> prefix;
+    std::span<const Token> left;
+    std::span<const Token> right;
+    std::span<const Token> suffix;
+    LatexKind kind{};
+};
+
+using StructuralSplit = std::variant<ParenSplit, ExprSplit>;
+
+/// Pair of token spans [begin, split_at) and [split_at, end) returned by split_operand.
+/// Trailing (lead=false): (prefix, operand). Leading (lead=true): (operand, suffix).
+using OperandSplit = std::pair<std::span<const Token>, std::span<const Token>>;
+
+/// Extract leading/trailing operand from [begin, end) inside tokens.
+OperandSplit
+split_operand(std::span<const Token> tokens, std::size_t begin, std::size_t end, bool lead = false);
+
+/// Find the next structural split point in branch: ParenSplit for an (un)matched open paren
+/// before the first latex token, ExprSplit for Frac/Pow/Root/Log, nullopt when no latex tokens.
+std::optional<StructuralSplit> structural_split(const TokensBranch &branch);
+
+struct TextNode;
+struct ParenNode;
+struct LatexNode;
+struct MathNode;
+
+/// Discriminator for MathNode's payload; values match variant index order.
+enum class MathNodeKind : std::uint8_t { Text = 0, Paren = 1, Latex = 2 };
+
+/// Pre-formatted text run.
+struct TextNode {
+    std::string text;
+};
+
+/// Paren group carrying its inner row.
+struct ParenNode {
+    ParenKind kind;
+    bool has_close;
+    std::vector<MathNode> children;
+};
+
+/// Latex expression (frac/pow/root/log) with left and right rows.
+struct LatexNode {
+    LatexKind kind;
+    std::vector<MathNode> left;
+    std::vector<MathNode> right;
+};
+
+/// Render-tree element: text run, paren group, or latex expression.
+struct MathNode {
+    std::variant<TextNode, ParenNode, LatexNode> data;
+
+    MathNode() = default;
+    template <typename T, typename = std::enable_if_t<!std::is_same_v<std::decay_t<T>, MathNode>>>
+    MathNode(T &&v)
+        : data(std::forward<T>(v)) {}
+
+    MathNodeKind kind() const { return static_cast<MathNodeKind>(data.index()); }
+};
+
+/// Build a flat row of MathNode descriptors ready for widget/paint construction.
+/// Internally walks the token tree via structural_split, emits TextNode for runs between
+/// structural nodes (tokens_to_text'd), and recurses into paren inner / expr left+right.
+/// after_node: whether the row's first text is positioned right after a prior widget
+/// (affects leading +/- spacing, matches tokens_to_text's after_node semantics).
+std::vector<MathNode> build_math_nodes(const TokensBranch &branch, bool after_node = false);
+
 /// High-level tokenizer that understands LaTeX constructs (\frac, \sqrt, ...) and produces a flat
 /// token stream suitable for shunting-yard parsing. Returns TokensBranch with tokens and
 /// latex_indices metadata.
@@ -295,7 +382,7 @@ std::string token_text(const Token &tok);
 
 /// Convert a token list to display text in a single pass.
 /// Binary operators get spaces around them.
-std::string tokens_to_text(const std::vector<Token> &tokens, const bool &after_node = false);
+std::string tokens_to_text(std::span<const Token> tokens, const bool &after_node = false);
 
 /// Convert a single token to flat display text.
 /// LatexTokens are flattened using op symbols (e.g. \frac{2}{3} → 2 ÷ 3);
