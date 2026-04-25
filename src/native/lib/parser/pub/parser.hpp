@@ -42,6 +42,11 @@ using Value = std::string;
 inline constexpr std::array<std::array<char, 3>, 2> kSymbolTable = {
     {{'(', '{', '['}, {')', '}', ']'}}};
 
+/// Index into a token vector. uint32_t gives 2x cache density over size_t while
+/// keeping native-width arithmetic on 64-bit targets (uint16_t forces zero-extends
+/// after most ops). Inputs ≤ 4G tokens — practically unbounded for this calculator.
+using TokenIndex = std::uint32_t;
+
 enum class ParenType : std::uint8_t { Open = 0, Close = 1 };
 
 enum class ParenKind : std::uint8_t { Paren = 0, Brace = 1, Bracket = 2 };
@@ -123,14 +128,14 @@ struct OpToken {
 };
 
 /// npos sentinel for unmatched parentheses.
-inline constexpr std::size_t kNoMatch = static_cast<std::size_t>(-1);
+inline constexpr TokenIndex kNoMatch = static_cast<TokenIndex>(-1);
 
 struct ParenToken {
     ParenType type{};
     ParenKind kind{};
     /// Token index of the matching open/close counterpart.
     /// Set by match_parens(); kNoMatch if unmatched.
-    std::size_t pair_idx = kNoMatch;
+    TokenIndex pair_idx = kNoMatch;
 
     /// Semantic equality: type + kind only (pair_idx is metadata).
     bool operator==(const ParenToken &o) const { return type == o.type && kind == o.kind; }
@@ -138,9 +143,9 @@ struct ParenToken {
 
 struct TokensBranch {
     std::vector<Token> tokens;
-    std::vector<std::size_t> latex_indices{};
-    std::vector<std::size_t> open_paren_indices{};
-    std::vector<std::size_t> close_paren_indices{};
+    std::vector<TokenIndex> latex_indices{};
+    std::vector<TokenIndex> open_paren_indices{};
+    std::vector<TokenIndex> close_paren_indices{};
     bool operator==(const TokensBranch &) const = default;
 };
 
@@ -269,7 +274,7 @@ inline bool operator==(const Token &a, const Token &b) {
 /// Structural split payload for an (un)matched open paren appearing before the first latex token.
 /// Spans reference tokens inside the source TokensBranch, caller must keep branch alive.
 struct ParenSplit {
-    std::size_t idx = 0;
+    TokenIndex idx = 0;
     std::span<const Token> prefix;
     std::span<const Token> left;
     std::span<const Token> suffix;
@@ -282,7 +287,7 @@ struct ParenSplit {
 /// Structural split payload for a Frac/Pow/Root/Log latex token.
 /// Spans reference tokens inside the source TokensBranch, caller must keep branch alive.
 struct ExprSplit {
-    std::size_t idx = 0;
+    TokenIndex idx = 0;
     std::span<const Token> prefix;
     std::span<const Token> left;
     std::span<const Token> right;
@@ -298,7 +303,7 @@ using OperandSplit = std::pair<std::span<const Token>, std::span<const Token>>;
 
 /// Extract leading/trailing operand from [begin, end) inside tokens.
 OperandSplit
-split_operand(std::span<const Token> tokens, std::size_t begin, std::size_t end, bool lead = false);
+split_operand(std::span<const Token> tokens, TokenIndex begin, TokenIndex end, bool lead = false);
 
 /// Find the next structural split point in branch: ParenSplit for an (un)matched open paren
 /// before the first latex token, ExprSplit for Frac/Pow/Root/Log, nullopt when no latex tokens.
