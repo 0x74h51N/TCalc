@@ -162,7 +162,9 @@ void bind_parser(py::module_ &m) {
                     if (t.size() != 3)
                         throw std::runtime_error("Invalid ParenToken state");
                     return ParenToken{
-                        t[0].cast<ParenType>(), t[1].cast<ParenKind>(), t[2].cast<std::size_t>()};
+                        t[0].cast<ParenType>(),
+                        t[1].cast<ParenKind>(),
+                        t[2].cast<tcalc::parser::TokenIndex>()};
                 }));
 
     // LatexToken — forward-declare, pickle added after Token
@@ -247,9 +249,9 @@ void bind_parser(py::module_ &m) {
                         throw std::runtime_error("Invalid TokensBranch state");
                     TokensBranch r;
                     r.tokens = t[0].cast<std::vector<Token>>();
-                    r.latex_indices = t[1].cast<std::vector<std::size_t>>();
-                    r.open_paren_indices = t[2].cast<std::vector<std::size_t>>();
-                    r.close_paren_indices = t[3].cast<std::vector<std::size_t>>();
+                    r.latex_indices = t[1].cast<std::vector<tcalc::parser::TokenIndex>>();
+                    r.open_paren_indices = t[2].cast<std::vector<tcalc::parser::TokenIndex>>();
+                    r.close_paren_indices = t[3].cast<std::vector<tcalc::parser::TokenIndex>>();
                     return r;
                 }));
 
