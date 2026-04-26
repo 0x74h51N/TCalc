@@ -5,7 +5,7 @@
 
 PY := ./.venv/bin/python
 PYTEST_ARGS ?= -vv -rA -s
-
+ARGS ?=
 STUBS ?= scripts/stubgen/main.py
 
 stub-gen:
@@ -39,7 +39,7 @@ py-test-ui:
 	PYTHONPATH=src $(PY) -m pytest tests/py/ui $(PYTEST_ARGS)
 
 seed-history:
-	PYTHONPATH=src:$(CURDIR) $(PY) scripts/seed_history.py
+	PYTHONPATH=src:$(CURDIR) $(PY) scripts/seed_history.py $(ARGS)
 
 py-benchmark:
 	PYTHONPATH=src $(PY) -m pytest tests/benchmark/perf $(PYTEST_ARGS)
