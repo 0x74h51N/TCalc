@@ -5,24 +5,55 @@
 #
 from __future__ import annotations
 
+import argparse
 import pickle
 from pathlib import Path
 
 import calc_native
 
 from tcalc.app_state import CalculatorMode
-from tcalc.core.parser import tokenize
+from tcalc.core.engine import Calculator
+from tcalc.core.parser import evaluate_tokens, tokenize
+from tcalc.ui.controller.utils import format_result
 from tcalc.ui.widgets.history.storage import HistoryEntry
-from tests.benchmark.expressions import PAREN_EXPRESSIONS
+from tests.benchmark.expressions import PAREN_EXPRESSIONS, RENDER_EXPRESSIONS
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURES_DIR = REPO_ROOT / "tests" / "benchmark" / ".fixtures"
-DAT_PATH = FIXTURES_DIR / f"history_{CalculatorMode.SCIENCE.value}.dat"
+DAT_NAME = f"history_{CalculatorMode.SCIENCE.value}.dat"
+DAT_PATH = FIXTURES_DIR / DAT_NAME
 ITEM_COUNT = 150
 
 
+def _local_path() -> Path:
+    from PySide6.QtCore import QCoreApplication, QStandardPaths
+
+    if QCoreApplication.instance() is None:
+        QCoreApplication([])
+    QCoreApplication.setApplicationName("TCalc")
+    base = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation))
+    return base / DAT_NAME
+
+
+def _evalator(calculator, toks):
+    res = "42"
+    if calculator is not None:
+        res = format_result(evaluate_tokens(toks, calculator))
+    return res
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Seed TCalc history")
+    parser.add_argument(
+        "--local",
+        action="store_true",
+        help="Enable local seed mode",
+    )
+    args = parser.parse_args()
+    calculator = Calculator() if args.local else None
     exprs = list(PAREN_EXPRESSIONS.values())
+    if args.local:
+        exprs += list(RENDER_EXPRESSIONS.values())[:-1]
     cache: dict[str, tuple[calc_native.TokensBranch, str]] = {}
     entries: list[HistoryEntry] = []
     for i in range(ITEM_COUNT):
@@ -31,12 +62,19 @@ def main() -> int:
             tok = tokenize(expr)
             cache[expr] = (tok, calc_native.tokens_to_flat_text(tok.tokens))
         tok, flat = cache[expr]
-        entries.append(HistoryEntry(expression=expr, result="42", tokenized=tok, flat_text=flat))
+        res = _evalator(calculator, tok.tokens)
+        entries.append(HistoryEntry(expression=expr, result=res, tokenized=tok, flat_text=flat))
 
-    FIXTURES_DIR.mkdir(parents=True, exist_ok=True)
-    with open(DAT_PATH, "wb") as f:
+    out_path = _local_path() if args.local else DAT_PATH
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "wb") as f:
         pickle.dump(entries, f, protocol=pickle.HIGHEST_PROTOCOL)
-    print(f"wrote {len(entries)} -> {DAT_PATH.relative_to(REPO_ROOT)}")
+
+    try:
+        display = out_path.relative_to(REPO_ROOT)
+    except ValueError:
+        display = out_path
+    print(f"wrote {len(entries)} -> {display}")
     return 0
 
 
