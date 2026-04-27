@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from typing import Callable
 
-ROUNDS_DEFAULT = 100
-ROUNDS_RENDER = 40
-WARMUP_ROUNDS = 15
+ROUNDS_DEFAULT = 120
+ROUNDS_RENDER = 80
+WARMUP_ROUNDS = 30
 
 
 def run_benchmark(

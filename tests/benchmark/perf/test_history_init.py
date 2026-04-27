@@ -13,7 +13,7 @@ import pytest
 from tests.benchmark.conftest import HISTORY_SCENARIO_COUNTS
 from tests.benchmark.expressions import HISTORY_FIRST_PAINT_THRESHOLDS_MS, make_history_init_func
 
-from .conftest import run_benchmark
+from .conftest import ROUNDS_RENDER, WARMUP_ROUNDS, run_benchmark
 
 
 @pytest.mark.benchmark
@@ -24,8 +24,8 @@ def test_history_init_benchmark(qapp, benchmark, history_seed):
         make_history_init_func(qapp),
         group="History Init - Full Load",
         name=history_seed,
-        rounds=5,
-        warmup_rounds=2,
+        rounds=ROUNDS_RENDER,
+        warmup_rounds=WARMUP_ROUNDS,
     )
     gc.collect()
 
@@ -38,8 +38,8 @@ def test_history_init_math_mode_benchmark(qapp, benchmark, history_seed):
         make_history_init_func(qapp, math_mode=True),
         group="History Init - Full Load (math)",
         name=history_seed,
-        rounds=5,
-        warmup_rounds=2,
+        rounds=ROUNDS_RENDER,
+        warmup_rounds=WARMUP_ROUNDS,
     )
     gc.collect()
 
@@ -53,8 +53,8 @@ def test_history_first_paint_benchmark(qapp, benchmark, history_seed):
         group="History First Paint",
         name=history_seed,
         threshold_ms=HISTORY_FIRST_PAINT_THRESHOLDS_MS[history_seed],
-        rounds=5,
-        warmup_rounds=2,
+        rounds=ROUNDS_RENDER,
+        warmup_rounds=WARMUP_ROUNDS,
     )
     gc.collect()
 
@@ -68,7 +68,7 @@ def test_history_first_paint_math_mode_benchmark(qapp, benchmark, history_seed):
         group="History First Paint (math)",
         name=history_seed,
         threshold_ms=HISTORY_FIRST_PAINT_THRESHOLDS_MS[history_seed],
-        rounds=5,
-        warmup_rounds=2,
+        rounds=ROUNDS_RENDER,
+        warmup_rounds=WARMUP_ROUNDS,
     )
     gc.collect()
