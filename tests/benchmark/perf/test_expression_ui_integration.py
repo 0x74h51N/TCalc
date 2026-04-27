@@ -13,6 +13,7 @@ how fast do individual QLineEdit changes propagate through the pipeline.
 from __future__ import annotations
 
 import pytest
+import shiboken6
 
 from tests.benchmark.expressions import (
     MULTI_EDIT_THRESHOLDS_MS,
@@ -41,7 +42,7 @@ def test_single_edit_benchmark(qapp, benchmark, name: str):
         )
     finally:
         widget.close()
-        widget.deleteLater()
+        shiboken6.delete(widget)
 
 
 @pytest.mark.benchmark
@@ -59,4 +60,4 @@ def test_multi_edit_benchmark(qapp, benchmark, name: str):
         )
     finally:
         widget.close()
-        widget.deleteLater()
+        shiboken6.delete(widget)

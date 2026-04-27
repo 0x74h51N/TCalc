@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import pytest
+import shiboken6
 
 from tests.benchmark.conftest import HISTORY_SCENARIO_COUNTS
 from tests.benchmark.expressions import (
@@ -99,7 +100,7 @@ def test_single_edit_flame(qapp, name: str):
         )
     finally:
         widget.close()
-        widget.deleteLater()
+        shiboken6.delete(widget)
         qapp.processEvents()
 
 
@@ -115,7 +116,7 @@ def test_multi_edit_flame(qapp, name: str):
         )
     finally:
         widget.close()
-        widget.deleteLater()
+        shiboken6.delete(widget)
         qapp.processEvents()
 
 

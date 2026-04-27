@@ -229,7 +229,7 @@ def make_editor_func(qapp, expr: str):
         widget.show()
         drain_events(qapp)
         widget.close()
-        widget.deleteLater()
+        shiboken6.delete(widget)
 
     return render
 
@@ -246,7 +246,7 @@ def make_painter_func(qapp, expr: str):
         canvas.show()
         drain_events(qapp)
         canvas.close()
-        canvas.deleteLater()
+        shiboken6.delete(canvas)
 
     return paint
 
@@ -272,7 +272,7 @@ def make_render_func(qapp, expr: str):
         host.show()
         drain_events(qapp)
         host.close()
-        host.deleteLater()
+        shiboken6.delete(host)
 
     return render
 
@@ -284,7 +284,7 @@ def make_normalize_func(qapp, expr: str):
         widget.show()
         drain_events(qapp)
         widget.close()
-        widget.deleteLater()
+        shiboken6.delete(widget)
 
     return normalize
 
