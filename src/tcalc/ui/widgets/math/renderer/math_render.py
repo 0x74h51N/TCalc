@@ -151,86 +151,99 @@ class MathRender(QWidget):
         widget_cls = self.LATEX_KIND_MAP[node.kind]
         return widget_cls()
 
-    def _render_row(
+    def _render_all(
         self,
         seg: QLineEdit,
         nodes: list[calc_native.MathNode],
         dirty_inputs: set[QLineEdit],
-        focus_queue: list[ExpressionNode],
-    ) -> None:
+    ) -> ExpressionNode | None:
         if not isValid(seg):
-            return
+            return None
         slot = seg.parent()
         if not isinstance(slot, ExpressionSlot):
-            return
+            return None
+        return self._render_row(slot, seg, slot.index_of(seg), nodes, dirty_inputs)
 
-        cur_seg: QLineEdit = seg
+    def _render_row(
+        self,
+        slot: ExpressionSlot,
+        seg: QLineEdit,
+        idx: int,
+        nodes: list[calc_native.MathNode],
+        dirty_inputs: set[QLineEdit],
+    ) -> ExpressionNode | None:
+        cur_seg = seg
+        cur_idx = idx
         cur_seg.setText("")
         dirty_inputs.add(cur_seg)
+        focus_target: ExpressionNode | None = None
 
         for node in nodes:
             kind = node.kind
             if kind == calc_native.MathNodeKind.Text:
                 cur_seg.setText(node.as_text().text)
                 cur_seg.setObjectName("prefix")
-
                 dirty_inputs.add(cur_seg)
                 continue
 
             widget: ExpressionNode
-            rows: list[list[calc_native.MathNode]]
+            left_nodes: list[calc_native.MathNode] | None
+            right_nodes: list[calc_native.MathNode] | None
             if kind == calc_native.MathNodeKind.Paren:
                 paren = node.as_paren()
                 widget = self._build_paren(paren)
                 tail_needed = paren.has_close
-                rows = [paren.children]
+                left_nodes, right_nodes = paren.children, None
             else:
                 latex = node.as_latex()
                 widget = self._build_latex(latex)
                 tail_needed = True
-                rows = [latex.left, latex.right]
+                left_nodes, right_nodes = latex.left, latex.right
 
             if not self._read_only:
                 widget.editor = self.editor
 
-            idx = slot.index_of(cur_seg)
-            if idx < 0:
-                return
-
-            slot.insert_widget(idx + 1, widget)
-
-            suffix_seg: QLineEdit | None = None
-            if tail_needed:
-                suffix_seg = slot.insert_input(idx + 2)
-                suffix_seg.setObjectName("suffix")
-                dirty_inputs.add(suffix_seg)
-
             dirty_inputs.update(widget.line_edits())
-            focus_queue.append(widget)
+            focus_target = widget
 
-            slots = (widget._left_slot, widget._right_slot)
-            for child_slot, child_nodes in zip(slots, rows):
-                if child_slot is not None and child_nodes:
-                    self._render_row(
-                        child_slot.default_input(), child_nodes, dirty_inputs, focus_queue
-                    )
+            if left_nodes:
+                ls = widget._left_slot
+                ls_seg = ls.default_input()
+                focus_target = (
+                    self._render_row(ls, ls_seg, ls.index_of(ls_seg), left_nodes, dirty_inputs)
+                    or focus_target
+                )
+            if widget._right_slot and right_nodes:
+                rs = widget._right_slot
+                rs_seg = rs.default_input()
+                focus_target = (
+                    self._render_row(rs, rs_seg, rs.index_of(rs_seg), right_nodes, dirty_inputs)
+                    or focus_target
+                )
 
-            if suffix_seg is None:
-                return
-            cur_seg = suffix_seg
+            slot.insert_widget(cur_idx + 1, widget)
+
+            if not tail_needed:
+                return focus_target
+            cur_seg = slot.insert_input(cur_idx + 2)
+            cur_seg.setObjectName("suffix")
+            dirty_inputs.add(cur_seg)
+            cur_idx += 2
+
+        return focus_target
 
     def render_node(self, seg, tokenized: calc_native.TokensBranch) -> None:
         from tcalc.debug import debug_math_nodes
 
         dirty_inputs: set[QLineEdit] = set()
-        focus_queue: list[ExpressionNode] = []
         try:
             nodes = calc_native.build_math_nodes(tokenized, self.seg_after_node(seg))
             debug_math_nodes(nodes)
-            self._render_row(seg, nodes, dirty_inputs, focus_queue)
-            if not self._read_only:
-                for widget in focus_queue:
-                    widget.focus_default()
+            focus_target = self._render_all(seg, nodes, dirty_inputs)
+
+            if not self._read_only and focus_target:
+                focus_target.focus_default()
+
         except Exception:
             _log.debug("_add_exp_node failed", exc_info=True)
         finally:
