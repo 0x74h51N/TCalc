@@ -102,12 +102,9 @@ class MathRender(QWidget):
         idx = slot.index_of(seg)
 
         seg.setText(calc_native.tokens_to_text(prefix_tokens, self.seg_after_node(seg)))
-        seg.setObjectName("prefix")
         slot.insert_widget(idx + 1, node)
         if suffix:
-            suffix_le = slot.insert_input(idx + 2)
-            suffix_le.setObjectName("suffix")
-            return suffix_le
+            return slot.insert_input(idx + 2)
         return None
 
     def seg_after_node(self, seg: QLineEdit) -> bool:
@@ -182,7 +179,6 @@ class MathRender(QWidget):
             kind = node.kind
             if kind == calc_native.MathNodeKind.Text:
                 cur_seg.setText(node.as_text().text)
-                cur_seg.setObjectName("prefix")
                 dirty_inputs.add(cur_seg)
                 continue
 
@@ -226,19 +222,15 @@ class MathRender(QWidget):
             if not tail_needed:
                 return focus_target
             cur_seg = slot.insert_input(cur_idx + 2)
-            cur_seg.setObjectName("suffix")
             dirty_inputs.add(cur_seg)
             cur_idx += 2
 
         return focus_target
 
     def render_node(self, seg, tokenized: calc_native.TokensBranch) -> None:
-        from tcalc.debug import debug_math_nodes
-
         dirty_inputs: set[QLineEdit] = set()
         try:
             nodes = calc_native.build_math_nodes(tokenized, self.seg_after_node(seg))
-            debug_math_nodes(nodes)
             focus_target = self._render_all(seg, nodes, dirty_inputs)
 
             if not self._read_only and focus_target:
