@@ -423,7 +423,6 @@ class Expression(QWidget):
 
     def _add_exp_node(self, seg: QLineEdit) -> None:
         self.renderer.is_rendering = True
-        self.setUpdatesEnabled(False)
         try:
             parent = seg.parent()
 
@@ -457,7 +456,6 @@ class Expression(QWidget):
             _log.debug("_add_exp_node failed", exc_info=True)
         finally:
             self.renderer.is_rendering = False
-            self.setUpdatesEnabled(True)
 
     def _try_open_paren(
         self,
