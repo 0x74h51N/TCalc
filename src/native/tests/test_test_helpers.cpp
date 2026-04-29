@@ -13,8 +13,8 @@ namespace o = tcalc::ops;
 namespace {
 
 using o::OpId;
-using p::ExprKind;
-using p::ExprToken;
+using p::LatexKind;
+using p::LatexToken;
 using p::NumberToken;
 using p::OpToken;
 using p::ParenKind;

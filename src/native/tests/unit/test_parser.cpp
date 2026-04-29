@@ -12,8 +12,8 @@ namespace o = tcalc::ops;
 namespace d = p::detail;
 
 using o::OpId;
-using p::ExprKind;
-using p::ExprToken;
+using p::LatexKind;
+using p::LatexToken;
 using p::NumberToken;
 using p::OpToken;
 using p::ParenKind;
@@ -46,6 +46,10 @@ using NormCase = Case<std::vector<Token>, std::vector<Token>>;
 using ShuntCase = Case<std::vector<Token>, std::vector<Token>>;
 
 } // namespace
+
+/// TODO:
+/// Add split
+/// and math_node tests
 
 void unit_parser(TestContext &ctx) {
 
@@ -292,13 +296,14 @@ void unit_parser(TestContext &ctx) {
             {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Close, ParenKind::Brace}, .start_pos = 3, .end_pos = 4},
         }},
 
-        // == ExprToken (LaTeX) ========================================
+        // == LatexToken (LaTeX) ========================================
 
         {.id = "frac simple",
         .input = "\\frac{2}{3}",
         .expected = {
-            {.kind = TokenKind::Expr, .data = ExprToken{
-                .kind = ExprKind::Frac,
+            {.kind = TokenKind::Latex, .data = LatexToken{
+                .kind = LatexKind::Frac,
+                .op_id = OpId::Div,
                 .left  = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
                 .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
             }, .start_pos = 0, .end_pos = 11},
@@ -307,8 +312,9 @@ void unit_parser(TestContext &ctx) {
         {.id = "pow simple",
         .input = "\\pow{5}{2}",
         .expected = {
-            {.kind = TokenKind::Expr, .data = ExprToken{
-                .kind = ExprKind::Pow,
+            {.kind = TokenKind::Latex, .data = LatexToken{
+                .kind = LatexKind::Pow,
+                .op_id = OpId::Pow,
                 .left  = {{.kind = TokenKind::Number, .data = NumberToken{"5"}}},
                 .right = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
             }, .start_pos = 0, .end_pos = 10},
@@ -317,8 +323,9 @@ void unit_parser(TestContext &ctx) {
         {.id = "root simple",
         .input = "\\root{8}{3}",
         .expected = {
-            {.kind = TokenKind::Expr, .data = ExprToken{
-                .kind = ExprKind::Root,
+            {.kind = TokenKind::Latex, .data = LatexToken{
+                .kind = LatexKind::Root,
+                .op_id = OpId::Root,
                 .left  = {{.kind = TokenKind::Number, .data = NumberToken{"8"}}},
                 .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
             }, .start_pos = 0, .end_pos = 11},
@@ -327,27 +334,34 @@ void unit_parser(TestContext &ctx) {
         {.id = "frac with inner expr",
         .input = "\\frac{2+3}{4}",
         .expected = {
-            {.kind = TokenKind::Expr, .data = ExprToken{
-                .kind = ExprKind::Frac,
+            {.kind = TokenKind::Latex, .data = LatexToken{
+                .kind = LatexKind::Frac,
+                .op_id = OpId::Div,
                 .left  = {
                     {.kind = TokenKind::Number, .data = NumberToken{"2"}},
                     {.kind = TokenKind::Op,     .data = OpToken{OpId::Add}},
                     {.kind = TokenKind::Number, .data = NumberToken{"3"}},
                 },
-                .right = {{.kind = TokenKind::Number, .data = NumberToken{"4"}}},
-            }, .start_pos = 0, .end_pos = 13},
+                .right = {{.kind = TokenKind::Number, .data = NumberToken{"4"},},
+                }},.start_pos = 0, .end_pos = 13, 
+            },
         }},
 
         {.id = "frac nested in frac",
         .input = "\\frac{\\frac{1}{2}}{3}",
         .expected = {
-            {.kind = TokenKind::Expr, .data = ExprToken{
-                .kind = ExprKind::Frac,
-                .left  = {{.kind = TokenKind::Expr, .data = ExprToken{
-                    .kind = ExprKind::Frac,
-                    .left  = {{.kind = TokenKind::Number, .data = NumberToken{"1"}}},
-                    .right = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
-                }}},
+            {.kind = TokenKind::Latex, .data = LatexToken{
+                .kind = LatexKind::Frac,
+                .op_id = OpId::Div,
+                .left  = {
+                    {.kind = TokenKind::Latex, .data = LatexToken{
+                        .kind = LatexKind::Frac,
+                        .op_id = OpId::Div,
+                        .left  = {{.kind = TokenKind::Number, .data = NumberToken{"1"}}},
+                        .right = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
+                    }},
+                    
+                },
                 .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
             }, .start_pos = 0, .end_pos = 21},
         }},
@@ -355,27 +369,32 @@ void unit_parser(TestContext &ctx) {
         {.id = "frac with pow inside",
         .input = "\\frac{\\pow{4}{2}}{3}",
         .expected = {
-            {.kind = TokenKind::Expr, .data = ExprToken{
-                .kind = ExprKind::Frac,
-                .left  = {{.kind = TokenKind::Expr, .data = ExprToken{
-                    .kind = ExprKind::Pow,
-                    .left  = {{.kind = TokenKind::Number, .data = NumberToken{"4"}}},
-                    .right = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
-                }}},
+            {.kind = TokenKind::Latex, .data = LatexToken{
+                .kind = LatexKind::Frac,
+                .op_id = OpId::Div,
+                .left  = {
+                    {.kind = TokenKind::Latex, .data = LatexToken{
+                        .kind = LatexKind::Pow,
+                        .op_id = OpId::Pow,
+                        .left  = {{.kind = TokenKind::Number, .data = NumberToken{"4"}}},
+                        .right = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
+                    }},
+                },
                 .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
             }, .start_pos = 0, .end_pos = 20},
         }
     },
 
-    // == Mixed: plain tokens + ExprToken ==========================
+    // == Mixed: plain tokens + LatexToken ==========================
 
     {.id = "number then frac",
      .input = "1+\\frac{2}{3}",
      .expected = {
          {.kind = TokenKind::Number, .data = NumberToken{"1"}, .start_pos = 0, .end_pos = 1},
          {.kind = TokenKind::Op,     .data = OpToken{OpId::Add}, .start_pos = 1, .end_pos = 2},
-         {.kind = TokenKind::Expr,   .data = ExprToken{
-             .kind = ExprKind::Frac,
+         {.kind = TokenKind::Latex,   .data = LatexToken{
+             .kind = LatexKind::Frac,
+             .op_id = OpId::Div,
              .left  = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
              .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
          }, .start_pos = 2, .end_pos = 13},
@@ -386,10 +405,11 @@ void unit_parser(TestContext &ctx) {
      .expected = {
          {.kind = TokenKind::Number, .data = NumberToken{"1"}, .start_pos = 0, .end_pos = 1},
          {.kind = TokenKind::Op,     .data = OpToken{OpId::Add}, .start_pos = 1, .end_pos = 2},
-         {.kind = TokenKind::Expr,   .data = ExprToken{
-             .kind = ExprKind::Frac,
-             .left  = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
-             .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
+         {.kind = TokenKind::Latex,   .data = LatexToken{
+             .kind = LatexKind::Frac,
+             .op_id = OpId::Div,
+             .left  =  {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
+             .right =  {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
          }, .start_pos = 2, .end_pos = 13},
          {.kind = TokenKind::Op,     .data = OpToken{OpId::Add}, .start_pos = 13, .end_pos = 14},
          {.kind = TokenKind::Number, .data = NumberToken{"4"}, .start_pos = 14, .end_pos = 15},
@@ -400,15 +420,17 @@ void unit_parser(TestContext &ctx) {
     {.id = "user brace inside frac numerator",
      .input = "\\frac{{1+2}}{3}",
      .expected = {
-         {.kind = TokenKind::Expr, .data = ExprToken{
-             .kind = ExprKind::Frac,
+         {.kind = TokenKind::Latex, .data = LatexToken{
+             .kind = LatexKind::Frac,
+             .op_id = OpId::Div,
              .left  = {
-                 {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Open, ParenKind::Brace}},
-                 {.kind = TokenKind::Number, .data = NumberToken{"1"}},
-                 {.kind = TokenKind::Op,     .data = OpToken{OpId::Add}},
-                 {.kind = TokenKind::Number, .data = NumberToken{"2"}},
-                 {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Close, ParenKind::Brace}},
-             },
+                 
+                     {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Open, ParenKind::Brace}},
+                     {.kind = TokenKind::Number, .data = NumberToken{"1"}},
+                     {.kind = TokenKind::Op,     .data = OpToken{OpId::Add}},
+                     {.kind = TokenKind::Number, .data = NumberToken{"2"}},
+                     {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Close, ParenKind::Brace}},
+                 },
              .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
          }, .start_pos = 0, .end_pos = 15},
      }},
@@ -417,8 +439,9 @@ void unit_parser(TestContext &ctx) {
      .input = "{\\frac{1}{2}}",
      .expected = {
          {.kind = TokenKind::Paren, .data = ParenToken{ParenType::Open, ParenKind::Brace}, .start_pos = 0, .end_pos = 1},
-         {.kind = TokenKind::Expr,  .data = ExprToken{
-             .kind = ExprKind::Frac,
+         {.kind = TokenKind::Latex,  .data = LatexToken{
+             .kind = LatexKind::Frac,
+             .op_id = OpId::Div,
              .left  = {{.kind = TokenKind::Number, .data = NumberToken{"1"}}},
              .right = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
          }, .start_pos = 1, .end_pos = 12},
@@ -428,16 +451,19 @@ void unit_parser(TestContext &ctx) {
     {.id = "complex nested: frac with user brace and inner pow",
      .input = "\\frac{{\\pow{4}{2}}}{3}",
      .expected = {
-         {.kind = TokenKind::Expr, .data = ExprToken{
-             .kind = ExprKind::Frac,
+         {.kind = TokenKind::Latex, .data = LatexToken{
+             .kind = LatexKind::Frac,
+             .op_id = OpId::Div,
              .left  = {
-                 {.kind = TokenKind::Paren, .data = ParenToken{ParenType::Open, ParenKind::Brace}},
-                 {.kind = TokenKind::Expr,  .data = ExprToken{
-                     .kind = ExprKind::Pow,
-                     .left  = {{.kind = TokenKind::Number, .data = NumberToken{"4"}}},
-                     .right = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
-                 }},
-                 {.kind = TokenKind::Paren, .data = ParenToken{ParenType::Close, ParenKind::Brace}},
+                 
+                     {.kind = TokenKind::Paren, .data = ParenToken{ParenType::Open, ParenKind::Brace}},
+                     {.kind = TokenKind::Latex,  .data = LatexToken{
+                         .kind = LatexKind::Pow,
+                         .op_id = OpId::Pow,
+                         .left  = {{.kind = TokenKind::Number, .data = NumberToken{"4"}}},
+                         .right = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
+                     }},
+                     {.kind = TokenKind::Paren, .data = ParenToken{ParenType::Close, ParenKind::Brace}},              
              },
              .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
          }, .start_pos = 0, .end_pos = 22},
@@ -455,6 +481,8 @@ void unit_parser(TestContext &ctx) {
          {.kind = TokenKind::Op,     .data = OpToken{OpId::Add},  .start_pos = 6, .end_pos = 7},
          {.kind = TokenKind::Number, .data = NumberToken{"5"},    .start_pos = 7, .end_pos = 8},
      }},
+
+     /// TODO: Add more latex and paren tokenize edge cases
 };
 
     // Normalizations
@@ -801,8 +829,8 @@ void unit_parser(TestContext &ctx) {
     test_detail::with_case(ctx, "positions :: frac expr", [&] {
         const auto result = p::tokenize("\\frac{2}{3}");
         EXPECT_EQ(ctx, result.tokens.size(), 1UL);
-        EXPECT_EQ(ctx, result.expr_indices.size(), 1UL);
-        EXPECT_EQ(ctx, result.expr_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.latex_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.latex_indices[0], 0UL);
         // \frac{2}{3} spans 0-11
         EXPECT_EQ(ctx, result.tokens[0].start_pos, 0UL);
         EXPECT_EQ(ctx, result.tokens[0].end_pos, 11UL);
@@ -811,8 +839,8 @@ void unit_parser(TestContext &ctx) {
     test_detail::with_case(ctx, "positions :: mixed", [&] {
         const auto result = p::tokenize("1 + \\frac{2}{3} + 4");
         EXPECT_EQ(ctx, result.tokens.size(), 5UL);
-        EXPECT_EQ(ctx, result.expr_indices.size(), 1UL);
-        EXPECT_EQ(ctx, result.expr_indices[0], 2UL);
+        EXPECT_EQ(ctx, result.latex_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.latex_indices[0], 2UL);
         // "1" at 0-1
         EXPECT_EQ(ctx, result.tokens[0].start_pos, 0UL);
         EXPECT_EQ(ctx, result.tokens[0].end_pos, 1UL);
@@ -833,9 +861,9 @@ void unit_parser(TestContext &ctx) {
     test_detail::with_case(ctx, "positions :: multiple expr", [&] {
         const auto result = p::tokenize("\\frac{1}{2} + \\pow{3}{4}");
         EXPECT_EQ(ctx, result.tokens.size(), 3UL);
-        EXPECT_EQ(ctx, result.expr_indices.size(), 2UL);
-        EXPECT_EQ(ctx, result.expr_indices[0], 0UL);
-        EXPECT_EQ(ctx, result.expr_indices[1], 2UL);
+        EXPECT_EQ(ctx, result.latex_indices.size(), 2UL);
+        EXPECT_EQ(ctx, result.latex_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.latex_indices[1], 2UL);
         // \frac{1}{2} at 0-11
         EXPECT_EQ(ctx, result.tokens[0].start_pos, 0UL);
         EXPECT_EQ(ctx, result.tokens[0].end_pos, 11UL);
@@ -1028,15 +1056,15 @@ void unit_parser(TestContext &ctx) {
         EXPECT_EQ(ctx, result.open_paren_indices[0], 0UL);
         EXPECT_EQ(ctx, result.close_paren_indices.size(), 1UL);
         EXPECT_EQ(ctx, result.close_paren_indices[0], 2UL);
-        EXPECT_EQ(ctx, result.expr_indices.size(), 1UL);
-        EXPECT_EQ(ctx, result.expr_indices[0], 1UL);
+        EXPECT_EQ(ctx, result.latex_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.latex_indices[0], 1UL);
     });
 
     test_detail::with_case(ctx, "paren_indices :: expr only no parens", [&] {
         auto result = p::tokenize("\\frac{1}{2}");
         EXPECT_EQ(ctx, result.open_paren_indices.size(), 0UL);
         EXPECT_EQ(ctx, result.close_paren_indices.size(), 0UL);
-        EXPECT_EQ(ctx, result.expr_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.latex_indices.size(), 1UL);
     });
 
     // =========================================================================
@@ -1116,9 +1144,10 @@ void unit_parser(TestContext &ctx) {
 
     test_detail::with_case(ctx, "tokens_to_text :: frac round-trip", [&] {
         std::vector<Token> toks = {
-            {TokenKind::Expr,
-             ExprToken{
-                 .kind = ExprKind::Frac,
+            {TokenKind::Latex,
+             LatexToken{
+                 .kind = LatexKind::Frac,
+                 .op_id = OpId::Div,
                  .left = {{TokenKind::Number, NumberToken{"2"}}},
                  .right = {{TokenKind::Number, NumberToken{"3"}}},
              }},

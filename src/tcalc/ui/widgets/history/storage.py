@@ -19,7 +19,7 @@ _log = logging.getLogger("tcalc.ui.history.storage")
 class HistoryEntry:
     expression: str
     result: str
-    tokenized: calc_native.TokenizeResult
+    tokenized: calc_native.TokensBranch
     flat_text: str = ""
 
 

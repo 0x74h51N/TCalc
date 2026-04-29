@@ -23,9 +23,9 @@ from ..math_primitives import (
     square_bracket_path,
 )
 from .layout import (
-    EXPR_KIND_MAP,
     FRACTION_PAD_X,
     FRACTION_PAD_Y,
+    LATEX_KIND_MAP,
     PAREN_GLYPH_W,
     PAREN_X_PAD,
     POW_OVERLAP,
@@ -45,7 +45,7 @@ def _stroke_path(painter: QPainter, path: QPainterPath, x: float, y: float) -> N
 
 
 class FractionPaint(PaintNode):
-    EXPR_KIND = calc_native.ExprKind.Frac
+    LATEX_KIND = calc_native.LatexKind.Frac
 
     def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
         if self.right is None:
@@ -73,7 +73,7 @@ class FractionPaint(PaintNode):
 
 
 class PowPaint(PaintNode):
-    EXPR_KIND = calc_native.ExprKind.Pow
+    LATEX_KIND = calc_native.LatexKind.Pow
 
     def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
         if self.right is None:
@@ -98,7 +98,7 @@ class PowPaint(PaintNode):
 
 
 class RootPaint(PaintNode):
-    EXPR_KIND = calc_native.ExprKind.Root
+    LATEX_KIND = calc_native.LatexKind.Root
     GLYPH_W = SQRT_WIDTH
 
     def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
@@ -201,10 +201,10 @@ class ParenPaint(PaintNode):
             painter.restore()
 
 
-EXPR_KIND_MAP.update(
+LATEX_KIND_MAP.update(
     {
-        calc_native.ExprKind.Frac: FractionPaint,
-        calc_native.ExprKind.Pow: PowPaint,
-        calc_native.ExprKind.Root: RootPaint,
+        calc_native.LatexKind.Frac: FractionPaint,
+        calc_native.LatexKind.Pow: PowPaint,
+        calc_native.LatexKind.Root: RootPaint,
     }
 )

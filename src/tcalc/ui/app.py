@@ -49,9 +49,16 @@ def run_app(argv: Optional[Sequence[str]] = None, *, debug: bool = False) -> int
 
 
 def _attach_debug_hooks(window: MainWindow) -> None:
-    from tcalc.debug import dump_expression_tree
+    import calc_native
+
+    from tcalc.debug import debug_math_nodes, dump_expression_tree
 
     editor = window.calc_widget.display.editor
-    editor.plain_text_changed.connect(
-        lambda _: dump_expression_tree(editor._root, editor.get_plain_text())
-    )
+
+    def _on_text_changed(text: str) -> None:
+        tokenized = calc_native.tokenize_string(text)
+        nodes = calc_native.build_math_nodes(tokenized, False)
+        debug_math_nodes(nodes)
+        dump_expression_tree(editor._root, text)
+
+    editor.plain_text_changed.connect(_on_text_changed)

@@ -195,7 +195,7 @@ class LatexExprSpec:
     """LaTeX expression specification."""
 
     symbol: str
-    kind: calc_native.ExprKind
+    kind: calc_native.LatexKind
     opid: calc_native.OpId
 
 
@@ -208,8 +208,8 @@ class LatexExpr:
     Log: LatexExprSpec
 
     @classmethod
-    def get(cls, kind: calc_native.ExprKind) -> LatexExprSpec:
-        """Get spec by ExprKind."""
+    def get(cls, kind: calc_native.LatexKind) -> LatexExprSpec:
+        """Get spec by LatexKind."""
         return getattr(cls, kind.name)
 
 

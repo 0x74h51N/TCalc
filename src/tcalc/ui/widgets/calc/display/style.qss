@@ -12,8 +12,8 @@ QWidget[exprSlot="true"][exprSlotKind="aux"] {
     font-size: bold;
 }
 
-QWidget[exprSlot="true"][exprSlotKind="aux"] QLineEdit[exprKind="aux"]:focus,
-QWidget[exprSlot="true"][exprSlotKind="script"] QLineEdit[exprKind="script"]:focus {
+QWidget[exprSlot="true"][exprSlotKind="aux"] QLineEdit[LatexKind="aux"]:focus,
+QWidget[exprSlot="true"][exprSlotKind="script"] QLineEdit[LatexKind="script"]:focus {
     background-color: $background_light;
 }
 

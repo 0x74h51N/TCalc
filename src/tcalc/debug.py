@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Generic, Literal, TypeVar
 
 import calc_native
 from PySide6.QtWidgets import QLineEdit
 
-from tcalc.ui.widgets.calc.display.expression.expression import Expression
+if TYPE_CHECKING:
+    from tcalc.ui.widgets.calc.display.expression.expression import Expression
+
 from tcalc.ui.widgets.math import (
     ExpressionNode,
     ExpressionSlot,
@@ -31,17 +33,46 @@ def debug_tokens(tokens: list[calc_native.Token]) -> None:
             val = t.data.value
         elif isinstance(t.data, calc_native.OpToken):
             val = t.symbol
-        elif isinstance(t.data, calc_native.ExprToken):
-            val = f"Expr({t.data.kind.name})"
+        elif isinstance(t.data, calc_native.LatexToken):
+            val = f"Latex({t.data.kind.name})"
         else:
             val = str(t)
         out.append(f"{kind}: {val}")
     _log.debug("TOKENS -> %s", out)
 
 
+def _fmt_math_nodes(nodes: list[tuple], indent: int = 0) -> list[str]:
+    pad = "  " * indent
+    lines: list[str] = []
+    for tup in nodes:
+        tag = tup[0]
+        if tag == calc_native.MATH_TAG_TEXT:
+            lines.append(f"{pad}Text {tup[1]!r}")
+        elif tag == calc_native.MATH_TAG_PAREN:
+            _, paren_kind, has_close, children = tup
+            close = "" if has_close else " (unmatched)"
+            lines.append(f"{pad}Paren[{paren_kind.name}]{close}")
+            lines.extend(_fmt_math_nodes(children, indent + 1))
+        else:
+            _, latex_kind, left, right = tup
+            lines.append(f"{pad}Latex[{latex_kind.name}]")
+            lines.append(f"{pad}  left:")
+            lines.extend(_fmt_math_nodes(left, indent + 2))
+            lines.append(f"{pad}  right:")
+            lines.extend(_fmt_math_nodes(right, indent + 2))
+    return lines
+
+
+def debug_math_nodes(nodes: list[tuple]) -> None:
+    """Log a MathNode tree in readable indented form."""
+    _log.debug("MATH_NODES ->")
+    for line in _fmt_math_nodes(nodes):
+        _log.debug(line)
+
+
 #
 #
-# Expression Debugger
+# LatexNode Debugger
 # ===================================================
 _W = TypeVar("_W", bound=ExpressionNode)
 
@@ -165,7 +196,7 @@ class TreeInfo:
         return "\n".join(lines)
 
 
-def snapshot_tree(widget: Expression) -> TreeInfo:
+def snapshot_tree(widget: "Expression") -> TreeInfo:
     """Walk the expression tree and return a structured TreeInfo snapshot."""
     info = TreeInfo(root=SlotInfo(key="", paren=None), plain_text=widget.get_plain_text())
 

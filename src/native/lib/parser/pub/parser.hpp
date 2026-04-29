@@ -22,10 +22,13 @@
 
 #include <cstdint>
 #include <ostream>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 #include <optional>
+#include <type_traits>
+#include <utility>
 #include <variant>
 #include "parser/pub/ops.hpp"
 
@@ -38,6 +41,11 @@ using Value = std::string;
 
 inline constexpr std::array<std::array<char, 3>, 2> kSymbolTable = {
     {{'(', '{', '['}, {')', '}', ']'}}};
+
+/// Index into a token vector. uint32_t gives 2x cache density over size_t while
+/// keeping native-width arithmetic on 64-bit targets (uint16_t forces zero-extends
+/// after most ops). Inputs ≤ 4G tokens — practically unbounded for this calculator.
+using TokenIndex = std::uint32_t;
 
 enum class ParenType : std::uint8_t { Open = 0, Close = 1 };
 
@@ -76,10 +84,10 @@ inline constexpr char paren_symbol(ParenType type, ParenKind kind) {
     return kSymbolTable[static_cast<int>(type)][static_cast<int>(kind)];
 }
 
-enum class TokenKind : std::uint8_t { Number, Op, Paren, Expr };
+enum class TokenKind : std::uint8_t { Number, Op, Paren, Latex };
 
-/// Expression kinds for compound Expr tokens.
-enum class ExprKind : std::uint8_t {
+/// Expression kinds for compound Latex tokens.
+enum class LatexKind : std::uint8_t {
     /// Fraction:
     /// \frac{numerator}{denominator}
     Frac,
@@ -94,18 +102,18 @@ enum class ExprKind : std::uint8_t {
     Log,
 };
 
-/// LaTeX expression mapping: symbol -> ExprKind
+/// LaTeX expression mapping: symbol -> LatexKind
 struct LatexEntry {
     std::string_view symbol;
-    ExprKind kind;
+    LatexKind kind;
     OpId opid;
 };
 
 constexpr std::array kLatexExprs = {
-    LatexEntry{"\\frac", ExprKind::Frac, tcalc::ops::OpId::Div},
-    LatexEntry{"\\pow", ExprKind::Pow, tcalc::ops::OpId::Pow},
-    LatexEntry{"\\root", ExprKind::Root, tcalc::ops::OpId::Root},
-    LatexEntry{"\\log", ExprKind::Log, tcalc::ops::OpId::Log}};
+    LatexEntry{"\\frac", LatexKind::Frac, tcalc::ops::OpId::Div},
+    LatexEntry{"\\pow", LatexKind::Pow, tcalc::ops::OpId::Pow},
+    LatexEntry{"\\root", LatexKind::Root, tcalc::ops::OpId::Root},
+    LatexEntry{"\\log", LatexKind::Log, tcalc::ops::OpId::Log}};
 
 /// Parser token;
 /// numbers store raw text in value, ops store op_id.
@@ -120,27 +128,36 @@ struct OpToken {
 };
 
 /// npos sentinel for unmatched parentheses.
-inline constexpr std::size_t kNoMatch = static_cast<std::size_t>(-1);
+inline constexpr TokenIndex kNoMatch = static_cast<TokenIndex>(-1);
 
 struct ParenToken {
-    ParenType type;
-    ParenKind kind;
+    ParenType type{};
+    ParenKind kind{};
     /// Token index of the matching open/close counterpart.
     /// Set by match_parens(); kNoMatch if unmatched.
-    std::size_t pair_idx = kNoMatch;
+    TokenIndex pair_idx = kNoMatch;
 
     /// Semantic equality: type + kind only (pair_idx is metadata).
     bool operator==(const ParenToken &o) const { return type == o.type && kind == o.kind; }
 };
 
-struct ExprToken {
-    ExprKind kind;
-    std::vector<Token> left;
-    std::vector<Token> right;
-    bool operator==(const ExprToken &) const = default;
+struct TokensBranch {
+    std::vector<Token> tokens;
+    std::vector<TokenIndex> latex_indices{};
+    std::vector<TokenIndex> open_paren_indices{};
+    std::vector<TokenIndex> close_paren_indices{};
+    bool operator==(const TokensBranch &) const = default;
 };
 
-using TokenData = std::variant<NumberToken, OpToken, ParenToken, ExprToken>;
+struct LatexToken {
+    LatexKind kind;
+    OpId op_id;
+    std::vector<Token> left;
+    std::vector<Token> right;
+    bool operator==(const LatexToken &) const = default;
+};
+
+using TokenData = std::variant<NumberToken, OpToken, ParenToken, LatexToken>;
 
 struct Token {
     TokenKind kind{};
@@ -149,79 +166,210 @@ struct Token {
     std::size_t end_pos = 0;
 };
 
-struct TokenizeResult {
-    std::vector<Token> tokens{};
-    std::vector<std::size_t> expr_indices{};
-    std::vector<std::size_t> open_paren_indices{};
-    std::vector<std::size_t> close_paren_indices{};
-    bool operator==(const TokenizeResult &) const = default;
+std::ostream &operator<<(std::ostream &, const Token &);
+
+// ------------------------------------------------------------
+// Shared visitor helper
+// ------------------------------------------------------------
+template <typename F> decltype(auto) visit_token(const TokenData &data, F &&f) {
+    return std::visit(std::forward<F>(f), data);
+}
+
+// ------------------------------------------------------------
+// TokensBranch printer
+// ------------------------------------------------------------
+inline std::ostream &operator<<(std::ostream &os, const TokensBranch &branch) {
+    os << "[";
+    for (std::size_t i = 0; i < branch.tokens.size(); ++i) {
+        if (i != 0)
+            os << ", ";
+        os << branch.tokens[i];
+    }
+    os << "]";
+    return os;
+}
+
+// ------------------------------------------------------------
+// Type-specific logic
+// ------------------------------------------------------------
+struct TokenPrinter {
+    std::ostream *os;
+
+    void operator()(const NumberToken &t) const { *os << "value=\"" << t.value << "\""; }
+
+    void operator()(const OpToken &t) const { *os << "op_id=" << static_cast<int>(t.op_id); }
+
+    void operator()(const ParenToken &t) const {
+        *os << "paren_type=" << static_cast<int>(t.type)
+            << ", paren_kind=" << static_cast<int>(t.kind);
+    }
+
+    void operator()(const LatexToken &t) const {
+        *os << "latex_kind=" << static_cast<int>(t.kind) << ", op_id=" << static_cast<int>(t.op_id)
+            << ", left="
+            << "[";
+        for (std::size_t i = 0; i < t.left.size(); ++i) {
+            if (i != 0)
+                *os << ", ";
+            *os << t.left[i];
+        }
+        *os << "]"
+            << ", right="
+            << "[";
+        for (std::size_t i = 0; i < t.right.size(); ++i) {
+            if (i != 0)
+                *os << ", ";
+            *os << t.right[i];
+        }
+        *os << "]";
+    }
 };
 
+// ------------------------------------------------------------
+// Token printer
+// ------------------------------------------------------------
 inline std::ostream &operator<<(std::ostream &os, const Token &tok) {
     os << "Token{kind=" << static_cast<int>(tok.kind) << ", ";
-    std::visit(
-        [&](auto &&t) {
-            using T = std::decay_t<decltype(t)>;
-            if constexpr (std::is_same_v<T, NumberToken>)
-                os << "value=\"" << t.value << "\"";
-            else if constexpr (std::is_same_v<T, OpToken>)
-                os << "op_id=" << static_cast<int>(t.op_id);
-            else if constexpr (std::is_same_v<T, ParenToken>) {
-                os << "paren_type=" << static_cast<int>(t.type)
-                   << ", paren_kind=" << static_cast<int>(t.kind);
-            } else if constexpr (std::is_same_v<T, ExprToken>) {
-                os << "expr_kind=" << static_cast<int>(t.kind) << ", left.size=" << t.left.size()
-                   << ", right.size=" << t.right.size();
-            }
-        },
-        tok.data);
+    visit_token(tok.data, TokenPrinter{&os});
     os << "}";
     return os;
 }
 
+// ------------------------------------------------------------
+// Equality logic
+// ------------------------------------------------------------
+struct TokenEqual {
+    const TokenData *rhs;
+
+    template <typename T> bool operator()(const T &lhs) const {
+        const auto *r = std::get_if<T>(rhs);
+        if (!r)
+            return false;
+
+        if constexpr (std::is_same_v<T, NumberToken>) {
+            return lhs.value == r->value;
+        } else if constexpr (std::is_same_v<T, OpToken>) {
+            return lhs.op_id == r->op_id;
+        } else if constexpr (std::is_same_v<T, ParenToken>) {
+            return lhs.type == r->type && lhs.kind == r->kind;
+        } else if constexpr (std::is_same_v<T, LatexToken>) {
+            return lhs.kind == r->kind && lhs.op_id == r->op_id && lhs.left == r->left &&
+                   lhs.right == r->right;
+        }
+    }
+};
+
+// ------------------------------------------------------------
+// operator==
+// ------------------------------------------------------------
 inline bool operator==(const Token &a, const Token &b) {
     if (a.kind != b.kind)
         return false;
-
     if (a.data.index() != b.data.index())
         return false;
 
-    return std::visit(
-        [&](const auto &lhs) -> bool {
-            using T = std::decay_t<decltype(lhs)>;
-            const auto *rhs = std::get_if<T>(&b.data);
-            if (!rhs)
-                return false;
-
-            if constexpr (std::is_same_v<T, NumberToken>) {
-                return lhs.value == rhs->value;
-            } else if constexpr (std::is_same_v<T, OpToken>) {
-                return lhs.op_id == rhs->op_id;
-            } else if constexpr (std::is_same_v<T, ParenToken>) {
-                return lhs.type == rhs->type && lhs.kind == rhs->kind;
-            } else if constexpr (std::is_same_v<T, ExprToken>) {
-                return lhs.kind == rhs->kind && lhs.left == rhs->left && lhs.right == rhs->right;
-            }
-            return false;
-        },
-        a.data);
+    return visit_token(a.data, TokenEqual{&b.data});
 }
 
+/// Structural split payload for an (un)matched open paren appearing before the first latex token.
+/// Spans reference tokens inside the source TokensBranch, caller must keep branch alive.
+struct ParenSplit {
+    TokenIndex idx = 0;
+    std::span<const Token> prefix;
+    std::span<const Token> left;
+    std::span<const Token> suffix;
+    ParenToken open_tok;
+    std::optional<ParenToken> close_tok;
+
+    bool has_close() const { return close_tok.has_value(); }
+};
+
+/// Structural split payload for a Frac/Pow/Root/Log latex token.
+/// Spans reference tokens inside the source TokensBranch, caller must keep branch alive.
+struct LatexSplit {
+    TokenIndex idx = 0;
+    std::span<const Token> prefix;
+    std::span<const Token> left;
+    std::span<const Token> right;
+    std::span<const Token> suffix;
+    LatexKind kind{};
+};
+
+using StructuralSplit = std::variant<ParenSplit, LatexSplit>;
+
+/// Pair of token spans [begin, split_at) and [split_at, end) returned by split_operand.
+/// Trailing (lead=false): (prefix, operand). Leading (lead=true): (operand, suffix).
+using OperandSplit = std::pair<std::span<const Token>, std::span<const Token>>;
+
+/// Extract leading/trailing operand from [begin, end) inside tokens.
+OperandSplit
+split_operand(std::span<const Token> tokens, TokenIndex begin, TokenIndex end, bool lead = false);
+
+/// Find the next structural split point in branch: ParenSplit for an (un)matched open paren
+/// before the first latex token, LatexSplit for Frac/Pow/Root/Log, nullopt when no latex tokens.
+std::optional<StructuralSplit> structural_split(const TokensBranch &branch);
+
+struct TextNode;
+struct ParenNode;
+struct LatexNode;
+struct MathNode;
+
+/// Discriminator for MathNode's payload; values match variant index order.
+enum class MathNodeKind : std::uint8_t { Text = 0, Paren = 1, Latex = 2 };
+
+/// Pre-formatted text run.
+struct TextNode {
+    std::string text;
+};
+
+/// Paren group carrying its inner row.
+struct ParenNode {
+    ParenKind kind;
+    bool has_close;
+    std::vector<MathNode> children;
+};
+
+/// Latex expression (frac/pow/root/log) with left and right rows.
+struct LatexNode {
+    LatexKind kind;
+    std::vector<MathNode> left;
+    std::vector<MathNode> right;
+};
+
+/// Render-tree element: text run, paren group, or latex expression.
+struct MathNode {
+    std::variant<TextNode, ParenNode, LatexNode> data;
+
+    MathNode() = default;
+    template <typename T, typename = std::enable_if_t<!std::is_same_v<std::decay_t<T>, MathNode>>>
+    MathNode(T &&v)
+        : data(std::forward<T>(v)) {}
+
+    MathNodeKind kind() const { return static_cast<MathNodeKind>(data.index()); }
+};
+
+/// Build a flat row of MathNode descriptors ready for widget/paint construction.
+/// Internally walks the token tree via structural_split, emits TextNode for runs between
+/// structural nodes (tokens_to_text'd), and recurses into paren inner / expr left+right.
+/// after_node: whether the row's first text is positioned right after a prior widget
+/// (affects leading +/- spacing, matches tokens_to_text's after_node semantics).
+std::vector<MathNode> build_math_nodes(const TokensBranch &branch, bool after_node = false);
+
 /// High-level tokenizer that understands LaTeX constructs (\frac, \sqrt, ...) and produces a flat
-/// token stream suitable for shunting-yard parsing. Returns TokenizeResult with tokens and
-/// expr_indices metadata.
-TokenizeResult tokenize(std::string_view expression);
+/// token stream suitable for shunting-yard parsing. Returns TokensBranch with tokens and
+/// latex_indices metadata.
+TokensBranch tokenize(std::string_view expression);
 
 /// Classify an existing token list: recompute local paren pair_idx metadata, then scan for
 /// Expr / Open-Paren / Close-Paren tokens and populate the index vectors.
-TokenizeResult classify_tokens(std::vector<Token> tokens);
+TokensBranch classify_tokens(std::vector<Token> tokens);
 
 // Convert tokens to RPN using precedence/associativity rules.
 std::vector<Token> shunting_yard(const std::vector<Token> &tokens);
 
-/// Compile-time lookup table: ExprKind -> LaTeX symbol.
+/// Compile-time lookup table: LatexKind -> LaTeX symbol.
 consteval auto build_latex_symbols() {
-    constexpr auto count = static_cast<std::size_t>(ExprKind::Log) + 1;
+    constexpr auto count = static_cast<std::size_t>(LatexKind::Log) + 1;
     std::array<std::string_view, count> table{};
     for (const auto &entry : kLatexExprs) {
         table[static_cast<std::size_t>(entry.kind)] = entry.symbol;
@@ -232,17 +380,17 @@ consteval auto build_latex_symbols() {
 inline constexpr auto kLatexSymbols = build_latex_symbols();
 
 /// Format a LaTeX expression string: \symbol{left}{right}.
-std::string format_expr_str(ExprKind kind, std::string_view left, std::string_view right);
+std::string format_expr_str(LatexKind kind, std::string_view left, std::string_view right);
 
 /// Convert a single token to its display text representation.
 std::string token_text(const Token &tok);
 
 /// Convert a token list to display text in a single pass.
 /// Binary operators get spaces around them.
-std::string tokens_to_text(const std::vector<Token> &tokens, const bool &after_node = false);
+std::string tokens_to_text(std::span<const Token> tokens, const bool &after_node = false);
 
 /// Convert a single token to flat display text.
-/// ExprTokens are flattened using op symbols (e.g. \frac{2}{3} → 2 ÷ 3);
+/// LatexTokens are flattened using op symbols (e.g. \frac{2}{3} → 2 ÷ 3);
 /// all other token kinds delegate to token_text().
 std::string token_flat_text(const Token &tok);
 
