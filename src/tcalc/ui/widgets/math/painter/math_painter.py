@@ -30,37 +30,40 @@ class MathPainter:
         root.place(0.0, 0.0)
         return root
 
-    def _emit(self, row: Row, nodes: list[calc_native.MathNode], font: QFont) -> None:
+    def _emit(self, row: Row, nodes: list[tuple], font: QFont) -> None:
+        TEXT = calc_native.MATH_TAG_TEXT
+        PAREN = calc_native.MATH_TAG_PAREN
+        children = row.children
         for node in nodes:
-            kind = node.kind
-            if kind == calc_native.MathNodeKind.Text:
-                row.children.append(TextLeaf(text=node.as_text().text, font=font))
+            kind = node[0]
+            if kind == TEXT:
+                children.append(TextLeaf(text=node[1], font=font))
                 continue
-            if kind == calc_native.MathNodeKind.Paren:
-                paren = node.as_paren()
+            if kind == PAREN:
+                _, paren_kind, has_close, paren_children = node
                 inner = Row()
-                self._emit(inner, paren.children, font)
-                row.children.append(
+                self._emit(inner, paren_children, font)
+                children.append(
                     ParenPaint(
                         left=inner,
-                        kind=paren.kind,
+                        kind=paren_kind,
                         open_visible=True,
-                        close_visible=paren.has_close,
+                        close_visible=has_close,
                     )
                 )
                 continue
-            latex = node.as_latex()
-            node_cls = LATEX_KIND_MAP.get(latex.kind)
+            _, latex_kind, left_nodes, right_nodes = node
+            node_cls = LATEX_KIND_MAP.get(latex_kind)
             if node_cls is None:
                 continue
             left_row = Row()
-            self._emit(left_row, latex.left, font)
+            self._emit(left_row, left_nodes, font)
             right_row: Row | None = None
-            if latex.right:
+            if right_nodes:
                 right_row = Row()
-                self._emit(right_row, latex.right, font)
+                self._emit(right_row, right_nodes, font)
             paint_node: PaintNode = node_cls(left=left_row, right=right_row)
-            row.children.append(paint_node)
+            children.append(paint_node)
 
 
 CANVAS_PAD = 4

@@ -461,7 +461,7 @@ std::optional<StructuralSplit> structural_split(const TokensBranch &branch) {
     const TokenIndex idx = expr_first;
     const LatexToken &latex_tok = std::get<LatexToken>(tokens[idx].data);
 
-    ExprSplit split;
+    LatexSplit split;
     split.idx = idx;
     split.kind = latex_tok.kind;
 

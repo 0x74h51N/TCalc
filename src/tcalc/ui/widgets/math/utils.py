@@ -11,8 +11,8 @@ import calc_native
 from PySide6.QtWidgets import QLineEdit
 
 ParenSplit = calc_native.ParenSplit
-ExprSplit = calc_native.ExprSplit
-StructuralSplit = ParenSplit | ExprSplit
+LatexSplit = calc_native.LatexSplit
+StructuralSplit = ParenSplit | LatexSplit
 
 structural_split = calc_native.structural_split
 split_operand = calc_native.split_operand

@@ -41,29 +41,29 @@ def debug_tokens(tokens: list[calc_native.Token]) -> None:
     _log.debug("TOKENS -> %s", out)
 
 
-def _fmt_math_nodes(nodes: list[calc_native.MathNode], indent: int = 0) -> list[str]:
+def _fmt_math_nodes(nodes: list[tuple], indent: int = 0) -> list[str]:
     pad = "  " * indent
     lines: list[str] = []
-    for n in nodes:
-        kind = n.kind
-        if kind == calc_native.MathNodeKind.Text:
-            lines.append(f"{pad}Text {n.as_text().text!r}")
-        elif kind == calc_native.MathNodeKind.Paren:
-            p = n.as_paren()
-            close = "" if p.has_close else " (unmatched)"
-            lines.append(f"{pad}Paren[{p.kind.name}]{close}")
-            lines.extend(_fmt_math_nodes(p.children, indent + 1))
+    for tup in nodes:
+        tag = tup[0]
+        if tag == calc_native.MATH_TAG_TEXT:
+            lines.append(f"{pad}Text {tup[1]!r}")
+        elif tag == calc_native.MATH_TAG_PAREN:
+            _, paren_kind, has_close, children = tup
+            close = "" if has_close else " (unmatched)"
+            lines.append(f"{pad}Paren[{paren_kind.name}]{close}")
+            lines.extend(_fmt_math_nodes(children, indent + 1))
         else:
-            lx = n.as_latex()
-            lines.append(f"{pad}Latex[{lx.kind.name}]")
+            _, latex_kind, left, right = tup
+            lines.append(f"{pad}Latex[{latex_kind.name}]")
             lines.append(f"{pad}  left:")
-            lines.extend(_fmt_math_nodes(lx.left, indent + 2))
+            lines.extend(_fmt_math_nodes(left, indent + 2))
             lines.append(f"{pad}  right:")
-            lines.extend(_fmt_math_nodes(lx.right, indent + 2))
+            lines.extend(_fmt_math_nodes(right, indent + 2))
     return lines
 
 
-def debug_math_nodes(nodes: list[calc_native.MathNode]) -> None:
+def debug_math_nodes(nodes: list[tuple]) -> None:
     """Log a MathNode tree in readable indented form."""
     _log.debug("MATH_NODES ->")
     for line in _fmt_math_nodes(nodes):

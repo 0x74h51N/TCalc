@@ -78,10 +78,6 @@ template <typename T> const T *token_as(const p::Token &tok) {
     return std::get_if<T>(&tok.data);
 }
 
-template <typename T> const T *math_as(const p::MathNode &n) {
-    return std::get_if<T>(&n.data);
-}
-
 /// Rational^Rational with promotion
 inline py::object rational_pow(const Calculator &calc, const Rational &a, const Rational &b) {
     const double da = a.to_double();

@@ -130,28 +130,22 @@ class MathRender(QWidget):
             seg.setText(new_text)
             seg.setCursorPosition(min(new_cursor, len(new_text)))
 
-    def _build_paren(self, node: calc_native.ParenNode) -> ExpressionNode:
-        paren_cls = self.PAREN_KIND_MAP[node.kind]
+    def _build_paren(self, paren_kind: calc_native.ParenKind, has_close: bool) -> ExpressionNode:
+        paren_cls = self.PAREN_KIND_MAP[paren_kind]
 
-        open_tok = calc_native.ParenToken(calc_native.ParenType.Open, node.kind)
+        open_tok = calc_native.ParenToken(calc_native.ParenType.Open, paren_kind)
         close_tok = (
-            calc_native.ParenToken(calc_native.ParenType.Close, node.kind)
-            if node.has_close
-            else None
+            calc_native.ParenToken(calc_native.ParenType.Close, paren_kind) if has_close else None
         )
         widget = paren_cls(open_tok, close_tok)
-        if not node.has_close:
-            self._pending_parens.setdefault(node.kind, []).append(widget)
+        if not has_close:
+            self._pending_parens.setdefault(paren_kind, []).append(widget)
         return widget
-
-    def _build_latex(self, node: calc_native.LatexNode) -> ExpressionNode:
-        widget_cls = self.LATEX_KIND_MAP[node.kind]
-        return widget_cls()
 
     def _render_all(
         self,
         seg: QLineEdit,
-        nodes: list[calc_native.MathNode],
+        nodes: list[tuple],
         dirty_inputs: set[QLineEdit],
     ) -> ExpressionNode | None:
         if not isValid(seg):
@@ -166,9 +160,11 @@ class MathRender(QWidget):
         slot: ExpressionSlot,
         seg: QLineEdit,
         idx: int,
-        nodes: list[calc_native.MathNode],
+        nodes: list[tuple],
         dirty_inputs: set[QLineEdit],
     ) -> ExpressionNode | None:
+        TEXT = calc_native.MATH_TAG_TEXT
+        PAREN = calc_native.MATH_TAG_PAREN
         cur_seg = seg
         cur_idx = idx
         cur_seg.setText("")
@@ -176,25 +172,25 @@ class MathRender(QWidget):
         focus_target: ExpressionNode | None = None
 
         for node in nodes:
-            kind = node.kind
-            if kind == calc_native.MathNodeKind.Text:
-                cur_seg.setText(node.as_text().text)
+            kind = node[0]
+            if kind == TEXT:
+                cur_seg.setText(node[1])
                 dirty_inputs.add(cur_seg)
                 continue
 
             widget: ExpressionNode
-            left_nodes: list[calc_native.MathNode] | None
-            right_nodes: list[calc_native.MathNode] | None
-            if kind == calc_native.MathNodeKind.Paren:
-                paren = node.as_paren()
-                widget = self._build_paren(paren)
-                tail_needed = paren.has_close
-                left_nodes, right_nodes = paren.children, None
+            left_nodes: list[tuple] | None
+            right_nodes: list[tuple] | None
+            if kind == PAREN:
+                _, paren_kind, has_close, paren_children = node
+                widget = self._build_paren(paren_kind, has_close)
+                tail_needed = has_close
+                left_nodes, right_nodes = paren_children, None
             else:
-                latex = node.as_latex()
-                widget = self._build_latex(latex)
+                _, latex_kind, left_nodes, right_nodes = node
+                widget_cls = self.LATEX_KIND_MAP[latex_kind]
+                widget = widget_cls()
                 tail_needed = True
-                left_nodes, right_nodes = latex.left, latex.right
 
             if not self._read_only:
                 widget.editor = self.editor

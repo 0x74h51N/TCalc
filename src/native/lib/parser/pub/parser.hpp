@@ -286,7 +286,7 @@ struct ParenSplit {
 
 /// Structural split payload for a Frac/Pow/Root/Log latex token.
 /// Spans reference tokens inside the source TokensBranch, caller must keep branch alive.
-struct ExprSplit {
+struct LatexSplit {
     TokenIndex idx = 0;
     std::span<const Token> prefix;
     std::span<const Token> left;
@@ -295,7 +295,7 @@ struct ExprSplit {
     LatexKind kind{};
 };
 
-using StructuralSplit = std::variant<ParenSplit, ExprSplit>;
+using StructuralSplit = std::variant<ParenSplit, LatexSplit>;
 
 /// Pair of token spans [begin, split_at) and [split_at, end) returned by split_operand.
 /// Trailing (lead=false): (prefix, operand). Leading (lead=true): (operand, suffix).
@@ -306,7 +306,7 @@ OperandSplit
 split_operand(std::span<const Token> tokens, TokenIndex begin, TokenIndex end, bool lead = false);
 
 /// Find the next structural split point in branch: ParenSplit for an (un)matched open paren
-/// before the first latex token, ExprSplit for Frac/Pow/Root/Log, nullopt when no latex tokens.
+/// before the first latex token, LatexSplit for Frac/Pow/Root/Log, nullopt when no latex tokens.
 std::optional<StructuralSplit> structural_split(const TokensBranch &branch);
 
 struct TextNode;
