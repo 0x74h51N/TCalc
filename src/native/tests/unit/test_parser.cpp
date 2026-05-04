@@ -19,6 +19,7 @@ using p::OpToken;
 using p::ParenKind;
 using p::ParenToken;
 using p::ParenType;
+using p::StructuralSplit;
 using p::Token;
 using p::TokenKind;
 using p::TokensBranch;
@@ -41,10 +42,23 @@ struct ScanExpected {
     std::size_t next;
 };
 
+struct SplitExpected {
+    enum class Kind { None, Paren, Latex };
+    Kind kind = Kind::None;
+    std::vector<Token> prefix;
+    std::vector<Token> left;
+    std::vector<Token> right;
+    std::vector<Token> suffix;
+    ParenToken open_tok{};
+    std::optional<ParenToken> close_tok{};
+    p::LatexKind latex_kind{};
+};
+
 using TokCase = Case<const char *, std::vector<tcalc::parser::Token>>;
 using ScanCase = Case<ScanInput, ScanExpected>;
 using NormCase = Case<std::vector<Token>, std::vector<Token>>;
 using ShuntCase = Case<std::vector<Token>, std::vector<Token>>;
+using SplitCase = Case<TokensBranch, SplitExpected>;
 
 inline constexpr ParenToken kPOP{ParenType::Open, ParenKind::Paren};
 inline constexpr ParenToken kPCL{ParenType::Close, ParenKind::Paren};
@@ -819,4 +833,470 @@ void unit_parser(TestContext &ctx) {
         std::vector<Token> empty;
         EXPECT_EQ(ctx, p::tokens_to_text(empty), std::string(""));
     });
+
+    // =========================================================================
+    // structural_split
+    // =========================================================================
+    {
+        using K = SplitExpected::Kind;
+
+        const auto branch = [](std::vector<Token> toks) {
+            return p::classify_tokens(std::move(toks));
+        };
+
+        const std::vector<SplitCase> split_cases = {
+            // -- nullopt: no latex tokens at all
+            {.id = "nullopt :: empty branch", .input = branch({}), .expected = {.kind = K::None}},
+
+            {.id = "nullopt :: plain expr no latex",
+             .input = branch({N("1"), Op_(OpId::Add), N("2")}),
+             .expected = {.kind = K::None}},
+
+            {.id = "nullopt :: paren only no latex",
+             .input = branch({kOPN, N("1"), Op_(OpId::Add), N("2"), kCPN}),
+             .expected = {.kind = K::None}},
+
+            {.id = "nullopt :: division op only",
+             .input = branch({N("4"), Op_(OpId::Div), N("5")}),
+             .expected = {.kind = K::None}},
+
+            {.id = "nullopt :: paren mixed ops",
+             .input = branch(
+                 {kOPN,
+                  N("2"),
+                  Op_(OpId::Add),
+                  N("5"),
+                  Op_(OpId::Div),
+                  N("5"),
+                  Op_(OpId::Mul),
+                  N("4"),
+                  kCPN}),
+             .expected = {.kind = K::None}},
+
+            {.id = "nullopt :: nested parens no latex",
+             .input = branch({kOPN, kOPN, N("1"), kCPN, kCPN}),
+             .expected = {.kind = K::None}},
+
+            {.id = "nullopt :: two paren groups no latex",
+             .input = branch(
+                 {kOPN,
+                  N("1"),
+                  Op_(OpId::Add),
+                  N("2"),
+                  kCPN,
+                  Op_(OpId::Mul),
+                  kOPN,
+                  N("3"),
+                  Op_(OpId::Add),
+                  N("4"),
+                  kCPN}),
+             .expected = {.kind = K::None}},
+
+            {.id = "nullopt :: unmatched paren no latex",
+             .input = branch({kOPN, N("1"), Op_(OpId::Add), N("2")}),
+             .expected = {.kind = K::None}},
+
+            // -- LatexSplit: filled latex with no surrounding
+            {.id = "latex :: filled frac alone",
+             .input = branch({Frac({N("2")}, {N("3")})}),
+             .expected =
+                 {.kind = K::Latex,
+                  .left = {N("2")},
+                  .right = {N("3")},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            {.id = "latex :: empty frac alone",
+             .input = branch({Frac({}, {})}),
+             .expected = {.kind = K::Latex, .latex_kind = p::LatexKind::Frac}},
+
+            // -- LatexSplit: operand pickup when latex left/right empty
+            // 1+2\frac -> prefix=[1,+], left=[2]
+            {.id = "latex :: trailing number becomes left",
+             .input = branch({N("1"), Op_(OpId::Add), N("2"), Frac({}, {})}),
+             .expected =
+                 {.kind = K::Latex,
+                  .prefix = {N("1"), Op_(OpId::Add)},
+                  .left = {N("2")},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            // \frac{}{}+2 ... wait: \frac 2+3 -> right=[2], suffix=[+,3]
+            {.id = "latex :: leading number becomes right",
+             .input = branch({Frac({}, {}), N("2"), Op_(OpId::Add), N("3")}),
+             .expected =
+                 {.kind = K::Latex,
+                  .right = {N("2")},
+                  .suffix = {Op_(OpId::Add), N("3")},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            // \frac{1}{}+2 -> left from latex, right empty (op blocks pickup)
+            {.id = "latex :: leading op blocks right pickup",
+             .input = branch({Frac({N("1")}, {}), Op_(OpId::Add), N("2")}),
+             .expected =
+                 {.kind = K::Latex,
+                  .left = {N("1")},
+                  .suffix = {Op_(OpId::Add), N("2")},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            // 1+\frac{}{2} -> left empty (op blocks), right from latex
+            {.id = "latex :: trailing op blocks left pickup",
+             .input = branch({N("1"), Op_(OpId::Add), Frac({}, {N("2")})}),
+             .expected =
+                 {.kind = K::Latex,
+                  .prefix = {N("1"), Op_(OpId::Add)},
+                  .right = {N("2")},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            // (2+5)+\frac{}{} -> closed paren BEFORE latex stays in prefix,
+            // not a ParenSplit (rule: paren must wrap or be unmatched past latex)
+            {.id = "latex :: closed paren before frac stays in prefix",
+             .input =
+                 branch({kOPN, N("2"), Op_(OpId::Add), N("5"), kCPN, Op_(OpId::Add), Frac({}, {})}),
+             .expected =
+                 {.kind = K::Latex,
+                  .prefix = {kOPN, N("2"), Op_(OpId::Add), N("5"), kCPN, Op_(OpId::Add)},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            // -- LatexSplit: trailing operand is a paren group
+            // 1\frac{}{} -> left=[1], suffix=[]
+            {.id = "latex :: trailing num before latex",
+             .input = branch({N("1"), Frac({}, {})}),
+             .expected =
+                 {.kind = K::Latex,
+                  .left = {N("1")},
+                  .right = {},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            // \frac{1}{}(2+3) -> right=[(2+3)], suffix=[]
+            {.id = "latex :: trailing paren group becomes right",
+             .input = branch({Frac({N("1")}, {}), kOPN, N("2"), Op_(OpId::Add), N("3"), kCPN}),
+             .expected =
+                 {.kind = K::Latex,
+                  .left = {N("1")},
+                  .right = {kOPN, N("2"), Op_(OpId::Add), N("3"), kCPN},
+                  .latex_kind = p::LatexKind::Frac}},
+            // 1\frac{}{}(2+3) -> right=[(2+3)], suffix=[]
+            {.id = "latex :: trailing num and paren group becomes right and left",
+             .input = branch({N("1"), Frac({}, {}), kOPN, N("2"), Op_(OpId::Add), N("3"), kCPN}),
+             .expected =
+                 {.kind = K::Latex,
+                  .left = {N("1")},
+                  .right = {kOPN, N("2"), Op_(OpId::Add), N("3"), kCPN},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            // -- ParenSplit: paren wraps first latex
+            // (\frac{2}{3})
+            {.id = "paren :: matched paren wraps frac",
+             .input = branch({kOPN, Frac({N("2")}, {N("3")}), kCPN}),
+             .expected =
+                 {.kind = K::Paren,
+                  .left = {Frac({N("2")}, {N("3")})},
+                  .open_tok = kPOP,
+                  .close_tok = kPCL}},
+
+            // (1+\frac{2}{3} -> unmatched open, no suffix, no close_tok
+            {.id = "paren :: unmatched open before frac",
+             .input = branch({kOPN, N("1"), Op_(OpId::Add), Frac({N("2")}, {N("3")})}),
+             .expected =
+                 {.kind = K::Paren,
+                  .left = {N("1"), Op_(OpId::Add), Frac({N("2")}, {N("3")})},
+                  .open_tok = kPOP,
+                  .close_tok = std::nullopt}},
+
+            // (2+\frac{2}{})\frac{}{} -> outer paren wraps first frac, second is suffix
+            {.id = "paren :: wrap first frac, second frac in suffix",
+             .input =
+                 branch({kOPN, N("2"), Op_(OpId::Add), Frac({N("2")}, {}), kCPN, Frac({}, {})}),
+             .expected =
+                 {.kind = K::Paren,
+                  .left = {N("2"), Op_(OpId::Add), Frac({N("2")}, {})},
+                  .suffix = {Frac({}, {})},
+                  .open_tok = kPOP,
+                  .close_tok = kPCL}},
+
+            // ((1)+\frac{2}{3}) -> outer paren is the candidate
+            {.id = "paren :: outer paren picked over inner",
+             .input =
+                 branch({kOPN, kOPN, N("1"), kCPN, Op_(OpId::Add), Frac({N("2")}, {N("3")}), kCPN}),
+             .expected =
+                 {.kind = K::Paren,
+                  .left = {kOPN, N("1"), kCPN, Op_(OpId::Add), Frac({N("2")}, {N("3")})},
+                  .open_tok = kPOP,
+                  .close_tok = kPCL}},
+
+            // -- Sibling latex (no parens): first wins, rest goes to suffix --
+            {.id = "latex :: sibling fracs first wins",
+             .input = branch({Frac({N("1")}, {N("2")}), Op_(OpId::Add), Frac({N("3")}, {N("4")})}),
+             .expected =
+                 {.kind = K::Latex,
+                  .left = {N("1")},
+                  .right = {N("2")},
+                  .suffix = {Op_(OpId::Add), Frac({N("3")}, {N("4")})},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            // Paren AFTER first latex doesn't trigger ParenSplit
+            {.id = "latex :: paren after first frac stays in suffix",
+             .input = branch(
+                 {Frac({N("1")}, {N("2")}), Op_(OpId::Add), kOPN, Frac({N("3")}, {N("4")}), kCPN}),
+             .expected =
+                 {.kind = K::Latex,
+                  .left = {N("1")},
+                  .right = {N("2")},
+                  .suffix = {Op_(OpId::Add), kOPN, Frac({N("3")}, {N("4")}), kCPN},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            // -- Nested latex (top-level token has nested Latex inside)
+            // \frac{\frac{1}{2}}{3} -> outer wins; nested frac is one element of left
+            {.id = "latex :: nested frac in left",
+             .input = branch({Frac({Frac({N("1")}, {N("2")})}, {N("3")})}),
+             .expected =
+                 {.kind = K::Latex,
+                  .left = {Frac({N("1")}, {N("2")})},
+                  .right = {N("3")},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            // \frac{1}{\frac{2}{3}} -> outer wins; nested frac sits in right
+            {.id = "latex :: nested frac in right",
+             .input = branch({Frac({N("1")}, {Frac({N("2")}, {N("3")})})}),
+             .expected =
+                 {.kind = K::Latex,
+                  .left = {N("1")},
+                  .right = {Frac({N("2")}, {N("3")})},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            // -- Nested parens around a latex
+            // ((1+\frac{2}{3})) -> outermost paren wraps everything
+            {.id = "paren :: doubly nested wraps frac",
+             .input =
+                 branch({kOPN, kOPN, N("1"), Op_(OpId::Add), Frac({N("2")}, {N("3")}), kCPN, kCPN}),
+             .expected =
+                 {.kind = K::Paren,
+                  .left = {kOPN, N("1"), Op_(OpId::Add), Frac({N("2")}, {N("3")}), kCPN},
+                  .open_tok = kPOP,
+                  .close_tok = kPCL}},
+
+            // 1+(2+\frac{3}{4})*5 -> paren wraps frac, ops on both sides
+            {.id = "paren :: wrap frac with ops on both sides",
+             .input = branch(
+                 {N("1"),
+                  Op_(OpId::Add),
+                  kOPN,
+                  N("2"),
+                  Op_(OpId::Add),
+                  Frac({N("3")}, {N("4")}),
+                  kCPN,
+                  Op_(OpId::Mul),
+                  N("5")}),
+             .expected =
+                 {.kind = K::Paren,
+                  .prefix = {N("1"), Op_(OpId::Add)},
+                  .left = {N("2"), Op_(OpId::Add), Frac({N("3")}, {N("4")})},
+                  .suffix = {Op_(OpId::Mul), N("5")},
+                  .open_tok = kPOP,
+                  .close_tok = kPCL}},
+
+            // -- Sibling: more than two
+            // \frac{1}{2}+\frac{3}{4}+\frac{5}{6} -> first wins, rest in suffix
+            {.id = "latex :: three sibling fracs",
+             .input = branch(
+                 {Frac({N("1")}, {N("2")}),
+                  Op_(OpId::Add),
+                  Frac({N("3")}, {N("4")}),
+                  Op_(OpId::Add),
+                  Frac({N("5")}, {N("6")})}),
+             .expected =
+                 {.kind = K::Latex,
+                  .left = {N("1")},
+                  .right = {N("2")},
+                  .suffix =
+                      {Op_(OpId::Add),
+                       Frac({N("3")}, {N("4")}),
+                       Op_(OpId::Add),
+                       Frac({N("5")}, {N("6")})},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            // (\frac{1}{2}+\frac{3}{4}) -> paren wraps both siblings
+            {.id = "paren :: wrap two sibling fracs",
+             .input = branch(
+                 {kOPN, Frac({N("1")}, {N("2")}), Op_(OpId::Add), Frac({N("3")}, {N("4")}), kCPN}),
+             .expected =
+                 {.kind = K::Paren,
+                  .left = {Frac({N("1")}, {N("2")}), Op_(OpId::Add), Frac({N("3")}, {N("4")})},
+                  .open_tok = kPOP,
+                  .close_tok = kPCL}},
+
+            // -- Sibling + nested mix
+            // \frac{1}{\frac{2}{3}}+\frac{4}{5} -> first frac wins
+            {.id = "latex :: nested-right then sibling",
+             .input = branch(
+                 {Frac({N("1")}, {Frac({N("2")}, {N("3")})}),
+                  Op_(OpId::Add),
+                  Frac({N("4")}, {N("5")})}),
+             .expected =
+                 {.kind = K::Latex,
+                  .left = {N("1")},
+                  .right = {Frac({N("2")}, {N("3")})},
+                  .suffix = {Op_(OpId::Add), Frac({N("4")}, {N("5")})},
+                  .latex_kind = p::LatexKind::Frac}},
+
+            // (\frac{1}{2})+\frac{3}{4} -> outer paren wraps first frac
+            {.id = "paren :: wrapped frac plus sibling outside",
+             .input = branch(
+                 {kOPN, Frac({N("1")}, {N("2")}), kCPN, Op_(OpId::Add), Frac({N("3")}, {N("4")})}),
+             .expected =
+                 {.kind = K::Paren,
+                  .left = {Frac({N("1")}, {N("2")})},
+                  .suffix = {Op_(OpId::Add), Frac({N("3")}, {N("4")})},
+                  .open_tok = kPOP,
+                  .close_tok = kPCL}},
+
+            // -- Two sibling ParenSplits
+            // (\frac{1}{2})+(\frac{3}{4}) -> first paren wins; second paren group
+            // sits in suffix as raw tokens
+            {.id = "paren :: two sibling paren-wrapped fracs",
+             .input = branch(
+                 {kOPN,
+                  Frac({N("1")}, {N("2")}),
+                  kCPN,
+                  Op_(OpId::Add),
+                  kOPN,
+                  Frac({N("3")}, {N("4")}),
+                  kCPN}),
+             .expected =
+                 {.kind = K::Paren,
+                  .left = {Frac({N("1")}, {N("2")})},
+                  .suffix = {Op_(OpId::Add), kOPN, Frac({N("3")}, {N("4")}), kCPN},
+                  .open_tok = kPOP,
+                  .close_tok = kPCL}},
+
+            // (\frac{1}{2}+1)*(2-\frac{3}{4})
+            {.id = "paren :: two sibling paren groups with inner ops",
+             .input = branch(
+                 {kOPN,
+                  Frac({N("1")}, {N("2")}),
+                  Op_(OpId::Add),
+                  N("1"),
+                  kCPN,
+                  Op_(OpId::Mul),
+                  kOPN,
+                  N("2"),
+                  Op_(OpId::Sub),
+                  Frac({N("3")}, {N("4")}),
+                  kCPN}),
+             .expected =
+                 {.kind = K::Paren,
+                  .left = {Frac({N("1")}, {N("2")}), Op_(OpId::Add), N("1")},
+                  .suffix =
+                      {Op_(OpId::Mul),
+                       kOPN,
+                       N("2"),
+                       Op_(OpId::Sub),
+                       Frac({N("3")}, {N("4")}),
+                       kCPN},
+                  .open_tok = kPOP,
+                  .close_tok = kPCL}},
+
+            // (\frac{1}{2})+(\frac{3}{4})*(\frac{5}{6}) -> first wins
+            {.id = "paren :: three sibling paren-wrapped fracs",
+             .input = branch(
+                 {kOPN,
+                  Frac({N("1")}, {N("2")}),
+                  kCPN,
+                  Op_(OpId::Add),
+                  kOPN,
+                  Frac({N("3")}, {N("4")}),
+                  kCPN,
+                  Op_(OpId::Mul),
+                  kOPN,
+                  Frac({N("5")}, {N("6")}),
+                  kCPN}),
+             .expected =
+                 {.kind = K::Paren,
+                  .left = {Frac({N("1")}, {N("2")})},
+                  .suffix =
+                      {Op_(OpId::Add),
+                       kOPN,
+                       Frac({N("3")}, {N("4")}),
+                       kCPN,
+                       Op_(OpId::Mul),
+                       kOPN,
+                       Frac({N("5")}, {N("6")}),
+                       kCPN},
+                  .open_tok = kPOP,
+                  .close_tok = kPCL}},
+
+            // ((\frac{1}{2}+1))+(\frac{3}{4})+(\frac{5}{6})
+            {.id = "paren :: four paren groups, first has nested wrap",
+             .input = branch(
+                 {kOPN,
+                  kOPN,
+                  Frac({N("1")}, {N("2")}),
+                  Op_(OpId::Add),
+                  N("1"),
+                  kCPN,
+                  kCPN,
+                  Op_(OpId::Add),
+                  kOPN,
+                  Frac({N("3")}, {N("4")}),
+                  kCPN,
+                  Op_(OpId::Add),
+                  kOPN,
+                  Frac({N("5")}, {N("6")}),
+                  kCPN}),
+             .expected =
+                 {.kind = K::Paren,
+                  .left = {kOPN, Frac({N("1")}, {N("2")}), Op_(OpId::Add), N("1"), kCPN},
+                  .suffix =
+                      {Op_(OpId::Add),
+                       kOPN,
+                       Frac({N("3")}, {N("4")}),
+                       kCPN,
+                       Op_(OpId::Add),
+                       kOPN,
+                       Frac({N("5")}, {N("6")}),
+                       kCPN},
+                  .open_tok = kPOP,
+                  .close_tok = kPCL}},
+        };
+
+        const auto to_vec = [](std::span<const Token> a) {
+            return std::vector<Token>(a.begin(), a.end());
+        };
+
+        for (const auto &tc : split_cases) {
+            test_detail::with_case(ctx, std::string("structural_split :: ") + tc.id, [&] {
+                const auto got = p::structural_split(tc.input);
+                const auto &exp = tc.expected;
+
+                if (exp.kind == K::None) {
+                    EXPECT_TRUE(ctx, !got.has_value());
+                    return;
+                }
+                EXPECT_TRUE(ctx, got.has_value());
+                if (!got.has_value())
+                    return;
+
+                std::visit(
+                    [&](const auto &s) {
+                        using T = std::decay_t<decltype(s)>;
+                        constexpr bool is_paren = std::is_same_v<T, p::ParenSplit>;
+
+                        EXPECT_TRUE(ctx, exp.kind == (is_paren ? K::Paren : K::Latex));
+                        EXPECT_EQ(ctx, to_vec(s.prefix), exp.prefix);
+                        EXPECT_EQ(ctx, to_vec(s.left), exp.left);
+                        EXPECT_EQ(ctx, to_vec(s.suffix), exp.suffix);
+
+                        if constexpr (is_paren) {
+                            EXPECT_TRUE(ctx, s.open_tok == exp.open_tok);
+                            EXPECT_EQ(ctx, s.close_tok.has_value(), exp.close_tok.has_value());
+                            if (s.close_tok && exp.close_tok)
+                                EXPECT_TRUE(ctx, *s.close_tok == *exp.close_tok);
+                        } else {
+                            EXPECT_TRUE(ctx, s.kind == exp.latex_kind);
+                            EXPECT_EQ(ctx, to_vec(s.right), exp.right);
+                        }
+                    },
+                    *got);
+            });
+        }
+    }
 }
