@@ -21,6 +21,7 @@ using p::ParenToken;
 using p::ParenType;
 using p::Token;
 using p::TokenKind;
+using p::TokensBranch;
 
 namespace {
 
@@ -45,11 +46,61 @@ using ScanCase = Case<ScanInput, ScanExpected>;
 using NormCase = Case<std::vector<Token>, std::vector<Token>>;
 using ShuntCase = Case<std::vector<Token>, std::vector<Token>>;
 
+inline constexpr ParenToken kPOP{ParenType::Open, ParenKind::Paren};
+inline constexpr ParenToken kPCL{ParenType::Close, ParenKind::Paren};
+inline const Token kOPN{TokenKind::Paren, kPOP};
+inline const Token kCPN{TokenKind::Paren, kPCL};
+
+// Token factories. start/end default to 0
+// pass them only when the test actually checks span info
+inline Token N(const char *value, std::size_t start = 0, std::size_t end = 0) {
+    return Token{TokenKind::Number, NumberToken{value}, start, end};
+}
+inline Token Op_(OpId id, std::size_t start = 0, std::size_t end = 0) {
+    return Token{TokenKind::Op, OpToken{id}, start, end};
+}
+inline Token OpenP(ParenKind kind = ParenKind::Paren, std::size_t start = 0, std::size_t end = 0) {
+    return Token{TokenKind::Paren, ParenToken{ParenType::Open, kind}, start, end};
+}
+inline Token CloseP(ParenKind kind = ParenKind::Paren, std::size_t start = 0, std::size_t end = 0) {
+    return Token{TokenKind::Paren, ParenToken{ParenType::Close, kind}, start, end};
+}
+inline Token
+Lx(p::LatexKind kind,
+   OpId op,
+   std::vector<Token> left,
+   std::vector<Token> right,
+   std::size_t start = 0,
+   std::size_t end = 0) {
+    return Token{
+        TokenKind::Latex, LatexToken{kind, op, std::move(left), std::move(right)}, start, end};
+}
+inline Token Frac(
+    std::vector<Token> numerator,
+    std::vector<Token> denominator,
+    std::size_t start = 0,
+    std::size_t end = 0) {
+    return Lx(
+        p::LatexKind::Frac, OpId::Div, std::move(numerator), std::move(denominator), start, end);
+}
+inline Token
+Pow(std::vector<Token> base,
+    std::vector<Token> exponent,
+    std::size_t start = 0,
+    std::size_t end = 0) {
+    return Lx(p::LatexKind::Pow, OpId::Pow, std::move(base), std::move(exponent), start, end);
+}
+inline Token Root(
+    std::vector<Token> degree,
+    std::vector<Token> radicand,
+    std::size_t start = 0,
+    std::size_t end = 0) {
+    return Lx(p::LatexKind::Root, OpId::Root, std::move(degree), std::move(radicand), start, end);
+}
+
 } // namespace
 
-/// TODO:
-/// Add split
-/// and math_node tests
+/// TODO: Add math_node tests
 
 void unit_parser(TestContext &ctx) {
 
@@ -57,617 +108,226 @@ void unit_parser(TestContext &ctx) {
     const std::vector<TokCase> tok_cases = {
         {.id = "basic add",
          .input = "1+2",
-         .expected =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"1"},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Add}, .start_pos = 1, .end_pos = 2},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 2,
-                  .end_pos = 3},
-             }},
+         .expected = {N("1", 0, 1), Op_(OpId::Add, 1, 2), N("2", 2, 3)}},
 
         {.id = "leading negate decimal",
          .input = "-3.5",
-         .expected =
-             {
-                 {.kind = TokenKind::Op,
-                  .data = OpToken{OpId::Negate},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"3.5"},
-                  .start_pos = 1,
-                  .end_pos = 4},
-             }},
+         .expected = {Op_(OpId::Negate, 0, 1), N("3.5", 1, 4)}},
 
         {.id = "negate then plus",
          .input = "-+2",
-         .expected =
-             {
-                 {.kind = TokenKind::Op,
-                  .data = OpToken{OpId::Negate},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op,
-                  .data = OpToken{OpId::UnaryPlus},
-                  .start_pos = 1,
-                  .end_pos = 2},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 2,
-                  .end_pos = 3},
-             }},
+         .expected = {Op_(OpId::Negate, 0, 1), Op_(OpId::UnaryPlus, 1, 2), N("2", 2, 3)}},
 
         {.id = "func parens imag",
          .input = "sin(2i)",
          .expected =
-             {
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Sin}, .start_pos = 0, .end_pos = 3},
-                 {.kind = TokenKind::Paren,
-                  .data = ParenToken{ParenType::Open, ParenKind::Paren},
-                  .start_pos = 3,
-                  .end_pos = 4},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2i"},
-                  .start_pos = 4,
-                  .end_pos = 6},
-                 {.kind = TokenKind::Paren,
-                  .data = ParenToken{ParenType::Close, ParenKind::Paren},
-                  .start_pos = 6,
-                  .end_pos = 7},
-             }},
+             {Op_(OpId::Sin, 0, 3),
+              OpenP(ParenKind::Paren, 3, 4),
+              N("2i", 4, 6),
+              CloseP(ParenKind::Paren, 6, 7)}},
 
         {.id = "spacing and unicode",
          .input = "-2 ³√( 3 ( π ",
          .expected =
-             {
-                 {.kind = TokenKind::Op,
-                  .data = OpToken{OpId::Negate},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 1,
-                  .end_pos = 2},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Cbrt}, .start_pos = 3, .end_pos = 4},
-                 {.kind = TokenKind::Paren,
-                  .data = ParenToken{ParenType::Open, ParenKind::Paren},
-                  .start_pos = 4,
-                  .end_pos = 5},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"3"},
-                  .start_pos = 6,
-                  .end_pos = 7},
-                 {.kind = TokenKind::Paren,
-                  .data = ParenToken{ParenType::Open, ParenKind::Paren},
-                  .start_pos = 8,
-                  .end_pos = 9},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"π"},
-                  .start_pos = 10,
-                  .end_pos = 11},
-             }},
+             {Op_(OpId::Negate, 0, 1),
+              N("2", 1, 2),
+              Op_(OpId::Cbrt, 3, 4),
+              OpenP(ParenKind::Paren, 4, 5),
+              N("3", 6, 7),
+              OpenP(ParenKind::Paren, 8, 9),
+              N("π", 10, 11)}},
 
-        {.id = "sci notation imag",
-         .input = "1.2e-3i",
-         .expected =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"1.2e-3i"},
-                  .start_pos = 0,
-                  .end_pos = 7},
-             }},
+        {.id = "sci notation imag", .input = "1.2e-3i", .expected = {N("1.2e-3i", 0, 7)}},
 
         {.id = "binary plus unary minus",
          .input = "1+-2",
-         .expected =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"1"},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Add}, .start_pos = 1, .end_pos = 2},
-                 {.kind = TokenKind::Op,
-                  .data = OpToken{OpId::Negate},
-                  .start_pos = 2,
-                  .end_pos = 3},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 3,
-                  .end_pos = 4},
-             }},
+         .expected = {N("1", 0, 1), Op_(OpId::Add, 1, 2), Op_(OpId::Negate, 2, 3), N("2", 3, 4)}},
 
         {.id = "negate in parens",
          .input = "(-2)",
          .expected =
-             {
-                 {.kind = TokenKind::Paren,
-                  .data = ParenToken{ParenType::Open, ParenKind::Paren},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op,
-                  .data = OpToken{OpId::Negate},
-                  .start_pos = 1,
-                  .end_pos = 2},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 2,
-                  .end_pos = 3},
-                 {.kind = TokenKind::Paren,
-                  .data = ParenToken{ParenType::Close, ParenKind::Paren},
-                  .start_pos = 3,
-                  .end_pos = 4},
-             }},
+             {OpenP(ParenKind::Paren, 0, 1),
+              Op_(OpId::Negate, 1, 2),
+              N("2", 2, 3),
+              CloseP(ParenKind::Paren, 3, 4)}},
 
         {.id = "asinh parens",
          .input = "asinh(2)",
          .expected =
-             {
-                 {.kind = TokenKind::Op,
-                  .data = OpToken{OpId::Asinh},
-                  .start_pos = 0,
-                  .end_pos = 5},
-                 {.kind = TokenKind::Paren,
-                  .data = ParenToken{ParenType::Open, ParenKind::Paren},
-                  .start_pos = 5,
-                  .end_pos = 6},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 6,
-                  .end_pos = 7},
-                 {.kind = TokenKind::Paren,
-                  .data = ParenToken{ParenType::Close, ParenKind::Paren},
-                  .start_pos = 7,
-                  .end_pos = 8},
-             }},
+             {Op_(OpId::Asinh, 0, 5),
+              OpenP(ParenKind::Paren, 5, 6),
+              N("2", 6, 7),
+              CloseP(ParenKind::Paren, 7, 8)}},
 
         {.id = "sqrt parens",
          .input = "sqrt(2)",
          .expected =
-             {
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Sqrt}, .start_pos = 0, .end_pos = 4},
-                 {.kind = TokenKind::Paren,
-                  .data = ParenToken{ParenType::Open, ParenKind::Paren},
-                  .start_pos = 4,
-                  .end_pos = 5},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 5,
-                  .end_pos = 6},
-                 {.kind = TokenKind::Paren,
-                  .data = ParenToken{ParenType::Close, ParenKind::Paren},
-                  .start_pos = 6,
-                  .end_pos = 7},
-             }
-        },
+             {Op_(OpId::Sqrt, 0, 4),
+              OpenP(ParenKind::Paren, 4, 5),
+              N("2", 5, 6),
+              CloseP(ParenKind::Paren, 6, 7)}},
 
-        {.id = "postfix unicode",
-        .input = "2³",
-        .expected = {
-            {.kind = TokenKind::Number, .data = NumberToken{"2"},    .start_pos = 0, .end_pos = 1},
-            {.kind = TokenKind::Op,     .data = OpToken{OpId::Cube}, .start_pos = 1, .end_pos = 2},
-        }},
+        {.id = "postfix unicode", .input = "2³", .expected = {N("2", 0, 1), Op_(OpId::Cube, 1, 2)}},
 
         // == Paren types ==============================================
 
         {.id = "curly braces",
-        .input = "{1+2}",
-        .expected = {
-            {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Open,  ParenKind::Brace}, .start_pos = 0, .end_pos = 1},
-            {.kind = TokenKind::Number, .data = NumberToken{"1"},    .start_pos = 1, .end_pos = 2},
-            {.kind = TokenKind::Op,     .data = OpToken{OpId::Add},  .start_pos = 2, .end_pos = 3},
-            {.kind = TokenKind::Number, .data = NumberToken{"2"},    .start_pos = 3, .end_pos = 4},
-            {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Close, ParenKind::Brace}, .start_pos = 4, .end_pos = 5},
-        }},
+         .input = "{1+2}",
+         .expected =
+             {OpenP(ParenKind::Brace, 0, 1),
+              N("1", 1, 2),
+              Op_(OpId::Add, 2, 3),
+              N("2", 3, 4),
+              CloseP(ParenKind::Brace, 4, 5)}},
 
         {.id = "square brackets",
-        .input = "[3+4]",
-        .expected = {
-            {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Open,  ParenKind::Bracket}, .start_pos = 0, .end_pos = 1},
-            {.kind = TokenKind::Number, .data = NumberToken{"3"},    .start_pos = 1, .end_pos = 2},
-            {.kind = TokenKind::Op,     .data = OpToken{OpId::Add},  .start_pos = 2, .end_pos = 3},
-            {.kind = TokenKind::Number, .data = NumberToken{"4"},    .start_pos = 3, .end_pos = 4},
-            {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Close, ParenKind::Bracket}, .start_pos = 4, .end_pos = 5},
-        }},
+         .input = "[3+4]",
+         .expected =
+             {OpenP(ParenKind::Bracket, 0, 1),
+              N("3", 1, 2),
+              Op_(OpId::Add, 2, 3),
+              N("4", 3, 4),
+              CloseP(ParenKind::Bracket, 4, 5)}},
 
         {.id = "mixed paren kinds",
-        .input = "({[1]})",
-        .expected = {
-            {.kind = TokenKind::Paren,  
-                .data = ParenToken{ParenType::Open,  ParenKind::Paren},   .start_pos = 0, .end_pos = 1},
-            {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Open,  ParenKind::Brace},   .start_pos = 1, .end_pos = 2},
-            {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Open,  ParenKind::Bracket}, .start_pos = 2, .end_pos = 3},
-            {.kind = TokenKind::Number, .data = NumberToken{"1"},    .start_pos = 3, .end_pos = 4},
-            {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Close, ParenKind::Bracket}, .start_pos = 4, .end_pos = 5},
-            {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Close, ParenKind::Brace},   .start_pos = 5, .end_pos = 6},
-            {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Close, ParenKind::Paren},   .start_pos = 6, .end_pos = 7},
-        }},
+         .input = "({[1]})",
+         .expected =
+             {OpenP(ParenKind::Paren, 0, 1),
+              OpenP(ParenKind::Brace, 1, 2),
+              OpenP(ParenKind::Bracket, 2, 3),
+              N("1", 3, 4),
+              CloseP(ParenKind::Bracket, 4, 5),
+              CloseP(ParenKind::Brace, 5, 6),
+              CloseP(ParenKind::Paren, 6, 7)}},
 
         {.id = "negate inside curly",
-        .input = "{-2}",
-        .expected = {
-            {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Open, ParenKind::Brace},  .start_pos = 0, .end_pos = 1},
-            {.kind = TokenKind::Op,     .data = OpToken{OpId::Negate}, .start_pos = 1, .end_pos = 2},
-            {.kind = TokenKind::Number, .data = NumberToken{"2"},      .start_pos = 2, .end_pos = 3},
-            {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Close, ParenKind::Brace}, .start_pos = 3, .end_pos = 4},
-        }},
+         .input = "{-2}",
+         .expected =
+             {OpenP(ParenKind::Brace, 0, 1),
+              Op_(OpId::Negate, 1, 2),
+              N("2", 2, 3),
+              CloseP(ParenKind::Brace, 3, 4)}},
 
         // == LatexToken (LaTeX) ========================================
 
         {.id = "frac simple",
-        .input = "\\frac{2}{3}",
-        .expected = {
-            {.kind = TokenKind::Latex, .data = LatexToken{
-                .kind = LatexKind::Frac,
-                .op_id = OpId::Div,
-                .left  = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
-                .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
-            }, .start_pos = 0, .end_pos = 11},
-        }},
+         .input = "\\frac{2}{3}",
+         .expected = {Frac({N("2")}, {N("3")}, 0, 11)}},
 
-        {.id = "pow simple",
-        .input = "\\pow{5}{2}",
-        .expected = {
-            {.kind = TokenKind::Latex, .data = LatexToken{
-                .kind = LatexKind::Pow,
-                .op_id = OpId::Pow,
-                .left  = {{.kind = TokenKind::Number, .data = NumberToken{"5"}}},
-                .right = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
-            }, .start_pos = 0, .end_pos = 10},
-        }},
+        {.id = "pow simple", .input = "\\pow{5}{2}", .expected = {Pow({N("5")}, {N("2")}, 0, 10)}},
 
         {.id = "root simple",
-        .input = "\\root{8}{3}",
-        .expected = {
-            {.kind = TokenKind::Latex, .data = LatexToken{
-                .kind = LatexKind::Root,
-                .op_id = OpId::Root,
-                .left  = {{.kind = TokenKind::Number, .data = NumberToken{"8"}}},
-                .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
-            }, .start_pos = 0, .end_pos = 11},
-        }},
+         .input = "\\root{8}{3}",
+         .expected = {Root({N("8")}, {N("3")}, 0, 11)}},
 
         {.id = "frac with inner expr",
-        .input = "\\frac{2+3}{4}",
-        .expected = {
-            {.kind = TokenKind::Latex, .data = LatexToken{
-                .kind = LatexKind::Frac,
-                .op_id = OpId::Div,
-                .left  = {
-                    {.kind = TokenKind::Number, .data = NumberToken{"2"}},
-                    {.kind = TokenKind::Op,     .data = OpToken{OpId::Add}},
-                    {.kind = TokenKind::Number, .data = NumberToken{"3"}},
-                },
-                .right = {{.kind = TokenKind::Number, .data = NumberToken{"4"},},
-                }},.start_pos = 0, .end_pos = 13, 
-            },
-        }},
+         .input = "\\frac{2+3}{4}",
+         .expected = {Frac({N("2"), Op_(OpId::Add), N("3")}, {N("4")}, 0, 13)}},
 
         {.id = "frac nested in frac",
-        .input = "\\frac{\\frac{1}{2}}{3}",
-        .expected = {
-            {.kind = TokenKind::Latex, .data = LatexToken{
-                .kind = LatexKind::Frac,
-                .op_id = OpId::Div,
-                .left  = {
-                    {.kind = TokenKind::Latex, .data = LatexToken{
-                        .kind = LatexKind::Frac,
-                        .op_id = OpId::Div,
-                        .left  = {{.kind = TokenKind::Number, .data = NumberToken{"1"}}},
-                        .right = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
-                    }},
-                    
-                },
-                .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
-            }, .start_pos = 0, .end_pos = 21},
-        }},
+         .input = "\\frac{\\frac{1}{2}}{3}",
+         .expected = {Frac({Frac({N("1")}, {N("2")})}, {N("3")}, 0, 21)}},
 
         {.id = "frac with pow inside",
-        .input = "\\frac{\\pow{4}{2}}{3}",
-        .expected = {
-            {.kind = TokenKind::Latex, .data = LatexToken{
-                .kind = LatexKind::Frac,
-                .op_id = OpId::Div,
-                .left  = {
-                    {.kind = TokenKind::Latex, .data = LatexToken{
-                        .kind = LatexKind::Pow,
-                        .op_id = OpId::Pow,
-                        .left  = {{.kind = TokenKind::Number, .data = NumberToken{"4"}}},
-                        .right = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
-                    }},
-                },
-                .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
-            }, .start_pos = 0, .end_pos = 20},
-        }
-    },
+         .input = "\\frac{\\pow{4}{2}}{3}",
+         .expected = {Frac({Pow({N("4")}, {N("2")})}, {N("3")}, 0, 20)}},
 
-    // == Mixed: plain tokens + LatexToken ==========================
+        // == Mixed: plain tokens + LatexToken ==========================
 
-    {.id = "number then frac",
-     .input = "1+\\frac{2}{3}",
-     .expected = {
-         {.kind = TokenKind::Number, .data = NumberToken{"1"}, .start_pos = 0, .end_pos = 1},
-         {.kind = TokenKind::Op,     .data = OpToken{OpId::Add}, .start_pos = 1, .end_pos = 2},
-         {.kind = TokenKind::Latex,   .data = LatexToken{
-             .kind = LatexKind::Frac,
-             .op_id = OpId::Div,
-             .left  = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
-             .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
-         }, .start_pos = 2, .end_pos = 13},
-     }},
+        {.id = "number then frac",
+         .input = "1+\\frac{2}{3}",
+         .expected = {N("1", 0, 1), Op_(OpId::Add, 1, 2), Frac({N("2")}, {N("3")}, 2, 13)}},
 
-    {.id = "frac between numbers",
-     .input = "1+\\frac{2}{3}+4",
-     .expected = {
-         {.kind = TokenKind::Number, .data = NumberToken{"1"}, .start_pos = 0, .end_pos = 1},
-         {.kind = TokenKind::Op,     .data = OpToken{OpId::Add}, .start_pos = 1, .end_pos = 2},
-         {.kind = TokenKind::Latex,   .data = LatexToken{
-             .kind = LatexKind::Frac,
-             .op_id = OpId::Div,
-             .left  =  {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
-             .right =  {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
-         }, .start_pos = 2, .end_pos = 13},
-         {.kind = TokenKind::Op,     .data = OpToken{OpId::Add}, .start_pos = 13, .end_pos = 14},
-         {.kind = TokenKind::Number, .data = NumberToken{"4"}, .start_pos = 14, .end_pos = 15},
-     }},
+        {.id = "frac between numbers",
+         .input = "1+\\frac{2}{3}+4",
+         .expected =
+             {N("1", 0, 1),
+              Op_(OpId::Add, 1, 2),
+              Frac({N("2")}, {N("3")}, 2, 13),
+              Op_(OpId::Add, 13, 14),
+              N("4", 14, 15)}},
 
-    // == User curly braces inside LaTeX args ======================
+        // == User curly braces inside LaTeX args ======================
 
-    {.id = "user brace inside frac numerator",
-     .input = "\\frac{{1+2}}{3}",
-     .expected = {
-         {.kind = TokenKind::Latex, .data = LatexToken{
-             .kind = LatexKind::Frac,
-             .op_id = OpId::Div,
-             .left  = {
-                 
-                     {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Open, ParenKind::Brace}},
-                     {.kind = TokenKind::Number, .data = NumberToken{"1"}},
-                     {.kind = TokenKind::Op,     .data = OpToken{OpId::Add}},
-                     {.kind = TokenKind::Number, .data = NumberToken{"2"}},
-                     {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Close, ParenKind::Brace}},
-                 },
-             .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
-         }, .start_pos = 0, .end_pos = 15},
-     }},
+        {.id = "user brace inside frac numerator",
+         .input = "\\frac{{1+2}}{3}",
+         .expected = {Frac(
+             {OpenP(ParenKind::Brace), N("1"), Op_(OpId::Add), N("2"), CloseP(ParenKind::Brace)},
+             {N("3")},
+             0,
+             15)}},
 
-    {.id = "user brace around frac",
-     .input = "{\\frac{1}{2}}",
-     .expected = {
-         {.kind = TokenKind::Paren, .data = ParenToken{ParenType::Open, ParenKind::Brace}, .start_pos = 0, .end_pos = 1},
-         {.kind = TokenKind::Latex,  .data = LatexToken{
-             .kind = LatexKind::Frac,
-             .op_id = OpId::Div,
-             .left  = {{.kind = TokenKind::Number, .data = NumberToken{"1"}}},
-             .right = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
-         }, .start_pos = 1, .end_pos = 12},
-         {.kind = TokenKind::Paren, .data = ParenToken{ParenType::Close, ParenKind::Brace}, .start_pos = 12, .end_pos = 13},
-     }},
+        {.id = "user brace around frac",
+         .input = "{\\frac{1}{2}}",
+         .expected =
+             {OpenP(ParenKind::Brace, 0, 1),
+              Frac({N("1")}, {N("2")}, 1, 12),
+              CloseP(ParenKind::Brace, 12, 13)}},
 
-    {.id = "complex nested: frac with user brace and inner pow",
-     .input = "\\frac{{\\pow{4}{2}}}{3}",
-     .expected = {
-         {.kind = TokenKind::Latex, .data = LatexToken{
-             .kind = LatexKind::Frac,
-             .op_id = OpId::Div,
-             .left  = {
-                 
-                     {.kind = TokenKind::Paren, .data = ParenToken{ParenType::Open, ParenKind::Brace}},
-                     {.kind = TokenKind::Latex,  .data = LatexToken{
-                         .kind = LatexKind::Pow,
-                         .op_id = OpId::Pow,
-                         .left  = {{.kind = TokenKind::Number, .data = NumberToken{"4"}}},
-                         .right = {{.kind = TokenKind::Number, .data = NumberToken{"2"}}},
-                     }},
-                     {.kind = TokenKind::Paren, .data = ParenToken{ParenType::Close, ParenKind::Brace}},              
-             },
-             .right = {{.kind = TokenKind::Number, .data = NumberToken{"3"}}},
-         }, .start_pos = 0, .end_pos = 22},
-     }},
+        {.id = "complex nested: frac with user brace and inner pow",
+         .input = "\\frac{{\\pow{4}{2}}}{3}",
+         .expected = {Frac(
+             {OpenP(ParenKind::Brace), Pow({N("4")}, {N("2")}), CloseP(ParenKind::Brace)},
+             {N("3")},
+             0,
+             22)}},
 
-    {.id = "curly brace then number plain",
-     .input = "2{3+4}+5",
-     .expected = {
-         {.kind = TokenKind::Number, .data = NumberToken{"2"},    .start_pos = 0, .end_pos = 1},
-         {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Open,  ParenKind::Brace}, .start_pos = 1, .end_pos = 2},
-         {.kind = TokenKind::Number, .data = NumberToken{"3"},    .start_pos = 2, .end_pos = 3},
-         {.kind = TokenKind::Op,     .data = OpToken{OpId::Add},  .start_pos = 3, .end_pos = 4},
-         {.kind = TokenKind::Number, .data = NumberToken{"4"},    .start_pos = 4, .end_pos = 5},
-         {.kind = TokenKind::Paren,  .data = ParenToken{ParenType::Close, ParenKind::Brace}, .start_pos = 5, .end_pos = 6},
-         {.kind = TokenKind::Op,     .data = OpToken{OpId::Add},  .start_pos = 6, .end_pos = 7},
-         {.kind = TokenKind::Number, .data = NumberToken{"5"},    .start_pos = 7, .end_pos = 8},
-     }},
+        {.id = "curly brace then number plain",
+         .input = "2{3+4}+5",
+         .expected =
+             {N("2", 0, 1),
+              OpenP(ParenKind::Brace, 1, 2),
+              N("3", 2, 3),
+              Op_(OpId::Add, 3, 4),
+              N("4", 4, 5),
+              CloseP(ParenKind::Brace, 5, 6),
+              Op_(OpId::Add, 6, 7),
+              N("5", 7, 8)}},
 
-     /// TODO: Add more latex and paren tokenize edge cases
-};
+        /// TODO: Add more latex and paren tokenize edge cases
+    };
 
     // Normalizations
+    // Token::operator== ignores positions, so we drop them here to keep cases
+    // dense — only kind/data semantics matter for normalize().
     const std::vector<NormCase> norm_cases = {
 
         {.id = "double sub to add",
-         .input =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"1"},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Sub}, .start_pos = 1, .end_pos = 2},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Sub}, .start_pos = 2, .end_pos = 3},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 3,
-                  .end_pos = 4},
-             },
-         .expected =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"1"},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Add}, .start_pos = 1, .end_pos = 2},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 3,
-                  .end_pos = 4},
-             }},
+         .input = {N("1"), Op_(OpId::Sub), Op_(OpId::Sub), N("2")},
+         .expected = {N("1"), Op_(OpId::Add), N("2")}},
 
         {.id = "add sub to sub",
-         .input =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"1"},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Add}, .start_pos = 1, .end_pos = 2},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Sub}, .start_pos = 2, .end_pos = 3},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 3,
-                  .end_pos = 4},
-             },
-         .expected =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"1"},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Sub}, .start_pos = 1, .end_pos = 2},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 3,
-                  .end_pos = 4},
-             }},
+         .input = {N("1"), Op_(OpId::Add), Op_(OpId::Sub), N("2")},
+         .expected = {N("1"), Op_(OpId::Sub), N("2")}},
 
         {.id = "mixed sign collapse",
          .input =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"1"},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Add}, .start_pos = 1, .end_pos = 2},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Sub}, .start_pos = 2, .end_pos = 3},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Sub}, .start_pos = 3, .end_pos = 4},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Sub}, .start_pos = 4, .end_pos = 5},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Add}, .start_pos = 5, .end_pos = 6},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Add}, .start_pos = 6, .end_pos = 7},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Sub}, .start_pos = 7, .end_pos = 8},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Sub}, .start_pos = 8, .end_pos = 9},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Add}, .start_pos = 9, .end_pos = 10},
-                 {.kind = TokenKind::Op,
-                  .data = OpToken{OpId::Add},
-                  .start_pos = 10,
-                  .end_pos = 11},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 11,
-                  .end_pos = 12},
-             },
-         .expected =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"1"},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Sub}, .start_pos = 1, .end_pos = 2},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 11,
-                  .end_pos = 12},
-             }},
+             {N("1"),
+              Op_(OpId::Add),
+              Op_(OpId::Sub),
+              Op_(OpId::Sub),
+              Op_(OpId::Sub),
+              Op_(OpId::Add),
+              Op_(OpId::Add),
+              Op_(OpId::Sub),
+              Op_(OpId::Sub),
+              Op_(OpId::Add),
+              Op_(OpId::Add),
+              N("2")},
+         .expected = {N("1"), Op_(OpId::Sub), N("2")}},
 
         {.id = "add then negate kept",
-         .input =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"1"},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Add}, .start_pos = 1, .end_pos = 2},
-                 {.kind = TokenKind::Op,
-                  .data = OpToken{OpId::Negate},
-                  .start_pos = 2,
-                  .end_pos = 3},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 3,
-                  .end_pos = 4},
-             },
-         .expected =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"1"},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Add}, .start_pos = 1, .end_pos = 2},
-                 {.kind = TokenKind::Op,
-                  .data = OpToken{OpId::Negate},
-                  .start_pos = 2,
-                  .end_pos = 3},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 3,
-                  .end_pos = 4},
-             }},
+         .input = {N("1"), Op_(OpId::Add), Op_(OpId::Negate), N("2")},
+         .expected = {N("1"), Op_(OpId::Add), Op_(OpId::Negate), N("2")}},
 
-        // Implicit
-        // multiplications
+        // Implicit multiplications
         {.id = "implicit mul before lparen",
-         .input =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Paren,
-                  .data = ParenToken{ParenType::Open, ParenKind::Paren},
-                  .start_pos = 1,
-                  .end_pos = 2},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"3"},
-                  .start_pos = 2,
-                  .end_pos = 3},
-             },
-         .expected =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Mul}, .start_pos = 1, .end_pos = 2},
-                 {.kind = TokenKind::Paren,
-                  .data = ParenToken{ParenType::Open, ParenKind::Paren},
-                  .start_pos = 2,
-                  .end_pos = 3},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"3"},
-                  .start_pos = 3,
-                  .end_pos = 4},
-             }},
+         .input = {N("2"), kOPN, N("3")},
+         .expected = {N("2"), Op_(OpId::Mul), kOPN, N("3")}},
 
         {.id = "implicit mul after postfix",
-         .input =
-             {
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"3"},
-                  .start_pos = 0,
-                  .end_pos = 1},
-                 {.kind = TokenKind::Op, .data = OpToken{OpId::Fact}, .start_pos = 1, .end_pos = 2},
-                 {.kind = TokenKind::Number,
-                  .data = NumberToken{"2"},
-                  .start_pos = 2,
-                  .end_pos = 3},
-             },
-         .expected = {
-             {.kind = TokenKind::Number, .data = NumberToken{"3"}, .start_pos = 0, .end_pos = 1},
-             {.kind = TokenKind::Op, .data = OpToken{OpId::Fact}, .start_pos = 1, .end_pos = 2},
-             {.kind = TokenKind::Op, .data = OpToken{OpId::Mul}, .start_pos = 2, .end_pos = 3},
-             {.kind = TokenKind::Number, .data = NumberToken{"2"}, .start_pos = 3, .end_pos = 4},
-         }}};
+         .input = {N("3"), Op_(OpId::Fact), N("2")},
+         .expected = {N("3"), Op_(OpId::Fact), Op_(OpId::Mul), N("2")}}};
 
     // Scanifications
     const std::vector<ScanCase> scan_cases = {
@@ -713,94 +373,94 @@ void unit_parser(TestContext &ctx) {
         {.id = "basic precedence",
          .input =
              {
-                 {TokenKind::Number, NumberToken{"1"}},
-                 {TokenKind::Op, OpToken{OpId::Add}},
-                 {TokenKind::Number, NumberToken{"2"}},
-                 {TokenKind::Op, OpToken{OpId::Mul}},
-                 {TokenKind::Number, NumberToken{"3"}},
-                 {TokenKind::Op, OpToken{OpId::Pow}},
-                 {TokenKind::Number, NumberToken{"4"}},
+                 N("1"),
+                 Op_(OpId::Add),
+                 N("2"),
+                 Op_(OpId::Mul),
+                 N("3"),
+                 Op_(OpId::Pow),
+                 N("4"),
              },
          .expected =
              {
-                 {TokenKind::Number, NumberToken{"1"}},
-                 {TokenKind::Number, NumberToken{"2"}},
-                 {TokenKind::Number, NumberToken{"3"}},
-                 {TokenKind::Number, NumberToken{"4"}},
-                 {TokenKind::Op, OpToken{OpId::Pow}},
-                 {TokenKind::Op, OpToken{OpId::Mul}},
-                 {TokenKind::Op, OpToken{OpId::Add}},
+                 N("1"),
+                 N("2"),
+                 N("3"),
+                 N("4"),
+                 Op_(OpId::Pow),
+                 Op_(OpId::Mul),
+                 Op_(OpId::Add),
              }},
 
         {.id = "pow right assoc",
          .input =
              {
-                 {TokenKind::Number, NumberToken{"2"}},
-                 {TokenKind::Op, OpToken{OpId::Pow}},
-                 {TokenKind::Number, NumberToken{"3"}},
-                 {TokenKind::Op, OpToken{OpId::Pow}},
-                 {TokenKind::Number, NumberToken{"4"}},
+                 N("2"),
+                 Op_(OpId::Pow),
+                 N("3"),
+                 Op_(OpId::Pow),
+                 N("4"),
              },
          .expected =
              {
-                 {TokenKind::Number, NumberToken{"2"}},
-                 {TokenKind::Number, NumberToken{"3"}},
-                 {TokenKind::Number, NumberToken{"4"}},
-                 {TokenKind::Op, OpToken{OpId::Pow}},
-                 {TokenKind::Op, OpToken{OpId::Pow}},
+                 N("2"),
+                 N("3"),
+                 N("4"),
+                 Op_(OpId::Pow),
+                 Op_(OpId::Pow),
              }},
 
         {.id = "unary before func",
          .input =
              {
-                 {TokenKind::Op, OpToken{OpId::Sin}},
-                 {TokenKind::Op, OpToken{OpId::Negate}},
-                 {TokenKind::Number, NumberToken{"2"}},
+                 Op_(OpId::Sin),
+                 Op_(OpId::Negate),
+                 N("2"),
              },
          .expected =
              {
-                 {TokenKind::Number, NumberToken{"2"}},
-                 {TokenKind::Op, OpToken{OpId::Negate}},
-                 {TokenKind::Op, OpToken{OpId::Sin}},
+                 N("2"),
+                 Op_(OpId::Negate),
+                 Op_(OpId::Sin),
              }},
 
         {.id = "implicit mul after rparen",
          .input =
              {
-                 {TokenKind::Number, NumberToken{"2"}},
-                 {TokenKind::Paren, ParenToken{ParenType::Open, ParenKind::Paren}},
-                 {TokenKind::Number, NumberToken{"3"}},
-                 {TokenKind::Op, OpToken{OpId::Add}},
-                 {TokenKind::Number, NumberToken{"4"}},
-                 {TokenKind::Paren, ParenToken{ParenType::Close, ParenKind::Paren}},
+                 N("2"),
+                 kOPN,
+                 N("3"),
+                 Op_(OpId::Add),
+                 N("4"),
+                 kCPN,
              },
          .expected =
              {
-                 {TokenKind::Number, NumberToken{"2"}},
-                 {TokenKind::Number, NumberToken{"3"}},
-                 {TokenKind::Number, NumberToken{"4"}},
-                 {TokenKind::Op, OpToken{OpId::Add}},
-                 {TokenKind::Op, OpToken{OpId::Mul}},
+                 N("2"),
+                 N("3"),
+                 N("4"),
+                 Op_(OpId::Add),
+                 Op_(OpId::Mul),
              }},
 
         {.id = "postfix percent precedence",
          .input =
              {
-                 {TokenKind::Number, NumberToken{"2"}},
-                 {TokenKind::Op, OpToken{OpId::Pow}},
-                 {TokenKind::Number, NumberToken{"3"}},
-                 {TokenKind::Op, OpToken{OpId::Percent}},
-                 {TokenKind::Op, OpToken{OpId::Add}},
-                 {TokenKind::Number, NumberToken{"4"}},
+                 N("2"),
+                 Op_(OpId::Pow),
+                 N("3"),
+                 Op_(OpId::Percent),
+                 Op_(OpId::Add),
+                 N("4"),
              },
          .expected =
              {
-                 {TokenKind::Number, NumberToken{"2"}},
-                 {TokenKind::Number, NumberToken{"3"}},
-                 {TokenKind::Op, OpToken{OpId::Percent}},
-                 {TokenKind::Op, OpToken{OpId::Pow}},
-                 {TokenKind::Number, NumberToken{"4"}},
-                 {TokenKind::Op, OpToken{OpId::Add}},
+                 N("2"),
+                 N("3"),
+                 Op_(OpId::Percent),
+                 Op_(OpId::Pow),
+                 N("4"),
+                 Op_(OpId::Add),
              }},
     };
 
@@ -1073,92 +733,84 @@ void unit_parser(TestContext &ctx) {
 
     test_detail::with_case(ctx, "tokens_to_text :: simple binary", [&] {
         std::vector<Token> toks = {
-            {TokenKind::Number, NumberToken{"2"}},
-            {TokenKind::Op, OpToken{OpId::Add}},
-            {TokenKind::Number, NumberToken{"3"}},
+            N("2"),
+            Op_(OpId::Add),
+            N("3"),
         };
         EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("2 + 3"));
     });
 
     test_detail::with_case(ctx, "tokens_to_text :: leading negate", [&] {
         std::vector<Token> toks = {
-            {TokenKind::Op, OpToken{OpId::Negate}},
-            {TokenKind::Number, NumberToken{"5"}},
+            Op_(OpId::Negate),
+            N("5"),
         };
         EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("-5"));
     });
 
     test_detail::with_case(ctx, "tokens_to_text :: binary then negate", [&] {
         std::vector<Token> toks = {
-            {TokenKind::Number, NumberToken{"1"}},
-            {TokenKind::Op, OpToken{OpId::Add}},
-            {TokenKind::Op, OpToken{OpId::Negate}},
-            {TokenKind::Number, NumberToken{"2"}},
+            N("1"),
+            Op_(OpId::Add),
+            Op_(OpId::Negate),
+            N("2"),
         };
         EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("1 + -2"));
     });
 
     test_detail::with_case(ctx, "tokens_to_text :: unary plus no after_node", [&] {
         std::vector<Token> toks = {
-            {TokenKind::Op, OpToken{OpId::UnaryPlus}},
-            {TokenKind::Number, NumberToken{"3"}},
+            Op_(OpId::UnaryPlus),
+            N("3"),
         };
         EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("+3"));
     });
 
     test_detail::with_case(ctx, "tokens_to_text :: unary plus with after_node", [&] {
         std::vector<Token> toks = {
-            {TokenKind::Op, OpToken{OpId::UnaryPlus}},
-            {TokenKind::Number, NumberToken{"3"}},
+            Op_(OpId::UnaryPlus),
+            N("3"),
         };
         EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string(" + 3"));
     });
 
     test_detail::with_case(ctx, "tokens_to_text :: negate with after_node", [&] {
         std::vector<Token> toks = {
-            {TokenKind::Op, OpToken{OpId::Negate}},
-            {TokenKind::Number, NumberToken{"3"}},
+            Op_(OpId::Negate),
+            N("3"),
         };
         EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string(" - 3"));
     });
 
     test_detail::with_case(ctx, "tokens_to_text :: after_node only affects first token", [&] {
         std::vector<Token> toks = {
-            {TokenKind::Number, NumberToken{"3"}},
-            {TokenKind::Op, OpToken{OpId::Add}},
-            {TokenKind::Number, NumberToken{"5"}},
+            N("3"),
+            Op_(OpId::Add),
+            N("5"),
         };
         EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string("3 + 5"));
     });
 
     test_detail::with_case(ctx, "tokens_to_text :: parens preserved", [&] {
         std::vector<Token> toks = {
-            {TokenKind::Paren, ParenToken{ParenType::Open, ParenKind::Paren}},
-            {TokenKind::Number, NumberToken{"1"}},
-            {TokenKind::Op, OpToken{OpId::Add}},
-            {TokenKind::Number, NumberToken{"2"}},
-            {TokenKind::Paren, ParenToken{ParenType::Close, ParenKind::Paren}},
+            kOPN,
+            N("1"),
+            Op_(OpId::Add),
+            N("2"),
+            kCPN,
         };
         EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("(1 + 2)"));
     });
 
     test_detail::with_case(ctx, "tokens_to_text :: frac round-trip", [&] {
-        std::vector<Token> toks = {
-            {TokenKind::Latex,
-             LatexToken{
-                 .kind = LatexKind::Frac,
-                 .op_id = OpId::Div,
-                 .left = {{TokenKind::Number, NumberToken{"2"}}},
-                 .right = {{TokenKind::Number, NumberToken{"3"}}},
-             }},
-        };
+        std::vector<Token> toks = {Frac({N("2")}, {N("3")})};
         EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("\\frac{2}{3}"));
     });
 
     test_detail::with_case(ctx, "tokens_to_text :: postfix no spacing", [&] {
         std::vector<Token> toks = {
-            {TokenKind::Number, NumberToken{"5"}},
-            {TokenKind::Op, OpToken{OpId::Fact}},
+            N("5"),
+            Op_(OpId::Fact),
         };
         EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("5!"));
     });
