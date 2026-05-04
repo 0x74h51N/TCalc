@@ -391,7 +391,6 @@ void bind_parser(py::module_ &m) {
     };
 
     py::class_<ParenSplit>(m, "ParenSplit")
-        .def_readonly("idx", &ParenSplit::idx)
         .def_readonly("open_tok", &ParenSplit::open_tok)
         .def_property_readonly(
             "close_tok",
@@ -410,7 +409,6 @@ void bind_parser(py::module_ &m) {
             "suffix", [span_to_list](const ParenSplit &s) { return span_to_list(s.suffix); });
 
     py::class_<LatexSplit>(m, "LatexSplit")
-        .def_readonly("idx", &LatexSplit::idx)
         .def_readonly("kind", &LatexSplit::kind)
         .def_property_readonly(
             "prefix", [span_to_list](const LatexSplit &s) { return span_to_list(s.prefix); })

@@ -442,7 +442,6 @@ std::optional<StructuralSplit> structural_split(const TokensBranch &branch) {
         const std::span<const Token> span{tokens};
 
         ParenSplit split;
-        split.idx = c;
         split.open_tok = open_tok;
         split.prefix = span.subspan(0, c);
 
@@ -462,7 +461,6 @@ std::optional<StructuralSplit> structural_split(const TokensBranch &branch) {
     const LatexToken &latex_tok = std::get<LatexToken>(tokens[idx].data);
 
     LatexSplit split;
-    split.idx = idx;
     split.kind = latex_tok.kind;
 
     const std::span<const Token> span{tokens};
