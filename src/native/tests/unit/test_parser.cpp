@@ -26,22 +26,27 @@ using p::TokensBranch;
 
 namespace {
 
+/// Generic test-row template: id label, input value, expected value.
 template <typename InputT, typename ExpectedT> struct Case {
     const char *id;
     InputT input;
     ExpectedT expected;
 };
 
+/// scan_number input pair: source text and start offset.
 struct ScanInput {
     std::string_view text;
     std::size_t start;
 };
 
+/// scan_number expected output: matched view and post-scan cursor position.
 struct ScanExpected {
     std::string_view view;
     std::size_t next;
 };
 
+/// structural_split expected output: the split variant kind plus the four
+/// token spans (prefix/left/right/suffix) and paren/latex metadata.
 struct SplitExpected {
     enum class Kind { None, Paren, Latex };
     Kind kind = Kind::None;
@@ -54,31 +59,81 @@ struct SplitExpected {
     p::LatexKind latex_kind{};
 };
 
+/// Case row for tokenize: raw source string -> expected token vector.
 using TokCase = Case<const char *, std::vector<tcalc::parser::Token>>;
+/// Case row for scan_number: ScanInput -> ScanExpected.
 using ScanCase = Case<ScanInput, ScanExpected>;
+/// Case row for normalize: input tokens -> normalized tokens.
 using NormCase = Case<std::vector<Token>, std::vector<Token>>;
+/// Case row for shunting_yard: infix tokens -> RPN tokens.
 using ShuntCase = Case<std::vector<Token>, std::vector<Token>>;
+/// Case row for structural_split: classified TokensBranch -> SplitExpected.
 using SplitCase = Case<TokensBranch, SplitExpected>;
 
+/// classify_tokens expected output: re-derived index vectors plus pair_idx
+/// values for every paren token (open and close) we want to assert on.
+struct ClassifyExpected {
+    std::vector<p::TokenIndex> latex_indices;
+    std::vector<p::TokenIndex> open_paren_indices;
+    std::vector<p::TokenIndex> close_paren_indices;
+    /// Each entry: (token index in `input`, expected pair_idx). Use kNoMatch
+    /// for unmatched parens. List both endpoints of a matched pair.
+    std::vector<std::pair<p::TokenIndex, p::TokenIndex>> pairs;
+};
+
+/// Case row for classify_tokens: raw token list -> ClassifyExpected.
+using ClassifyCase = Case<std::vector<Token>, ClassifyExpected>;
+
+/// tokenize position-tracking expected output: token count, latex indices, and
+/// (token_idx, start_pos, end_pos) tuples for the indices we want to assert.
+struct PositionExpected {
+    std::size_t token_count;
+    std::vector<p::TokenIndex> latex_indices;
+    std::vector<std::tuple<p::TokenIndex, std::size_t, std::size_t>> positions;
+};
+
+/// Case row for tokenize position tests: source string -> PositionExpected.
+using PositionCase = Case<const char *, PositionExpected>;
+
+/// match_parens expected output: tokenize result token count plus the
+/// (token_idx, expected pair_idx) checks. Use kNoMatch for unmatched.
+struct MatchParensExpected {
+    std::size_t token_count;
+    std::vector<std::pair<p::TokenIndex, p::TokenIndex>> pairs;
+};
+
+/// Case row for match_parens (via tokenize): source string -> MatchParensExpected.
+using MatchParensCase = Case<const char *, MatchParensExpected>;
+
+/// Open round-paren ParenToken constant.
 inline constexpr ParenToken kPOP{ParenType::Open, ParenKind::Paren};
+/// Close round-paren ParenToken constant.
 inline constexpr ParenToken kPCL{ParenType::Close, ParenKind::Paren};
+/// Open round-paren Token constant (wraps kPOP).
 inline const Token kOPN{TokenKind::Paren, kPOP};
+/// Close round-paren Token constant (wraps kPCL).
 inline const Token kCPN{TokenKind::Paren, kPCL};
 
 // Token factories. start/end default to 0
 // pass them only when the test actually checks span info
+
+/// Token factory: NumberToken with the given literal value.
 inline Token N(const char *value, std::size_t start = 0, std::size_t end = 0) {
     return Token{TokenKind::Number, NumberToken{value}, start, end};
 }
+/// Token factory: OpToken for the given op id (binary, unary, or postfix).
 inline Token Op_(OpId id, std::size_t start = 0, std::size_t end = 0) {
     return Token{TokenKind::Op, OpToken{id}, start, end};
 }
+/// Token factory: open ParenToken of the given kind (Paren/Brace/Bracket).
 inline Token OpenP(ParenKind kind = ParenKind::Paren, std::size_t start = 0, std::size_t end = 0) {
     return Token{TokenKind::Paren, ParenToken{ParenType::Open, kind}, start, end};
 }
+/// Token factory: close ParenToken of the given kind (Paren/Brace/Bracket).
 inline Token CloseP(ParenKind kind = ParenKind::Paren, std::size_t start = 0, std::size_t end = 0) {
     return Token{TokenKind::Paren, ParenToken{ParenType::Close, kind}, start, end};
 }
+/// Token factory: LatexToken of arbitrary kind/op with explicit left/right token rows.
 inline Token
 Lx(p::LatexKind kind,
    OpId op,
@@ -89,6 +144,7 @@ Lx(p::LatexKind kind,
     return Token{
         TokenKind::Latex, LatexToken{kind, op, std::move(left), std::move(right)}, start, end};
 }
+/// Token factory shorthand: \frac LatexToken (numerator, denominator).
 inline Token Frac(
     std::vector<Token> numerator,
     std::vector<Token> denominator,
@@ -97,6 +153,7 @@ inline Token Frac(
     return Lx(
         p::LatexKind::Frac, OpId::Div, std::move(numerator), std::move(denominator), start, end);
 }
+/// Token factory shorthand: \pow LatexToken (base, exponent).
 inline Token
 Pow(std::vector<Token> base,
     std::vector<Token> exponent,
@@ -104,6 +161,7 @@ Pow(std::vector<Token> base,
     std::size_t end = 0) {
     return Lx(p::LatexKind::Pow, OpId::Pow, std::move(base), std::move(exponent), start, end);
 }
+/// Token factory shorthand: \root LatexToken (radicand, degree).
 inline Token Root(
     std::vector<Token> degree,
     std::vector<Token> radicand,
@@ -112,13 +170,18 @@ inline Token Root(
     return Lx(p::LatexKind::Root, OpId::Root, std::move(degree), std::move(radicand), start, end);
 }
 
-} // namespace
+/// Shorthand for tcalc::parser::ParenKind.
+using PK = p::ParenKind;
+/// Shorthand for tcalc::parser::LatexKind.
+using LK = p::LatexKind;
 
-/// TODO: Add math_node tests
+} // namespace
 
 void unit_parser(TestContext &ctx) {
 
+    // =========================================================================
     // Tokenizations
+    // =========================================================================
     const std::vector<TokCase> tok_cases = {
         {.id = "basic add",
          .input = "1+2",
@@ -301,9 +364,16 @@ void unit_parser(TestContext &ctx) {
         /// TODO: Add more latex and paren tokenize edge cases
     };
 
+    for (std::size_t i = 0; i < tok_cases.size(); ++i) {
+        const auto &tc = tok_cases[i];
+        test_detail::with_case(ctx, std::string("tokenize :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, p::tokenize(tc.input).tokens, tc.expected);
+        });
+    }
+
+    // =========================================================================
     // Normalizations
-    // Token::operator== ignores positions, so we drop them here to keep cases
-    // dense — only kind/data semantics matter for normalize().
+    // =========================================================================
     const std::vector<NormCase> norm_cases = {
 
         {.id = "double sub to add",
@@ -343,7 +413,16 @@ void unit_parser(TestContext &ctx) {
          .input = {N("3"), Op_(OpId::Fact), N("2")},
          .expected = {N("3"), Op_(OpId::Fact), Op_(OpId::Mul), N("2")}}};
 
+    for (std::size_t i = 0; i < norm_cases.size(); ++i) {
+        const auto &tc = norm_cases[i];
+        test_detail::with_case(ctx, std::string("normalize :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, d::normalize(tc.input), tc.expected);
+        });
+    }
+
+    // =========================================================================
     // Scanifications
+    // =========================================================================
     const std::vector<ScanCase> scan_cases = {
         {.id = "integer",
          .input = {.text = "123", .start = 0},
@@ -478,79 +557,54 @@ void unit_parser(TestContext &ctx) {
              }},
     };
 
-    for (std::size_t i = 0; i < tok_cases.size(); ++i) {
-        const auto &tc = tok_cases[i];
-        test_detail::with_case(ctx, std::string("tokenize :: ") + tc.id, [&] {
-            EXPECT_EQ(ctx, p::tokenize(tc.input).tokens, tc.expected);
+    for (std::size_t i = 0; i < shunt_cases.size(); ++i) {
+        const auto &tc = shunt_cases[i];
+        test_detail::with_case(ctx, std::string("shunting yard :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, p::shunting_yard(tc.input), tc.expected);
         });
     }
 
-    // Token position tests
-    test_detail::with_case(ctx, "positions :: simple expr", [&] {
-        const auto result = p::tokenize("3 + 5");
-        EXPECT_EQ(ctx, result.tokens.size(), 3UL);
-        // "3" at pos 0
-        EXPECT_EQ(ctx, result.tokens[0].start_pos, 0UL);
-        EXPECT_EQ(ctx, result.tokens[0].end_pos, 1UL);
-        // "+" at pos 2
-        EXPECT_EQ(ctx, result.tokens[1].start_pos, 2UL);
-        EXPECT_EQ(ctx, result.tokens[1].end_pos, 3UL);
-        // "5" at pos 4
-        EXPECT_EQ(ctx, result.tokens[2].start_pos, 4UL);
-        EXPECT_EQ(ctx, result.tokens[2].end_pos, 5UL);
-    });
+    // =========================================================================
+    // tokenize position tests
+    // =========================================================================
+    {
+        const std::vector<PositionCase> position_cases = {
+            {.id = "simple expr",
+             .input = "3 + 5",
+             .expected = {.token_count = 3, .positions = {{0, 0, 1}, {1, 2, 3}, {2, 4, 5}}}},
 
-    test_detail::with_case(ctx, "positions :: frac expr", [&] {
-        const auto result = p::tokenize("\\frac{2}{3}");
-        EXPECT_EQ(ctx, result.tokens.size(), 1UL);
-        EXPECT_EQ(ctx, result.latex_indices.size(), 1UL);
-        EXPECT_EQ(ctx, result.latex_indices[0], 0UL);
-        // \frac{2}{3} spans 0-11
-        EXPECT_EQ(ctx, result.tokens[0].start_pos, 0UL);
-        EXPECT_EQ(ctx, result.tokens[0].end_pos, 11UL);
-    });
+            {.id = "frac expr",
+             .input = "\\frac{2}{3}",
+             .expected = {.token_count = 1, .latex_indices = {0}, .positions = {{0, 0, 11}}}},
 
-    test_detail::with_case(ctx, "positions :: mixed", [&] {
-        const auto result = p::tokenize("1 + \\frac{2}{3} + 4");
-        EXPECT_EQ(ctx, result.tokens.size(), 5UL);
-        EXPECT_EQ(ctx, result.latex_indices.size(), 1UL);
-        EXPECT_EQ(ctx, result.latex_indices[0], 2UL);
-        // "1" at 0-1
-        EXPECT_EQ(ctx, result.tokens[0].start_pos, 0UL);
-        EXPECT_EQ(ctx, result.tokens[0].end_pos, 1UL);
-        // "+" at 2-3
-        EXPECT_EQ(ctx, result.tokens[1].start_pos, 2UL);
-        EXPECT_EQ(ctx, result.tokens[1].end_pos, 3UL);
-        // \frac{2}{3} at 4-15
-        EXPECT_EQ(ctx, result.tokens[2].start_pos, 4UL);
-        EXPECT_EQ(ctx, result.tokens[2].end_pos, 15UL);
-        // "+" at 16-17
-        EXPECT_EQ(ctx, result.tokens[3].start_pos, 16UL);
-        EXPECT_EQ(ctx, result.tokens[3].end_pos, 17UL);
-        // "4" at 18-19
-        EXPECT_EQ(ctx, result.tokens[4].start_pos, 18UL);
-        EXPECT_EQ(ctx, result.tokens[4].end_pos, 19UL);
-    });
+            {.id = "mixed",
+             .input = "1 + \\frac{2}{3} + 4",
+             .expected =
+                 {.token_count = 5,
+                  .latex_indices = {2},
+                  .positions = {{0, 0, 1}, {1, 2, 3}, {2, 4, 15}, {3, 16, 17}, {4, 18, 19}}}},
 
-    test_detail::with_case(ctx, "positions :: multiple expr", [&] {
-        const auto result = p::tokenize("\\frac{1}{2} + \\pow{3}{4}");
-        EXPECT_EQ(ctx, result.tokens.size(), 3UL);
-        EXPECT_EQ(ctx, result.latex_indices.size(), 2UL);
-        EXPECT_EQ(ctx, result.latex_indices[0], 0UL);
-        EXPECT_EQ(ctx, result.latex_indices[1], 2UL);
-        // \frac{1}{2} at 0-11
-        EXPECT_EQ(ctx, result.tokens[0].start_pos, 0UL);
-        EXPECT_EQ(ctx, result.tokens[0].end_pos, 11UL);
-        // \pow{3}{4} at 14-24
-        EXPECT_EQ(ctx, result.tokens[2].start_pos, 14UL);
-        EXPECT_EQ(ctx, result.tokens[2].end_pos, 24UL);
-    });
+            {.id = "multiple expr",
+             .input = "\\frac{1}{2} + \\pow{3}{4}",
+             .expected =
+                 {.token_count = 3,
+                  .latex_indices = {0, 2},
+                  .positions = {{0, 0, 11}, {2, 14, 24}}}},
+        };
 
-    for (std::size_t i = 0; i < norm_cases.size(); ++i) {
-        const auto &tc = norm_cases[i];
-        test_detail::with_case(ctx, std::string("normalize :: ") + tc.id, [&] {
-            EXPECT_EQ(ctx, d::normalize(tc.input), tc.expected);
-        });
+        for (const auto &tc : position_cases) {
+            test_detail::with_case(ctx, std::string("positions :: ") + tc.id, [&] {
+                const auto result = p::tokenize(tc.input);
+                const auto &exp = tc.expected;
+
+                EXPECT_EQ(ctx, result.tokens.size(), exp.token_count);
+                EXPECT_EQ(ctx, result.latex_indices, exp.latex_indices);
+                for (const auto &[idx, start, end] : exp.positions) {
+                    EXPECT_EQ(ctx, result.tokens[idx].start_pos, start);
+                    EXPECT_EQ(ctx, result.tokens[idx].end_pos, end);
+                }
+            });
+        }
     }
 
     for (std::size_t i = 0; i < scan_cases.size(); ++i) {
@@ -563,115 +617,215 @@ void unit_parser(TestContext &ctx) {
         });
     }
 
-    for (std::size_t i = 0; i < shunt_cases.size(); ++i) {
-        const auto &tc = shunt_cases[i];
-        test_detail::with_case(ctx, std::string("shunting yard :: ") + tc.id, [&] {
-            EXPECT_EQ(ctx, p::shunting_yard(tc.input), tc.expected);
-        });
-    }
-
-    //  match_parens
-
+    // =========================================================================
+    // match_parens
+    // =========================================================================
     const auto pair_of = [](const std::vector<Token> &toks, std::size_t idx) -> std::size_t {
         return std::get<ParenToken>(toks[idx].data).pair_idx;
     };
 
-    test_detail::with_case(ctx, "match_parens :: simple parens", [&] {
-        // (1+2) -> tokens: ( 1 + 2 )   indices: 0 1 2 3 4
-        auto result = p::tokenize("(1+2)");
-        EXPECT_EQ(ctx, pair_of(result.tokens, 0), 4UL);
-        EXPECT_EQ(ctx, pair_of(result.tokens, 4), 0UL);
-    });
+    {
+        const std::vector<MatchParensCase> match_parens_cases = {
+            {.id = "simple parens",
+             // (1+2) -> ( 1 + 2 )   indices: 0 1 2 3 4
+             .input = "(1+2)",
+             .expected = {.token_count = 5, .pairs = {{0, 4}, {4, 0}}}},
 
-    test_detail::with_case(ctx, "match_parens :: nested same kind", [&] {
-        // ((1)) -> ( ( 1 ) )   indices: 0 1 2 3 4
-        auto result = p::tokenize("((1))");
-        EXPECT_EQ(ctx, pair_of(result.tokens, 0), 4UL);
-        EXPECT_EQ(ctx, pair_of(result.tokens, 1), 3UL);
-        EXPECT_EQ(ctx, pair_of(result.tokens, 3), 1UL);
-        EXPECT_EQ(ctx, pair_of(result.tokens, 4), 0UL);
-    });
+            {.id = "nested same kind",
+             // ((1)) -> ( ( 1 ) )   indices: 0 1 2 3 4
+             .input = "((1))",
+             .expected = {.token_count = 5, .pairs = {{0, 4}, {1, 3}, {3, 1}, {4, 0}}}},
 
-    test_detail::with_case(ctx, "match_parens :: mixed kinds nested", [&] {
-        // ({[1]}) -> ( { [ 1 ] } )   indices: 0 1 2 3 4 5 6
-        auto result = p::tokenize("({[1]})");
-        EXPECT_EQ(ctx, pair_of(result.tokens, 0), 6UL); // ( <-> )
-        EXPECT_EQ(ctx, pair_of(result.tokens, 1), 5UL); // { <-> }
-        EXPECT_EQ(ctx, pair_of(result.tokens, 2), 4UL); // [ <-> ]
-        EXPECT_EQ(ctx, pair_of(result.tokens, 4), 2UL);
-        EXPECT_EQ(ctx, pair_of(result.tokens, 5), 1UL);
-        EXPECT_EQ(ctx, pair_of(result.tokens, 6), 0UL);
-    });
+            {.id = "mixed kinds nested",
+             // ({[1]}) -> ( { [ 1 ] } )   indices: 0 1 2 3 4 5 6
+             .input = "({[1]})",
+             .expected =
+                 {.token_count = 7, .pairs = {{0, 6}, {1, 5}, {2, 4}, {4, 2}, {5, 1}, {6, 0}}}},
 
-    test_detail::with_case(ctx, "match_parens :: sequential groups", [&] {
-        // (1)+(2) -> ( 1 ) + ( 2 )   indices: 0 1 2 3 4 5 6
-        auto result = p::tokenize("(1)+(2)");
-        EXPECT_EQ(ctx, pair_of(result.tokens, 0), 2UL);
-        EXPECT_EQ(ctx, pair_of(result.tokens, 2), 0UL);
-        EXPECT_EQ(ctx, pair_of(result.tokens, 4), 6UL);
-        EXPECT_EQ(ctx, pair_of(result.tokens, 6), 4UL);
-    });
+            {.id = "sequential groups",
+             // (1)+(2) -> ( 1 ) + ( 2 )   indices: 0 1 2 3 4 5 6
+             .input = "(1)+(2)",
+             .expected = {.token_count = 7, .pairs = {{0, 2}, {2, 0}, {4, 6}, {6, 4}}}},
 
-    test_detail::with_case(ctx, "match_parens :: unmatched open", [&] {
-        // (1+2 -> ( 1 + 2
-        auto result = p::tokenize("(1+2");
-        EXPECT_EQ(ctx, pair_of(result.tokens, 0), p::kNoMatch);
-    });
+            {.id = "unmatched open",
+             // (1+2 -> ( 1 + 2
+             .input = "(1+2",
+             .expected = {.token_count = 4, .pairs = {{0, p::kNoMatch}}}},
 
-    test_detail::with_case(ctx, "match_parens :: unmatched close", [&] {
-        // 1+2) -> 1 + 2 )
-        auto result = p::tokenize("1+2)");
-        EXPECT_EQ(ctx, pair_of(result.tokens, 3), p::kNoMatch);
-    });
+            {.id = "unmatched close",
+             // 1+2) -> 1 + 2 )
+             .input = "1+2)",
+             .expected = {.token_count = 4, .pairs = {{3, p::kNoMatch}}}},
 
-    test_detail::with_case(ctx, "match_parens :: complex expression", [&] {
-        // [(34+5)*(4*{3+5})+4]
-        // [  (  34 +  5  )  *  (  4  *  {  3  +  5  }  )  +  4  ]
-        // 0  1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18
-        auto result = p::tokenize("[(34+5)*(4*{3+5})+4]");
-        EXPECT_EQ(ctx, pair_of(result.tokens, 0), 18UL); // [ <-> ]
-        EXPECT_EQ(ctx, pair_of(result.tokens, 1), 5UL);  // ( <-> )
-        EXPECT_EQ(ctx, pair_of(result.tokens, 5), 1UL);
-        EXPECT_EQ(ctx, pair_of(result.tokens, 7), 15UL);  // ( <-> )
-        EXPECT_EQ(ctx, pair_of(result.tokens, 10), 14UL); // { <-> }
-        EXPECT_EQ(ctx, pair_of(result.tokens, 14), 10UL);
-        EXPECT_EQ(ctx, pair_of(result.tokens, 15), 7UL);
-        EXPECT_EQ(ctx, pair_of(result.tokens, 18), 0UL);
-    });
+            {.id = "complex expression",
+             // [(34+5)*(4*{3+5})+4]
+             // [ ( 34 + 5 ) * ( 4 * { 3 + 5 } ) + 4 ]
+             // 0 1 2  3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18
+             .input = "[(34+5)*(4*{3+5})+4]",
+             .expected =
+                 {.token_count = 19,
+                  .pairs =
+                      {{0, 18}, {1, 5}, {5, 1}, {7, 15}, {10, 14}, {14, 10}, {15, 7}, {18, 0}}}},
 
-    test_detail::with_case(ctx, "match_parens :: no parens", [&] {
-        auto result = p::tokenize("1+2");
-        // No paren tokens, nothing to check, ensure no crash.
-        EXPECT_EQ(ctx, result.tokens.size(), 3UL);
-    });
+            {.id = "no parens", .input = "1+2", .expected = {.token_count = 3}},
+        };
 
-    test_detail::with_case(ctx, "classify_tokens :: rebase nested slice pairs", [&] {
-        auto result = p::tokenize("(1)+{2+[\\pow{2}{3}]+4}");
-        std::vector<Token> slice(result.tokens.begin() + 5, result.tokens.begin() + 12);
+        for (const auto &tc : match_parens_cases) {
+            test_detail::with_case(ctx, std::string("match_parens :: ") + tc.id, [&] {
+                const auto result = p::tokenize(tc.input);
+                const auto &exp = tc.expected;
 
-        auto classified = p::classify_tokens(std::move(slice));
-        EXPECT_EQ(ctx, classified.open_paren_indices.size(), 1UL);
-        EXPECT_EQ(ctx, classified.open_paren_indices[0], 2UL);
-        EXPECT_EQ(ctx, classified.close_paren_indices.size(), 1UL);
-        EXPECT_EQ(ctx, classified.close_paren_indices[0], 4UL);
-        EXPECT_EQ(ctx, pair_of(classified.tokens, 2), 4UL);
-        EXPECT_EQ(ctx, pair_of(classified.tokens, 4), 2UL);
-    });
+                EXPECT_EQ(ctx, result.tokens.size(), exp.token_count);
+                for (const auto &[idx, expected_pair] : exp.pairs) {
+                    EXPECT_EQ(ctx, pair_of(result.tokens, idx), expected_pair);
+                }
+            });
+        }
+    }
 
-    test_detail::with_case(ctx, "classify_tokens :: unmatched outer pair stays open", [&] {
-        auto result = p::tokenize("({[1]})");
-        std::vector<Token> slice(result.tokens.begin() + 1, result.tokens.begin() + 5);
+    // =========================================================================
+    // classify_tokens
+    // =========================================================================
+    {
+        const std::vector<ClassifyCase> classify_cases = {
+            {.id = "empty", .input = {}, .expected = {}},
 
-        auto classified = p::classify_tokens(std::move(slice));
-        EXPECT_EQ(ctx, classified.open_paren_indices.size(), 2UL);
-        EXPECT_EQ(ctx, classified.open_paren_indices[0], 0UL);
-        EXPECT_EQ(ctx, classified.open_paren_indices[1], 1UL);
-        EXPECT_EQ(ctx, classified.close_paren_indices.size(), 1UL);
-        EXPECT_EQ(ctx, classified.close_paren_indices[0], 3UL);
-        EXPECT_EQ(ctx, pair_of(classified.tokens, 0), p::kNoMatch);
-        EXPECT_EQ(ctx, pair_of(classified.tokens, 1), 3UL);
-        EXPECT_EQ(ctx, pair_of(classified.tokens, 3), 1UL);
-    });
+            // "1+2"
+            {.id = "plain expr no parens no latex",
+             .input = {N("1"), Op_(OpId::Add), N("2")},
+             .expected = {}},
+
+            // "\frac{1}{2}"
+            {.id = "frac alone populates latex_indices",
+             .input = {Frac({N("1")}, {N("2")})},
+             .expected = {.latex_indices = {0}}},
+
+            // "(\frac{2}{3})" -> ( frac )   indices: 0 1 2
+            {.id = "matched paren wraps frac",
+             .input = {kOPN, Frac({N("2")}, {N("3")}), kCPN},
+             .expected =
+                 {.latex_indices = {1},
+                  .open_paren_indices = {0},
+                  .close_paren_indices = {2},
+                  .pairs = {{0, 2}, {2, 0}}}},
+
+            // "(1)+(2)" -> ( 1 ) + ( 2 )   indices: 0 1 2 3 4 5 6
+            {.id = "two sibling paren groups",
+             .input = {kOPN, N("1"), kCPN, Op_(OpId::Add), kOPN, N("2"), kCPN},
+             .expected =
+                 {.open_paren_indices = {0, 4},
+                  .close_paren_indices = {2, 6},
+                  .pairs = {{0, 2}, {2, 0}, {4, 6}, {6, 4}}}},
+
+            // "(1)+\frac{2}{3})" -> ( 1 ) + frac )   indices: 0 1 2 3 4 5
+            {.id = "trailing unmatched close after frac",
+             .input = {kOPN, N("1"), kCPN, Op_(OpId::Add), Frac({N("2")}, {N("3")}), kCPN},
+             .expected =
+                 {.latex_indices = {4},
+                  .open_paren_indices = {0},
+                  .close_paren_indices = {2, 5},
+                  .pairs = {{0, 2}, {2, 0}, {5, p::kNoMatch}}}},
+
+            // "{+\frac{2}{3}" -> { + frac   indices: 0 1 2  (no closing })
+            {.id = "unmatched brace open before frac",
+             .input = {OpenP(PK::Brace), Op_(OpId::UnaryPlus), Frac({N("2")}, {N("3")})},
+             .expected =
+                 {.latex_indices = {2}, .open_paren_indices = {0}, .pairs = {{0, p::kNoMatch}}}},
+
+            // "{\frac{2}{3})" -> { frac )   indices: 0 1 2  (kinds don't match)
+            {.id = "mixed kinds neither matches",
+             .input = {OpenP(PK::Brace), Frac({N("2")}, {N("3")}), kCPN},
+             .expected =
+                 {.latex_indices = {1},
+                  .open_paren_indices = {0},
+                  .close_paren_indices = {2},
+                  .pairs = {{0, p::kNoMatch}, {2, p::kNoMatch}}}},
+
+            // "(1)+{2+[\pow{2}{3}]+4}"
+            // -> ( 1 ) + { 2 + [ pow ] + 4 }
+            //    0 1 2 3 4 5 6 7 8   9 10 11 12
+            {.id = "three nested mixed kinds all matched",
+             .input =
+                 {kOPN,
+                  N("1"),
+                  kCPN,
+                  Op_(OpId::Add),
+                  OpenP(PK::Brace),
+                  N("2"),
+                  Op_(OpId::Add),
+                  OpenP(PK::Bracket),
+                  Pow({N("2")}, {N("3")}),
+                  CloseP(PK::Bracket),
+                  Op_(OpId::Add),
+                  N("4"),
+                  CloseP(PK::Brace)},
+             .expected =
+                 {.latex_indices = {8},
+                  .open_paren_indices = {0, 4, 7},
+                  .close_paren_indices = {2, 9, 12},
+                  .pairs = {{0, 2}, {2, 0}, {4, 12}, {12, 4}, {7, 9}, {9, 7}}}},
+
+            // Slice [5..12) of "(1)+{2+[\pow{2}{3}]+4}" re-classified standalone
+            // -> 2 + [ pow ] + 4   indices: 0 1 2 3 4 5 6
+            {.id = "rebase nested slice pairs",
+             .input =
+                 {N("2"),
+                  Op_(OpId::Add),
+                  OpenP(PK::Bracket),
+                  Pow({N("2")}, {N("3")}),
+                  CloseP(PK::Bracket),
+                  Op_(OpId::Add),
+                  N("4")},
+             .expected =
+                 {.latex_indices = {3},
+                  .open_paren_indices = {2},
+                  .close_paren_indices = {4},
+                  .pairs = {{2, 4}, {4, 2}}}},
+
+            // Slice [1..5) of "({[1]})" -> { [ 1 ]   indices: 0 1 2 3
+            // Outer { lost its }; inner [ ] still pairs locally.
+            {.id = "unmatched outer pair stays open",
+             .input = {OpenP(PK::Brace), OpenP(PK::Bracket), N("1"), CloseP(PK::Bracket)},
+             .expected =
+                 {.open_paren_indices = {0, 1},
+                  .close_paren_indices = {3},
+                  .pairs = {{0, p::kNoMatch}, {1, 3}, {3, 1}}}},
+
+            // Brace contents of "(1)+{2+[\frac{2}{3}+4+(\pow{2}{3}" (build_nodes
+            // edge case): three different unmatched opens stacked, two latex.
+            // -> { 2 + [ frac + 4 + ( pow   indices: 0 1 2 3 4    5 6 7 8 9
+            {.id = "all unmatched nested opens with latex",
+             .input =
+                 {OpenP(PK::Brace),
+                  N("2"),
+                  Op_(OpId::Add),
+                  OpenP(PK::Bracket),
+                  Frac({N("2")}, {N("3")}),
+                  Op_(OpId::Add),
+                  N("4"),
+                  Op_(OpId::Add),
+                  kOPN,
+                  Pow({N("2")}, {N("3")})},
+             .expected =
+                 {.latex_indices = {4, 9},
+                  .open_paren_indices = {0, 3, 8},
+                  .pairs = {{0, p::kNoMatch}, {3, p::kNoMatch}, {8, p::kNoMatch}}}},
+        };
+
+        for (const auto &tc : classify_cases) {
+            test_detail::with_case(ctx, std::string("classify_tokens :: ") + tc.id, [&] {
+                auto got = p::classify_tokens(tc.input);
+                const auto &exp = tc.expected;
+
+                EXPECT_EQ(ctx, got.latex_indices, exp.latex_indices);
+                EXPECT_EQ(ctx, got.open_paren_indices, exp.open_paren_indices);
+                EXPECT_EQ(ctx, got.close_paren_indices, exp.close_paren_indices);
+                for (const auto &[idx, expected_pair] : exp.pairs) {
+                    EXPECT_EQ(ctx, pair_of(got.tokens, idx), expected_pair);
+                }
+            });
+        }
+    }
 
     // paren_indices
 
