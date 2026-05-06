@@ -174,7 +174,36 @@ inline Token Root(
 using PK = p::ParenKind;
 /// Shorthand for tcalc::parser::LatexKind.
 using LK = p::LatexKind;
+/// Shorthand for tcalc::parser::MathNode.
+using MN = p::MathNode;
 
+/// MathNode factory: TextNode (plain text run).
+inline MN T_(std::string s) {
+    return MN{p::TextNode{std::move(s)}};
+}
+/// MathNode factory: ParenNode (paren/brace/bracket group, has_close=closed paren).
+inline MN Pn(PK k, bool hc, std::vector<MN> ch) {
+    return MN{p::ParenNode{k, hc, std::move(ch)}};
+}
+/// MathNode factory: LatexNode of arbitrary kind (frac/pow/root/log).
+inline MN Ln(LK k, std::vector<MN> l, std::vector<MN> r) {
+    return MN{p::LatexNode{k, std::move(l), std::move(r)}};
+}
+/// MathNode factory shorthand: Frac LatexNode (numerator l, denominator r).
+inline MN Frn(std::vector<MN> l, std::vector<MN> r) {
+    return Ln(LK::Frac, std::move(l), std::move(r));
+}
+/// MathNode factory shorthand: Pow LatexNode (base l, exponent r).
+inline MN Pwn(std::vector<MN> l, std::vector<MN> r) {
+    return Ln(LK::Pow, std::move(l), std::move(r));
+}
+/// MathNode factory shorthand: Root LatexNode (radicand l, degree r).
+inline MN Rtn(std::vector<MN> l, std::vector<MN> r) {
+    return Ln(LK::Root, std::move(l), std::move(r));
+}
+
+/// Case row for build_math_nodes: pre-classified TokensBranch -> expected node row.
+using BuildNodesCase = Case<TokensBranch, std::vector<MN>>;
 } // namespace
 
 void unit_parser(TestContext &ctx) {
@@ -1450,6 +1479,275 @@ void unit_parser(TestContext &ctx) {
                         }
                     },
                     *got);
+            });
+        }
+    }
+
+    // =========================================================================
+    // build_math_nodes
+    // =========================================================================
+    {
+        const auto branch = [](std::vector<Token> toks) {
+            return p::classify_tokens(std::move(toks));
+        };
+
+        const std::vector<BuildNodesCase> build_nodes_cases = {
+            {.id = "fracNode-0", .input = branch({Frac({}, {})}), .expected = {Frn({}, {})}},
+            {.id = "powNode-0", .input = branch({Pow({}, {})}), .expected = {Pwn({}, {})}},
+            {.id = "rootNode-0", .input = branch({Root({}, {})}), .expected = {Rtn({}, {})}},
+
+            {.id = "fracNode-1",
+             .input = branch({Frac({N("1")}, {N("2")})}),
+             .expected = {Frn({T_("1")}, {T_("2")})}},
+            {.id = "powNode-1",
+             .input = branch({Pow({N("2")}, {N("3")})}),
+             .expected = {Pwn({T_("2")}, {T_("3")})}},
+            {.id = "rootNode-1",
+             .input = branch({Root({N("2")}, {N("3")})}),
+             .expected = {Rtn({T_("2")}, {T_("3")})}},
+
+            {.id = "frac-plus",
+             .input = branch({N("1"), Op_(OpId::Add), Frac({N("1")}, {N("2")})}),
+             .expected = {T_("1 + "), Frn({T_("1")}, {T_("2")})}},
+
+            {.id = "frac-plus-frac",
+             .input = branch({Frac({N("1")}, {N("2")}), Op_(OpId::Add), Frac({N("3")}, {N("4")})}),
+             .expected = {Frn({T_("1")}, {T_("2")}), T_(" + "), Frn({T_("3")}, {T_("4")})}},
+
+            {.id = "pow-plus",
+             .input = branch({N("1"), Op_(OpId::Add), Pow({N("2")}, {N("3")})}),
+             .expected = {T_("1 + "), Pwn({T_("2")}, {T_("3")})}},
+            {.id = "root-plus",
+             .input = branch({N("1"), Op_(OpId::Add), Root({N("2")}, {N("3")})}),
+             .expected = {T_("1 + "), Rtn({T_("2")}, {T_("3")})}},
+
+            {.id = "implicit-multiplation-nodes",
+             .input = branch({Frac({N("1")}, {N("2")}), Root({N("2")}, {N("3")})}),
+             .expected = {Frn({T_("1")}, {T_("2")}), Rtn({T_("2")}, {T_("3")})}},
+
+            {.id = "frac-nested-left",
+             .input = branch({Frac({Frac({N("1")}, {N("2")})}, {N("3")})}),
+             .expected = {Frn({Frn({T_("1")}, {T_("2")})}, {T_("3")})}},
+
+            {.id = "frac-nested-both",
+             .input = branch({Frac({Frac({N("1")}, {N("2")})}, {Frac({N("3")}, {N("4")})})}),
+             .expected = {Frn({Frn({T_("1")}, {T_("2")})}, {Frn({T_("3")}, {T_("4")})})}},
+
+            {.id = "pow-nested-exp",
+             .input = branch({Pow({N("2")}, {Pow({N("3")}, {N("4")})})}),
+             .expected = {Pwn({T_("2")}, {Pwn({T_("3")}, {T_("4")})})}},
+
+            {.id = "pow-nested-base",
+             .input = branch({Pow({Pow({N("2")}, {N("3")})}, {N("4")})}),
+             .expected = {Pwn({Pwn({T_("2")}, {T_("3")})}, {T_("4")})}},
+
+            {.id = "root-nested-radicand",
+             .input = branch({Root({N("2")}, {Root({N("3")}, {N("4")})})}),
+             .expected = {Rtn({T_("2")}, {Rtn({T_("3")}, {T_("4")})})}},
+
+            {.id = "root-nested-degree",
+             .input = branch({Root({Root({N("2")}, {N("3")})}, {N("4")})}),
+             .expected = {Rtn({Rtn({T_("2")}, {T_("3")})}, {T_("4")})}},
+
+            {.id = "frac-with-two-pows",
+             .input = branch({Frac({Pow({N("2")}, {N("3")})}, {Pow({N("4")}, {N("5")})})}),
+             .expected = {Frn({Pwn({T_("2")}, {T_("3")})}, {Pwn({T_("4")}, {T_("5")})})}},
+
+            {.id = "frac-with-pow-root",
+             .input = branch({Frac({Pow({N("2")}, {N("3")})}, {Root({N("4")}, {N("5")})})}),
+             .expected = {Frn({Pwn({T_("2")}, {T_("3")})}, {Rtn({T_("4")}, {T_("5")})})}},
+
+            {.id = "pow-with-frac-root",
+             .input = branch({Pow({Frac({N("1")}, {N("2")})}, {Root({N("2")}, {N("3")})})}),
+             .expected = {Pwn({Frn({T_("1")}, {T_("2")})}, {Rtn({T_("2")}, {T_("3")})})}},
+
+            // "\root{2}{\frac{\pow{3}{4}}{5}}"
+            {.id = "root-with-frac-pow",
+             .input = branch({Root({N("2")}, {Frac({Pow({N("3")}, {N("4")})}, {N("5")})})}),
+             .expected = {Rtn({T_("2")}, {Frn({Pwn({T_("3")}, {T_("4")})}, {T_("5")})})}},
+
+            // "\frac{1+\pow{2}{3}}{4}"
+            {.id = "frac-nested-with-text",
+             .input = branch({Frac({N("1"), Op_(OpId::Add), Pow({N("2")}, {N("3")})}, {N("4")})}),
+             .expected = {Frn({T_("1 + "), Pwn({T_("2")}, {T_("3")})}, {T_("4")})}},
+
+            // "\pow{1+\frac{2}{3}}{4}"
+            {.id = "pow-nested-with-text",
+             .input = branch({Pow({N("1"), Op_(OpId::Add), Frac({N("2")}, {N("3")})}, {N("4")})}),
+             .expected = {Pwn({T_("1 + "), Frn({T_("2")}, {T_("3")})}, {T_("4")})}},
+
+            // "\root{1+\pow{2}{3}}{4}"
+            {.id = "root-nested-with-text",
+             .input = branch({Root({N("1"), Op_(OpId::Add), Pow({N("2")}, {N("3")})}, {N("4")})}),
+             .expected = {Rtn({T_("1 + "), Pwn({T_("2")}, {T_("3")})}, {T_("4")})}},
+
+            // -- Paren cases --
+
+            // "(1)+\frac{2}{3}"
+            {.id = "non-parenNode",
+             .input = branch({kOPN, N("1"), kCPN, Op_(OpId::Add), Frac({N("2")}, {N("3")})}),
+             .expected = {T_("(1) + "), Frn({T_("2")}, {T_("3")})}},
+
+            // "(1)+\frac{2}{3})"
+            {.id = "non-parenNode-w-close",
+             .input = branch({kOPN, N("1"), kCPN, Op_(OpId::Add), Frac({N("2")}, {N("3")}), kCPN}),
+             .expected = {T_("(1) + "), Frn({T_("2")}, {T_("3")}), T_(")")}},
+
+            // "(1)+(\frac{2}{3})"
+            {.id = "render-parenNode",
+             .input =
+                 branch({kOPN, N("1"), kCPN, Op_(OpId::Add), kOPN, Frac({N("2")}, {N("3")}), kCPN}),
+             .expected = {T_("(1) + "), Pn(PK::Paren, true, {Frn({T_("2")}, {T_("3")})})}},
+
+            // "(1)+(2+\frac{2}{3})"
+            {.id = "paren-with-prefix-text",
+             .input = branch(
+                 {kOPN,
+                  N("1"),
+                  kCPN,
+                  Op_(OpId::Add),
+                  kOPN,
+                  N("2"),
+                  Op_(OpId::Add),
+                  Frac({N("2")}, {N("3")}),
+                  kCPN}),
+             .expected =
+                 {T_("(1) + "), Pn(PK::Paren, true, {T_("2 + "), Frn({T_("2")}, {T_("3")})})}},
+
+            // "{\frac{2}{3}}"
+            {.id = "brace-widget",
+             .input = branch({OpenP(PK::Brace), Frac({N("2")}, {N("3")}), CloseP(PK::Brace)}),
+             .expected = {Pn(PK::Brace, true, {Frn({T_("2")}, {T_("3")})})}},
+
+            // "{\frac{2}{3})"   (brace open + paren close, kinds don't match)
+            {.id = "non-closed-brace-widget",
+             .input = branch({OpenP(PK::Brace), Frac({N("2")}, {N("3")}), kCPN}),
+             .expected = {Pn(PK::Brace, false, {Frn({T_("2")}, {T_("3")}), T_(")")})}},
+
+            // "{+\frac{2}{3}"   (brace stays open; leading + becomes UnaryPlus)
+            {.id = "open-brace-leading-op",
+             .input = branch({OpenP(PK::Brace), Op_(OpId::UnaryPlus), Frac({N("2")}, {N("3")})}),
+             .expected = {Pn(PK::Brace, false, {T_("+"), Frn({T_("2")}, {T_("3")})})}},
+
+            // "(1)+{2+\root{2}{3}}"
+            {.id = "brace-in-sum",
+             .input = branch(
+                 {kOPN,
+                  N("1"),
+                  kCPN,
+                  Op_(OpId::Add),
+                  OpenP(PK::Brace),
+                  N("2"),
+                  Op_(OpId::Add),
+                  Root({N("2")}, {N("3")}),
+                  CloseP(PK::Brace)}),
+             .expected =
+                 {T_("(1) + "), Pn(PK::Brace, true, {T_("2 + "), Rtn({T_("2")}, {T_("3")})})}},
+
+            // "[\frac{2}{3}]"
+            {.id = "bracket-widget",
+             .input = branch({OpenP(PK::Bracket), Frac({N("2")}, {N("3")}), CloseP(PK::Bracket)}),
+             .expected = {Pn(PK::Bracket, true, {Frn({T_("2")}, {T_("3")})})}},
+
+            // "(1)+{2+[\pow{2}{3}]+4}"
+            {.id = "outer-first-nested-parens",
+             .input = branch(
+                 {kOPN,
+                  N("1"),
+                  kCPN,
+                  Op_(OpId::Add),
+                  OpenP(PK::Brace),
+                  N("2"),
+                  Op_(OpId::Add),
+                  OpenP(PK::Bracket),
+                  Pow({N("2")}, {N("3")}),
+                  CloseP(PK::Bracket),
+                  Op_(OpId::Add),
+                  N("4"),
+                  CloseP(PK::Brace)}),
+             .expected =
+                 {T_("(1) + "),
+                  Pn(PK::Brace,
+                     true,
+                     {T_("2 + "),
+                      Pn(PK::Bracket, true, {Pwn({T_("2")}, {T_("3")})}),
+                      T_(" + 4")})}},
+
+            // "(1)+{2+[\frac{2}{3}+4+(\pow{2}{3})]}"
+            {.id = "nested-brace-bracket-paren",
+             .input = branch(
+                 {kOPN,
+                  N("1"),
+                  kCPN,
+                  Op_(OpId::Add),
+                  OpenP(PK::Brace),
+                  N("2"),
+                  Op_(OpId::Add),
+                  OpenP(PK::Bracket),
+                  Frac({N("2")}, {N("3")}),
+                  Op_(OpId::Add),
+                  N("4"),
+                  Op_(OpId::Add),
+                  kOPN,
+                  Pow({N("2")}, {N("3")}),
+                  kCPN,
+                  CloseP(PK::Bracket),
+                  CloseP(PK::Brace)}),
+             .expected =
+                 {T_("(1) + "),
+                  Pn(PK::Brace,
+                     true,
+                     {T_("2 + "),
+                      Pn(PK::Bracket,
+                         true,
+                         {Frn({T_("2")}, {T_("3")}),
+                          T_(" + 4 + "),
+                          Pn(PK::Paren, true, {Pwn({T_("2")}, {T_("3")})})})})}},
+
+            {.id = "nested-brace-bracket-paren-open-only",
+             .input = branch(
+                 {kOPN,
+                  N("1"),
+                  kCPN,
+                  Op_(OpId::Add),
+                  OpenP(PK::Brace),
+                  N("2"),
+                  Op_(OpId::Add),
+                  OpenP(PK::Bracket),
+                  Frac({N("2")}, {N("3")}),
+                  Op_(OpId::Add),
+                  N("4"),
+                  Op_(OpId::Add),
+                  kOPN,
+                  Pow({N("2")}, {N("3")})}),
+             .expected =
+                 {T_("(1) + "),
+                  Pn(PK::Brace,
+                     false,
+                     {T_("2 + "),
+                      Pn(PK::Bracket,
+                         false,
+                         {Frn({T_("2")}, {T_("3")}),
+                          T_(" + 4 + "),
+                          Pn(PK::Paren, false, {Pwn({T_("2")}, {T_("3")})})})})}},
+
+            {.id = "trig-parens-non-paren",
+             .input = branch(
+                 {Frac({N("1")}, {N("2")}), Op_(OpId::Add), Op_(OpId::Sin), kOPN, N("90"), kCPN}),
+             .expected = {Frn({T_("1")}, {T_("2")}), T_(" + sin(90)")}},
+
+            {.id = "trig-parens-non-paren-2",
+             .input = branch(
+                 {N("1"),
+                  Op_(OpId::Add),
+                  Frac({N("2")}, {N("3"), Op_(OpId::Add), Op_(OpId::Cos), kOPN, N("90"), kCPN})}),
+             .expected = {T_("1 + "), Frn({T_("2")}, {T_("3 + cos(90)")})}},
+        };
+
+        for (const auto &tc : build_nodes_cases) {
+            test_detail::with_case(ctx, std::string("build_math_nodes :: ") + tc.id, [&] {
+                const auto got = p::build_math_nodes(tc.input);
+                EXPECT_EQ(ctx, got, tc.expected);
             });
         }
     }
