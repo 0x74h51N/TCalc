@@ -21,7 +21,6 @@
 #pragma once
 
 #include <cstdint>
-#include <ostream>
 #include <span>
 #include <string>
 #include <string_view>
@@ -176,66 +175,6 @@ template <typename F> decltype(auto) visit_token(const TokenData &data, F &&f) {
 }
 
 // ------------------------------------------------------------
-// TokensBranch printer
-// ------------------------------------------------------------
-inline std::ostream &operator<<(std::ostream &os, const TokensBranch &branch) {
-    os << "[";
-    for (std::size_t i = 0; i < branch.tokens.size(); ++i) {
-        if (i != 0)
-            os << ", ";
-        os << branch.tokens[i];
-    }
-    os << "]";
-    return os;
-}
-
-// ------------------------------------------------------------
-// Type-specific logic
-// ------------------------------------------------------------
-struct TokenPrinter {
-    std::ostream *os;
-
-    void operator()(const NumberToken &t) const { *os << "value=\"" << t.value << "\""; }
-
-    void operator()(const OpToken &t) const { *os << "op_id=" << static_cast<int>(t.op_id); }
-
-    void operator()(const ParenToken &t) const {
-        *os << "paren_type=" << static_cast<int>(t.type)
-            << ", paren_kind=" << static_cast<int>(t.kind);
-    }
-
-    void operator()(const LatexToken &t) const {
-        *os << "latex_kind=" << static_cast<int>(t.kind) << ", op_id=" << static_cast<int>(t.op_id)
-            << ", left="
-            << "[";
-        for (std::size_t i = 0; i < t.left.size(); ++i) {
-            if (i != 0)
-                *os << ", ";
-            *os << t.left[i];
-        }
-        *os << "]"
-            << ", right="
-            << "[";
-        for (std::size_t i = 0; i < t.right.size(); ++i) {
-            if (i != 0)
-                *os << ", ";
-            *os << t.right[i];
-        }
-        *os << "]";
-    }
-};
-
-// ------------------------------------------------------------
-// Token printer
-// ------------------------------------------------------------
-inline std::ostream &operator<<(std::ostream &os, const Token &tok) {
-    os << "Token{kind=" << static_cast<int>(tok.kind) << ", ";
-    visit_token(tok.data, TokenPrinter{&os});
-    os << "}";
-    return os;
-}
-
-// ------------------------------------------------------------
 // Equality logic
 // ------------------------------------------------------------
 struct TokenEqual {
@@ -318,6 +257,7 @@ enum class MathNodeKind : std::uint8_t { Text = 0, Paren = 1, Latex = 2 };
 /// Pre-formatted text run.
 struct TextNode {
     std::string text;
+    bool operator==(const TextNode &) const = default;
 };
 
 /// Paren group carrying its inner row.
@@ -325,6 +265,7 @@ struct ParenNode {
     ParenKind kind;
     bool has_close;
     std::vector<MathNode> children;
+    bool operator==(const ParenNode &) const = default;
 };
 
 /// Latex expression (frac/pow/root/log) with left and right rows.
@@ -332,6 +273,7 @@ struct LatexNode {
     LatexKind kind;
     std::vector<MathNode> left;
     std::vector<MathNode> right;
+    bool operator==(const LatexNode &) const = default;
 };
 
 /// Render-tree element: text run, paren group, or latex expression.
@@ -344,6 +286,8 @@ struct MathNode {
         : data(std::forward<T>(v)) {}
 
     MathNodeKind kind() const { return static_cast<MathNodeKind>(data.index()); }
+
+    bool operator==(const MathNode &) const = default;
 };
 
 /// Build a flat row of MathNode descriptors ready for widget/paint construction.
