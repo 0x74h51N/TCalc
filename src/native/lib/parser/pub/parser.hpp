@@ -257,6 +257,7 @@ enum class MathNodeKind : std::uint8_t { Text = 0, Paren = 1, Latex = 2 };
 /// Pre-formatted text run.
 struct TextNode {
     std::string text;
+    bool operator==(const TextNode &) const = default;
 };
 
 /// Paren group carrying its inner row.
@@ -264,6 +265,7 @@ struct ParenNode {
     ParenKind kind;
     bool has_close;
     std::vector<MathNode> children;
+    bool operator==(const ParenNode &) const = default;
 };
 
 /// Latex expression (frac/pow/root/log) with left and right rows.
@@ -271,6 +273,7 @@ struct LatexNode {
     LatexKind kind;
     std::vector<MathNode> left;
     std::vector<MathNode> right;
+    bool operator==(const LatexNode &) const = default;
 };
 
 /// Render-tree element: text run, paren group, or latex expression.
@@ -283,6 +286,8 @@ struct MathNode {
         : data(std::forward<T>(v)) {}
 
     MathNodeKind kind() const { return static_cast<MathNodeKind>(data.index()); }
+
+    bool operator==(const MathNode &) const = default;
 };
 
 /// Build a flat row of MathNode descriptors ready for widget/paint construction.

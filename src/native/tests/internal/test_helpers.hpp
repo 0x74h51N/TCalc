@@ -461,6 +461,27 @@ inline void print_value(std::ostream &os, const TokensBranch &r) {
     os << "\n}";
 }
 
+inline void print_value(std::ostream &os, const tcalc::parser::TextNode &t) {
+    os << "Text(\"" << t.text << "\")";
+}
+inline void print_value(std::ostream &os, const tcalc::parser::ParenNode &p) {
+    os << "Paren(" << paren_kind_name(p.kind) << ", has_close=" << (p.has_close ? "true" : "false")
+       << ", children=";
+    print_value(os, p.children);
+    os << ")";
+}
+inline void print_value(std::ostream &os, const tcalc::parser::LatexNode &l) {
+    os << "Latex(" << latex_kind_name(l.kind) << ", left=";
+    print_value(os, l.left);
+    os << ", right=";
+    print_value(os, l.right);
+    os << ")";
+}
+
+inline void print_value(std::ostream &os, const tcalc::parser::MathNode &n) {
+    print_variant(os, n.data);
+}
+
 } // namespace tcalc::parser
 
 /// Assert equality and record failures with optional verbose output.
