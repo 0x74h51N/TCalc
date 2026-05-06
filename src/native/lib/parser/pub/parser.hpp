@@ -274,7 +274,6 @@ inline bool operator==(const Token &a, const Token &b) {
 /// Structural split payload for an (un)matched open paren appearing before the first latex token.
 /// Spans reference tokens inside the source TokensBranch, caller must keep branch alive.
 struct ParenSplit {
-    TokenIndex idx = 0;
     std::span<const Token> prefix;
     std::span<const Token> left;
     std::span<const Token> suffix;
@@ -287,7 +286,6 @@ struct ParenSplit {
 /// Structural split payload for a Frac/Pow/Root/Log latex token.
 /// Spans reference tokens inside the source TokensBranch, caller must keep branch alive.
 struct LatexSplit {
-    TokenIndex idx = 0;
     std::span<const Token> prefix;
     std::span<const Token> left;
     std::span<const Token> right;
