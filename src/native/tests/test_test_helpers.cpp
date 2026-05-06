@@ -81,7 +81,7 @@ void unit_helpers(TestContext &ctx) {
             "[\n"
             "  Token{kind=Number, value=\"2\"},\n"
             "  Token{kind=Op, op_id=add(+)},\n"
-            "  Token{kind=LParen, type=0, kind=0}\n"
+            "  Token{kind=LParen, type=Open, kind=Paren}\n"
             "]");
     });
 

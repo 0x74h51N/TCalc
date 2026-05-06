@@ -21,7 +21,6 @@
 #pragma once
 
 #include <cstdint>
-#include <ostream>
 #include <span>
 #include <string>
 #include <string_view>
@@ -173,66 +172,6 @@ std::ostream &operator<<(std::ostream &, const Token &);
 // ------------------------------------------------------------
 template <typename F> decltype(auto) visit_token(const TokenData &data, F &&f) {
     return std::visit(std::forward<F>(f), data);
-}
-
-// ------------------------------------------------------------
-// TokensBranch printer
-// ------------------------------------------------------------
-inline std::ostream &operator<<(std::ostream &os, const TokensBranch &branch) {
-    os << "[";
-    for (std::size_t i = 0; i < branch.tokens.size(); ++i) {
-        if (i != 0)
-            os << ", ";
-        os << branch.tokens[i];
-    }
-    os << "]";
-    return os;
-}
-
-// ------------------------------------------------------------
-// Type-specific logic
-// ------------------------------------------------------------
-struct TokenPrinter {
-    std::ostream *os;
-
-    void operator()(const NumberToken &t) const { *os << "value=\"" << t.value << "\""; }
-
-    void operator()(const OpToken &t) const { *os << "op_id=" << static_cast<int>(t.op_id); }
-
-    void operator()(const ParenToken &t) const {
-        *os << "paren_type=" << static_cast<int>(t.type)
-            << ", paren_kind=" << static_cast<int>(t.kind);
-    }
-
-    void operator()(const LatexToken &t) const {
-        *os << "latex_kind=" << static_cast<int>(t.kind) << ", op_id=" << static_cast<int>(t.op_id)
-            << ", left="
-            << "[";
-        for (std::size_t i = 0; i < t.left.size(); ++i) {
-            if (i != 0)
-                *os << ", ";
-            *os << t.left[i];
-        }
-        *os << "]"
-            << ", right="
-            << "[";
-        for (std::size_t i = 0; i < t.right.size(); ++i) {
-            if (i != 0)
-                *os << ", ";
-            *os << t.right[i];
-        }
-        *os << "]";
-    }
-};
-
-// ------------------------------------------------------------
-// Token printer
-// ------------------------------------------------------------
-inline std::ostream &operator<<(std::ostream &os, const Token &tok) {
-    os << "Token{kind=" << static_cast<int>(tok.kind) << ", ";
-    visit_token(tok.data, TokenPrinter{&os});
-    os << "}";
-    return os;
 }
 
 // ------------------------------------------------------------

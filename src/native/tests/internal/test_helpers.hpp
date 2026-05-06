@@ -270,6 +270,10 @@ inline bool approx_big(
     return diff <= eps * scale;
 }
 
+// ---------------------------------------------------------------------
+// Generic print_value: streamable fallback, scalars, and vector<T>.
+// ---------------------------------------------------------------------
+
 /// Print a value if streamable, otherwise emit a placeholder.
 template <typename T> inline void print_value(std::ostream &os, const T &v) {
     if constexpr (requires(std::ostream &out, const T &value) { out << value; }) {
@@ -277,117 +281,6 @@ template <typename T> inline void print_value(std::ostream &os, const T &v) {
     } else {
         os << "<unprintable>";
     }
-}
-
-inline std::string_view token_kind_name(
-    tcalc::parser::TokenKind kind,
-    tcalc::parser::ParenKind pk = tcalc::parser::ParenKind::Paren,
-    tcalc::parser::ParenType pt = tcalc::parser::ParenType::Open) {
-    switch (kind) {
-    case tcalc::parser::TokenKind::Number:
-        return "Number";
-    case tcalc::parser::TokenKind::Op:
-        return "Op";
-    case tcalc::parser::TokenKind::Latex:
-        return "Latex";
-    case tcalc::parser::TokenKind::Paren:
-        switch (pk) {
-        case tcalc::parser::ParenKind::Paren:
-            return (pt == tcalc::parser::ParenType::Open) ? "LParen" : "RParen";
-        case tcalc::parser::ParenKind::Brace:
-            return (pt == tcalc::parser::ParenType::Open) ? "LBrace" : "RBrace";
-        case tcalc::parser::ParenKind::Bracket:
-            return (pt == tcalc::parser::ParenType::Open) ? "LBracket" : "RBracket";
-        default:
-            return "<unknown-paren>";
-        }
-    default:
-        return "<unknown>";
-    }
-}
-
-inline std::string_view op_id_name(tcalc::ops::OpId id) {
-    if (id == tcalc::ops::OpId::Count)
-        return "<none>";
-    if (const auto *spec = tcalc::ops::op_spec(id))
-        return spec->method;
-    return "<unknown>";
-}
-
-inline void print_value(std::ostream &os, const tcalc::parser::Token &tok) {
-    os << "Token{kind=";
-
-    if (tok.kind == tcalc::parser::TokenKind::Paren) {
-        const auto &p = std::get<tcalc::parser::ParenToken>(tok.data);
-        os << token_kind_name(tok.kind, p.kind, p.type);
-    } else {
-        os << token_kind_name(tok.kind);
-    }
-
-    os << ", ";
-
-    std::visit(
-        [&](auto &&t) {
-            using T = std::decay_t<decltype(t)>;
-            if constexpr (std::is_same_v<T, tcalc::parser::NumberToken>) {
-                os << "value=\"" << t.value << "\"";
-            } else if constexpr (std::is_same_v<T, tcalc::parser::OpToken>) {
-                os << "op_id=" << op_id_name(t.op_id);
-                if (t.op_id != tcalc::ops::OpId::Count) {
-                    if (const auto *spec = tcalc::ops::op_spec(t.op_id)) {
-                        os << "(";
-                        print_value(os, spec->symbol);
-                        os << ")";
-                    }
-                }
-            } else if constexpr (std::is_same_v<T, tcalc::parser::ParenToken>) {
-                os << "type=" << static_cast<int>(t.type) << ", kind=" << static_cast<int>(t.kind);
-            } else if constexpr (std::is_same_v<T, tcalc::parser::LatexToken>) {
-                os << "latex_kind=" << static_cast<int>(t.kind) << ", op_id=" << op_id_name(t.op_id)
-                   << ", left.size=" << t.left.size() << ", right.size=" << t.right.size();
-            }
-        },
-        tok.data);
-
-    os << "}";
-}
-
-inline void print_value(std::ostream &os, const std::vector<tcalc::parser::Token> &values) {
-    os << "[";
-    if (!values.empty()) {
-        os << "\n";
-    }
-
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        os << "  ";
-        print_value(os, values[i]);
-        if (i + 1 != values.size()) {
-            os << ",";
-        }
-        os << "\n";
-    }
-
-    os << "]";
-}
-
-inline void print_value(std::ostream &os, const tcalc::parser::TokensBranch &r) {
-
-    os << "TokensBranch{\n";
-
-    os << "  tokens=\n";
-    print_value(os, r.tokens);
-    os << ",\n";
-
-    os << "  latex_indices=\n";
-    print_value(os, r.latex_indices);
-    os << "\n";
-    os << "  open_paren_indices=\n";
-    print_value(os, r.open_paren_indices);
-    os << "\n";
-    os << "  close_paren_indices=\n";
-    print_value(os, r.close_paren_indices);
-    os << "\n";
-    os << "}";
 }
 
 /// Print a double with full precision.
@@ -404,13 +297,171 @@ inline void print_value(std::ostream &os, const BigReal &v) {
 template <typename T> inline void print_value(std::ostream &os, const std::vector<T> &values) {
     os << "[";
     for (std::size_t i = 0; i < values.size(); ++i) {
-        if (i != 0) {
+        if (i != 0)
             os << ", ";
-        }
         print_value(os, values[i]);
     }
     os << "]";
 }
+namespace tcalc::parser {
+
+using ::print_value; // bring file-scope generics into overload set (vector<TokenIndex> etc.)
+
+inline std::string_view latex_kind_name(LatexKind k) {
+    switch (k) {
+    case LatexKind::Frac:
+        return "Frac";
+    case LatexKind::Pow:
+        return "Pow";
+    case LatexKind::Root:
+        return "Root";
+    case LatexKind::Log:
+        return "Log";
+    }
+    return "<unknown>";
+}
+
+inline std::string_view paren_type_name(ParenType t) {
+    switch (t) {
+    case ParenType::Open:
+        return "Open";
+    case ParenType::Close:
+        return "Close";
+    }
+    return "<unknown>";
+}
+
+inline std::string_view paren_kind_name(ParenKind k) {
+    switch (k) {
+    case ParenKind::Paren:
+        return "Paren";
+    case ParenKind::Brace:
+        return "Brace";
+    case ParenKind::Bracket:
+        return "Bracket";
+    }
+    return "<unknown>";
+}
+
+inline std::string_view token_kind_name(
+    TokenKind kind,
+    ParenKind pk = ParenKind::Paren,
+    ParenType pt = ParenType::Open,
+    LatexKind lk = LatexKind::Frac) {
+    switch (kind) {
+    case TokenKind::Number:
+        return "Number";
+    case TokenKind::Op:
+        return "Op";
+    case TokenKind::Latex:
+        switch (lk) {
+        case LatexKind::Frac:
+            return "LatexFrac";
+        case LatexKind::Pow:
+            return "LatexPow";
+        case LatexKind::Root:
+            return "LatexRoot";
+        case LatexKind::Log:
+            return "LatexLog";
+        }
+        return "<unknown-latex>";
+    case TokenKind::Paren:
+        switch (pk) {
+        case ParenKind::Paren:
+            return (pt == ParenType::Open) ? "LParen" : "RParen";
+        case ParenKind::Brace:
+            return (pt == ParenType::Open) ? "LBrace" : "RBrace";
+        case ParenKind::Bracket:
+            return (pt == ParenType::Open) ? "LBracket" : "RBracket";
+        }
+        return "<unknown-paren>";
+    }
+    return "<unknown>";
+}
+
+inline std::string_view op_id_name(tcalc::ops::OpId id) {
+    if (id == tcalc::ops::OpId::Count)
+        return "<none>";
+    if (const auto *spec = tcalc::ops::op_spec(id))
+        return spec->method;
+    return "<unknown>";
+}
+
+// Forward declaration; defined after Token's print_value.
+inline void print_value(std::ostream &os, const std::vector<Token> &values);
+
+inline void print_value(std::ostream &os, const NumberToken &t) {
+    os << "value=\"" << t.value << "\"";
+}
+inline void print_value(std::ostream &os, const OpToken &t) {
+    os << "op_id=" << op_id_name(t.op_id);
+    if (t.op_id != tcalc::ops::OpId::Count) {
+        if (const auto *spec = tcalc::ops::op_spec(t.op_id))
+            os << "(" << spec->symbol << ")";
+    }
+}
+inline void print_value(std::ostream &os, const ParenToken &t) {
+    os << "type=" << paren_type_name(t.type) << ", kind=" << paren_kind_name(t.kind);
+    if (t.pair_idx != kNoMatch) {
+        os << ", pair_idx=" << t.pair_idx;
+    }
+}
+inline void print_value(std::ostream &os, const LatexToken &t) {
+    os << "latex_kind=" << latex_kind_name(t.kind) << ", op_id=" << op_id_name(t.op_id)
+       << ", left=";
+    print_value(os, t.left);
+    os << ", right=";
+    print_value(os, t.right);
+}
+
+/// Dispatch print_value into the active variant alternative.
+template <typename V> inline void print_variant(std::ostream &os, const V &v) {
+    std::visit([&](const auto &alt) { print_value(os, alt); }, v);
+}
+
+inline void print_value(std::ostream &os, const Token &tok) {
+    os << "Token{kind=";
+    if (tok.kind == TokenKind::Paren) {
+        const auto &p = std::get<ParenToken>(tok.data);
+        os << token_kind_name(tok.kind, p.kind, p.type);
+    } else if (tok.kind == TokenKind::Latex) {
+        const auto &l = std::get<LatexToken>(tok.data);
+        os << token_kind_name(tok.kind, ParenKind::Paren, ParenType::Open, l.kind);
+    } else {
+        os << token_kind_name(tok.kind);
+    }
+    os << ", ";
+    print_variant(os, tok.data);
+    os << "}";
+}
+
+inline void print_value(std::ostream &os, const std::vector<Token> &values) {
+    os << "[";
+    if (!values.empty())
+        os << "\n";
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        os << "  ";
+        print_value(os, values[i]);
+        if (i + 1 != values.size())
+            os << ",";
+        os << "\n";
+    }
+    os << "]";
+}
+
+inline void print_value(std::ostream &os, const TokensBranch &r) {
+    os << "TokensBranch{\n  tokens=\n";
+    print_value(os, r.tokens);
+    os << ",\n  latex_indices=\n";
+    print_value(os, r.latex_indices);
+    os << "\n  open_paren_indices=\n";
+    print_value(os, r.open_paren_indices);
+    os << "\n  close_paren_indices=\n";
+    print_value(os, r.close_paren_indices);
+    os << "\n}";
+}
+
+} // namespace tcalc::parser
 
 /// Assert equality and record failures with optional verbose output.
 template <typename A, typename B>
