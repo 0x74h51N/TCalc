@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from tcalc.app_state import CalculatorMode, get_app_state
+from tcalc.app_state import CalculatorMode, DockKind, get_app_state
 
 
 class SettingsOperations:
@@ -15,24 +15,20 @@ class SettingsOperations:
         self._window.update_layout()
 
     def toggle_history(self, checked: bool) -> None:
-        self._app_state.show_history = checked
-        self._window.update_layout()
+        self._window.sync_dock(DockKind.HISTORY, checked)
 
     def toggle_constants(self, checked: bool) -> None:
         self._app_state.show_constant_buttons = checked
         self._window.update_layout()
 
     def toggle_numpad(self, checked: bool) -> None:
-        self._app_state.show_numpad = checked
-        self._window.update_layout()
+        self._window.sync_dock(DockKind.NUMPAD, checked)
 
     def toggle_funcpad(self, checked: bool) -> None:
-        self._app_state.show_funcpad = checked
-        self._window.update_layout()
+        self._window.sync_dock(DockKind.FUNCPAD, checked)
 
     def toggle_trigpad(self, checked: bool) -> None:
-        self._app_state.show_trigpad = checked
-        self._window.update_layout()
+        self._window.sync_dock(DockKind.TRIGPAD, checked)
 
     def add_custom_pad(self) -> None:
         self._window.add_custom_pad()
