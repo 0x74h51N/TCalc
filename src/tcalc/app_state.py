@@ -23,6 +23,15 @@ class CalculatorMode(Enum):
     STATISTIC = "statistic"
 
 
+class DockKind(Enum):
+    """Toggleable dock widgets in the main window."""
+
+    HISTORY = "history"
+    NUMPAD = "numpad"
+    FUNCPAD = "funcpad"
+    TRIGPAD = "trigpad"
+
+
 class RenderMode(Enum):
     """Display expression render modes."""
 
@@ -37,6 +46,13 @@ AngleUnit = calc_native.AngleUnit
 class AppState:
     """Global application state container (singleton) with persistent settings."""
 
+    _DOCK_SETTINGS_KEYS: dict[DockKind, str] = {
+        DockKind.HISTORY: "show_history",
+        DockKind.NUMPAD: "show_numpad",
+        DockKind.FUNCPAD: "show_funcpad",
+        DockKind.TRIGPAD: "show_trigpad",
+    }
+
     def __init__(self):
         self._settings = QSettings("TCalc", "TCalc")
 
@@ -44,15 +60,14 @@ class AppState:
             self._settings.value("mode", CalculatorMode.SIMPLE.value)
         )
 
-        self._show_history: bool = bool(self._settings.value("show_history", False, type=bool))
-
         self._history_mode: RenderMode = RenderMode(
             self._settings.value("history_mode", RenderMode.FLAT.value)
         )
 
-        self._show_numpad: bool = bool(self._settings.value("show_numpad", False, type=bool))
-        self._show_funcpad: bool = bool(self._settings.value("show_funcpad", False, type=bool))
-        self._show_trigpad: bool = bool(self._settings.value("show_trigpad", False, type=bool))
+        self._dock_states: dict[DockKind, bool] = {
+            kind: bool(self._settings.value(key, False, type=bool))
+            for kind, key in self._DOCK_SETTINGS_KEYS.items()
+        }
 
         self._show_constant_buttons: bool = bool(
             self._settings.value("show_constant_buttons", False, type=bool)
@@ -83,18 +98,6 @@ class AppState:
         self._settings.setValue("mode", value.value)
 
     @property
-    def show_history(self) -> bool:
-        return self._show_history
-
-    @show_history.setter
-    def show_history(self, value: bool) -> None:
-        self._show_history = value
-        self._settings.setValue("show_history", value)
-
-    def set_show_history(self, value: bool) -> None:
-        self.show_history = value
-
-    @property
     def history_mode(self) -> RenderMode:
         return self._history_mode
 
@@ -102,42 +105,6 @@ class AppState:
     def history_mode(self, value: RenderMode) -> None:
         self._history_mode = value
         self._settings.setValue("history_mode", value.value)
-
-    @property
-    def show_numpad(self) -> bool:
-        return self._show_numpad
-
-    @show_numpad.setter
-    def show_numpad(self, value: bool) -> None:
-        self._show_numpad = value
-        self._settings.setValue("show_numpad", value)
-
-    def set_show_numpad(self, value: bool) -> None:
-        self.show_numpad = value
-
-    @property
-    def show_funcpad(self) -> bool:
-        return self._show_funcpad
-
-    @show_funcpad.setter
-    def show_funcpad(self, value: bool) -> None:
-        self._show_funcpad = value
-        self._settings.setValue("show_funcpad", value)
-
-    def set_show_funcpad(self, value: bool) -> None:
-        self.show_funcpad = value
-
-    @property
-    def show_trigpad(self) -> bool:
-        return self._show_trigpad
-
-    @show_trigpad.setter
-    def show_trigpad(self, value: bool) -> None:
-        self._show_trigpad = value
-        self._settings.setValue("show_trigpad", value)
-
-    def set_show_trigpad(self, value: bool) -> None:
-        self.show_trigpad = value
 
     @property
     def show_constant_buttons(self) -> bool:
@@ -150,6 +117,13 @@ class AppState:
 
     def set_show_constant_buttons(self, value: bool) -> None:
         self.show_constant_buttons = value
+
+    def is_dock_open(self, kind: DockKind) -> bool:
+        return self._dock_states[kind]
+
+    def set_dock_open(self, kind: DockKind, value: bool) -> None:
+        self._dock_states[kind] = value
+        self._settings.setValue(self._DOCK_SETTINGS_KEYS[kind], value)
 
 
 # Global singleton instance

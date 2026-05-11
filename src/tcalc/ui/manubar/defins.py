@@ -4,7 +4,7 @@ from typing import Tuple
 
 from PySide6.QtWidgets import QMessageBox
 
-from tcalc.app_state import CalculatorMode
+from tcalc.app_state import CalculatorMode, DockKind
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, SettingsOperations
 
 from .menu_builder import MenuActionItem, MenuActionType, MenuSeparatorItem, SubmenuItem
@@ -93,7 +93,7 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
                 icon="./assets/numpad.svg",
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
-                checked_getter=lambda s: s.show_numpad,
+                checked_getter=lambda s: s.is_dock_open(DockKind.NUMPAD),
                 fn=SettingsOperations.toggle_numpad,
             ),
             MenuActionItem(
@@ -101,7 +101,7 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
                 icon="./assets/func.svg",
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
-                checked_getter=lambda s: s.show_funcpad,
+                checked_getter=lambda s: s.is_dock_open(DockKind.FUNCPAD),
                 fn=SettingsOperations.toggle_funcpad,
             ),
             MenuActionItem(
@@ -109,7 +109,7 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
                 icon="./assets/trig.svg",
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
-                checked_getter=lambda s: s.show_trigpad,
+                checked_getter=lambda s: s.is_dock_open(DockKind.TRIGPAD),
                 fn=SettingsOperations.toggle_trigpad,
             ),
             MenuActionItem(
@@ -135,7 +135,7 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
         icon="document-open-recent",
         checkable=True,
         item_type=MenuActionType.TOGGLE,
-        checked_getter=lambda s: s.show_history,
+        checked_getter=lambda s: s.is_dock_open(DockKind.HISTORY),
         fn=SettingsOperations.toggle_history,
     ),
     MenuActionItem(
