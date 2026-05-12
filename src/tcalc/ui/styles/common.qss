@@ -28,6 +28,13 @@ QPushButton[uiRole="iconButton"]:pressed {
     border-right-color: $selection_background;
 }
 
+QPushButton[uiRole="toolbarToggle"] {
+    background: transparent;
+    border: none;
+    padding: 0px;
+    margin: 0px;
+}
+
 QRadioButton[optionRole="option"] {
     background-color: transparent;
     color: $text_secondary;

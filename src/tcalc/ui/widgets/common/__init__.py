@@ -23,6 +23,7 @@ from .button import IconButton, KeyButton, KSSpinBox, OptionGroup
 from .flow_layout import FlowLayout
 from .picker import SearchablePicker
 from .toaster import Toaster, ToastLevel
+from .toolbar import Toolbar
 from .types import KeyDef, ShiftedDef
 from .utils import Align, reposition, setup_fade, start_fade_out
 
@@ -38,6 +39,7 @@ __all__ = [
     "ShiftedDef",
     "Toaster",
     "ToastLevel",
+    "Toolbar",
     "reposition",
     "setup_fade",
     "start_fade_out",
