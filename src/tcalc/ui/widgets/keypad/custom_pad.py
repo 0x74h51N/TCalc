@@ -14,7 +14,6 @@ from PySide6.QtWidgets import (
     QColorDialog,
     QFrame,
     QGridLayout,
-    QHBoxLayout,
     QInputDialog,
     QMenu,
     QMessageBox,
@@ -27,8 +26,8 @@ from PySide6.QtWidgets import (
 from tcalc.core.ops import Operation
 from tcalc.theme import get_theme
 from tcalc.ui.widgets.common.button import IconButton, KeyButton, KSSpinBox
-from tcalc.ui.widgets.common.flow_layout import FlowLayout
 from tcalc.ui.widgets.common.picker import SearchablePicker
+from tcalc.ui.widgets.common.toolbar import Toolbar
 from tcalc.ui.widgets.common.types import KeyDef
 
 from ...config import custom_pad_config, keypad_config
@@ -143,36 +142,6 @@ class KSGrid(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(2)
 
-        self._toolbar = QWidget(self)
-        toolbar_layout = QHBoxLayout(self._toolbar)
-        toolbar_layout.setContentsMargins(0, 0, 0, 0)
-        toolbar_layout.setSpacing(4)
-
-        spin_width = int(_cfg["spin_width"])
-        self._row_spin = KSSpinBox(
-            "Rows: ",
-            "Max rows",
-            int(_cfg["min_rows"]),
-            int(_cfg["max_rows"]),
-            max_rows,
-            spin_width,
-            self._toolbar,
-        )
-        self._row_spin.valueChanged.connect(self._on_max_rows_changed)
-        toolbar_layout.addWidget(self._row_spin)
-
-        self._edit_btn = IconButton("document-edit", "Edit keys", "", None, self._toolbar)
-        self._edit_btn.clicked.connect(self._on_edit_clicked)
-        toolbar_layout.addWidget(self._edit_btn)
-
-        self._remove_btn = IconButton("edit-delete", "Delete keys", "", None, self._toolbar)
-        self._remove_btn.clicked.connect(self._confirm_remove_grid_keys)
-        toolbar_layout.addWidget(self._remove_btn)
-
-        toolbar_layout.addStretch()
-        self._toolbar.setVisible(editing)
-        root.addWidget(self._toolbar)
-
         grid_widget = QWidget(self)
         spacing = int(keypad_config["grid_spacing"])
         self._grid = QGridLayout(grid_widget)
@@ -180,6 +149,8 @@ class KSGrid(QWidget):
         self._grid.setHorizontalSpacing(spacing)
         self._grid.setVerticalSpacing(spacing)
         root.addWidget(grid_widget, 1)
+
+        self._insert_toolbar(root, max_rows, editing)
 
         self._build()
 
@@ -206,6 +177,34 @@ class KSGrid(QWidget):
         self._max_rows = value
         _recalc_positions(self._keys, value)
         self._relayout()
+
+    def _insert_toolbar(self, root: QVBoxLayout, max_rows: int, editing: bool) -> None:
+        self._toolbar = Toolbar(
+            self, margin=0, spacing=4, collapsible=True, toggle_tooltip="Grid options"
+        )
+
+        self._row_spin = KSSpinBox(
+            "Rows: ",
+            "Max rows",
+            int(_cfg["min_rows"]),
+            int(_cfg["max_rows"]),
+            max_rows,
+            int(_cfg["spin_width"]),
+            self._toolbar,
+        )
+        self._row_spin.valueChanged.connect(self._on_max_rows_changed)
+        self._toolbar.addWidget(self._row_spin)
+
+        self._edit_btn = IconButton("document-edit", "Edit keys", "", None, self._toolbar)
+        self._edit_btn.clicked.connect(self._on_edit_clicked)
+        self._toolbar.addWidget(self._edit_btn)
+
+        self._remove_btn = IconButton("edit-delete", "Delete keys", "", None, self._toolbar)
+        self._remove_btn.clicked.connect(self._confirm_remove_grid_keys)
+        self._toolbar.addWidget(self._remove_btn)
+
+        self._toolbar.setVisible(editing)
+        root.addWidget(self._toolbar)
 
     def _on_max_rows_changed(self, value: int) -> None:
         self.max_rows = value
@@ -474,30 +473,26 @@ class CustomPad(QWidget):
     # Toolbar
     # ------------------------------------------------------------------
     def _insert_toolbar(self) -> None:
-        self._toolbar = QWidget(self)
-        sp = self._toolbar.sizePolicy()
-        sp.setHeightForWidth(True)
-        self._toolbar.setSizePolicy(sp)
-
-        toolbar_layout = FlowLayout(
-            self._toolbar,
+        self._toolbar = Toolbar(
+            self,
             margin=int(_cfg["toolbar_margin"]),
             spacing=int(_cfg["toolbar_spacing"]),
+            collapsible=True,
+            toggle_tooltip="Pad options",
         )
 
-        spin_width = int(_cfg["spin_width"])
-        padding = 7
+        spin_width = int(_cfg["spin_width"]) + 7
         self._cols_spin = KSSpinBox(
             "vGrids: ",
             "Vertical Grids",
             int(_cfg["min_cols"]),
             int(_cfg["max_cols"]),
             self._cols,
-            spin_width + padding,
+            spin_width,
             self._toolbar,
         )
         self._cols_spin.valueChanged.connect(self._on_cols_changed)
-        toolbar_layout.addWidget(self._cols_spin)
+        self._toolbar.addWidget(self._cols_spin)
 
         self._rows_spin = KSSpinBox(
             "hGrids: ",
@@ -505,23 +500,27 @@ class CustomPad(QWidget):
             int(_cfg["min_grid_rows"]),
             int(_cfg["max_grid_rows"]),
             self._rows,
-            spin_width + padding,
+            spin_width,
             self._toolbar,
         )
         self._rows_spin.valueChanged.connect(self._on_rows_changed)
-        toolbar_layout.addWidget(self._rows_spin)
+        self._toolbar.addWidget(self._rows_spin)
 
         rename_btn = IconButton("insert-text", "Rename pad", "", None, self._toolbar)
         rename_btn.clicked.connect(self._rename_pad)
-        toolbar_layout.addWidget(rename_btn)
+        self._toolbar.addWidget(rename_btn)
+
+        save_btn = IconButton("document-save", "Save pad", "", None, self._toolbar)
+        save_btn.clicked.connect(lambda: self._toggle_edit(False))
+        self._toolbar.addWidget(save_btn)
 
         remove_keys_btn = IconButton("edit-delete", "Remove keys", "", None, self._toolbar)
         remove_keys_btn.clicked.connect(self._confirm_remove_all_keys)
-        toolbar_layout.addWidget(remove_keys_btn)
+        self._toolbar.addWidget(remove_keys_btn)
 
         remove_pad_btn = IconButton("edit-delete-shred", "Remove pad", "", None, self._toolbar)
         remove_pad_btn.clicked.connect(self._confirm_remove_pad)
-        toolbar_layout.addWidget(remove_pad_btn)
+        self._toolbar.addWidget(remove_pad_btn)
 
         self._toolbar_sep = QFrame(self)
         self._toolbar_sep.setFrameShape(QFrame.Shape.HLine)
