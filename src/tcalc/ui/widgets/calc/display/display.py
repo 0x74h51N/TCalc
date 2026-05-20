@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from shiboken6 import isValid
 
 from .expression import Expression
 from .result.result import Result
@@ -139,15 +140,22 @@ class Display(QWidget):
         self._scroll_scheduled = True
         QTimer.singleShot(0, self._flush_scroll)
 
+    def _live_scroll_target(self) -> QLineEdit | None:
+        le = self._scroll_target
+        if le is None or not isValid(le):
+            self._scroll_target = None
+            return None
+        return le if self.editor.isAncestorOf(le) else None
+
     def _flush_scroll(self) -> None:
         self._scroll_scheduled = False
-        le = self._scroll_target
-        if le is not None and self.editor.isAncestorOf(le):
+        le = self._live_scroll_target()
+        if le is not None:
             self._scroll_to_cursor(le)
 
     def _on_scroll_range_changed(self, _min: int, _max: int) -> None:
-        le = self._scroll_target
-        if le is not None and self.editor.isAncestorOf(le):
+        le = self._live_scroll_target()
+        if le is not None:
             self._scroll_to_cursor(le)
 
     def _scroll_to_cursor(self, le: QLineEdit) -> None:
