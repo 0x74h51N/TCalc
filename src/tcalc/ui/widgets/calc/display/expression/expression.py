@@ -398,10 +398,9 @@ class Expression(QWidget):
             self._pending_seg = None
         if self._restoring:
             self._restoring = False
-            last = self._root.default_input()
-            last.setFocus()
-            last.setCursorPosition(len(last.text()))
-            self._last_focused = last
+            fw = QApplication.focusWidget()
+            if isinstance(fw, QLineEdit) and self.isAncestorOf(fw):
+                self._last_focused = fw
 
     def _on_input_changed(self, seg: QLineEdit):
         if self.renderer.is_rendering:
