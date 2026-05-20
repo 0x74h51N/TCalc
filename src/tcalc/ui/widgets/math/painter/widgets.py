@@ -28,6 +28,8 @@ from .layout import (
     LATEX_KIND_MAP,
     PAREN_GLYPH_W,
     PAREN_X_PAD,
+    PAREN_Y_MARGIN,
+    PAREN_Y_PAD,
     POW_OVERLAP,
     ROOT_OVERLINE_PAD,
     SCRIPT_SCALE,
@@ -176,26 +178,28 @@ class ParenPaint(PaintNode):
         self.glyph_w = gw
         lw = (gw + PAREN_X_PAD) if self.open_visible else 0.0
         rw = (gw + PAREN_X_PAD) if self.close_visible else 0.0
+        self.glyph_h = self.left.h + 2 * PAREN_Y_PAD
         self.w = lw + self.left.w + rw
-        self.h = self.left.h
+        self.h = self.glyph_h + 2 * PAREN_Y_MARGIN
         self.above = self.h / 2.0
         self.below = self.h / 2.0
 
     def place(self, x: float, y: float) -> None:
         super().place(x, y)
         lw = (self.glyph_w + PAREN_X_PAD) if self.open_visible else 0.0
-        self.left.place(x + lw, y)
+        self.left.place(x + lw, y + PAREN_Y_MARGIN + PAREN_Y_PAD)
 
     def paint(self, painter: QPainter) -> None:
         self.left.paint(painter)
 
         builder = _PAREN_PATH[self.kind]
-        path = builder(self.glyph_w, self.h, True)
+        path = builder(self.glyph_w, self.glyph_h, True)
+        glyph_y = self.y + PAREN_Y_MARGIN
         if self.open_visible:
-            _stroke_path(painter, path, self.x, self.y)
+            _stroke_path(painter, path, self.x, glyph_y)
         if self.close_visible:
             painter.save()
-            painter.translate(self.x + self.w, self.y)
+            painter.translate(self.x + self.w, glyph_y)
             painter.scale(-1, 1)
             painter.drawPath(path)
             painter.restore()

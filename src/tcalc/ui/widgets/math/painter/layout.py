@@ -26,6 +26,8 @@ FRACTION_PAD_Y = 2
 ROOT_OVERLINE_PAD = 2
 POW_OVERLAP = 0.4
 PAREN_X_PAD = 6
+PAREN_Y_PAD = 2
+PAREN_Y_MARGIN = 6
 
 PAREN_GLYPH_W: dict[calc_native.ParenKind, float] = {
     calc_native.ParenKind.Brace: CURLY_BRACE_WIDTH,

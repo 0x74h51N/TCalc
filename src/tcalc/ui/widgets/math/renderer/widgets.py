@@ -212,6 +212,7 @@ class ParenWidget(ExpressionNode):
 
     SYMBOL = None
     PAREN_KIND: calc_native.ParenKind
+    Y_MARGIN = 6
 
     def __init__(
         self,
@@ -239,7 +240,7 @@ class ParenWidget(ExpressionNode):
         )
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(0, self.Y_MARGIN, 0, self.Y_MARGIN)
         layout.setSpacing(0)
         layout.addWidget(self._inner_slot, 0, Qt.AlignmentFlag.AlignHCenter)
 
