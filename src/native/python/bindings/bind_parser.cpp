@@ -298,7 +298,8 @@ void bind_parser(py::module_ &m) {
                         r.collection_indices);
                 },
                 [](const py::tuple &t) {
-                    if (t.size() != 5)
+                    constexpr std::size_t kTokensBranchPickleArity = 5;
+                    if (t.size() != kTokensBranchPickleArity)
                         throw std::runtime_error("Invalid TokensBranch state");
                     TokensBranch r;
                     r.tokens = t[0].cast<std::vector<Token>>();
@@ -331,18 +332,43 @@ void bind_parser(py::module_ &m) {
     CollectionToken_.def_readonly("kind", &p::CollectionToken::kind);
     CollectionToken_.def_readonly("closed", &p::CollectionToken::closed);
     def_readonly_ref(CollectionToken_, "elements", &p::CollectionToken::elements);
+    CollectionToken_.def("rows", [](const p::CollectionToken &c) {
+        py::list out;
+        for (const auto &e : c.elements) {
+            py::list row;
+            if (e.index() == 0) {
+                row.append(std::get<p::Token>(e));
+            } else {
+                for (const auto &t : std::get<std::vector<p::Token>>(e)) {
+                    row.append(t);
+                }
+            }
+            out.append(row);
+        }
+        return out;
+    });
     CollectionToken_.def(
         py::pickle(
             [](const p::CollectionToken &t) {
                 return py::make_tuple(t.kind, t.elements, t.closed);
             },
             [](const py::tuple &t) {
-                if (t.size() != 3)
+                constexpr std::size_t kCollectionTokenPickleArity = 3;
+                if (t.size() != kCollectionTokenPickleArity)
                     throw std::runtime_error("Invalid CollectionToken state");
+                // Manually iterate elements to avoid pybind11 default-constructing
+                // a type_caster<variant<Token, vector<Token>>>
+                std::vector<p::CollectionElement> elements;
+                for (auto h : t[1]) {
+                    auto obj = py::reinterpret_borrow<py::object>(h);
+                    if (py::isinstance<p::Token>(obj)) {
+                        elements.emplace_back(obj.cast<p::Token>());
+                    } else {
+                        elements.emplace_back(obj.cast<std::vector<p::Token>>());
+                    }
+                }
                 return p::CollectionToken{
-                    t[0].cast<p::CollectionKind>(),
-                    t[1].cast<std::vector<p::CollectionElement>>(),
-                    t[2].cast<bool>()};
+                    t[0].cast<p::CollectionKind>(), std::move(elements), t[2].cast<bool>()};
             }));
 
     py::enum_<tcalc::ops::Assoc>(m, "OpAssoc", "Operator associativity.")

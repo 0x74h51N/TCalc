@@ -172,11 +172,13 @@ inline Token Root(
     return Lx(p::LatexKind::Root, OpId::Root, std::move(degree), std::move(radicand), start, end);
 }
 
-/// Collection element factory: flat NumberToken (single bare-number element).
+/// EN: single-Token element (variant arm 0). Bare-number shortcut.
 inline p::CollectionElement EN(std::string value) {
     return p::CollectionElement{Token{TokenKind::Number, p::NumberToken{std::move(value)}}};
 }
-/// Collection element factory: vector<Token> (expression, latex, point, ...).
+/// EV: multi-Token element (variant arm 1). Used for expressions, postfix, unary signs.
+/// Note: under canonicalization, a single-Token tokenize result lands in arm 0; using
+/// EV({SingleToken}) for a slice that tokenize would canonicalize to arm 0 mismatches.
 inline p::CollectionElement EV(std::vector<Token> toks) {
     return toks;
 }
@@ -263,7 +265,7 @@ void unit_parser(TestContext &ctx) {
 
         {.id = "func parens imag",
          .input = "sin(2i)",
-         .expected = {Op_(OpId::Sin, 0, 3), Pt({EV({N("2i")})})}},
+         .expected = {Op_(OpId::Sin, 0, 3), Pt({EN("2i")})}},
 
         {.id = "spacing and unicode",
          .input = "-2 ³√( 3 ( π ",
@@ -271,7 +273,7 @@ void unit_parser(TestContext &ctx) {
              {Op_(OpId::Negate, 0, 1),
               N("2", 1, 2),
               Op_(OpId::Cbrt, 3, 4),
-              Pt({EV({N("3"), Pt({EV({N("π")})}, false)})}, false)}},
+              Pt({EV({N("3"), Pt({EN("π")}, false)})}, false)}},
 
         {.id = "sci notation imag", .input = "1.2e-3i", .expected = {N("1.2e-3i", 0, 7)}},
 
@@ -285,11 +287,11 @@ void unit_parser(TestContext &ctx) {
 
         {.id = "asinh parens",
          .input = "asinh(2)",
-         .expected = {Op_(OpId::Asinh, 0, 5), Pt({EV({N("2")})})}},
+         .expected = {Op_(OpId::Asinh, 0, 5), Pt({EN("2")})}},
 
         {.id = "sqrt parens",
          .input = "sqrt(2)",
-         .expected = {Op_(OpId::Sqrt, 0, 4), Pt({EV({N("2")})})}},
+         .expected = {Op_(OpId::Sqrt, 0, 4), Pt({EN("2")})}},
 
         {.id = "postfix unicode", .input = "2³", .expected = {N("2", 0, 1), Op_(OpId::Cube, 1, 2)}},
 
@@ -311,7 +313,7 @@ void unit_parser(TestContext &ctx) {
         {.id = "mixed paren kinds",
          .input = "({[1]})",
          .expected = {Pt(
-             {EV({OpenP(ParenKind::Brace), Lst({EV({N("1")})}), CloseP(ParenKind::Brace)})})}},
+             {EV({OpenP(ParenKind::Brace), Lst({EN("1")}), CloseP(ParenKind::Brace)})})}},
 
         {.id = "negate inside curly",
          .input = "{-2}",
@@ -424,7 +426,7 @@ void unit_parser(TestContext &ctx) {
 
         {"collection :: list with latex element",
          "[\\frac{1}{2}, 3]",
-         {Lst({EV({Frac({N("1")}, {N("2")})}), EN("3")})}},
+         {Lst({Frac({N("1")}, {N("2")}), EN("3")})}},
 
         {"collection :: list with scalar suffix",
          "[2,5] + 4",
@@ -447,11 +449,11 @@ void unit_parser(TestContext &ctx) {
 
         {"collection :: list with latex single element",
          "[\\frac{1}{2}]",
-         {Lst({EV({Frac({N("1")}, {N("2")})})})}},
+         {Lst({Frac({N("1")}, {N("2")})})}},
 
         {"collection :: list with point arity-1 element",
          "[(1+2)]",
-         {Lst({EV({Pt({EV({N("1"), Op_(OpId::Add), N("2")})})})})}},
+         {Lst({Pt({EV({N("1"), Op_(OpId::Add), N("2")})})})}},
 
         {.id = "collection :: empty list", .input = "[]", .expected = {Lst({})}},
 
@@ -467,7 +469,7 @@ void unit_parser(TestContext &ctx) {
         // Paren grouping unchanged: `(X)` no comma stays as paren tokens.
         {"collection :: nested point in list",
          "[(1, 2), (3, 4)]",
-         {Lst({EV({Pt({EN("1"), EN("2")})}), EV({Pt({EN("3"), EN("4")})})})}},
+         {Lst({Pt({EN("1"), EN("2")}), Pt({EN("3"), EN("4")})})}},
 
         /// TODO: Add more latex and paren tokenize edge cases
     };
@@ -1839,4 +1841,78 @@ void unit_parser(TestContext &ctx) {
             });
         }
     }
+
+    test_detail::with_case(ctx, "variant :: bare numbers all arm 0", [&] {
+        auto branch = p::tokenize("[1, 2, 3]");
+        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, col.elements.size(), 3u);
+        for (std::size_t i = 0; i < 3; ++i) {
+            EXPECT_EQ(ctx, col.elements[i].index(), 0u);
+        }
+    });
+
+    test_detail::with_case(ctx, "variant :: unary plus stays arm 1 (UnaryPlus preserved)", [&] {
+        auto branch = p::tokenize("[+3]");
+        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, col.elements[0].index(), 1u);
+        const auto &row = std::get<std::vector<p::Token>>(col.elements[0]);
+        EXPECT_EQ(ctx, row.size(), 2u);
+        EXPECT_EQ(ctx, row[0].kind, p::TokenKind::Op);
+        EXPECT_EQ(ctx, row[1].kind, p::TokenKind::Number);
+    });
+
+    test_detail::with_case(ctx, "variant :: unary minus is arm 1", [&] {
+        auto branch = p::tokenize("[-5]");
+        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, col.elements[0].index(), 1u);
+    });
+
+    test_detail::with_case(ctx, "variant :: expression is arm 1", [&] {
+        auto branch = p::tokenize("[1+2]");
+        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, col.elements[0].index(), 1u);
+    });
+
+    test_detail::with_case(ctx, "variant :: single latex element is arm 0", [&] {
+        auto branch = p::tokenize("[\\frac{1}{2}]");
+        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, col.elements[0].index(), 0u);
+        EXPECT_EQ(ctx, std::get<p::Token>(col.elements[0]).kind, p::TokenKind::Latex);
+    });
+
+    test_detail::with_case(ctx, "variant :: nested collection element is arm 0", [&] {
+        auto branch = p::tokenize("[(1,2)]");
+        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, col.elements[0].index(), 0u);
+        EXPECT_EQ(ctx, std::get<p::Token>(col.elements[0]).kind, p::TokenKind::Collection);
+    });
+
+    test_detail::with_case(ctx, "variant :: empty element is arm 1 empty vector", [&] {
+        auto branch = p::tokenize("[1,]");
+        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, col.elements.size(), 2u);
+        EXPECT_EQ(ctx, col.elements[0].index(), 0u);
+        EXPECT_EQ(ctx, col.elements[1].index(), 1u);
+        EXPECT_TRUE(ctx, std::get<std::vector<p::Token>>(col.elements[1]).empty());
+    });
+
+    test_detail::with_case(ctx, "round-trip :: list of signed numbers", [&] {
+        EXPECT_EQ(ctx, p::tokens_to_text(p::tokenize("[+5, -3]").tokens), std::string("[+5, -3]"));
+    });
+
+    test_detail::with_case(ctx, "round-trip :: list of bare numbers", [&] {
+        EXPECT_EQ(
+            ctx, p::tokens_to_text(p::tokenize("[1, 2, 3]").tokens), std::string("[1, 2, 3]"));
+    });
+
+    test_detail::with_case(
+        ctx, "variant :: arm 0 and arm 1 wrapping same token are not equal", [&] {
+            // Canonicalization invariant: a single-Token element MUST be stored in arm 0.
+            // An arm-1 wrapping of the same Token is a different variant alternative and
+            // does NOT compare equal — locks the invariant so tests catch construction-site
+            // drift.
+            p::CollectionElement arm_zero{N("1")};
+            p::CollectionElement arm_one{std::vector<Token>{N("1")}};
+            EXPECT_TRUE(ctx, !(arm_zero == arm_one));
+        });
 }

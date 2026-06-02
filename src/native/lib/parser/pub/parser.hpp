@@ -159,13 +159,15 @@ struct LatexToken {
 
 enum class CollectionKind : std::uint8_t { List, Point };
 
-using CollectionElement = std::vector<Token>;
+using CollectionElement = std::variant<Token, std::vector<Token>>;
 
 struct CollectionToken {
     CollectionKind kind;
     std::vector<CollectionElement> elements;
     bool closed;
-    bool operator==(const CollectionToken &) const = default;
+    // Defined out-of-line below to defer variant<Token, vector<Token>>
+    // instantiation until after Token is complete.
+    bool operator==(const CollectionToken &) const;
 };
 
 using TokenData = std::variant<NumberToken, OpToken, ParenToken, LatexToken, CollectionToken>;
@@ -222,6 +224,12 @@ inline bool operator==(const Token &a, const Token &b) {
         return false;
 
     return visit_token(a.data, TokenEqual{&b.data});
+}
+
+// CollectionToken::operator== defined out-of-line so variant<Token, vector<Token>>
+// special-member instantiation is deferred until Token is complete (above).
+inline bool CollectionToken::operator==(const CollectionToken &o) const {
+    return kind == o.kind && closed == o.closed && elements == o.elements;
 }
 
 /// Structural split payload for an (un)matched open paren appearing before the first latex token.

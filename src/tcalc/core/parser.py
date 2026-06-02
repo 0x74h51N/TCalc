@@ -93,7 +93,12 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
         if tok.kind == calc_native.TokenKind.Collection:
             col = tok.as_collection()
             if len(col.elements) == 1:
-                inner_rpn = shunting_yard(list(col.elements[0]))
+                element = col.elements[0]
+                if isinstance(element, calc_native.Token):
+                    inner_tokens = [element]
+                else:
+                    inner_tokens = list(element)
+                inner_rpn = shunting_yard(inner_tokens)
                 operand_stack.append(evaluate_rpn(inner_rpn, calculator))
                 continue
             raise_error(ErrorKind.INVALID, "Collection evaluation not yet implemented")

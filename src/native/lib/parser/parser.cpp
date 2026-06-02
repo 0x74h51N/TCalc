@@ -105,13 +105,19 @@ Token build_collection_token(
     if (!inner_empty) {
         std::size_t seg_begin = inner_begin;
         elements.reserve(ext.top_commas.size() + 1);
+        auto push_slice = [&](std::string_view slice) {
+            auto branch = tokenize(slice);
+            if (branch.tokens.size() == 1) {
+                elements.emplace_back(std::move(branch.tokens.front()));
+            } else {
+                elements.emplace_back(std::move(branch.tokens));
+            }
+        };
         for (const std::size_t comma_pos : ext.top_commas) {
-            auto branch = tokenize(s.substr(seg_begin, comma_pos - seg_begin));
-            elements.push_back(std::move(branch.tokens));
+            push_slice(s.substr(seg_begin, comma_pos - seg_begin));
             seg_begin = comma_pos + 1;
         }
-        auto branch = tokenize(s.substr(seg_begin, inner_end - seg_begin));
-        elements.push_back(std::move(branch.tokens));
+        push_slice(s.substr(seg_begin, inner_end - seg_begin));
     }
 
     const std::size_t end_pos_excl = ext.closed ? ext.end_pos + 1 : s.size();
@@ -292,6 +298,12 @@ bool tokenize_core(
 } // namespace detail
 
 namespace {
+
+inline std::vector<Token> element_tokens(const CollectionElement &e) {
+    if (e.index() == 0)
+        return {std::get<Token>(e)};
+    return std::get<std::vector<Token>>(e);
+}
 
 std::string_view
 extract_brace_content(std::string_view s, std::size_t start, std::size_t &out_end) {
@@ -621,10 +633,10 @@ void build_row(std::vector<MathNode> &out, TokensBranch branch, bool after_node)
                         if (k > 0) {
                             pn.children.emplace_back(TextNode{", "});
                         }
+                        auto toks = element_tokens(s.elements[k]);
                         build_row(
                             /*out=*/pn.children,
-                            /*branch=*/
-                            classify_tokens({s.elements[k].begin(), s.elements[k].end()}),
+                            /*branch=*/classify_tokens(std::move(toks)),
                             /*after_node=*/false);
                     }
                     out.emplace_back(std::move(pn));
@@ -950,7 +962,7 @@ std::string token_text(const Token &tok) {
                 for (std::size_t i = 0; i < data.elements.size(); ++i) {
                     if (i > 0)
                         out += ", ";
-                    out += tokens_to_text(data.elements[i]);
+                    out += tokens_to_text(element_tokens(data.elements[i]));
                 }
                 if (data.closed)
                     out.push_back(close);
@@ -1030,7 +1042,7 @@ std::string token_flat_text(const Token &tok) {
         for (std::size_t i = 0; i < c.elements.size(); ++i) {
             if (i > 0)
                 out += ", ";
-            out += tokens_to_flat_text(c.elements[i]);
+            out += tokens_to_flat_text(element_tokens(c.elements[i]));
         }
         if (c.closed)
             out.push_back(close);
