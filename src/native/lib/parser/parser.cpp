@@ -61,6 +61,68 @@ std::string_view scan_number(std::string_view s, std::size_t start, std::size_t 
     return s.substr(start, i - start);
 }
 
+struct CollectionExtent {
+    std::size_t end_pos;
+    std::vector<std::size_t> top_commas;
+    bool closed;
+};
+
+CollectionExtent scan_collection_extent(std::string_view s, std::size_t open_pos) {
+    CollectionExtent ext{open_pos, {}, false};
+    if (open_pos >= s.size())
+        return ext;
+
+    int depth = 1;
+    std::size_t i = open_pos + 1;
+    while (i < s.size()) {
+        const char c = s[i];
+        if (c == '(' || c == '[' || c == '{') {
+            ++depth;
+        } else if (c == ')' || c == ']' || c == '}') {
+            --depth;
+            if (depth == 0) {
+                ext.end_pos = i;
+                ext.closed = true;
+                return ext;
+            }
+        } else if (c == ',' && depth == 1) {
+            ext.top_commas.push_back(i);
+        }
+        ++i;
+    }
+    ext.end_pos = s.size();
+    return ext;
+}
+
+Token build_collection_token(
+    std::string_view s, std::size_t open_pos, const CollectionExtent &ext, CollectionKind kind) {
+    const std::size_t inner_begin = open_pos + 1;
+    const std::size_t inner_end = ext.closed ? ext.end_pos : s.size();
+
+    std::vector<CollectionElement> elements;
+
+    const bool inner_empty = (inner_begin >= inner_end) && ext.top_commas.empty();
+    if (!inner_empty) {
+        std::size_t seg_begin = inner_begin;
+        elements.reserve(ext.top_commas.size() + 1);
+        for (const std::size_t comma_pos : ext.top_commas) {
+            auto branch = tokenize(s.substr(seg_begin, comma_pos - seg_begin));
+            elements.push_back(std::move(branch.tokens));
+            seg_begin = comma_pos + 1;
+        }
+        auto branch = tokenize(s.substr(seg_begin, inner_end - seg_begin));
+        elements.push_back(std::move(branch.tokens));
+    }
+
+    const std::size_t end_pos_excl = ext.closed ? ext.end_pos + 1 : s.size();
+    return Token{
+        TokenKind::Collection,
+        CollectionToken{kind, std::move(elements), ext.closed},
+        open_pos,
+        end_pos_excl,
+    };
+}
+
 const OpSpec *match_op(std::string_view s, std::size_t i, std::size_t &out_len) {
     const std::string_view rest = s.substr(i);
     const OpSpec *best = nullptr;
@@ -315,6 +377,18 @@ TokensBranch tokenize(std::string_view s) {
     bool expect_operand = true;
 
     while (i < n) {
+        const char c = s[i];
+
+        if (c == '[' || c == '(') {
+            const CollectionKind kind = (c == '[') ? CollectionKind::List : CollectionKind::Point;
+            const auto ext = detail::scan_collection_extent(s, i);
+            result.collection_indices.push_back(static_cast<TokenIndex>(result.tokens.size()));
+            result.tokens.push_back(detail::build_collection_token(s, i, ext, kind));
+            i = ext.closed ? ext.end_pos + 1 : n;
+            expect_operand = false;
+            continue;
+        }
+
         if (s[i] == '\\') {
             LatexKind out_kind = LatexKind::Frac;
             OpId op_id = OpId::Div;
@@ -352,7 +426,7 @@ TokensBranch tokenize(std::string_view s) {
         }
 
         const std::size_t start = i;
-        while (i < s.size() && s[i] != '\\') {
+        while (i < s.size() && s[i] != '\\' && s[i] != '[' && s[i] != '(') {
             ++i;
         }
 
@@ -362,6 +436,16 @@ TokensBranch tokenize(std::string_view s) {
 
     return result;
 }
+
+// ========================== Math Node Split and Creation =========================
+//
+// split_operan
+// structural_split
+// build_row
+// build_math_nodes
+// classify_tokens
+//
+// =============================================================================
 
 OperandSplit
 split_operand(std::span<const Token> tokens, TokenIndex begin, TokenIndex end, bool lead) {
@@ -413,12 +497,30 @@ split_operand(std::span<const Token> tokens, TokenIndex begin, TokenIndex end, b
 }
 
 std::optional<StructuralSplit> structural_split(const TokensBranch &branch) {
-    if (branch.latex_indices.empty()) {
+    const auto &tokens = branch.tokens;
+    const auto n = static_cast<TokenIndex>(tokens.size());
+
+    const bool has_col = !branch.collection_indices.empty();
+    const bool has_latex = !branch.latex_indices.empty();
+    if (!has_col && !has_latex) {
         return std::nullopt;
     }
 
-    const auto &tokens = branch.tokens;
-    const auto n = static_cast<TokenIndex>(tokens.size());
+    const TokenIndex col_first = has_col ? branch.collection_indices.front() : n;
+    const TokenIndex latex_first = has_latex ? branch.latex_indices.front() : n;
+
+    if (col_first < latex_first) {
+        const auto &ct = std::get<CollectionToken>(tokens[col_first].data);
+        const std::span<const Token> span{tokens};
+        CollectionSplit cs;
+        cs.kind = ct.kind;
+        cs.has_close = ct.closed;
+        cs.prefix = span.subspan(0, col_first);
+        cs.elements = std::span<const CollectionElement>{ct.elements};
+        cs.suffix = span.subspan(col_first + 1, n - col_first - 1);
+        return StructuralSplit{cs};
+    }
+
     const TokenIndex expr_first = branch.latex_indices.front();
 
     std::optional<TokenIndex> candidate;
@@ -511,6 +613,21 @@ void build_row(std::vector<MathNode> &out, TokensBranch branch, bool after_node)
                             /*after_node=*/false);
                     }
                     out.emplace_back(std::move(pn));
+                } else if constexpr (std::is_same_v<T, CollectionSplit>) {
+                    const ParenKind pk =
+                        (s.kind == CollectionKind::List) ? ParenKind::Bracket : ParenKind::Paren;
+                    ParenNode pn{pk, s.has_close, {}};
+                    for (std::size_t k = 0; k < s.elements.size(); ++k) {
+                        if (k > 0) {
+                            pn.children.emplace_back(TextNode{", "});
+                        }
+                        build_row(
+                            /*out=*/pn.children,
+                            /*branch=*/
+                            classify_tokens({s.elements[k].begin(), s.elements[k].end()}),
+                            /*after_node=*/false);
+                    }
+                    out.emplace_back(std::move(pn));
                 } else {
                     LatexNode ln{s.kind, {}, {}};
                     if (!s.left.empty()) {
@@ -554,6 +671,10 @@ std::vector<MathNode> build_math_nodes(const TokensBranch &branch, bool after_no
 }
 
 TokensBranch classify_tokens(std::vector<Token> tokens) {
+    /**
+     * Token vector to TokensBranch convertion
+     * Global index to local after split
+     */
     TokensBranch result;
     result.tokens = std::move(tokens);
     detail::ParenStacks paren_stacks{};
@@ -568,6 +689,9 @@ TokensBranch classify_tokens(std::vector<Token> tokens) {
         case TokenKind::Paren:
             detail::classify_paren(result, paren_stacks, i);
             break;
+        case TokenKind::Collection:
+            result.collection_indices.push_back(i);
+            break;
         default:
             break;
         }
@@ -576,7 +700,21 @@ TokensBranch classify_tokens(std::vector<Token> tokens) {
     return result;
 }
 
+// =============================================================================
+//
+// Evaluation layer, only shunting yard
+// RPN and evaluation function calling in python side
+//
+// =============================================================================
+
 namespace detail {
+/**
+ * Preprocesses tokens before the Shunting Yard
+ *
+ * Inserts implicit multiplication operators
+ * Collapses consecutive '+' and '-' operators into a single sign
+ */
+
 std::vector<Token> normalize(std::vector<Token> raw) {
     std::vector<Token> normalized;
     normalized.reserve(raw.size());
@@ -590,7 +728,7 @@ std::vector<Token> normalize(std::vector<Token> raw) {
 
     const auto ends_operand = [](const Token &t) -> bool {
         if (t.kind == TokenKind::Number || t.kind == TokenKind::Latex ||
-            t.kind == TokenKind::Paren) {
+            t.kind == TokenKind::Collection || t.kind == TokenKind::Paren) {
             if (t.kind == TokenKind::Paren) {
                 const auto &paren = std::get<ParenToken>(t.data);
                 return paren.type == ParenType::Close;
@@ -606,7 +744,7 @@ std::vector<Token> normalize(std::vector<Token> raw) {
 
     const auto starts_operand = [](const Token &t) -> bool {
         if (t.kind == TokenKind::Number || t.kind == TokenKind::Latex ||
-            t.kind == TokenKind::Paren) {
+            t.kind == TokenKind::Collection || t.kind == TokenKind::Paren) {
             if (t.kind == TokenKind::Paren) {
                 const auto &paren = std::get<ParenToken>(t.data);
                 return paren.type == ParenType::Open;
@@ -670,6 +808,7 @@ std::vector<Token> shunting_yard(const std::vector<Token> &tokens) {
         switch (tok.kind) {
         case TokenKind::Number:
         case TokenKind::Latex:
+        case TokenKind::Collection:
             output.push_back(std::move(tok));
             break;
         case TokenKind::Paren: {
@@ -803,6 +942,19 @@ std::string token_text(const Token &tok) {
                 return spec ? std::string(spec->symbol) : std::string{};
             } else if constexpr (std::is_same_v<T, ParenToken>) {
                 return std::string(1, paren_symbol(data.type, data.kind));
+            } else if constexpr (std::is_same_v<T, CollectionToken>) {
+                const char open = (data.kind == CollectionKind::List) ? '[' : '(';
+                const char close = (data.kind == CollectionKind::List) ? ']' : ')';
+                std::string out;
+                out.push_back(open);
+                for (std::size_t i = 0; i < data.elements.size(); ++i) {
+                    if (i > 0)
+                        out += ", ";
+                    out += tokens_to_text(data.elements[i]);
+                }
+                if (data.closed)
+                    out.push_back(close);
+                return out;
             }
 
             return {};
@@ -867,6 +1019,21 @@ std::string token_flat_text(const Token &tok) {
         out.append(wrap_side(latex.left));
         out.append(spaced(ops::op_spec(latex.op_id)->symbol));
         out.append(wrap_side(latex.right));
+        return out;
+    }
+    if (tok.kind == TokenKind::Collection) {
+        const auto &c = std::get<CollectionToken>(tok.data);
+        const char open = (c.kind == CollectionKind::List) ? '[' : '(';
+        const char close = (c.kind == CollectionKind::List) ? ']' : ')';
+        std::string out;
+        out.push_back(open);
+        for (std::size_t i = 0; i < c.elements.size(); ++i) {
+            if (i > 0)
+                out += ", ";
+            out += tokens_to_flat_text(c.elements[i]);
+        }
+        if (c.closed)
+            out.push_back(close);
         return out;
     }
     return token_text(tok);

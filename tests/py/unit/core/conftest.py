@@ -226,6 +226,7 @@ class FakeTokenKind:
     Op = "op"
     Latex = "latex"
     Paren = "paren"
+    Collection = "collection"
 
 
 def _cx_sqrt(x: float) -> bool:

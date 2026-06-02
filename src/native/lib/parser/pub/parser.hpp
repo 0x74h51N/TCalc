@@ -83,7 +83,7 @@ inline constexpr char paren_symbol(ParenType type, ParenKind kind) {
     return kSymbolTable[static_cast<int>(type)][static_cast<int>(kind)];
 }
 
-enum class TokenKind : std::uint8_t { Number, Op, Paren, Latex };
+enum class TokenKind : std::uint8_t { Number, Op, Paren, Latex, Collection };
 
 /// Expression kinds for compound Latex tokens.
 enum class LatexKind : std::uint8_t {
@@ -145,6 +145,7 @@ struct TokensBranch {
     std::vector<TokenIndex> latex_indices{};
     std::vector<TokenIndex> open_paren_indices{};
     std::vector<TokenIndex> close_paren_indices{};
+    std::vector<TokenIndex> collection_indices{};
     bool operator==(const TokensBranch &) const = default;
 };
 
@@ -156,7 +157,18 @@ struct LatexToken {
     bool operator==(const LatexToken &) const = default;
 };
 
-using TokenData = std::variant<NumberToken, OpToken, ParenToken, LatexToken>;
+enum class CollectionKind : std::uint8_t { List, Point };
+
+using CollectionElement = std::vector<Token>;
+
+struct CollectionToken {
+    CollectionKind kind;
+    std::vector<CollectionElement> elements;
+    bool closed;
+    bool operator==(const CollectionToken &) const = default;
+};
+
+using TokenData = std::variant<NumberToken, OpToken, ParenToken, LatexToken, CollectionToken>;
 
 struct Token {
     TokenKind kind{};
@@ -194,6 +206,8 @@ struct TokenEqual {
         } else if constexpr (std::is_same_v<T, LatexToken>) {
             return lhs.kind == r->kind && lhs.op_id == r->op_id && lhs.left == r->left &&
                    lhs.right == r->right;
+        } else if constexpr (std::is_same_v<T, CollectionToken>) {
+            return lhs.kind == r->kind && lhs.closed == r->closed && lhs.elements == r->elements;
         }
     }
 };
@@ -232,7 +246,16 @@ struct LatexSplit {
     LatexKind kind{};
 };
 
-using StructuralSplit = std::variant<ParenSplit, LatexSplit>;
+/// Structural split payload for a CollectionToken (List or Point).
+struct CollectionSplit {
+    std::span<const Token> prefix;
+    std::span<const CollectionElement> elements;
+    std::span<const Token> suffix;
+    CollectionKind kind{};
+    bool has_close{};
+};
+
+using StructuralSplit = std::variant<ParenSplit, LatexSplit, CollectionSplit>;
 
 /// Pair of token spans [begin, split_at) and [split_at, end) returned by split_operand.
 /// Trailing (lead=false): (prefix, operand). Leading (lead=true): (operand, suffix).

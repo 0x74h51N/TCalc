@@ -90,6 +90,14 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
             except Exception as e:
                 raise_error(ErrorKind.INVALID, f"Parse expression token error: {e}")
 
+        if tok.kind == calc_native.TokenKind.Collection:
+            col = tok.as_collection()
+            if len(col.elements) == 1:
+                inner_rpn = shunting_yard(list(col.elements[0]))
+                operand_stack.append(evaluate_rpn(inner_rpn, calculator))
+                continue
+            raise_error(ErrorKind.INVALID, "Collection evaluation not yet implemented")
+
         if tok.kind == calc_native.TokenKind.Op:
             op_tok = tok.as_op()
             spec = OP_BY_ID.get(op_tok.op_id)

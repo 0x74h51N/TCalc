@@ -62,7 +62,13 @@ void bind_parser(py::module_ &m) {
         .value("Number", TokenKind::Number)
         .value("Op", TokenKind::Op)
         .value("Paren", TokenKind::Paren)
-        .value("Latex", TokenKind::Latex);
+        .value("Latex", TokenKind::Latex)
+        .value("Collection", TokenKind::Collection);
+
+    py::enum_<p::CollectionKind>(
+        m, "CollectionKind", "Bracket kind for CollectionToken: List ([...]) or Point ((...)).")
+        .value("List", p::CollectionKind::List)
+        .value("Point", p::CollectionKind::Point);
 
     py::enum_<LatexKind>(m, "LatexKind", "Expression kinds for compound Latex tokens.")
         .value("Frac", LatexKind::Frac)
@@ -198,6 +204,12 @@ void bind_parser(py::module_ &m) {
     // LatexToken — forward-declare, pickle added after Token
     py::class_<LatexToken> LatexToken_(m, "LatexToken");
 
+    // CollectionToken — forward-declare, properties added after Token/TokensBranch
+    py::class_<p::CollectionToken> CollectionToken_(
+        m,
+        "CollectionToken",
+        "Tokenized collection ([...] List or (...) Point) with per-element token rows.");
+
     auto Token_ = py::class_<Token>(m, "Token")
                       .def_readonly("kind", &Token::kind)
                       .def_readonly("start_pos", &Token::start_pos)
@@ -220,6 +232,11 @@ void bind_parser(py::module_ &m) {
         .def("as_paren", &token_as<ParenToken>, py::return_value_policy::reference_internal)
 
         .def("as_latex", &token_as<LatexToken>, py::return_value_policy::reference_internal)
+
+        .def(
+            "as_collection",
+            &token_as<p::CollectionToken>,
+            py::return_value_policy::reference_internal)
 
         .def_property_readonly(
             "symbol",
@@ -257,6 +274,9 @@ void bind_parser(py::module_ &m) {
                     case TokenKind::Latex:
                         tok.data = t[1].cast<LatexToken>();
                         break;
+                    case TokenKind::Collection:
+                        tok.data = t[1].cast<p::CollectionToken>();
+                        break;
                     }
                     return tok;
                 }));
@@ -266,20 +286,26 @@ void bind_parser(py::module_ &m) {
         .def_readonly("latex_indices", &TokensBranch::latex_indices)
         .def_readonly("open_paren_indices", &TokensBranch::open_paren_indices)
         .def_readonly("close_paren_indices", &TokensBranch::close_paren_indices)
+        .def_readonly("collection_indices", &TokensBranch::collection_indices)
         .def(
             py::pickle(
                 [](const TokensBranch &r) {
                     return py::make_tuple(
-                        r.tokens, r.latex_indices, r.open_paren_indices, r.close_paren_indices);
+                        r.tokens,
+                        r.latex_indices,
+                        r.open_paren_indices,
+                        r.close_paren_indices,
+                        r.collection_indices);
                 },
                 [](const py::tuple &t) {
-                    if (t.size() != 4)
+                    if (t.size() != 5)
                         throw std::runtime_error("Invalid TokensBranch state");
                     TokensBranch r;
                     r.tokens = t[0].cast<std::vector<Token>>();
                     r.latex_indices = t[1].cast<std::vector<tcalc::parser::TokenIndex>>();
                     r.open_paren_indices = t[2].cast<std::vector<tcalc::parser::TokenIndex>>();
                     r.close_paren_indices = t[3].cast<std::vector<tcalc::parser::TokenIndex>>();
+                    r.collection_indices = t[4].cast<std::vector<tcalc::parser::TokenIndex>>();
                     return r;
                 }));
 
@@ -299,6 +325,24 @@ void bind_parser(py::module_ &m) {
                     t[1].cast<OpId>(),
                     t[2].cast<std::vector<Token>>(),
                     t[3].cast<std::vector<Token>>()};
+            }));
+
+    // CollectionToken — properties + pickle
+    CollectionToken_.def_readonly("kind", &p::CollectionToken::kind);
+    CollectionToken_.def_readonly("closed", &p::CollectionToken::closed);
+    def_readonly_ref(CollectionToken_, "elements", &p::CollectionToken::elements);
+    CollectionToken_.def(
+        py::pickle(
+            [](const p::CollectionToken &t) {
+                return py::make_tuple(t.kind, t.elements, t.closed);
+            },
+            [](const py::tuple &t) {
+                if (t.size() != 3)
+                    throw std::runtime_error("Invalid CollectionToken state");
+                return p::CollectionToken{
+                    t[0].cast<p::CollectionKind>(),
+                    t[1].cast<std::vector<p::CollectionElement>>(),
+                    t[2].cast<bool>()};
             }));
 
     py::enum_<tcalc::ops::Assoc>(m, "OpAssoc", "Operator associativity.")
