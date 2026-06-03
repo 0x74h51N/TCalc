@@ -229,6 +229,53 @@ class FakeTokenKind:
     Collection = "collection"
 
 
+class FakeCollectionKind:
+    List = "list"
+    Point = "point"
+
+
+@dataclass(frozen=True)
+class FakeCollection:
+    kind: object
+    items: tuple
+
+    def __post_init__(self):
+        if self.kind == FakeCollectionKind.Point:
+            if len(self.items) == 0:
+                raise ValueError("empty Point not supported")
+            if len(self.items) >= 4:
+                raise ValueError("Point arity > 3 not supported")
+            for it in self.items:
+                if isinstance(it, FakeCollection):
+                    raise ValueError("Point cannot contain Collection items")
+        else:
+            if not self.items:
+                return
+            has_col = any(isinstance(it, FakeCollection) for it in self.items)
+            if not has_col:
+                return
+            all_col = all(isinstance(it, FakeCollection) for it in self.items)
+            if not all_col:
+                raise ValueError("List elements must all be scalars OR all be Points")
+            first_arity = None
+            for it in self.items:
+                if it.kind != FakeCollectionKind.Point:
+                    raise ValueError("nested List not allowed")
+                if first_arity is None:
+                    first_arity = len(it.items)
+                elif len(it.items) != first_arity:
+                    raise ValueError("list-of-points must have uniform arity")
+
+    def __len__(self):
+        return len(self.items)
+
+    def __iter__(self):
+        return iter(self.items)
+
+    def __getitem__(self, i):
+        return self.items[i]
+
+
 def _cx_sqrt(x: float) -> bool:
     return x < 0.0
 
@@ -344,6 +391,8 @@ def _install_fake_calc_native() -> ModuleType:
     calc_native.BigReal = FakeBigReal
     calc_native.BigComplex = FakeBigComplex
     calc_native.Rational = FakeRational
+    calc_native.Collection = FakeCollection
+    calc_native.CollectionKind = FakeCollectionKind
     calc_native.Calculator = DummyCalc
     calc_native.CalculatorError = FakeNativeCalculatorError
     calc_native.Token = FakeToken

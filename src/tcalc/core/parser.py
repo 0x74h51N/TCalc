@@ -52,6 +52,58 @@ def _coerce_token(tok: str | int | float) -> CalcValue:
     return tok
 
 
+def _eval_element(element, calculator: Calculator) -> CalcValue:
+    """Element (arm 0 Token OR arm 1 list[Token]) -> CalcValue.
+
+    Fast-paths arm 0 NumberToken (direct _coerce_token) and arm 0 CollectionToken
+    (direct _eval_collection_token recursion) to skip wrapping + shunting_yard +
+    evaluate_rpn unnecessarily. Latex and multi-token arm 1 paths go through
+    evaluate_rpn so TokenKind dispatch stays single-sourced there.
+    """
+    if isinstance(element, calc_native.Token):
+        kind = element.kind
+        if kind == calc_native.TokenKind.Number:
+            return _coerce_token(element.data.value)
+        if kind == calc_native.TokenKind.Collection:
+            return _eval_collection_token(element.as_collection(), calculator)
+        if kind == calc_native.TokenKind.Latex:
+            return evaluate_rpn([element], calculator)
+        raise_error(ErrorKind.INVALID, f"element kind {kind}")
+
+    if not element:
+        raise_error(ErrorKind.INVALID, "empty element")
+    return evaluate_rpn(shunting_yard(list(element)), calculator)
+
+
+def _eval_collection_token(col_tok, calculator: Calculator) -> CalcValue:
+    """CollectionToken -> CalcValue. arity-1 demotes; arity-0 List empty / Point error."""
+    arity = len(col_tok.elements)
+
+    if arity == 1:
+        return _eval_element(col_tok.elements[0], calculator)
+
+    if arity == 0:
+        if col_tok.kind == calc_native.CollectionKind.Point:
+            raise_error(ErrorKind.INVALID, "empty Point")
+        return calc_native.Collection(calc_native.CollectionKind.List, [])
+
+    # Inline Rational scalarization in the hot loop: Collection storage has no
+    # Rational arm. Int Rationals collapse to int, fractional Rationals become double.
+    #
+    # TODO: Fix Calculator (int, int) returning Rational(n, 1) instead of int
+    Rational = calc_native.Rational
+    items = []
+    for e in col_tok.elements:
+        v = _eval_element(e, calculator)
+        if isinstance(v, Rational):
+            v = v.numerator if v.denominator == 1 else v.to_double()
+        items.append(v)
+    try:
+        return calc_native.Collection(col_tok.kind, items)
+    except ValueError as e:
+        raise_error(ErrorKind.INVALID, str(e))
+
+
 def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator) -> CalcValue:
     operand_stack: List[CalcValue] = []
 
@@ -91,17 +143,8 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
                 raise_error(ErrorKind.INVALID, f"Parse expression token error: {e}")
 
         if tok.kind == calc_native.TokenKind.Collection:
-            col = tok.as_collection()
-            if len(col.elements) == 1:
-                element = col.elements[0]
-                if isinstance(element, calc_native.Token):
-                    inner_tokens = [element]
-                else:
-                    inner_tokens = list(element)
-                inner_rpn = shunting_yard(inner_tokens)
-                operand_stack.append(evaluate_rpn(inner_rpn, calculator))
-                continue
-            raise_error(ErrorKind.INVALID, "Collection evaluation not yet implemented")
+            operand_stack.append(_eval_collection_token(tok.as_collection(), calculator))
+            continue
 
         if tok.kind == calc_native.TokenKind.Op:
             op_tok = tok.as_op()

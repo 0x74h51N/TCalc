@@ -10,6 +10,7 @@ void unit_transcendental(TestContext &ctx);
 void unit_trig(TestContext &ctx);
 void unit_combinatorics(TestContext &ctx);
 void unit_parser(TestContext &ctx);
+void unit_collection(TestContext &ctx);
 void unit_helpers(TestContext &ctx);
 void unit_ops(TestContext &ctx);
 
@@ -52,6 +53,8 @@ int main(int argc, char **argv) { // NOLINT(modernize-use-trailing-return-type)
         ctx, "smoke stress", "src/native/tests/smoke/smoke_stress.cpp", smoke_stress);
     test_detail::run_suite(
         ctx, "unit parser", "src/native/tests/unit/test_parser.cpp", unit_parser);
+    test_detail::run_suite(
+        ctx, "unit collection", "src/native/tests/unit/test_collection.cpp", unit_collection);
 
     const auto all_end = std::chrono::steady_clock::now();
     const auto all_elapsed_ms =
