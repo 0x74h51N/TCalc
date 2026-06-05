@@ -165,7 +165,7 @@ class ExpressionNode(QWidget):
 
             plain = paren.to_plain_text()
             cursor_in_paren = focus.cursorPosition() if isValid(focus) else 0
-            open_len = len(paren._open_token.symbol) if paren._open_token else 0
+            open_len = len(paren._open_symbol) if paren._open_symbol else 0
 
             # Ensure suffix QLineEdit exists for unclosed parens
             paren_slot = paren.parent()

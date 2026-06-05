@@ -297,6 +297,44 @@ class Expression(QWidget):
                 return seg
         return None
 
+    def _toggle_negate_in_prefix(self, prefix: str) -> str | None:
+        """Compute the new prefix with unary minus toggled before its trailing
+        operand. Returns None when the prefix has no trailing operand (caller
+        falls back to toggling minus at the suffix start).
+
+        When the trailing operand is an unclosed ParenToken, recurse on the
+        inner content (the substring after the open paren) so the toggle lands
+        on the user-visible trailing operand instead of wrapping the whole paren.
+        """
+        toks = tokenize(prefix).tokens
+        pre_toks, operand_toks = split_operand(toks)
+        if not operand_toks:
+            return None
+
+        operand = operand_toks[0]
+        if (
+            isinstance(operand.data, calc_native.ParenToken)
+            and operand.data.has_open
+            and not operand.data.has_close
+        ):
+            inner_start = operand.start_pos + 1
+            inner_result = self._toggle_negate_in_prefix(prefix[inner_start:])
+            if inner_result is not None:
+                return prefix[:inner_start] + inner_result
+            return None
+
+        op_start = operand.start_pos
+        minus = Operation.SUB.symbol
+        if (
+            pre_toks
+            and isinstance(pre_toks[-1].data, calc_native.OpToken)
+            and pre_toks[-1].data.op_id == calc_native.OpId.Negate
+        ):
+            # Existing unary minus right before the operand — remove it.
+            return prefix[: pre_toks[-1].start_pos] + prefix[op_start:]
+        # Insert minus before the operand.
+        return prefix[:op_start] + minus + prefix[op_start:]
+
     def handle_negate(self) -> None:
         """Toggle unary minus for the operand at the cursor position."""
         target, prefix, suffix = self._split_target_at_cursor()
@@ -328,25 +366,12 @@ class Expression(QWidget):
             target.setCursorPosition(0)
             return
 
-        # tokenize prefix, find trailing operand
-        toks = tokenize(prefix).tokens
-        pre_toks, operand_toks = split_operand(toks)
-
-        if operand_toks:
-            op_start = operand_toks[0].start_pos
-            # Check for existing unary minus right before the operand
-            if (
-                pre_toks
-                and isinstance(pre_toks[-1].data, calc_native.OpToken)
-                and pre_toks[-1].data.op_id == calc_native.OpId.Negate
-            ):
-                # Remove the negate
-                new_prefix = prefix[: pre_toks[-1].start_pos] + prefix[op_start:]
-            else:
-                # Insert negate
-                new_prefix = prefix[:op_start] + minus + prefix[op_start:]
-        else:
-            # No trailing operand — toggle minus at the start of suffix
+        # Toggle minus on the trailing operand of prefix. Recursive: if the
+        # trailing operand is itself an unclosed ParenToken, the user is
+        # "inside" the paren — apply the same logic to the inner content.
+        new_prefix = self._toggle_negate_in_prefix(prefix)
+        if new_prefix is None:
+            # No trailing operand in prefix — toggle minus at the start of suffix.
             if suffix.startswith(minus):
                 suffix = suffix[len(minus) :]
             else:
@@ -436,13 +461,14 @@ class Expression(QWidget):
 
             result = tokenize(text)
             tokens = result.tokens
+            has_any_latex = bool(result.latex_indices) or result.has_latex_descendant
 
             # Close-paren path: match against a pending open ParenWidget
-            if not result.latex_indices and self._pending_parens:
+            if not has_any_latex and self._pending_parens:
                 if self._try_close_paren(seg, result, slot):
                     return
 
-            if not result.latex_indices:
+            if not has_any_latex:
                 if self._try_open_paren(seg, result, slot):
                     return
                 if "\\" not in text:
@@ -462,32 +488,39 @@ class Expression(QWidget):
         result: calc_native.TokensBranch,
         slot: ExpressionSlot,
     ) -> bool:
-        """Check if any token is an open paren with right-hand ExpressionNodes.
+        """Check if the last top-level ParenToken is an unclosed open paren with
+        right-hand ExpressionNodes.
 
-        If matched: create a ParenWidget, split the segment text around the paren,
-        and absorb the trailing siblings into the new node.
+        If matched: create a ParenWidget, set its inner slot text from the
+        ParenToken's elements, and absorb the trailing siblings into the new node.
         """
-        if not result.open_paren_indices:
+        _log.debug("Try open paren works")
+
+        if not result.paren_indices:
             return False
 
         tokens = result.tokens
-
-        idx = result.open_paren_indices[-1]
+        idx = result.paren_indices[-1]
         par = tokens[idx].as_paren()
-        if par.type != calc_native.ParenType.Open or par.pair_idx != calc_native.PAREN_NO_MATCH:
+
+        # Unclosed open paren only.
+        if not (par.has_open and not par.has_close):
             return False
 
         paren_cls = self.renderer.PAREN_KIND_MAP.get(par.kind)
         if paren_cls is None:
             return False
 
-        before_toks, after_toks, detached = self._split_seg(seg, tokens, idx, slot)
+        before_toks, _after_toks, detached = self._split_seg(seg, tokens, idx, slot)
         if not detached:
             return False
 
-        paren_node = paren_cls(par, None)
+        paren_node = paren_cls(kind=par.kind, has_open=True, has_close=False)
         paren_node.editor = self
-        paren_node.slot.default_input().setText(calc_native.tokens_to_text(after_toks))
+        # tokens_to_text on the unclosed ParenToken yields "(<inner>" (no close);
+        # drop the leading open glyph (1 char) to get just the inner content.
+        paren_full = calc_native.tokens_to_text([tokens[idx]])
+        paren_node.slot.default_input().setText(paren_full[1:])
         self._pending_parens.setdefault(par.kind, []).append(paren_node)
 
         paren_node.adopt_segments(detached)
@@ -506,67 +539,67 @@ class Expression(QWidget):
         result: calc_native.TokensBranch,
         slot: ExpressionSlot,
     ) -> bool:
-        """Check if any token is a close paren that matches a pending open.
+        """Match the last top-level ParenToken if it's a stray close
+        (has_close=True, has_open=False) against a pending open ParenWidget
+        of the same kind.
 
-        If matched: close the ParenWidget, split the segment text around the paren,
-        and move the trailing text to the next available input.
+        If matched: close the ParenWidget, split the segment text around the
+        close, and move the trailing text + any detached nodes to the suffix
+        segment.
         """
-
-        paren_ind = result.close_paren_indices
-        tokens = result.tokens
-
-        if not paren_ind:
+        if not result.paren_indices:
             return False
 
-        for idx in paren_ind:
-            par = tokens[idx].as_paren()
-            stack = self._pending_parens.get(par.kind)
+        tokens = result.tokens
+        idx = result.paren_indices[-1]
+        par = tokens[idx].as_paren()
+        if not (par.has_close and not par.has_open):
+            return False
 
-            if par.type != calc_native.ParenType.Close or not stack:
-                continue
+        stack = self._pending_parens.get(par.kind)
+        if not stack:
+            return False
 
-            pw = stack[-1]
-            if slot is not pw.slot:
-                # Pre-check, only pop pending paren and attach when the close paren is in the inner slot.
-                continue
+        pw = stack[-1]
+        if slot is not pw.slot:
+            # Only attach when the stray close lives in the pending widget's inner slot.
+            return False
 
-            stack.pop()
-            if not stack:
-                self._pending_parens.pop(par.kind)
+        stack.pop()
+        if not stack:
+            self._pending_parens.pop(par.kind)
 
-            before_toks, after_toks, detached = self._split_seg(seg, tokens, idx, slot)
+        before_toks, after_toks, detached = self._split_seg(seg, tokens, idx, slot)
 
-            before_text = calc_native.tokens_to_text(before_toks, self.renderer.seg_after_node(seg))
-            after_text = calc_native.tokens_to_text(after_toks)
+        before_text = calc_native.tokens_to_text(before_toks, self.renderer.seg_after_node(seg))
+        after_text = calc_native.tokens_to_text(after_toks)
 
-            pw.set_close(par)
-            seg.setText(before_text)
+        pw.set_close()
+        seg.setText(before_text)
 
-            before_result = calc_native.classify_tokens(before_toks)
-            self.renderer.render_node(seg, before_result)
-            suffix_seg = next(self._iter_line_edits(seg, 1), None)
+        before_result = calc_native.classify_tokens(before_toks)
+        self.renderer.render_node(seg, before_result)
+        suffix_seg = next(self._iter_line_edits(seg, 1), None)
 
-            pw_parent = pw.parent()
-            if isinstance(pw_parent, ExpressionSlot):
-                if suffix_seg is None or suffix_seg.parent() is not pw_parent:
-                    suffix_seg = pw_parent.insert_input(pw_parent.index_of(pw) + 1)
+        pw_parent = pw.parent()
+        if isinstance(pw_parent, ExpressionSlot):
+            if suffix_seg is None or suffix_seg.parent() is not pw_parent:
+                suffix_seg = pw_parent.insert_input(pw_parent.index_of(pw) + 1)
 
-            if suffix_seg:
-                suffix_seg.setText(after_text + suffix_seg.text())
-                suffix_seg.setFocus()
-                suffix_seg.setCursorPosition(0)
+        if suffix_seg:
+            suffix_seg.setText(after_text + suffix_seg.text())
+            suffix_seg.setFocus()
+            suffix_seg.setCursorPosition(0)
 
-                if detached:
-                    parent_slot = suffix_seg.parent()
-                    if isinstance(parent_slot, ExpressionSlot):
-                        parent_slot.adopt_segments(detached)
+            if detached:
+                parent_slot = suffix_seg.parent()
+                if isinstance(parent_slot, ExpressionSlot):
+                    parent_slot.adopt_segments(detached)
 
-            if not pw.slot._child_nodes:
-                pw.dissolve()
+        if not pw.slot._child_nodes:
+            pw.dissolve()
 
-            return True
-
-        return False
+        return True
 
     def _split_seg(self, seg, tokens, idx, slot):
         before_toks = tokens[:idx]

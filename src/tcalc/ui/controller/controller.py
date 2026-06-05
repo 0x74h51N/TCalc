@@ -223,7 +223,11 @@ class CalculatorController:
     def _can_compute_preview(self, tokens: List[calc_native.Token]) -> bool:
         if not tokens:
             return False
-        if len(tokens) == 1 and tokens[0].kind != calc_native.TokenKind.Latex:
+        if (
+            len(tokens) == 1
+            and tokens[0].kind != calc_native.TokenKind.Latex
+            and tokens[0].kind != calc_native.TokenKind.Paren
+        ):
             return is_number_token(tokens[0])
 
         return True
