@@ -81,18 +81,23 @@ ParenExtent scan_paren_extent(std::string_view s, std::size_t open_pos) {
     std::size_t i = open_pos + 1;
     while (i < s.size()) {
         const char c = s[i];
-        if (c == '(' || c == '[' || c == '{') {
+        const ParenRole role = paren_role_of(c);
+
+        if (role == ParenRole::Open) {
             stack.push_back(c);
-        } else if (c == ')' || c == ']' || c == '}') {
-            const char top = stack.back();
-            const bool match =
-                (c == ')' && top == '(') || (c == ']' && top == '[') || (c == '}' && top == '{');
-            if (!match) {
+        } else if (role == ParenRole::Close) {
+            // A close pops down to its matching open: unmatched intervening
+            // opens are left for recursive tokenize on the inner substring to
+            // recover as unclosed groups. If no matching open exists in the
+            // stack, the close is stray and ends the extent unclosed.
+            const char want_open = paren_symbol(/*is_open=*/true, paren_kind_of(c));
+            const auto it = std::find(stack.rbegin(), stack.rend(), want_open);
+            if (it == stack.rend()) {
                 ext.end_pos = i;
                 ext.closed = false;
                 return ext;
             }
-            stack.pop_back();
+            stack.erase(it.base() - 1, stack.end());
             if (stack.empty()) {
                 ext.end_pos = i;
                 ext.closed = true;
@@ -185,7 +190,7 @@ inline void push_number(
 }
 
 inline bool is_paren_char(char c) {
-    return c == '(' || c == '[' || c == '{' || c == ')' || c == ']' || c == '}';
+    return paren_role_of(c) != ParenRole::None;
 }
 
 bool tokenize_core(
@@ -387,9 +392,10 @@ TokensBranch tokenize(std::string_view s) {
 
     while (i < n) {
         const char c = s[i];
+        const ParenRole role = paren_role_of(c);
 
-        // 1) Paren open: '(', '[', '{' → build_paren_token
-        if (c == '(' || c == '[' || c == '{') {
+        // 1) Paren open → build_paren_token
+        if (role == ParenRole::Open) {
             const ParenKind kind = paren_kind_of(c);
             const auto ext = detail::scan_paren_extent(s, i);
             const auto tok_idx = static_cast<TokenIndex>(result.tokens.size());
@@ -442,8 +448,8 @@ TokensBranch tokenize(std::string_view s) {
             continue;
         }
 
-        // 3) Stray close: ')', ']', '}'
-        if (c == ')' || c == ']' || c == '}') {
+        // 3) Stray close
+        if (role == ParenRole::Close) {
             const ParenKind kind = paren_kind_of(c);
             result.paren_indices.push_back(static_cast<TokenIndex>(result.tokens.size()));
             result.tokens.push_back(make_stray_close(kind, i));

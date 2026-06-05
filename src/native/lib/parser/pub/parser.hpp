@@ -70,6 +70,24 @@ inline constexpr ParenKind paren_kind_of(char c) {
     }
 }
 
+/// Role of a char in paren classification: open glyph, close glyph, or neither.
+enum class ParenRole : std::uint8_t { None = 0, Open = 1, Close = 2 };
+
+inline constexpr ParenRole paren_role_of(char c) {
+    switch (c) {
+    case '(':
+    case '[':
+    case '{':
+        return ParenRole::Open;
+    case ')':
+    case ']':
+    case '}':
+        return ParenRole::Close;
+    default:
+        return ParenRole::None;
+    }
+}
+
 enum class TokenKind : std::uint8_t { Number, Op, Latex, Paren };
 
 /// Expression kinds for compound Latex tokens.

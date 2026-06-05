@@ -510,6 +510,31 @@ void unit_parser(TestContext &ctx) {
          .input = "5)+3",
          .expected = {N("5"), StrayC(ParenKind::Paren), Op_(OpId::Add), N("3")}},
 
+        // A close paren whose innermost open is the wrong kind still closes a
+        // matching open deeper in the stack; intervening unmatched opens are
+        // recovered as unclosed groups inside.
+        {.id = "outer brace closes over inner unclosed paren",
+         .input = "{1+(2+3}",
+         .expected = {Bc({EV(
+             {N("1"),
+              Op_(OpId::Add),
+              Pp({EV({N("2"), Op_(OpId::Add), N("3")})}, /*has_close=*/false)})})}},
+
+        {.id = "outer brace closes over inner unclosed paren with frac",
+         .input = "{1 + (2 + \\frac{3}{4} + 4 +5}",
+         .expected = {Bc({EV(
+             {N("1"),
+              Op_(OpId::Add),
+              Pp({EV(
+                     {N("2"),
+                      Op_(OpId::Add),
+                      Frac({N("3")}, {N("4")}),
+                      Op_(OpId::Add),
+                      N("4"),
+                      Op_(OpId::Add),
+                      N("5")})},
+                 /*has_close=*/false)})})}},
+
         // Point: `(X, Y, ...)` with top-level comma.
         {"collection :: point arity 2", "(1, 2)", {Pp({EN("1"), EN("2")})}},
 
