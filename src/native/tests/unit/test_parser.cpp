@@ -400,7 +400,21 @@ void unit_parser(TestContext &ctx) {
              /*has_close=*/true,
              0,
              13)}},
-
+        {.id = "non closed brace around frac",
+         .input = "{\\frac{1}{2})",
+         .expected =
+             {Pr(ParenKind::Brace,
+                 {Frac({N("1")}, {N("2")}, 1, 12)},
+                 /*has_open=*/true,
+                 /*has_close=*/false,
+                 0,
+                 13),
+              Pr(ParenKind::Paren,
+                 {},
+                 /*has_open=*/false,
+                 /*has_close=*/true,
+                 13,
+                 14)}},
         {.id = "complex nested: frac with user brace and inner pow",
          .input = "\\frac{{\\pow{4}{2}}}{3}",
          .expected = {Frac({Bc({Pow({N("4")}, {N("2")})})}, {N("3")}, 0, 22)}},
@@ -488,6 +502,13 @@ void unit_parser(TestContext &ctx) {
          .expected =
              {Pp({EV({N("2"), Op_(OpId::Add), N("4")})}, /*has_close=*/false),
               StrayC(ParenKind::Bracket)}},
+
+        // A stray close acts as an operand for the operator that follows it:
+        // the next '+' must be binary Add, not UnaryPlus. Regression guard for
+        // the _try_close_paren dissolve flow (binary op spacing).
+        {.id = "stray close followed by + is binary Add",
+         .input = "5)+3",
+         .expected = {N("5"), StrayC(ParenKind::Paren), Op_(OpId::Add), N("3")}},
 
         // Point: `(X, Y, ...)` with top-level comma.
         {"collection :: point arity 2", "(1, 2)", {Pp({EN("1"), EN("2")})}},

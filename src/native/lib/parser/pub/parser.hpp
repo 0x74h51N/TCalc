@@ -55,6 +55,21 @@ inline constexpr char paren_symbol(bool is_open, ParenKind kind) {
     return kSymbolTable[is_open ? 0 : 1][static_cast<int>(kind)];
 }
 
+/// Map a paren glyph character (open or close) to its ParenKind. Caller must
+/// pre-filter; non-paren chars fall through to ParenKind::Paren.
+inline constexpr ParenKind paren_kind_of(char c) {
+    switch (c) {
+    case '[':
+    case ']':
+        return ParenKind::Bracket;
+    case '{':
+    case '}':
+        return ParenKind::Brace;
+    default:
+        return ParenKind::Paren;
+    }
+}
+
 enum class TokenKind : std::uint8_t { Number, Op, Latex, Paren };
 
 /// Expression kinds for compound Latex tokens.

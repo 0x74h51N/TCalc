@@ -390,9 +390,7 @@ TokensBranch tokenize(std::string_view s) {
 
         // 1) Paren open: '(', '[', '{' → build_paren_token
         if (c == '(' || c == '[' || c == '{') {
-            const ParenKind kind = (c == '(')   ? ParenKind::Paren
-                                   : (c == '[') ? ParenKind::Bracket
-                                                : ParenKind::Brace;
+            const ParenKind kind = paren_kind_of(c);
             const auto ext = detail::scan_paren_extent(s, i);
             const auto tok_idx = static_cast<TokenIndex>(result.tokens.size());
             result.paren_indices.push_back(tok_idx);
@@ -446,13 +444,13 @@ TokensBranch tokenize(std::string_view s) {
 
         // 3) Stray close: ')', ']', '}'
         if (c == ')' || c == ']' || c == '}') {
-            const ParenKind kind = (c == ')')   ? ParenKind::Paren
-                                   : (c == ']') ? ParenKind::Bracket
-                                                : ParenKind::Brace;
+            const ParenKind kind = paren_kind_of(c);
             result.paren_indices.push_back(static_cast<TokenIndex>(result.tokens.size()));
             result.tokens.push_back(make_stray_close(kind, i));
             ++i;
-            expect_operand = true;
+            // A close-paren-style token acts as an operand for the next op:
+            // the following '+' / '-' should be binary, not unary.
+            expect_operand = false;
             continue;
         }
 
