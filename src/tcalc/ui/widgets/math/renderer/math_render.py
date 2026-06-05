@@ -35,7 +35,6 @@ from .widgets import (
 if TYPE_CHECKING:
     from tcalc.ui.widgets.calc.display.expression.expression import Expression
 
-
 _log = logging.getLogger("tcalc.ui.math")
 
 
@@ -121,23 +120,17 @@ class MathRender(QWidget):
         new_text = calc_native.tokens_to_text(tokens, self.seg_after_node(seg))
         if new_text != text:
             cursor_pos = seg.cursorPosition()
-
-            # Find new cursor by normali"zing text before cursor
-            # Tokens before/at cursor determine new position
-            prefix_tokens = [t for t in tokens if t.start_pos < cursor_pos]
-
-            new_cursor = len(calc_native.tokens_to_text(prefix_tokens))
+            # If no token starts before the cursor, the user's cursor sat in
+            # whitespace that just got normalized away — snap to start of new text.
+            new_cursor = (
+                min(cursor_pos, len(new_text)) if tokens and tokens[0].start_pos < cursor_pos else 0
+            )
             seg.setText(new_text)
-            seg.setCursorPosition(min(new_cursor, len(new_text)))
+            seg.setCursorPosition(new_cursor)
 
     def _build_paren(self, paren_kind: calc_native.ParenKind, has_close: bool) -> ExpressionNode:
         paren_cls = self.PAREN_KIND_MAP[paren_kind]
-
-        open_tok = calc_native.ParenToken(calc_native.ParenType.Open, paren_kind)
-        close_tok = (
-            calc_native.ParenToken(calc_native.ParenType.Close, paren_kind) if has_close else None
-        )
-        widget = paren_cls(open_tok, close_tok)
+        widget = paren_cls(kind=paren_kind, has_open=True, has_close=has_close)
         if not has_close:
             self._pending_parens.setdefault(paren_kind, []).append(widget)
         return widget
@@ -215,8 +208,15 @@ class MathRender(QWidget):
 
             slot.insert_widget(cur_idx + 1, widget)
 
-            if not tail_needed:
-                return focus_target
+            if not tail_needed and isinstance(widget, ParenWidget):
+                # Unclosed paren: route any remaining sibling MathNodes into
+                # the paren's trailing QLineEdit so the user stays "inside"
+                # the open paren visually.
+                slot = widget._inner_slot
+                cur_seg = slot.default_input()
+                cur_idx = slot.index_of(cur_seg)
+                continue
+
             cur_seg = slot.insert_input(cur_idx + 2)
             dirty_inputs.add(cur_seg)
             cur_idx += 2
@@ -224,6 +224,7 @@ class MathRender(QWidget):
         return focus_target
 
     def render_node(self, seg, tokenized: calc_native.TokensBranch) -> None:
+
         dirty_inputs: set[QLineEdit] = set()
         try:
             nodes = calc_native.build_math_nodes(tokenized, self.seg_after_node(seg))

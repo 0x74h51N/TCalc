@@ -31,6 +31,7 @@ add_library(calc_core STATIC
   lib/calc/transcendental.cpp
   lib/calc/trig.cpp
   lib/calc/combinatorics.cpp
+  lib/collection/collection.cpp
   lib/parser/parser.cpp
 )
 target_include_directories(calc_core PUBLIC
@@ -47,6 +48,7 @@ add_executable(native_tests
   tests/unit/test_ops.cpp
   tests/smoke/smoke_stress.cpp
   tests/unit/test_parser.cpp
+  tests/unit/test_collection.cpp
   tests/test_test_helpers.cpp
 )
 target_include_directories(native_tests PRIVATE
@@ -66,6 +68,7 @@ pybind11_add_module(calc_native
   python/bindings/bind_angle_unit.cpp
   python/bindings/bind_calculator.cpp
   python/bindings/bind_parser.cpp
+  python/bindings/bind_collection.cpp
 )
 target_include_directories(calc_native PRIVATE
   "${CMAKE_CURRENT_LIST_DIR}/python/include"

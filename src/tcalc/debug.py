@@ -28,7 +28,7 @@ def debug_tokens(tokens: list[calc_native.Token]) -> None:
     for t in tokens:
         kind = t.kind.name
         if isinstance(t.data, calc_native.ParenToken):
-            val = t.data.symbol
+            val = calc_native.token_text(t)
         elif isinstance(t.data, calc_native.NumberToken):
             val = t.data.value
         elif isinstance(t.data, calc_native.OpToken):
@@ -41,7 +41,7 @@ def debug_tokens(tokens: list[calc_native.Token]) -> None:
     _log.debug("TOKENS -> %s", out)
 
 
-def _fmt_math_nodes(nodes: list[tuple], indent: int = 0) -> list[str]:
+def fmt_math_nodes(nodes: list[tuple], indent: int = 0) -> list[str]:
     pad = "  " * indent
     lines: list[str] = []
     for tup in nodes:
@@ -52,21 +52,21 @@ def _fmt_math_nodes(nodes: list[tuple], indent: int = 0) -> list[str]:
             _, paren_kind, has_close, children = tup
             close = "" if has_close else " (unmatched)"
             lines.append(f"{pad}Paren[{paren_kind.name}]{close}")
-            lines.extend(_fmt_math_nodes(children, indent + 1))
+            lines.extend(fmt_math_nodes(children, indent + 1))
         else:
             _, latex_kind, left, right = tup
             lines.append(f"{pad}Latex[{latex_kind.name}]")
             lines.append(f"{pad}  left:")
-            lines.extend(_fmt_math_nodes(left, indent + 2))
+            lines.extend(fmt_math_nodes(left, indent + 2))
             lines.append(f"{pad}  right:")
-            lines.extend(_fmt_math_nodes(right, indent + 2))
+            lines.extend(fmt_math_nodes(right, indent + 2))
     return lines
 
 
 def debug_math_nodes(nodes: list[tuple]) -> None:
     """Log a MathNode tree in readable indented form."""
     _log.debug("MATH_NODES ->")
-    for line in _fmt_math_nodes(nodes):
+    for line in fmt_math_nodes(nodes):
         _log.debug(line)
 
 
@@ -224,8 +224,8 @@ def snapshot_tree(widget: "Expression") -> TreeInfo:
         info.all_nodes.append(ni)
         if isinstance(node, ParenWidget):
             ni.paren_kind = node.PAREN_KIND
-            ni.has_open = node._open_token is not None
-            ni.has_close = node._close_token is not None
+            ni.has_open = node._has_open
+            ni.has_close = node._has_close
         for slot in (node._left_slot, node._right_slot):
             if slot is not None:
                 ni.slots.append(_walk_slot(slot))

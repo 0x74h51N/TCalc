@@ -46,44 +46,49 @@ inline constexpr std::array<std::array<char, 3>, 2> kSymbolTable = {
 /// after most ops). Inputs ≤ 4G tokens — practically unbounded for this calculator.
 using TokenIndex = std::uint32_t;
 
-enum class ParenType : std::uint8_t { Open = 0, Close = 1 };
-
 enum class ParenKind : std::uint8_t { Paren = 0, Brace = 1, Bracket = 2 };
 
-struct Paren {
-    ParenType type;
-    ParenKind kind;
-};
 inline constexpr std::size_t kAsciiTableSize = 256;
 
-inline constexpr std::array<std::optional<Paren>, kAsciiTableSize> make_paren_table() {
-    std::array<std::optional<Paren>, kAsciiTableSize> table{};
-
-    table['('] = Paren{ParenType::Open, ParenKind::Paren};
-    table[')'] = Paren{ParenType::Close, ParenKind::Paren};
-
-    table['{'] = Paren{ParenType::Open, ParenKind::Brace};
-    table['}'] = Paren{ParenType::Close, ParenKind::Brace};
-
-    table['['] = Paren{ParenType::Open, ParenKind::Bracket};
-    table[']'] = Paren{ParenType::Close, ParenKind::Bracket};
-
-    return table;
+/// Return open ('(', '{', '[') or close (')', '}', ']') glyph for the given kind.
+inline constexpr char paren_symbol(bool is_open, ParenKind kind) {
+    return kSymbolTable[is_open ? 0 : 1][static_cast<int>(kind)];
 }
 
-inline constexpr auto kParenTable = make_paren_table();
-
-/// Lookup paren by character from kParens table.
-inline constexpr std::optional<Paren> match_paren(char c) {
-    return kParenTable[static_cast<unsigned char>(c)];
+/// Map a paren glyph character (open or close) to its ParenKind. Caller must
+/// pre-filter; non-paren chars fall through to ParenKind::Paren.
+inline constexpr ParenKind paren_kind_of(char c) {
+    switch (c) {
+    case '[':
+    case ']':
+        return ParenKind::Bracket;
+    case '{':
+    case '}':
+        return ParenKind::Brace;
+    default:
+        return ParenKind::Paren;
+    }
 }
 
-/// Return the symbol character for a paren type+kind pair.
-inline constexpr char paren_symbol(ParenType type, ParenKind kind) {
-    return kSymbolTable[static_cast<int>(type)][static_cast<int>(kind)];
+/// Role of a char in paren classification: open glyph, close glyph, or neither.
+enum class ParenRole : std::uint8_t { None = 0, Open = 1, Close = 2 };
+
+inline constexpr ParenRole paren_role_of(char c) {
+    switch (c) {
+    case '(':
+    case '[':
+    case '{':
+        return ParenRole::Open;
+    case ')':
+    case ']':
+    case '}':
+        return ParenRole::Close;
+    default:
+        return ParenRole::None;
+    }
 }
 
-enum class TokenKind : std::uint8_t { Number, Op, Paren, Latex };
+enum class TokenKind : std::uint8_t { Number, Op, Latex, Paren };
 
 /// Expression kinds for compound Latex tokens.
 enum class LatexKind : std::uint8_t {
@@ -126,25 +131,31 @@ struct OpToken {
     bool operator==(const OpToken &) const = default;
 };
 
-/// npos sentinel for unmatched parentheses.
-inline constexpr TokenIndex kNoMatch = static_cast<TokenIndex>(-1);
+/// Element of a ParenToken: either a single Token (single-arity canonical SBO)
+/// or a vector<Token> for multi-token element sequences.
+using ParenElement = std::variant<Token, std::vector<Token>>;
 
+/// Unified paren token: '(...)', '[...]', '{...}', unclosed open, or stray close.
+/// kind tracks paren type (Paren/Bracket/Brace). elements holds inner content per
+/// top-level comma. has_open=false marks stray close (e.g. ')' with no preceding
+/// open in the segment). has_close=false marks unclosed. has_latex_descendant is
+/// cached bottom-up at tokenize time: true iff any descendant LatexToken exists.
 struct ParenToken {
-    ParenType type{};
     ParenKind kind{};
-    /// Token index of the matching open/close counterpart.
-    /// Set by match_parens(); kNoMatch if unmatched.
-    TokenIndex pair_idx = kNoMatch;
-
-    /// Semantic equality: type + kind only (pair_idx is metadata).
-    bool operator==(const ParenToken &o) const { return type == o.type && kind == o.kind; }
+    std::vector<ParenElement> elements;
+    bool has_open = true;
+    bool has_close = true;
+    bool has_latex_descendant = false;
+    // Defined out-of-line below to defer variant<Token, vector<Token>>
+    // instantiation until after Token is complete.
+    bool operator==(const ParenToken &) const;
 };
 
 struct TokensBranch {
     std::vector<Token> tokens;
     std::vector<TokenIndex> latex_indices{};
-    std::vector<TokenIndex> open_paren_indices{};
-    std::vector<TokenIndex> close_paren_indices{};
+    std::vector<TokenIndex> paren_indices{};
+    bool has_latex_descendant = false;
     bool operator==(const TokensBranch &) const = default;
 };
 
@@ -156,7 +167,7 @@ struct LatexToken {
     bool operator==(const LatexToken &) const = default;
 };
 
-using TokenData = std::variant<NumberToken, OpToken, ParenToken, LatexToken>;
+using TokenData = std::variant<NumberToken, OpToken, LatexToken, ParenToken>;
 
 struct Token {
     TokenKind kind{};
@@ -189,11 +200,12 @@ struct TokenEqual {
             return lhs.value == r->value;
         } else if constexpr (std::is_same_v<T, OpToken>) {
             return lhs.op_id == r->op_id;
-        } else if constexpr (std::is_same_v<T, ParenToken>) {
-            return lhs.type == r->type && lhs.kind == r->kind;
         } else if constexpr (std::is_same_v<T, LatexToken>) {
             return lhs.kind == r->kind && lhs.op_id == r->op_id && lhs.left == r->left &&
                    lhs.right == r->right;
+        } else if constexpr (std::is_same_v<T, ParenToken>) {
+            return lhs.kind == r->kind && lhs.has_open == r->has_open &&
+                   lhs.has_close == r->has_close && lhs.elements == r->elements;
         }
     }
 };
@@ -210,16 +222,22 @@ inline bool operator==(const Token &a, const Token &b) {
     return visit_token(a.data, TokenEqual{&b.data});
 }
 
-/// Structural split payload for an (un)matched open paren appearing before the first latex token.
-/// Spans reference tokens inside the source TokensBranch, caller must keep branch alive.
+// ParenToken::operator== defined out-of-line so variant<Token, vector<Token>>
+// special-member instantiation is deferred until Token is complete (above).
+inline bool ParenToken::operator==(const ParenToken &o) const {
+    return kind == o.kind && has_open == o.has_open && has_close == o.has_close &&
+           elements == o.elements;
+}
+
+/// Structural split payload for a ParenToken (wraps a latex descendant).
+/// Spans reference tokens inside the source TokensBranch; caller keeps branch alive.
 struct ParenSplit {
     std::span<const Token> prefix;
-    std::span<const Token> left;
+    std::span<const ParenElement> elements;
     std::span<const Token> suffix;
-    ParenToken open_tok;
-    std::optional<ParenToken> close_tok;
-
-    bool has_close() const { return close_tok.has_value(); }
+    ParenKind kind{};
+    bool has_open = true;
+    bool has_close = true;
 };
 
 /// Structural split payload for a Frac/Pow/Root/Log latex token.
@@ -242,8 +260,8 @@ using OperandSplit = std::pair<std::span<const Token>, std::span<const Token>>;
 OperandSplit
 split_operand(std::span<const Token> tokens, TokenIndex begin, TokenIndex end, bool lead = false);
 
-/// Find the next structural split point in branch: ParenSplit for an (un)matched open paren
-/// before the first latex token, LatexSplit for Frac/Pow/Root/Log, nullopt when no latex tokens.
+/// Find the next structural split point in branch: ParenSplit when a ParenToken
+/// contains a latex descendant, LatexSplit for Frac/Pow/Root/Log, nullopt otherwise.
 std::optional<StructuralSplit> structural_split(const TokensBranch &branch);
 
 struct TextNode;
@@ -302,8 +320,8 @@ std::vector<MathNode> build_math_nodes(const TokensBranch &branch, bool after_no
 /// latex_indices metadata.
 TokensBranch tokenize(std::string_view expression);
 
-/// Classify an existing token list: recompute local paren pair_idx metadata, then scan for
-/// Expr / Open-Paren / Close-Paren tokens and populate the index vectors.
+/// Classify an existing token list: scan for Latex / Paren tokens and populate the index vectors
+/// plus has_latex_descendant aggregate.
 TokensBranch classify_tokens(std::vector<Token> tokens);
 
 // Convert tokens to RPN using precedence/associativity rules.

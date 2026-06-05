@@ -18,9 +18,20 @@ configure:
 		-DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 		-DPython3_EXECUTABLE="$(PYTHON)"
 
+# Post-process autogen stub:
+#   1) self-import so `calc_native.X` FQN refs (stubgen emits these for variant
+#      arms of bound types) resolve inside the module's own stub.
+#   2) silence mypy Liskov on `__hash__: ClassVar[None] = None` (pybind11 sets
+#      this whenever a class binds __eq__; standard typeshed workaround).
+define patch_stub
+	@sed -i '/^from __future__ import annotations$$/a import calc_native' $(STUBS_DIR)/calc_native.pyi
+	@sed -i 's|^\(    __hash__: typing.ClassVar\[None\] = None\)$$|\1  # type: ignore[assignment]|' $(STUBS_DIR)/calc_native.pyi
+endef
+
 build: configure
 	cmake --build $(BUILD_DIR) -j
 	PYTHONPATH=$(ROOT)/src $(PYTHON) -m pybind11_stubgen calc_native -o $(STUBS_DIR)
+	$(call patch_stub)
 
 test: build
 	$(BUILD_DIR)/native_tests $(TEST_ARGS)
@@ -58,4 +69,5 @@ cpp-tidy-diff:
 
 
 stub-gen: $(SO_FILE)
-	PYTHONPATH=$(ROOT)/src $(PYTHON) -m pybind11_stubgen calc_native -o $(ROOT)/stubs
+	PYTHONPATH=$(ROOT)/src $(PYTHON) -m pybind11_stubgen calc_native -o $(STUBS_DIR)
+	$(call patch_stub)

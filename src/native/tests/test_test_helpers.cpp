@@ -19,7 +19,6 @@ using p::NumberToken;
 using p::OpToken;
 using p::ParenKind;
 using p::ParenToken;
-using p::ParenType;
 using p::Token;
 using p::TokenKind;
 struct NoStream {
@@ -69,7 +68,13 @@ void unit_helpers(TestContext &ctx) {
 
         const Token lparen{
             .kind = TokenKind::Paren,
-            .data = ParenToken{ParenType::Open, ParenKind::Paren},
+            .data =
+                ParenToken{
+                    ParenKind::Paren,
+                    /*elements=*/{},
+                    /*has_open=*/true,
+                    /*has_close=*/false,
+                    /*has_latex_descendant=*/false},
             .start_pos = 2,
             .end_pos = 3};
 
@@ -81,7 +86,8 @@ void unit_helpers(TestContext &ctx) {
             "[\n"
             "  Token{kind=Number, value=\"2\"},\n"
             "  Token{kind=Op, op_id=add(+)},\n"
-            "  Token{kind=LParen, type=Open, kind=Paren}\n"
+            "  Token{kind=Paren, kind=Paren, has_open=true, has_close=false, "
+            "has_latex_descendant=false, elements=[]}\n"
             "]");
     });
 

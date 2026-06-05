@@ -25,6 +25,7 @@ void bind_rational(pybind11::module_ &m);
 void bind_angle_unit(pybind11::module_ &m);
 void bind_calculator(pybind11::module_ &m);
 void bind_parser(pybind11::module_ &m);
+void bind_collection(pybind11::module_ &m);
 
 namespace detail {
 inline constexpr int kPythonPrecision = 16;

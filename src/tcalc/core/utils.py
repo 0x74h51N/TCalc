@@ -10,7 +10,13 @@ _I64_MAX = (1 << 63) - 1
 _I64_MIN = -(1 << 63)
 
 CalcValue: TypeAlias = (
-    int | float | complex | calc_native.BigReal | calc_native.BigComplex | calc_native.Rational
+    int
+    | float
+    | complex
+    | calc_native.BigReal
+    | calc_native.BigComplex
+    | calc_native.Rational
+    | calc_native.Collection
 )
 
 

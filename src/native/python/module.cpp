@@ -32,4 +32,5 @@ PYBIND11_MODULE(calc_native, m) {
     bind_angle_unit(m);
     bind_calculator(m);
     bind_parser(m);
+    bind_collection(m);
 }

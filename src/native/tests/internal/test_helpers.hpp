@@ -321,16 +321,6 @@ inline std::string_view latex_kind_name(LatexKind k) {
     return "<unknown>";
 }
 
-inline std::string_view paren_type_name(ParenType t) {
-    switch (t) {
-    case ParenType::Open:
-        return "Open";
-    case ParenType::Close:
-        return "Close";
-    }
-    return "<unknown>";
-}
-
 inline std::string_view paren_kind_name(ParenKind k) {
     switch (k) {
     case ParenKind::Paren:
@@ -343,11 +333,8 @@ inline std::string_view paren_kind_name(ParenKind k) {
     return "<unknown>";
 }
 
-inline std::string_view token_kind_name(
-    TokenKind kind,
-    ParenKind pk = ParenKind::Paren,
-    ParenType pt = ParenType::Open,
-    LatexKind lk = LatexKind::Frac) {
+inline std::string_view
+token_kind_name(TokenKind kind, ParenKind pk = ParenKind::Paren, LatexKind lk = LatexKind::Frac) {
     switch (kind) {
     case TokenKind::Number:
         return "Number";
@@ -368,11 +355,11 @@ inline std::string_view token_kind_name(
     case TokenKind::Paren:
         switch (pk) {
         case ParenKind::Paren:
-            return (pt == ParenType::Open) ? "LParen" : "RParen";
+            return "Paren";
         case ParenKind::Brace:
-            return (pt == ParenType::Open) ? "LBrace" : "RBrace";
+            return "Brace";
         case ParenKind::Bracket:
-            return (pt == ParenType::Open) ? "LBracket" : "RBracket";
+            return "Bracket";
         }
         return "<unknown-paren>";
     }
@@ -400,11 +387,20 @@ inline void print_value(std::ostream &os, const OpToken &t) {
             os << "(" << spec->symbol << ")";
     }
 }
+// Forward declaration; ParenToken prints its elements (recursive Token vector).
+inline void print_value(std::ostream &os, const ParenElement &e);
+
 inline void print_value(std::ostream &os, const ParenToken &t) {
-    os << "type=" << paren_type_name(t.type) << ", kind=" << paren_kind_name(t.kind);
-    if (t.pair_idx != kNoMatch) {
-        os << ", pair_idx=" << t.pair_idx;
+    os << "kind=" << paren_kind_name(t.kind) << ", has_open=" << (t.has_open ? "true" : "false")
+       << ", has_close=" << (t.has_close ? "true" : "false")
+       << ", has_latex_descendant=" << (t.has_latex_descendant ? "true" : "false")
+       << ", elements=[";
+    for (std::size_t i = 0; i < t.elements.size(); ++i) {
+        if (i > 0)
+            os << ", ";
+        print_value(os, t.elements[i]);
     }
+    os << "]";
 }
 inline void print_value(std::ostream &os, const LatexToken &t) {
     os << "latex_kind=" << latex_kind_name(t.kind) << ", op_id=" << op_id_name(t.op_id)
@@ -423,16 +419,24 @@ inline void print_value(std::ostream &os, const Token &tok) {
     os << "Token{kind=";
     if (tok.kind == TokenKind::Paren) {
         const auto &p = std::get<ParenToken>(tok.data);
-        os << token_kind_name(tok.kind, p.kind, p.type);
+        os << token_kind_name(tok.kind, p.kind);
     } else if (tok.kind == TokenKind::Latex) {
         const auto &l = std::get<LatexToken>(tok.data);
-        os << token_kind_name(tok.kind, ParenKind::Paren, ParenType::Open, l.kind);
+        os << token_kind_name(tok.kind, ParenKind::Paren, l.kind);
     } else {
         os << token_kind_name(tok.kind);
     }
     os << ", ";
     print_variant(os, tok.data);
     os << "}";
+}
+
+inline void print_value(std::ostream &os, const ParenElement &e) {
+    if (e.index() == 0) {
+        print_value(os, std::get<Token>(e));
+    } else {
+        print_value(os, std::get<std::vector<Token>>(e));
+    }
 }
 
 inline void print_value(std::ostream &os, const std::vector<Token> &values) {
@@ -454,10 +458,9 @@ inline void print_value(std::ostream &os, const TokensBranch &r) {
     print_value(os, r.tokens);
     os << ",\n  latex_indices=\n";
     print_value(os, r.latex_indices);
-    os << "\n  open_paren_indices=\n";
-    print_value(os, r.open_paren_indices);
-    os << "\n  close_paren_indices=\n";
-    print_value(os, r.close_paren_indices);
+    os << "\n  paren_indices=\n";
+    print_value(os, r.paren_indices);
+    os << "\n  has_latex_descendant=" << (r.has_latex_descendant ? "true" : "false");
     os << "\n}";
 }
 
