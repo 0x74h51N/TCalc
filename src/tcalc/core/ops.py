@@ -78,9 +78,15 @@ for native_spec in calc_native.op_table():
     OP_BY_ID[native_spec.id] = native_spec
 
 
-# Build paren UI specs from the native paren table
+# Paren UI specs — derived locally now that the native module no longer exposes
+# a paren_table (the unified ParenToken model has no separate open/close enum).
 _PAREN_SPECS = [
-    (f"{t.name.upper()}_{k.name.upper()}", sym) for sym, t, k in calc_native.paren_table()
+    ("OPEN_PAREN", "("),
+    ("CLOSE_PAREN", ")"),
+    ("OPEN_BRACKET", "["),
+    ("CLOSE_BRACKET", "]"),
+    ("OPEN_BRACE", "{"),
+    ("CLOSE_BRACE", "}"),
 ]
 
 # UI-only operations

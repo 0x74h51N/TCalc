@@ -11,16 +11,18 @@
 
 #include "bindings.hpp"
 #include "collection/collection.hpp"
-#include "parser/pub/parser.hpp"
 
 namespace py = pybind11;
 
 void bind_collection(py::module_ &m) {
-    using K = tcalc::parser::CollectionKind;
+    using K = tcalc::CollectionKind;
 
-    py::class_<tcalc::Collection, std::shared_ptr<tcalc::Collection>>(
-        m, "Collection", "Evaluated collection value (List or Point of scalars).")
-        .def(py::init<K, std::vector<tcalc::CollectionItem>>(), py::arg("kind"), py::arg("items"))
+    auto coll = py::class_<tcalc::Collection, std::shared_ptr<tcalc::Collection>>(
+        m, "Collection", "Evaluated collection value (List or Point of scalars).");
+
+    py::enum_<K>(coll, "Kind").value("List", K::List).value("Point", K::Point);
+
+    coll.def(py::init<K, std::vector<tcalc::CollectionItem>>(), py::arg("kind"), py::arg("items"))
         .def_readonly("kind", &tcalc::Collection::kind)
         .def("__len__", [](const tcalc::Collection &c) { return c.items.size(); })
         .def(

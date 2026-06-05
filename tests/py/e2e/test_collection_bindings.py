@@ -2,43 +2,45 @@ import calc_native
 
 
 def test_collection_kind_exposed():
-    assert calc_native.CollectionKind.List is not None
-    assert calc_native.CollectionKind.Point is not None
+    assert calc_native.Collection.Kind.List is not None
+    assert calc_native.Collection.Kind.Point is not None
 
 
 def test_tokenize_list_yields_collection_token():
     branch = calc_native.tokenize_string("[1,2,3]")
     assert len(branch.tokens) == 1
     tok = branch.tokens[0]
-    assert tok.kind == calc_native.TokenKind.Collection
-    col = tok.as_collection()
-    assert col.kind == calc_native.CollectionKind.List
-    assert col.closed is True
-    assert len(col.elements) == 3
+    assert tok.kind == calc_native.TokenKind.Paren
+    par = tok.as_paren()
+    # ParenToken carries paren-char kind (Bracket for '[]'); the eval layer
+    # maps Bracket → Collection.Kind.List when constructing a Collection.
+    assert par.kind == calc_native.ParenKind.Bracket
+    assert par.has_close is True
+    assert len(par.elements) == 3
 
 
 def test_tokenize_point_yields_collection_token():
     branch = calc_native.tokenize_string("(1,2)")
-    col = branch.tokens[0].as_collection()
-    assert col.kind == calc_native.CollectionKind.Point
-    assert len(col.elements) == 2
+    par = branch.tokens[0].as_paren()
+    assert par.kind == calc_native.ParenKind.Paren  # eval maps to Point
+    assert len(par.elements) == 2
 
 
 def test_collection_indices_populated():
     branch = calc_native.tokenize_string("1 + [2,3]")
-    assert list(branch.collection_indices) == [2]
+    assert list(branch.paren_indices) == [2]
 
 
 def test_unclosed_collection_flag():
     branch = calc_native.tokenize_string("[1,2,3")
-    col = branch.tokens[0].as_collection()
-    assert col.closed is False
+    col = branch.tokens[0].as_paren()
+    assert col.has_close is False
     assert len(col.elements) == 3
 
 
 def test_collection_elements_mixed_variant_surface():
     branch = calc_native.tokenize_string("[1, +2, 3+4]")
-    col = branch.tokens[0].as_collection()
+    col = branch.tokens[0].as_paren()
     assert len(col.elements) == 3
     # element 0: single NumberToken Token instance
     assert isinstance(col.elements[0], calc_native.Token)
@@ -53,7 +55,7 @@ def test_collection_elements_mixed_variant_surface():
 
 def test_collection_rows_uniform_list_of_lists():
     branch = calc_native.tokenize_string("[1, +2, 3+4]")
-    col = branch.tokens[0].as_collection()
+    col = branch.tokens[0].as_paren()
     rows = col.rows()
     assert isinstance(rows, list)
     assert len(rows) == 3

@@ -15,7 +15,6 @@
 #include <variant>
 #include <vector>
 
-#include "parser/pub/parser.hpp"
 #include "types.hpp"
 
 namespace tcalc {
@@ -30,11 +29,13 @@ using CollectionItem = std::variant<
     BigComplex,
     std::shared_ptr<const Collection>>;
 
+enum class CollectionKind : std::uint8_t { List, Point };
+
 struct Collection {
-    parser::CollectionKind kind;
+    CollectionKind kind;
     std::vector<CollectionItem> items;
 
-    Collection(parser::CollectionKind k, std::vector<CollectionItem> its);
+    Collection(CollectionKind k, std::vector<CollectionItem> its);
 
     bool operator==(const Collection &) const = default;
 };

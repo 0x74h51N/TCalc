@@ -55,8 +55,8 @@ def _coerce_token(tok: str | int | float) -> CalcValue:
 def _eval_element(element, calculator: Calculator) -> CalcValue:
     """Element (arm 0 Token OR arm 1 list[Token]) -> CalcValue.
 
-    Fast-paths arm 0 NumberToken (direct _coerce_token) and arm 0 CollectionToken
-    (direct _eval_collection_token recursion) to skip wrapping + shunting_yard +
+    Fast-paths arm 0 NumberToken (direct _coerce_token) and arm 0 ParenToken
+    (direct _eval_paren_token recursion) to skip wrapping + shunting_yard +
     evaluate_rpn unnecessarily. Latex and multi-token arm 1 paths go through
     evaluate_rpn so TokenKind dispatch stays single-sourced there.
     """
@@ -64,8 +64,8 @@ def _eval_element(element, calculator: Calculator) -> CalcValue:
         kind = element.kind
         if kind == calc_native.TokenKind.Number:
             return _coerce_token(element.data.value)
-        if kind == calc_native.TokenKind.Collection:
-            return _eval_collection_token(element.as_collection(), calculator)
+        if kind == calc_native.TokenKind.Paren:
+            return _eval_paren_token(element.as_paren(), calculator)
         if kind == calc_native.TokenKind.Latex:
             return evaluate_rpn([element], calculator)
         raise_error(ErrorKind.INVALID, f"element kind {kind}")
@@ -75,17 +75,29 @@ def _eval_element(element, calculator: Calculator) -> CalcValue:
     return evaluate_rpn(shunting_yard(list(element)), calculator)
 
 
-def _eval_collection_token(col_tok, calculator: Calculator) -> CalcValue:
-    """CollectionToken -> CalcValue. arity-1 demotes; arity-0 List empty / Point error."""
-    arity = len(col_tok.elements)
+def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
+    """ParenToken -> CalcValue.
+
+    Dispatches per ParenKind: Bracket -> Collection.List, Paren -> Collection.Point,
+    Brace -> grouping (arity-1 only). arity-1 of any kind demotes to inner eval.
+    has_close=False (unclosed) does NOT block eval: an unclosed paren still
+    carries valid content (grouping value, Collection elements). Hot-eval keeps
+    working as the user types. Stray closes (has_open=False) are filtered out
+    by evaluate_rpn before reaching here.
+    """
+    arity = len(par_tok.elements)
+    kind = par_tok.kind
 
     if arity == 1:
-        return _eval_element(col_tok.elements[0], calculator)
+        return _eval_element(par_tok.elements[0], calculator)
+
+    if kind == calc_native.ParenKind.Brace:
+        raise_error(ErrorKind.INVALID, "brace collection type not supported")
 
     if arity == 0:
-        if col_tok.kind == calc_native.CollectionKind.Point:
+        if kind == calc_native.ParenKind.Paren:
             raise_error(ErrorKind.INVALID, "empty Point")
-        return calc_native.Collection(calc_native.CollectionKind.List, [])
+        return calc_native.Collection(calc_native.Collection.Kind.List, [])
 
     # Inline Rational scalarization in the hot loop: Collection storage has no
     # Rational arm. Int Rationals collapse to int, fractional Rationals become double.
@@ -93,13 +105,18 @@ def _eval_collection_token(col_tok, calculator: Calculator) -> CalcValue:
     # TODO: Fix Calculator (int, int) returning Rational(n, 1) instead of int
     Rational = calc_native.Rational
     items = []
-    for e in col_tok.elements:
+    for e in par_tok.elements:
         v = _eval_element(e, calculator)
         if isinstance(v, Rational):
             v = v.numerator if v.denominator == 1 else v.to_double()
         items.append(v)
+    coll_kind = (
+        calc_native.Collection.Kind.List
+        if kind == calc_native.ParenKind.Bracket
+        else calc_native.Collection.Kind.Point
+    )
     try:
-        return calc_native.Collection(col_tok.kind, items)
+        return calc_native.Collection(coll_kind, items)
     except ValueError as e:
         raise_error(ErrorKind.INVALID, str(e))
 
@@ -110,10 +127,6 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
     for tok in rpn_tokens:
         if is_number_token(tok):
             operand_stack.append(_coerce_token(tok.data.value))
-            continue
-
-        # Stray parens left by shunting_yard (unclosed groups) -> skip at
-        if tok.kind == calc_native.TokenKind.Paren:
             continue
 
         if tok.kind == calc_native.TokenKind.Latex:
@@ -142,8 +155,13 @@ def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator
             except Exception as e:
                 raise_error(ErrorKind.INVALID, f"Parse expression token error: {e}")
 
-        if tok.kind == calc_native.TokenKind.Collection:
-            operand_stack.append(_eval_collection_token(tok.as_collection(), calculator))
+        if tok.kind == calc_native.TokenKind.Paren:
+            par = tok.as_paren()
+            # Stray close (orphan ')' / ']' / '}' from a segment boundary): no
+            # value to contribute, leave the operand stack untouched.
+            if not par.has_open:
+                continue
+            operand_stack.append(_eval_paren_token(par, calculator))
             continue
 
         if tok.kind == calc_native.TokenKind.Op:

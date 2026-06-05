@@ -17,11 +17,11 @@ def _eval(expr: str):
 
 
 def _list(items):
-    return calc_native.Collection(calc_native.CollectionKind.List, items)
+    return calc_native.Collection(calc_native.Collection.Kind.List, items)
 
 
 def _point(items):
-    return calc_native.Collection(calc_native.CollectionKind.Point, items)
+    return calc_native.Collection(calc_native.Collection.Kind.Point, items)
 
 
 def test_eval_bare_number_list():
@@ -75,6 +75,37 @@ def test_eval_list_with_expression_element():
     assert _eval("[1+2, 3*4]") == _list([3, 12])
 
 
+# Hot-eval continues to work while the user is typing — an unclosed paren of
+# any kind keeps producing a value (grouping result, Collection, etc.).
+
+
+def test_eval_unclosed_paren_grouping():
+    # "(2+3" still evaluates as 5; missing close does not block eval.
+    out = _eval("(2+3")
+    assert isinstance(out, calc_native.Rational)
+    assert (out.numerator, out.denominator) == (5, 1)
+
+
+def test_eval_unclosed_bracket_list():
+    # "[1,2,3" still builds a 3-element List.
+    assert _eval("[1,2,3") == _list([1, 2, 3])
+
+
+def test_eval_unclosed_brace_grouping():
+    # "{2+3" — Brace is grouping; arity-1 still evaluates.
+    out = _eval("{2+3")
+    assert isinstance(out, calc_native.Rational)
+    assert (out.numerator, out.denominator) == (5, 1)
+
+
+def test_eval_stray_close_skipped():
+    # Stray ')' in mid-expression is a no-op orphan from segment editing;
+    # the surrounding expression still evaluates.
+    out = _eval("1+2)")
+    assert isinstance(out, calc_native.Rational)
+    assert (out.numerator, out.denominator) == (3, 1)
+
+
 def test_eval_nested_list_error():
     with pytest.raises(Error):
         _eval("[[1,2], 3]")
@@ -86,7 +117,7 @@ def test_eval_list_of_points_ok():
     expected = _list([_point([1, 2]), _point([3, 4])])
     result = _eval("[(1,2), (3,4)]")
     assert isinstance(result, calc_native.Collection)
-    assert result.kind == calc_native.CollectionKind.List
+    assert result.kind == calc_native.Collection.Kind.List
     assert len(result) == 2
     assert result[0] == _point([1, 2])
     assert result[1] == _point([3, 4])

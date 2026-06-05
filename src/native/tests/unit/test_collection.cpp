@@ -14,7 +14,7 @@
 #include <vector>
 
 void unit_collection(TestContext &ctx) {
-    using K = tcalc::parser::CollectionKind;
+    using K = tcalc::CollectionKind;
 
     test_detail::with_case(ctx, "collection :: list of scalars constructs", [&] {
         tcalc::Collection c{K::List, {1.0, 2.0}};

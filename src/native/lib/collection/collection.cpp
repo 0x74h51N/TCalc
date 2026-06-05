@@ -174,10 +174,10 @@ void promote_item(CollectionItem &it, ScalarArm target) {
         it);
 }
 
-Collection::Collection(parser::CollectionKind k, std::vector<CollectionItem> its)
+Collection::Collection(CollectionKind k, std::vector<CollectionItem> its)
     : kind(k)
     , items(std::move(its)) {
-    if (kind == parser::CollectionKind::Point) {
+    if (kind == CollectionKind::Point) {
         if (items.empty()) {
             throw std::invalid_argument("empty Point not supported");
         }
@@ -208,7 +208,7 @@ Collection::Collection(parser::CollectionKind k, std::vector<CollectionItem> its
             bool first = true;
             for (const auto &it : items) {
                 const auto &inner = as_collection(it);
-                if (inner.kind != parser::CollectionKind::Point) {
+                if (inner.kind != CollectionKind::Point) {
                     throw std::invalid_argument("nested List not allowed");
                 }
                 if (first) {

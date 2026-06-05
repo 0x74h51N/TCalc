@@ -12,15 +12,13 @@ namespace o = tcalc::ops;
 namespace d = p::detail;
 
 using o::OpId;
-using p::CollectionKind;
-using p::CollectionToken;
 using p::LatexKind;
 using p::LatexToken;
 using p::NumberToken;
 using p::OpToken;
+using p::ParenElement;
 using p::ParenKind;
 using p::ParenToken;
-using p::ParenType;
 using p::StructuralSplit;
 using p::Token;
 using p::TokenKind;
@@ -47,17 +45,20 @@ struct ScanExpected {
     std::size_t next;
 };
 
-/// structural_split expected output: the split variant kind plus the four
-/// token spans (prefix/left/right/suffix) and paren/latex metadata.
+/// structural_split expected output: discriminator + per-variant fields.
+/// Paren: kind + has_open + has_close + elements (flat vec<vec<Token>>) + prefix/suffix.
+/// Latex: latex_kind + left + right + prefix/suffix.
 struct SplitExpected {
     enum class Kind { None, Paren, Latex };
     Kind kind = Kind::None;
     std::vector<Token> prefix;
     std::vector<Token> left;
     std::vector<Token> right;
+    ParenKind paren_kind{};
+    bool has_open = true;
+    bool has_close = true;
+    std::vector<std::vector<Token>> elements;
     std::vector<Token> suffix;
-    ParenToken open_tok{};
-    std::optional<ParenToken> close_tok{};
     p::LatexKind latex_kind{};
 };
 
@@ -72,15 +73,11 @@ using ShuntCase = Case<std::vector<Token>, std::vector<Token>>;
 /// Case row for structural_split: classified TokensBranch -> SplitExpected.
 using SplitCase = Case<TokensBranch, SplitExpected>;
 
-/// classify_tokens expected output: re-derived index vectors plus pair_idx
-/// values for every paren token (open and close) we want to assert on.
+/// classify_tokens expected output: re-derived index vectors + has_latex_descendant.
 struct ClassifyExpected {
     std::vector<p::TokenIndex> latex_indices;
-    std::vector<p::TokenIndex> open_paren_indices;
-    std::vector<p::TokenIndex> close_paren_indices;
-    /// Each entry: (token index in `input`, expected pair_idx). Use kNoMatch
-    /// for unmatched parens. List both endpoints of a matched pair.
-    std::vector<std::pair<p::TokenIndex, p::TokenIndex>> pairs;
+    std::vector<p::TokenIndex> paren_indices;
+    bool has_latex_descendant = false;
 };
 
 /// Case row for classify_tokens: raw token list -> ClassifyExpected.
@@ -97,25 +94,6 @@ struct PositionExpected {
 /// Case row for tokenize position tests: source string -> PositionExpected.
 using PositionCase = Case<const char *, PositionExpected>;
 
-/// match_parens expected output: tokenize result token count plus the
-/// (token_idx, expected pair_idx) checks. Use kNoMatch for unmatched.
-struct MatchParensExpected {
-    std::size_t token_count;
-    std::vector<std::pair<p::TokenIndex, p::TokenIndex>> pairs;
-};
-
-/// Case row for match_parens (via tokenize): source string -> MatchParensExpected.
-using MatchParensCase = Case<const char *, MatchParensExpected>;
-
-/// Open round-paren ParenToken constant.
-inline constexpr ParenToken kPOP{ParenType::Open, ParenKind::Paren};
-/// Close round-paren ParenToken constant.
-inline constexpr ParenToken kPCL{ParenType::Close, ParenKind::Paren};
-/// Open round-paren Token constant (wraps kPOP).
-inline const Token kOPN{TokenKind::Paren, kPOP};
-/// Close round-paren Token constant (wraps kPCL).
-inline const Token kCPN{TokenKind::Paren, kPCL};
-
 // Token factories. start/end default to 0
 // pass them only when the test actually checks span info
 
@@ -127,13 +105,95 @@ inline Token N(const char *value, std::size_t start = 0, std::size_t end = 0) {
 inline Token Op_(OpId id, std::size_t start = 0, std::size_t end = 0) {
     return Token{TokenKind::Op, OpToken{id}, start, end};
 }
-/// Token factory: open ParenToken of the given kind (Paren/Brace/Bracket).
-inline Token OpenP(ParenKind kind = ParenKind::Paren, std::size_t start = 0, std::size_t end = 0) {
-    return Token{TokenKind::Paren, ParenToken{ParenType::Open, kind}, start, end};
+
+/// EN: single-Token element (variant arm 0). Bare-number shortcut.
+inline ParenElement EN(std::string value) {
+    return ParenElement{Token{TokenKind::Number, NumberToken{std::move(value)}}};
 }
-/// Token factory: close ParenToken of the given kind (Paren/Brace/Bracket).
-inline Token CloseP(ParenKind kind = ParenKind::Paren, std::size_t start = 0, std::size_t end = 0) {
-    return Token{TokenKind::Paren, ParenToken{ParenType::Close, kind}, start, end};
+/// EV: multi-Token element (variant arm 1). Used for expressions, postfix, unary signs.
+/// Note: under canonicalization, a single-Token tokenize result lands in arm 0;
+/// using EV({SingleToken}) where tokenize would canonicalize to arm 0 mismatches.
+inline ParenElement EV(std::vector<Token> toks) {
+    return toks;
+}
+
+/// Token factory: unified ParenToken (open + elements + close, has_latex_descendant=auto).
+/// Auto-computes has_latex_descendant by scanning elements for LatexToken or nested
+/// ParenToken with has_latex_descendant=true. Matches the propagation that
+/// build_paren_token performs at tokenize time.
+inline Token
+Pr(ParenKind kind,
+   std::vector<ParenElement> elements,
+   bool has_open = true,
+   bool has_close = true,
+   std::size_t start = 0,
+   std::size_t end = 0) {
+    bool has_latex_descendant = false;
+    auto contains_latex = [](const std::vector<Token> &toks) -> bool {
+        for (const auto &t : toks) {
+            if (t.kind == TokenKind::Latex) {
+                return true;
+            }
+            if (t.kind == TokenKind::Paren) {
+                const auto &pt = std::get<ParenToken>(t.data);
+                if (pt.has_latex_descendant)
+                    return true;
+            }
+        }
+        return false;
+    };
+    for (const auto &e : elements) {
+        if (e.index() == 0) {
+            const auto &t = std::get<Token>(e);
+            if (t.kind == TokenKind::Latex) {
+                has_latex_descendant = true;
+                break;
+            }
+            if (t.kind == TokenKind::Paren) {
+                const auto &pt = std::get<ParenToken>(t.data);
+                if (pt.has_latex_descendant) {
+                    has_latex_descendant = true;
+                    break;
+                }
+            }
+        } else {
+            if (contains_latex(std::get<std::vector<Token>>(e))) {
+                has_latex_descendant = true;
+                break;
+            }
+        }
+    }
+    return Token{
+        TokenKind::Paren,
+        ParenToken{kind, std::move(elements), has_open, has_close, has_latex_descendant},
+        start,
+        end};
+}
+
+/// Shorthand: round Paren wrapper, closed.
+inline Token Pp(std::vector<ParenElement> elements, bool has_close = true) {
+    return Pr(ParenKind::Paren, std::move(elements), true, has_close);
+}
+/// Shorthand: square Bracket wrapper, closed.
+inline Token Br(std::vector<ParenElement> elements, bool has_close = true) {
+    return Pr(ParenKind::Bracket, std::move(elements), true, has_close);
+}
+/// Shorthand: curly Brace wrapper, closed.
+inline Token Bc(std::vector<ParenElement> elements, bool has_close = true) {
+    return Pr(ParenKind::Brace, std::move(elements), true, has_close);
+}
+/// Shorthand: stray close ParenToken (no open, has_close=true, empty elements).
+inline Token StrayC(ParenKind kind) {
+    return Token{
+        TokenKind::Paren,
+        ParenToken{
+            kind,
+            /*elements=*/{},
+            /*has_open=*/false,
+            /*has_close=*/true,
+            /*has_latex_descendant=*/false},
+        0,
+        0};
 }
 /// Token factory: LatexToken of arbitrary kind/op with explicit left/right token rows.
 inline Token
@@ -170,43 +230,6 @@ inline Token Root(
     std::size_t start = 0,
     std::size_t end = 0) {
     return Lx(p::LatexKind::Root, OpId::Root, std::move(degree), std::move(radicand), start, end);
-}
-
-/// EN: single-Token element (variant arm 0). Bare-number shortcut.
-inline p::CollectionElement EN(std::string value) {
-    return p::CollectionElement{Token{TokenKind::Number, p::NumberToken{std::move(value)}}};
-}
-/// EV: multi-Token element (variant arm 1). Used for expressions, postfix, unary signs.
-/// Note: under canonicalization, a single-Token tokenize result lands in arm 0; using
-/// EV({SingleToken}) for a slice that tokenize would canonicalize to arm 0 mismatches.
-inline p::CollectionElement EV(std::vector<Token> toks) {
-    return toks;
-}
-
-/// Token factory: CollectionToken{List, elements, closed}.
-inline Token
-Lst(std::vector<p::CollectionElement> elements,
-    bool closed = true,
-    std::size_t start = 0,
-    std::size_t end = 0) {
-    return Token{
-        TokenKind::Collection,
-        p::CollectionToken{p::CollectionKind::List, std::move(elements), closed},
-        start,
-        end};
-}
-
-/// Token factory: CollectionToken{Point, elements, closed}.
-inline Token
-Pt(std::vector<p::CollectionElement> elements,
-   bool closed = true,
-   std::size_t start = 0,
-   std::size_t end = 0) {
-    return Token{
-        TokenKind::Collection,
-        p::CollectionToken{p::CollectionKind::Point, std::move(elements), closed},
-        start,
-        end};
 }
 
 /// Shorthand for tcalc::parser::ParenKind.
@@ -265,7 +288,7 @@ void unit_parser(TestContext &ctx) {
 
         {.id = "func parens imag",
          .input = "sin(2i)",
-         .expected = {Op_(OpId::Sin, 0, 3), Pt({EN("2i")})}},
+         .expected = {Op_(OpId::Sin, 0, 3), Pp({EN("2i")})}},
 
         {.id = "spacing and unicode",
          .input = "-2 ³√( 3 ( π ",
@@ -273,7 +296,7 @@ void unit_parser(TestContext &ctx) {
              {Op_(OpId::Negate, 0, 1),
               N("2", 1, 2),
               Op_(OpId::Cbrt, 3, 4),
-              Pt({EV({N("3"), Pt({EN("π")}, false)})}, false)}},
+              Pp({EV({N("3"), Pp({EN("π")}, false)})}, false)}},
 
         {.id = "sci notation imag", .input = "1.2e-3i", .expected = {N("1.2e-3i", 0, 7)}},
 
@@ -283,15 +306,15 @@ void unit_parser(TestContext &ctx) {
 
         {.id = "negate in parens",
          .input = "(-2)",
-         .expected = {Pt({EV({Op_(OpId::Negate), N("2")})})}},
+         .expected = {Pp({EV({Op_(OpId::Negate), N("2")})})}},
 
         {.id = "asinh parens",
          .input = "asinh(2)",
-         .expected = {Op_(OpId::Asinh, 0, 5), Pt({EN("2")})}},
+         .expected = {Op_(OpId::Asinh, 0, 5), Pp({EN("2")})}},
 
         {.id = "sqrt parens",
          .input = "sqrt(2)",
-         .expected = {Op_(OpId::Sqrt, 0, 4), Pt({EN("2")})}},
+         .expected = {Op_(OpId::Sqrt, 0, 4), Pp({EN("2")})}},
 
         {.id = "postfix unicode", .input = "2³", .expected = {N("2", 0, 1), Op_(OpId::Cube, 1, 2)}},
 
@@ -299,29 +322,29 @@ void unit_parser(TestContext &ctx) {
 
         {.id = "curly braces",
          .input = "{1+2}",
-         .expected =
-             {OpenP(ParenKind::Brace, 0, 1),
-              N("1", 1, 2),
-              Op_(OpId::Add, 2, 3),
-              N("2", 3, 4),
-              CloseP(ParenKind::Brace, 4, 5)}},
+         .expected = {Pr(
+             ParenKind::Brace,
+             {EV({N("1", 1, 2), Op_(OpId::Add, 2, 3), N("2", 3, 4)})},
+             /*has_open=*/true,
+             /*has_close=*/true,
+             0,
+             5)}},
 
         {.id = "square brackets",
          .input = "[3+4]",
-         .expected = {Lst({EV({N("3"), Op_(OpId::Add), N("4")})})}},
+         .expected = {Br({EV({N("3"), Op_(OpId::Add), N("4")})})}},
 
-        {.id = "mixed paren kinds",
-         .input = "({[1]})",
-         .expected = {Pt(
-             {EV({OpenP(ParenKind::Brace), Lst({EN("1")}), CloseP(ParenKind::Brace)})})}},
+        {.id = "mixed paren kinds", .input = "({[1]})", .expected = {Pp({Bc({Br({EN("1")})})})}},
 
         {.id = "negate inside curly",
          .input = "{-2}",
-         .expected =
-             {OpenP(ParenKind::Brace, 0, 1),
-              Op_(OpId::Negate, 1, 2),
-              N("2", 2, 3),
-              CloseP(ParenKind::Brace, 3, 4)}},
+         .expected = {Pr(
+             ParenKind::Brace,
+             {EV({Op_(OpId::Negate, 1, 2), N("2", 2, 3)})},
+             /*has_open=*/true,
+             /*has_close=*/true,
+             0,
+             4)}},
 
         // == LatexToken (LaTeX) ========================================
 
@@ -366,110 +389,119 @@ void unit_parser(TestContext &ctx) {
 
         {.id = "user brace inside frac numerator",
          .input = "\\frac{{1+2}}{3}",
-         .expected = {Frac(
-             {OpenP(ParenKind::Brace), N("1"), Op_(OpId::Add), N("2"), CloseP(ParenKind::Brace)},
-             {N("3")},
-             0,
-             15)}},
+         .expected = {Frac({Bc({EV({N("1"), Op_(OpId::Add), N("2")})})}, {N("3")}, 0, 15)}},
 
         {.id = "user brace around frac",
          .input = "{\\frac{1}{2}}",
-         .expected =
-             {OpenP(ParenKind::Brace, 0, 1),
-              Frac({N("1")}, {N("2")}, 1, 12),
-              CloseP(ParenKind::Brace, 12, 13)}},
+         .expected = {Pr(
+             ParenKind::Brace,
+             {Frac({N("1")}, {N("2")}, 1, 12)},
+             /*has_open=*/true,
+             /*has_close=*/true,
+             0,
+             13)}},
 
         {.id = "complex nested: frac with user brace and inner pow",
          .input = "\\frac{{\\pow{4}{2}}}{3}",
-         .expected = {Frac(
-             {OpenP(ParenKind::Brace), Pow({N("4")}, {N("2")}), CloseP(ParenKind::Brace)},
-             {N("3")},
-             0,
-             22)}},
+         .expected = {Frac({Bc({Pow({N("4")}, {N("2")})})}, {N("3")}, 0, 22)}},
 
         {.id = "curly brace then number plain",
          .input = "2{3+4}+5",
          .expected =
              {N("2", 0, 1),
-              OpenP(ParenKind::Brace, 1, 2),
-              N("3", 2, 3),
-              Op_(OpId::Add, 3, 4),
-              N("4", 4, 5),
-              CloseP(ParenKind::Brace, 5, 6),
+              Pr(ParenKind::Brace,
+                 {EV({N("3", 2, 3), Op_(OpId::Add, 3, 4), N("4", 4, 5)})},
+                 /*has_open=*/true,
+                 /*has_close=*/true,
+                 1,
+                 6),
               Op_(OpId::Add, 6, 7),
               N("5", 7, 8)}},
 
-        {"paren_grouping_is_point_arity1", "(1+2)", {Pt({EV({N("1"), Op_(OpId::Add), N("2")})})}},
+        {"paren_grouping_is_point_arity1", "(1+2)", {Pp({EV({N("1"), Op_(OpId::Add), N("2")})})}},
 
         // -----------------------------------------------------------------
-        // Collection tokenization
+        // Paren collection tokenization (lists, points)
         // -----------------------------------------------------------------
 
         // List: top-level comma in `[...]`
         {.id = "collection :: list 3 nums",
          .input = "[1, 2, 3]",
-         .expected = {Lst({EN("1"), EN("2"), EN("3")})}},
+         .expected = {Br({EN("1"), EN("2"), EN("3")})}},
 
-        {"collection :: list trailing comma kept", "[1,]", {Lst({EN("1"), EV({})})}},
+        {"collection :: list trailing comma kept", "[1,]", {Br({EN("1"), EV({})})}},
 
         {"collection :: list unclosed full",
          "[1, 2, 3",
-         {Lst({EN("1"), EN("2"), EN("3")}, /*closed=*/false)}},
+         {Br({EN("1"), EN("2"), EN("3")}, /*closed=*/false)}},
 
         {"collection :: list unclosed trailing comma",
          "[1, 2, ",
-         {Lst({EN("1"), EN("2"), EV({})}, false)}},
+         {Br({EN("1"), EN("2"), EV({})}, false)}},
 
         {"collection :: list with expression element",
          "[2+3, 4*5]",
-         {Lst({EV({N("2"), Op_(OpId::Add), N("3")}), EV({N("4"), Op_(OpId::Mul), N("5")})})}},
+         {Br({EV({N("2"), Op_(OpId::Add), N("3")}), EV({N("4"), Op_(OpId::Mul), N("5")})})}},
 
         {"collection :: list with latex element",
          "[\\frac{1}{2}, 3]",
-         {Lst({Frac({N("1")}, {N("2")}), EN("3")})}},
+         {Br({Frac({N("1")}, {N("2")}), EN("3")})}},
 
         {"collection :: list with scalar suffix",
          "[2,5] + 4",
-         {Lst({EN("2"), EN("5")}), Op_(OpId::Add), N("4")}},
+         {Br({EN("2"), EN("5")}), Op_(OpId::Add), N("4")}},
 
         // List(1) promotion: `[X]` with no comma, X reduces to a NumberToken
         // after stripping leading unary +/-.
-        {"collection :: list of single number", "[2]", {Lst({EN("2")})}},
+        {"collection :: list of single number", "[2]", {Br({EN("2")})}},
 
-        {"collection :: list of negated number", "[-5]", {Lst({EV({Op_(OpId::Negate), N("5")})})}},
+        {"collection :: list of negated number", "[-5]", {Br({EV({Op_(OpId::Negate), N("5")})})}},
 
         {"collection :: list of unary-plus number",
          "[+3]",
-         {Lst({EV({Op_(OpId::UnaryPlus), N("3")})})}},
+         {Br({EV({Op_(OpId::UnaryPlus), N("3")})})}},
 
         // `[X]` single-element list cases (no fall-through under unconditional model).
         {"collection :: list with expression single element",
          "[2+3]",
-         {Lst({EV({N("2"), Op_(OpId::Add), N("3")})})}},
+         {Br({EV({N("2"), Op_(OpId::Add), N("3")})})}},
 
         {"collection :: list with latex single element",
          "[\\frac{1}{2}]",
-         {Lst({Frac({N("1")}, {N("2")})})}},
+         {Br({Frac({N("1")}, {N("2")})})}},
 
         {"collection :: list with point arity-1 element",
          "[(1+2)]",
-         {Lst({Pt({EV({N("1"), Op_(OpId::Add), N("2")})})})}},
+         {Br({Pp({EV({N("1"), Op_(OpId::Add), N("2")})})})}},
 
-        {.id = "collection :: empty list", .input = "[]", .expected = {Lst({})}},
+        {.id = "collection :: empty list", .input = "[]", .expected = {Br({})}},
+
+        // Empty paren / brace — symmetric to empty list.
+        {.id = "collection :: empty paren", .input = "()", .expected = {Pp({})}},
+
+        {.id = "collection :: empty brace", .input = "{}", .expected = {Bc({})}},
+
+        // Kind-strict mismatch: ']' doesn't match '(' so scan stops; outer Paren
+        // is unclosed and ']' surfaces as stray close at top level.
+        {.id = "mismatched close kind: ( ... ]",
+         .input = "(2+4]",
+         .expected =
+             {Pp({EV({N("2"), Op_(OpId::Add), N("4")})}, /*has_close=*/false),
+              StrayC(ParenKind::Bracket)}},
 
         // Point: `(X, Y, ...)` with top-level comma.
-        {"collection :: point arity 2", "(1, 2)", {Pt({EN("1"), EN("2")})}},
+        {"collection :: point arity 2", "(1, 2)", {Pp({EN("1"), EN("2")})}},
 
-        {"collection :: point arity 3", "(1, 2, 3)", {Pt({EN("1"), EN("2"), EN("3")})}},
+        {"collection :: point arity 3", "(1, 2, 3)", {Pp({EN("1"), EN("2"), EN("3")})}},
 
-        {"collection :: point unclosed", "(1, 2", {Pt({EN("1"), EN("2")}, false)}},
+        {"collection :: point unclosed", "(1, 2", {Pp({EN("1"), EN("2")}, false)}},
 
-        {"collection :: point arity 1 closed (eval rejects)", "(1,)", {Pt({EN("1"), EV({})})}},
+        {"collection :: point arity 1 closed (eval rejects)", "(1,)", {Pp({EN("1"), EV({})})}},
 
         // Paren grouping unchanged: `(X)` no comma stays as paren tokens.
         {"collection :: nested point in list",
          "[(1, 2), (3, 4)]",
-         {Lst({Pt({EN("1"), EN("2")}), Pt({EN("3"), EN("4")})})}},
+         {Br({Pp({EN("1"), EN("2")}), Pp({EN("3"), EN("4")})})}},
 
         /// TODO: Add more latex and paren tokenize edge cases
     };
@@ -515,9 +547,9 @@ void unit_parser(TestContext &ctx) {
          .expected = {N("1"), Op_(OpId::Add), Op_(OpId::Negate), N("2")}},
 
         // Implicit multiplications
-        {.id = "implicit mul before lparen",
-         .input = {N("2"), kOPN, N("3")},
-         .expected = {N("2"), Op_(OpId::Mul), kOPN, N("3")}},
+        {.id = "implicit mul before paren",
+         .input = {N("2"), Pp({EN("3")})},
+         .expected = {N("2"), Op_(OpId::Mul), Pp({EN("3")})}},
 
         {.id = "implicit mul after postfix",
          .input = {N("3"), Op_(OpId::Fact), N("2")},
@@ -627,22 +659,19 @@ void unit_parser(TestContext &ctx) {
                  Op_(OpId::Sin),
              }},
 
-        {.id = "implicit mul after rparen",
+        {.id = "implicit mul after paren",
+         // Under unified ParenToken model, shunting_yard treats ParenToken as a
+         // single opaque operand (push to output). Implicit Mul is inserted by
+         // normalize between operand-ending N(2) and operand-starting paren.
          .input =
              {
                  N("2"),
-                 kOPN,
-                 N("3"),
-                 Op_(OpId::Add),
-                 N("4"),
-                 kCPN,
+                 Pp({EV({N("3"), Op_(OpId::Add), N("4")})}),
              },
          .expected =
              {
                  N("2"),
-                 N("3"),
-                 N("4"),
-                 Op_(OpId::Add),
+                 Pp({EV({N("3"), Op_(OpId::Add), N("4")})}),
                  Op_(OpId::Mul),
              }},
 
@@ -728,55 +757,194 @@ void unit_parser(TestContext &ctx) {
     }
 
     // =========================================================================
-    // match_parens
+    // match_parens (structural shape under unified Paren model)
     // =========================================================================
-    const auto pair_of = [](const std::vector<Token> &toks, std::size_t idx) -> std::size_t {
-        return std::get<ParenToken>(toks[idx].data).pair_idx;
-    };
-
     {
-        // Under the unconditional Collection model, `(` and `[` no longer
-        // produce ParenTokens — they emit a single CollectionToken. ParenTokens
-        // only remain for `{`/`}` and stray closes. These cases assert the
-        // new top-level token shapes; brace pairings still go through
-        // pair_idx, stray closes still get kNoMatch.
+        // Under the unified Paren model paren matching is implicit in the
+        // kapsayıcı structure (no per-character pairing index). A matched group
+        // becomes a single
+        // ParenToken {kind, elements, has_open=true, has_close=true}; an unclosed
+        // open keeps has_close=false; a stray close becomes a standalone
+        // ParenToken with has_open=false and empty elements.
+        //
+        // ParenCheck: descriptor for one ParenToken reached via a path from the
+        // top-level result.tokens vector. path = {top_idx, elem_idx, [token_idx_in_EV],
+        // elem_idx, ...}. Even-indexed steps index ParenToken.elements; the step
+        // after a multi-token EV element selects which Token inside the vector.
+        // For arm 0 (single-Token element) the path skips straight to the next
+        // elements layer (so {0, 0, 0} means "outer.elements[0] as Token (arm 0),
+        // then that Token is a ParenToken whose elements[0]..."). The runner walks
+        // the path step-by-step; see below.
+        struct ParenCheck {
+            std::vector<std::size_t> path;
+            ParenKind kind{};
+            bool has_open = true;
+            bool has_close = true;
+        };
+        struct MatchParensExpected {
+            std::size_t top_level_token_count = 0;
+            std::vector<p::TokenIndex> paren_indices{};
+            std::vector<ParenCheck> paren_checks{};
+        };
+        // Inline case struct: local scope sees both global ::Case (from
+        // test_helpers.hpp) and the anonymous-namespace Case in this file,
+        // making `Case<...>` ambiguous. Skip the template alias.
+        struct MatchParensCase {
+            const char *id;
+            const char *input;
+            MatchParensExpected expected;
+        };
+
         const std::vector<MatchParensCase> match_parens_cases = {
-            {.id = "simple parens become single Point",
-             // (1+2) -> Pt({...})   one token, no Paren pairings
+            // (1+2) -> single matched Paren wrapping EV({N,Op,N}).
+            {.id = "simple parens become single Paren",
              .input = "(1+2)",
-             .expected = {.token_count = 1}},
+             .expected =
+                 {.top_level_token_count = 1,
+                  .paren_indices = {0},
+                  .paren_checks =
+                      {{.path = {0}, .kind = PK::Paren, .has_open = true, .has_close = true}}}},
 
-            {.id = "nested same kind become single Point",
-             // ((1)) -> Pt({Pt({N(1)})})   one token
+            // ((1)) -> outer Paren with one element (arm 0 single Token = inner Paren).
+            {.id = "nested same kind: outer+inner matched",
              .input = "((1))",
-             .expected = {.token_count = 1}},
+             .expected =
+                 {.top_level_token_count = 1,
+                  .paren_indices = {0},
+                  .paren_checks =
+                      {{.path = {0}, .kind = PK::Paren, .has_open = true, .has_close = true},
+                       // outer.elements[0] is arm 0 Token = inner Paren.
+                       {.path = {0, 0}, .kind = PK::Paren, .has_open = true, .has_close = true}}}},
 
-            {.id = "mixed kinds nested become single Point",
-             // ({[1]}) -> Pt({...inner brace+list+brace...})   one token
+            // ({[1]}) -> Paren( Brace( Bracket( N(1) ) ) ); all matched.
+            {.id = "mixed kinds nested all matched",
              .input = "({[1]})",
-             .expected = {.token_count = 1}},
+             .expected =
+                 {.top_level_token_count = 1,
+                  .paren_indices = {0},
+                  .paren_checks =
+                      {{.path = {0}, .kind = PK::Paren, .has_open = true, .has_close = true},
+                       {.path = {0, 0}, .kind = PK::Brace, .has_open = true, .has_close = true},
+                       {.path = {0, 0, 0},
+                        .kind = PK::Bracket,
+                        .has_open = true,
+                        .has_close = true}}}},
 
-            {.id = "sequential groups Point Op Point",
-             // (1)+(2) -> Pt, Op, Pt   three tokens
+            // (1)+(2) -> Pp, Op, Pp. paren_indices = {0, 2}.
+            {.id = "sequential groups Pp Op Pp",
              .input = "(1)+(2)",
-             .expected = {.token_count = 3}},
+             .expected =
+                 {.top_level_token_count = 3,
+                  .paren_indices = {0, 2},
+                  .paren_checks =
+                      {{.path = {0}, .kind = PK::Paren, .has_open = true, .has_close = true},
+                       {.path = {2}, .kind = PK::Paren, .has_open = true, .has_close = true}}}},
 
-            {.id = "unmatched open Point unclosed",
-             // (1+2 -> Pt({...}, closed=false)   one token
+            // (1+2 -> single Paren with has_close=false.
+            {.id = "unmatched open Paren unclosed",
              .input = "(1+2",
-             .expected = {.token_count = 1}},
+             .expected =
+                 {.top_level_token_count = 1,
+                  .paren_indices = {0},
+                  .paren_checks =
+                      {{.path = {0}, .kind = PK::Paren, .has_open = true, .has_close = false}}}},
 
-            {.id = "unmatched close stays as Paren",
-             // 1+2) -> N, Op, N, CloseParen   stray close still ParenToken
+            // 1+2) -> N, Op, N, StrayC(Paren). Stray close: has_open=false.
+            {.id = "unmatched close stays as stray Paren",
              .input = "1+2)",
-             .expected = {.token_count = 4, .pairs = {{3, p::kNoMatch}}}},
+             .expected =
+                 {.top_level_token_count = 4,
+                  .paren_indices = {3},
+                  .paren_checks =
+                      {{.path = {3}, .kind = PK::Paren, .has_open = false, .has_close = true}}}},
 
-            {.id = "complex expression becomes single List",
-             // [(34+5)*(4*{3+5})+4] -> Lst({...})   one token
+            // [(34+5)*(4*{3+5})+4] -> single outer Bracket; every nested paren
+            // (Pp1 around 34+5, Pp2 around 4*{3+5}, inner Bc around 3+5) verified
+            // matched at its correct depth via path navigation.
+            {.id = "complex expression nested parens all matched",
              .input = "[(34+5)*(4*{3+5})+4]",
-             .expected = {.token_count = 1}},
+             .expected =
+                 {.top_level_token_count = 1,
+                  .paren_indices = {0},
+                  .paren_checks =
+                      {{.path = {0}, .kind = PK::Bracket, .has_open = true, .has_close = true},
+                       // Pp1: outer.elements[0] (vec)[0]
+                       {.path = {0, 0, 0}, .kind = PK::Paren, .has_open = true, .has_close = true},
+                       // Pp2: outer.elements[0] (vec)[2]
+                       {.path = {0, 0, 2}, .kind = PK::Paren, .has_open = true, .has_close = true},
+                       // Bc inside Pp2: Pp2.elements[0] (vec)[2]
+                       {.path = {0, 0, 2, 0, 2},
+                        .kind = PK::Brace,
+                        .has_open = true,
+                        .has_close = true}}}},
 
-            {.id = "no parens", .input = "1+2", .expected = {.token_count = 3}},
+            // 1+2 -> no parens at all.
+            {.id = "no parens",
+             .input = "1+2",
+             .expected = {.top_level_token_count = 3, .paren_indices = {}}},
+
+            // Deep nested mismatched closure stress:
+            {.id = "deep nested mismatched closure",
+             .input = "[2+(\\frac{2}{3}*{\\frac{4}{5}}-[3+5] +(\\frac{2}{3}) -(4",
+             .expected =
+                 {.top_level_token_count = 1,
+                  .paren_indices = {0},
+                  .paren_checks =
+                      {{.path = {0}, .kind = PK::Bracket, .has_open = true, .has_close = false},
+                       // outer Paren wrapping rest, unclosed at EOF
+                       {.path = {0, 0, 2}, .kind = PK::Paren, .has_open = true, .has_close = false},
+                       // {\pow{4}{5}} closed Brace
+                       {.path = {0, 0, 2, 0, 2},
+                        .kind = PK::Brace,
+                        .has_open = true,
+                        .has_close = true},
+                       // [3+5] closed Bracket
+                       {.path = {0, 0, 2, 0, 4},
+                        .kind = PK::Bracket,
+                        .has_open = true,
+                        .has_close = true},
+                       // (\frac{2}{3}) closed Paren
+                       {.path = {0, 0, 2, 0, 6},
+                        .kind = PK::Paren,
+                        .has_open = true,
+                        .has_close = true},
+                       // (4 unclosed innermost Paren
+                       {.path = {0, 0, 2, 0, 8},
+                        .kind = PK::Paren,
+                        .has_open = true,
+                        .has_close = false}}}},
+        };
+
+        // Walks the path from result.tokens and returns a pointer to the
+        // ParenToken at the leaf, or nullptr if the path is invalid.
+        const auto resolve_paren = [](const std::vector<Token> &tokens,
+                                      const std::vector<std::size_t> &path) -> const ParenToken * {
+            if (path.empty() || path[0] >= tokens.size())
+                return nullptr;
+            const Token *cur = &tokens[path[0]];
+            for (std::size_t step = 1; step < path.size(); ++step) {
+                if (cur->kind != p::TokenKind::Paren)
+                    return nullptr;
+                const auto &pt = std::get<ParenToken>(cur->data);
+                const std::size_t elem_idx = path[step];
+                if (elem_idx >= pt.elements.size())
+                    return nullptr;
+                const auto &elem = pt.elements[elem_idx];
+                if (std::holds_alternative<Token>(elem)) {
+                    cur = &std::get<Token>(elem);
+                } else {
+                    const auto &vec = std::get<std::vector<Token>>(elem);
+                    // For multi-token EV elements, the next step picks an index
+                    // inside the vector; consume one extra path step.
+                    ++step;
+                    if (step >= path.size() || path[step] >= vec.size())
+                        return nullptr;
+                    cur = &vec[path[step]];
+                }
+            }
+            if (cur->kind != p::TokenKind::Paren)
+                return nullptr;
+            return &std::get<ParenToken>(cur->data);
         };
 
         for (const auto &tc : match_parens_cases) {
@@ -784,19 +952,19 @@ void unit_parser(TestContext &ctx) {
                 const auto result = p::tokenize(tc.input);
                 const auto &exp = tc.expected;
 
-                EXPECT_EQ(ctx, result.tokens.size(), exp.token_count);
-                if (result.tokens.size() != exp.token_count)
+                EXPECT_EQ(ctx, result.tokens.size(), exp.top_level_token_count);
+                if (result.tokens.size() != exp.top_level_token_count)
                     return;
-                for (const auto &[idx, expected_pair] : exp.pairs) {
-                    if (idx >= result.tokens.size()) {
-                        EXPECT_TRUE(ctx, false);
+                EXPECT_EQ(ctx, result.paren_indices, exp.paren_indices);
+
+                for (const auto &chk : exp.paren_checks) {
+                    const ParenToken *pt = resolve_paren(result.tokens, chk.path);
+                    EXPECT_TRUE(ctx, pt != nullptr);
+                    if (!pt)
                         continue;
-                    }
-                    if (result.tokens[idx].kind != p::TokenKind::Paren) {
-                        EXPECT_TRUE(ctx, false);
-                        continue;
-                    }
-                    EXPECT_EQ(ctx, pair_of(result.tokens, idx), expected_pair);
+                    EXPECT_EQ(ctx, pt->kind, chk.kind);
+                    EXPECT_EQ(ctx, pt->has_open, chk.has_open);
+                    EXPECT_EQ(ctx, pt->has_close, chk.has_close);
                 }
             });
         }
@@ -819,116 +987,93 @@ void unit_parser(TestContext &ctx) {
              .input = {Frac({N("1")}, {N("2")})},
              .expected = {.latex_indices = {0}}},
 
-            // "(\frac{2}{3})" -> ( frac )   indices: 0 1 2
+            // "(\frac{2}{3})" -> Pp({Frac(...)}); latex lives INSIDE paren so
+            // top-level latex_indices is empty but has_latex_descendant is true.
             {.id = "matched paren wraps frac",
-             .input = {kOPN, Frac({N("2")}, {N("3")}), kCPN},
-             .expected =
-                 {.latex_indices = {1},
-                  .open_paren_indices = {0},
-                  .close_paren_indices = {2},
-                  .pairs = {{0, 2}, {2, 0}}}},
+             .input = {Pp({Frac({N("2")}, {N("3")})})},
+             .expected = {.latex_indices = {}, .paren_indices = {0}, .has_latex_descendant = true}},
 
-            // "(1)+(2)" -> ( 1 ) + ( 2 )   indices: 0 1 2 3 4 5 6
+            // "(1)+(2)" -> Pp({EN("1")}) + Pp({EN("2")})
             {.id = "two sibling paren groups",
-             .input = {kOPN, N("1"), kCPN, Op_(OpId::Add), kOPN, N("2"), kCPN},
+             .input = {Pp({EN("1")}), Op_(OpId::Add), Pp({EN("2")})},
              .expected =
-                 {.open_paren_indices = {0, 4},
-                  .close_paren_indices = {2, 6},
-                  .pairs = {{0, 2}, {2, 0}, {4, 6}, {6, 4}}}},
+                 {.latex_indices = {}, .paren_indices = {0, 2}, .has_latex_descendant = false}},
 
-            // "(1)+\frac{2}{3})" -> ( 1 ) + frac )   indices: 0 1 2 3 4 5
+            // "(1)+\frac{2}{3})" -> Pp({EN("1")}) + Frac(...) StrayC(Paren)
+            // Frac is top-level latex here, plus a trailing stray close paren.
+            // has_latex_descendant tracks nested latex inside parens; the top-level
+            // Frac is in latex_indices, not aggregated into has_latex_descendant.
             {.id = "trailing unmatched close after frac",
-             .input = {kOPN, N("1"), kCPN, Op_(OpId::Add), Frac({N("2")}, {N("3")}), kCPN},
+             .input = {Pp({EN("1")}), Op_(OpId::Add), Frac({N("2")}, {N("3")}), StrayC(PK::Paren)},
              .expected =
-                 {.latex_indices = {4},
-                  .open_paren_indices = {0},
-                  .close_paren_indices = {2, 5},
-                  .pairs = {{0, 2}, {2, 0}, {5, p::kNoMatch}}}},
+                 {.latex_indices = {2}, .paren_indices = {0, 3}, .has_latex_descendant = false}},
 
-            // "{+\frac{2}{3}" -> { + frac   indices: 0 1 2  (no closing })
+            // "{+\frac{2}{3}" -> Bc({EV({UnaryPlus, Frac})}, has_close=false)
+            // Brace owns the +frac as a multi-token element; latex is descendant.
             {.id = "unmatched brace open before frac",
-             .input = {OpenP(PK::Brace), Op_(OpId::UnaryPlus), Frac({N("2")}, {N("3")})},
-             .expected =
-                 {.latex_indices = {2}, .open_paren_indices = {0}, .pairs = {{0, p::kNoMatch}}}},
+             .input = {Bc(
+                 {EV({Op_(OpId::UnaryPlus), Frac({N("2")}, {N("3")})})},
+                 /*has_close=*/false)},
+             .expected = {.latex_indices = {}, .paren_indices = {0}, .has_latex_descendant = true}},
 
-            // "{\frac{2}{3})" -> { frac )   indices: 0 1 2  (kinds don't match)
+            // "{\frac{2}{3})" -> Bc({Frac(...)}, has_close=false) then StrayC(Paren)
+            // The kinds-don't-match scenario: unclosed brace followed by stray
+            // round close. Frac sits inside the brace as descendant.
             {.id = "mixed kinds neither matches",
-             .input = {OpenP(PK::Brace), Frac({N("2")}, {N("3")}), kCPN},
+             .input = {Bc({Frac({N("2")}, {N("3")})}, /*has_close=*/false), StrayC(PK::Paren)},
              .expected =
-                 {.latex_indices = {1},
-                  .open_paren_indices = {0},
-                  .close_paren_indices = {2},
-                  .pairs = {{0, p::kNoMatch}, {2, p::kNoMatch}}}},
+                 {.latex_indices = {}, .paren_indices = {0, 1}, .has_latex_descendant = true}},
 
-            // "(1)+{2+[\pow{2}{3}]+4}"
-            // -> ( 1 ) + { 2 + [ pow ] + 4 }
-            //    0 1 2 3 4 5 6 7 8   9 10 11 12
+            // "(1)+{2+[\pow{2}{3}]+4}" -> Pp({EN("1")}) + Bc({EV({2 + Br({Pow}) + 4})})
+            // Three top-level tokens: paren, op, brace. Brace contains a bracket
+            // with a Pow descendant.
             {.id = "three nested mixed kinds all matched",
              .input =
-                 {kOPN,
-                  N("1"),
-                  kCPN,
+                 {Pp({EN("1")}),
                   Op_(OpId::Add),
-                  OpenP(PK::Brace),
-                  N("2"),
-                  Op_(OpId::Add),
-                  OpenP(PK::Bracket),
-                  Pow({N("2")}, {N("3")}),
-                  CloseP(PK::Bracket),
-                  Op_(OpId::Add),
-                  N("4"),
-                  CloseP(PK::Brace)},
+                  Bc({EV(
+                      {N("2"),
+                       Op_(OpId::Add),
+                       Br({Pow({N("2")}, {N("3")})}),
+                       Op_(OpId::Add),
+                       N("4")})})},
              .expected =
-                 {.latex_indices = {8},
-                  .open_paren_indices = {0, 4, 7},
-                  .close_paren_indices = {2, 9, 12},
-                  .pairs = {{0, 2}, {2, 0}, {4, 12}, {12, 4}, {7, 9}, {9, 7}}}},
+                 {.latex_indices = {}, .paren_indices = {0, 2}, .has_latex_descendant = true}},
 
             // Slice [5..12) of "(1)+{2+[\pow{2}{3}]+4}" re-classified standalone
-            // -> 2 + [ pow ] + 4   indices: 0 1 2 3 4 5 6
+            // -> 2 + Br({Pow}) + 4. Top-level paren is Br; latex is descendant.
             {.id = "rebase nested slice pairs",
              .input =
-                 {N("2"),
-                  Op_(OpId::Add),
-                  OpenP(PK::Bracket),
-                  Pow({N("2")}, {N("3")}),
-                  CloseP(PK::Bracket),
-                  Op_(OpId::Add),
-                  N("4")},
-             .expected =
-                 {.latex_indices = {3},
-                  .open_paren_indices = {2},
-                  .close_paren_indices = {4},
-                  .pairs = {{2, 4}, {4, 2}}}},
+                 {N("2"), Op_(OpId::Add), Br({Pow({N("2")}, {N("3")})}), Op_(OpId::Add), N("4")},
+             .expected = {.latex_indices = {}, .paren_indices = {2}, .has_latex_descendant = true}},
 
-            // Slice [1..5) of "({[1]})" -> { [ 1 ]   indices: 0 1 2 3
-            // Outer { lost its }; inner [ ] still pairs locally.
+            // Slice [1..5) of "({[1]})" -> Bc({Br({EN("1")})}, has_close=false)
+            // Outer brace lost its close; inner bracket still pairs locally.
+            // Only one top-level Paren token.
             {.id = "unmatched outer pair stays open",
-             .input = {OpenP(PK::Brace), OpenP(PK::Bracket), N("1"), CloseP(PK::Bracket)},
+             .input = {Bc({Br({EN("1")})}, /*has_close=*/false)},
              .expected =
-                 {.open_paren_indices = {0, 1},
-                  .close_paren_indices = {3},
-                  .pairs = {{0, p::kNoMatch}, {1, 3}, {3, 1}}}},
+                 {.latex_indices = {}, .paren_indices = {0}, .has_latex_descendant = false}},
 
             // Brace contents of "(1)+{2+[\frac{2}{3}+4+(\pow{2}{3}" (build_nodes
             // edge case): three different unmatched opens stacked, two latex.
-            // -> { 2 + [ frac + 4 + ( pow   indices: 0 1 2 3 4    5 6 7 8 9
+            // Under the new unified model this becomes a single unclosed Brace
+            // wrapping an unclosed Bracket wrapping the rest. All paren kinds
+            // remain unclosed; both Frac and Pow are descendants.
             {.id = "all unmatched nested opens with latex",
-             .input =
-                 {OpenP(PK::Brace),
-                  N("2"),
-                  Op_(OpId::Add),
-                  OpenP(PK::Bracket),
-                  Frac({N("2")}, {N("3")}),
-                  Op_(OpId::Add),
-                  N("4"),
-                  Op_(OpId::Add),
-                  kOPN,
-                  Pow({N("2")}, {N("3")})},
-             .expected =
-                 {.latex_indices = {4, 9},
-                  .open_paren_indices = {0, 3, 8},
-                  .pairs = {{0, p::kNoMatch}, {3, p::kNoMatch}, {8, p::kNoMatch}}}},
+             .input = {Bc(
+                 {EV(
+                     {N("2"),
+                      Op_(OpId::Add),
+                      Br({EV(
+                             {Frac({N("2")}, {N("3")}),
+                              Op_(OpId::Add),
+                              N("4"),
+                              Op_(OpId::Add),
+                              Pp({Pow({N("2")}, {N("3")})}, /*has_close=*/false)})},
+                         /*has_close=*/false)})},
+                 /*has_close=*/false)},
+             .expected = {.latex_indices = {}, .paren_indices = {0}, .has_latex_descendant = true}},
         };
 
         for (const auto &tc : classify_cases) {
@@ -937,68 +1082,48 @@ void unit_parser(TestContext &ctx) {
                 const auto &exp = tc.expected;
 
                 EXPECT_EQ(ctx, got.latex_indices, exp.latex_indices);
-                EXPECT_EQ(ctx, got.open_paren_indices, exp.open_paren_indices);
-                EXPECT_EQ(ctx, got.close_paren_indices, exp.close_paren_indices);
-                for (const auto &[idx, expected_pair] : exp.pairs) {
-                    EXPECT_EQ(ctx, pair_of(got.tokens, idx), expected_pair);
-                }
+                EXPECT_EQ(ctx, got.paren_indices, exp.paren_indices);
+                EXPECT_EQ(ctx, got.has_latex_descendant, exp.has_latex_descendant);
             });
         }
     }
 
-    // paren_indices
+    // paren_indices + has_latex_descendant
 
     test_detail::with_case(ctx, "paren_indices :: no parens", [&] {
         auto result = p::tokenize("1+2");
-        EXPECT_EQ(ctx, result.open_paren_indices.size(), 0UL);
-        EXPECT_EQ(ctx, result.close_paren_indices.size(), 0UL);
+        EXPECT_EQ(ctx, result.paren_indices.size(), 0UL);
+        EXPECT_EQ(ctx, result.has_latex_descendant, false);
     });
 
-    test_detail::with_case(ctx, "paren_indices :: simple parens collapse to Point", [&] {
-        // (1+2) -> Pt({...})  no ParenTokens emitted under collection model.
+    test_detail::with_case(ctx, "paren_indices :: simple parens single top-level Paren", [&] {
+        // (1+2) -> [Pp({EV({...})})]   1 top-level ParenToken at index 0.
         auto result = p::tokenize("(1+2)");
-        EXPECT_EQ(ctx, result.open_paren_indices.size(), 0UL);
-        EXPECT_EQ(ctx, result.close_paren_indices.size(), 0UL);
+        EXPECT_EQ(ctx, result.tokens.size(), 1UL);
+        EXPECT_EQ(ctx, result.paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.has_latex_descendant, false);
     });
 
-    test_detail::with_case(ctx, "paren_indices :: nested parens collapse to Point", [&] {
-        // ((1 -> Pt({Pt({N(1)}, false)}, false)
-        auto result = p::tokenize("((1");
-        EXPECT_EQ(ctx, result.open_paren_indices.size(), 0UL);
-        EXPECT_EQ(ctx, result.close_paren_indices.size(), 0UL);
-    });
+    // Nested-structure scenarios (((, ({[1]}), (1+(2, etc.) are covered by
+    // match_parens cases above via path-based ParenCheck assertions; not duplicated
+    // here because top-level paren_indices.size() does not reflect nested correctness.
 
-    test_detail::with_case(ctx, "paren_indices :: mixed kinds only brace remains paren", [&] {
-        // ({[1]}) -> Pt({Brace, Lst, Brace})  brace inside Point's element
-        // does not surface to top-level open_paren_indices.
-        auto result = p::tokenize("({[1]})");
-        EXPECT_EQ(ctx, result.open_paren_indices.size(), 0UL);
-        EXPECT_EQ(ctx, result.close_paren_indices.size(), 0UL);
-    });
-
-    test_detail::with_case(ctx, "paren_indices :: sequential groups collapse", [&] {
-        // (1+(2 -> Pt({...}, closed=false), no top-level paren tokens.
-        auto result = p::tokenize("(1+(2");
-        EXPECT_EQ(ctx, result.open_paren_indices.size(), 0UL);
-        EXPECT_EQ(ctx, result.close_paren_indices.size(), 0UL);
-    });
-
-    test_detail::with_case(ctx, "paren_indices :: with expr", [&] {
-        // {\\frac{1}{2}} -> { \frac{1}{2} }   tokens: { Expr }
-        // Open brace at 0
+    test_detail::with_case(ctx, "paren_indices :: brace wrapping latex has descendant", [&] {
+        // {\frac{1}{2}} -> [Bc({Frac(...)})] single top-level Brace
+        // with has_latex_descendant=true (Frac inside).
         auto result = p::tokenize("{\\frac{1}{2}}");
-        EXPECT_EQ(ctx, result.open_paren_indices.size(), 1UL);
-        EXPECT_EQ(ctx, result.open_paren_indices[0], 0UL);
-        EXPECT_EQ(ctx, result.close_paren_indices.size(), 1UL);
-        EXPECT_EQ(ctx, result.close_paren_indices[0], 2UL);
-        EXPECT_EQ(ctx, result.latex_indices.size(), 1UL);
-        EXPECT_EQ(ctx, result.latex_indices[0], 1UL);
+        EXPECT_EQ(ctx, result.tokens.size(), 1UL);
+        EXPECT_EQ(ctx, result.paren_indices.size(), 1UL);
+        EXPECT_EQ(ctx, result.paren_indices[0], 0UL);
+        EXPECT_EQ(ctx, result.has_latex_descendant, true);
+        EXPECT_EQ(ctx, result.latex_indices.size(), 0UL);
     });
 
-    test_detail::with_case(ctx, "paren_indices :: expr only no parens", [&] {
+    test_detail::with_case(ctx, "paren_indices :: latex only no parens", [&] {
         auto result = p::tokenize("\\frac{1}{2}");
-        EXPECT_EQ(ctx, result.open_paren_indices.size(), 0UL);
-        EXPECT_EQ(ctx, result.close_paren_indices.size(), 0UL);
+        EXPECT_EQ(ctx, result.paren_indices.size(), 0UL);
+        EXPECT_EQ(ctx, result.has_latex_descendant, false);
         EXPECT_EQ(ctx, result.latex_indices.size(), 1UL);
     });
 
@@ -1067,13 +1192,7 @@ void unit_parser(TestContext &ctx) {
     });
 
     test_detail::with_case(ctx, "tokens_to_text :: parens preserved", [&] {
-        std::vector<Token> toks = {
-            kOPN,
-            N("1"),
-            Op_(OpId::Add),
-            N("2"),
-            kCPN,
-        };
+        std::vector<Token> toks = {Pp({EV({N("1"), Op_(OpId::Add), N("2")})})};
         EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("(1 + 2)"));
     });
 
@@ -1105,6 +1224,21 @@ void unit_parser(TestContext &ctx) {
             return p::classify_tokens(std::move(toks));
         };
 
+        // Flatten ParenSplit.elements span into a vector<vector<Token>> for
+        // structural comparison against SplitExpected::elements.
+        const auto element_tokens = [](std::span<const ParenElement> els) {
+            std::vector<std::vector<Token>> out;
+            out.reserve(els.size());
+            for (const auto &e : els) {
+                if (e.index() == 0) {
+                    out.push_back({std::get<Token>(e)});
+                } else {
+                    out.push_back(std::get<std::vector<Token>>(e));
+                }
+            }
+            return out;
+        };
+
         const std::vector<SplitCase> split_cases = {
             // -- nullopt: no latex tokens at all
             {.id = "nullopt :: empty branch", .input = branch({}), .expected = {.kind = K::None}},
@@ -1114,7 +1248,7 @@ void unit_parser(TestContext &ctx) {
              .expected = {.kind = K::None}},
 
             {.id = "nullopt :: paren only no latex",
-             .input = branch({kOPN, N("1"), Op_(OpId::Add), N("2"), kCPN}),
+             .input = branch({Pp({EV({N("1"), Op_(OpId::Add), N("2")})})}),
              .expected = {.kind = K::None}},
 
             {.id = "nullopt :: division op only",
@@ -1122,39 +1256,29 @@ void unit_parser(TestContext &ctx) {
              .expected = {.kind = K::None}},
 
             {.id = "nullopt :: paren mixed ops",
-             .input = branch(
-                 {kOPN,
-                  N("2"),
+             .input = branch({Pp({EV(
+                 {N("2"),
                   Op_(OpId::Add),
                   N("5"),
                   Op_(OpId::Div),
                   N("5"),
                   Op_(OpId::Mul),
-                  N("4"),
-                  kCPN}),
+                  N("4")})})}),
              .expected = {.kind = K::None}},
 
             {.id = "nullopt :: nested parens no latex",
-             .input = branch({kOPN, kOPN, N("1"), kCPN, kCPN}),
+             .input = branch({Pp({Pp({EN("1")})})}),
              .expected = {.kind = K::None}},
 
             {.id = "nullopt :: two paren groups no latex",
              .input = branch(
-                 {kOPN,
-                  N("1"),
-                  Op_(OpId::Add),
-                  N("2"),
-                  kCPN,
+                 {Pp({EV({N("1"), Op_(OpId::Add), N("2")})}),
                   Op_(OpId::Mul),
-                  kOPN,
-                  N("3"),
-                  Op_(OpId::Add),
-                  N("4"),
-                  kCPN}),
+                  Pp({EV({N("3"), Op_(OpId::Add), N("4")})})}),
              .expected = {.kind = K::None}},
 
             {.id = "nullopt :: unmatched paren no latex",
-             .input = branch({kOPN, N("1"), Op_(OpId::Add), N("2")}),
+             .input = branch({Pp({EV({N("1"), Op_(OpId::Add), N("2")})}, /*has_close=*/false)}),
              .expected = {.kind = K::None}},
 
             // -- LatexSplit: filled latex with no surrounding
@@ -1207,14 +1331,14 @@ void unit_parser(TestContext &ctx) {
                   .right = {N("2")},
                   .latex_kind = p::LatexKind::Frac}},
 
-            // (2+5)+\frac{}{} -> closed paren BEFORE latex stays in prefix,
-            // not a ParenSplit (rule: paren must wrap or be unmatched past latex)
+            // (2+5)+\frac{}{} -> closed paren BEFORE latex (no latex descendant)
+            // stays in prefix as a single Paren token; no ParenSplit triggers.
             {.id = "latex :: closed paren before frac stays in prefix",
              .input =
-                 branch({kOPN, N("2"), Op_(OpId::Add), N("5"), kCPN, Op_(OpId::Add), Frac({}, {})}),
+                 branch({Pp({EV({N("2"), Op_(OpId::Add), N("5")})}), Op_(OpId::Add), Frac({}, {})}),
              .expected =
                  {.kind = K::Latex,
-                  .prefix = {kOPN, N("2"), Op_(OpId::Add), N("5"), kCPN, Op_(OpId::Add)},
+                  .prefix = {Pp({EV({N("2"), Op_(OpId::Add), N("5")})}), Op_(OpId::Add)},
                   .latex_kind = p::LatexKind::Frac}},
 
             // -- LatexSplit: trailing operand is a paren group
@@ -1227,67 +1351,72 @@ void unit_parser(TestContext &ctx) {
                   .right = {},
                   .latex_kind = p::LatexKind::Frac}},
 
-            // \frac{1}{}(2+3) -> right=[(2+3)], suffix=[]
+            // \frac{1}{}(2+3) -> trailing paren picked up into right.
+            // Paren has no latex descendant so it does not become a ParenSplit;
+            // split_operand grabs it as the right operand of the frac.
             {.id = "latex :: trailing paren group becomes right",
-             .input = branch({Frac({N("1")}, {}), kOPN, N("2"), Op_(OpId::Add), N("3"), kCPN}),
+             .input = branch({Frac({N("1")}, {}), Pp({EV({N("2"), Op_(OpId::Add), N("3")})})}),
              .expected =
                  {.kind = K::Latex,
                   .left = {N("1")},
-                  .right = {kOPN, N("2"), Op_(OpId::Add), N("3"), kCPN},
+                  .right = {Pp({EV({N("2"), Op_(OpId::Add), N("3")})})},
                   .latex_kind = p::LatexKind::Frac}},
-            // 1\frac{}{}(2+3) -> right=[(2+3)], suffix=[]
+            // 1\frac{}{}(2+3) -> right=[(2+3)], left=[1].
             {.id = "latex :: trailing num and paren group becomes right and left",
-             .input = branch({N("1"), Frac({}, {}), kOPN, N("2"), Op_(OpId::Add), N("3"), kCPN}),
+             .input = branch({N("1"), Frac({}, {}), Pp({EV({N("2"), Op_(OpId::Add), N("3")})})}),
              .expected =
                  {.kind = K::Latex,
                   .left = {N("1")},
-                  .right = {kOPN, N("2"), Op_(OpId::Add), N("3"), kCPN},
+                  .right = {Pp({EV({N("2"), Op_(OpId::Add), N("3")})})},
                   .latex_kind = p::LatexKind::Frac}},
 
-        // -- ParenSplit cases commented out until structural_split is
-        // refactored for CollectionSplit (Task 8). Synthetic kOPN/kCPN
-        // tokens here exercise the legacy paren-wrap path that real
-        // tokenize() no longer reaches under the new model.
-#if 0
-            // (\frac{2}{3})
+            // -- ParenSplit cases (reactivated under unified ParenToken model).
+
+            // (\frac{2}{3}) -> ParenSplit wraps one element [Frac].
             {.id = "paren :: matched paren wraps frac",
-             .input = branch({kOPN, Frac({N("2")}, {N("3")}), kCPN}),
+             .input = branch({Pp({Frac({N("2")}, {N("3")})})}),
              .expected =
                  {.kind = K::Paren,
-                  .left = {Frac({N("2")}, {N("3")})},
-                  .open_tok = kPOP,
-                  .close_tok = kPCL}},
+                  .paren_kind = ParenKind::Paren,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements = {{Frac({N("2")}, {N("3")})}}}},
 
-            // (1+\frac{2}{3} -> unmatched open, no suffix, no close_tok
+            // (1+\frac{2}{3} -> unmatched open (has_close=false).
             {.id = "paren :: unmatched open before frac",
-             .input = branch({kOPN, N("1"), Op_(OpId::Add), Frac({N("2")}, {N("3")})}),
+             .input = branch(
+                 {Pp({EV({N("1"), Op_(OpId::Add), Frac({N("2")}, {N("3")})})},
+                     /*has_close=*/false)}),
              .expected =
                  {.kind = K::Paren,
-                  .left = {N("1"), Op_(OpId::Add), Frac({N("2")}, {N("3")})},
-                  .open_tok = kPOP,
-                  .close_tok = std::nullopt}},
+                  .paren_kind = ParenKind::Paren,
+                  .has_open = true,
+                  .has_close = false,
+                  .elements = {{N("1"), Op_(OpId::Add), Frac({N("2")}, {N("3")})}}}},
 
-            // (2+\frac{2}{})\frac{}{} -> outer paren wraps first frac, second is suffix
+            // (2+\frac{2}{})\frac{}{} -> outer paren wraps first frac (has_latex),
+            // second frac is in suffix.
             {.id = "paren :: wrap first frac, second frac in suffix",
              .input =
-                 branch({kOPN, N("2"), Op_(OpId::Add), Frac({N("2")}, {}), kCPN, Frac({}, {})}),
+                 branch({Pp({EV({N("2"), Op_(OpId::Add), Frac({N("2")}, {})})}), Frac({}, {})}),
              .expected =
                  {.kind = K::Paren,
-                  .left = {N("2"), Op_(OpId::Add), Frac({N("2")}, {})},
-                  .suffix = {Frac({}, {})},
-                  .open_tok = kPOP,
-                  .close_tok = kPCL}},
+                  .paren_kind = ParenKind::Paren,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements = {{N("2"), Op_(OpId::Add), Frac({N("2")}, {})}},
+                  .suffix = {Frac({}, {})}}},
 
-            // ((1)+\frac{2}{3}) -> outer paren is the candidate
+            // ((1)+\frac{2}{3}) -> outer paren is the candidate; the inner (1)
+            // paren without latex remains as a Token inside the outer's element.
             {.id = "paren :: outer paren picked over inner",
-             .input =
-                 branch({kOPN, kOPN, N("1"), kCPN, Op_(OpId::Add), Frac({N("2")}, {N("3")}), kCPN}),
+             .input = branch({Pp({EV({Pp({EN("1")}), Op_(OpId::Add), Frac({N("2")}, {N("3")})})})}),
              .expected =
                  {.kind = K::Paren,
-                  .left = {kOPN, N("1"), kCPN, Op_(OpId::Add), Frac({N("2")}, {N("3")})},
-                  .open_tok = kPOP,
-                  .close_tok = kPCL}},
-#endif
+                  .paren_kind = ParenKind::Paren,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements = {{Pp({EN("1")}), Op_(OpId::Add), Frac({N("2")}, {N("3")})}}}},
 
             // -- Sibling latex (no parens): first wins, rest goes to suffix --
             {.id = "latex :: sibling fracs first wins",
@@ -1299,15 +1428,17 @@ void unit_parser(TestContext &ctx) {
                   .suffix = {Op_(OpId::Add), Frac({N("3")}, {N("4")})},
                   .latex_kind = p::LatexKind::Frac}},
 
-            // Paren AFTER first latex doesn't trigger ParenSplit
+            // Paren AFTER first latex doesn't trigger ParenSplit; the trailing
+            // paren (with latex inside) sits past latex_first so is ignored,
+            // staying in the LatexSplit suffix.
             {.id = "latex :: paren after first frac stays in suffix",
-             .input = branch(
-                 {Frac({N("1")}, {N("2")}), Op_(OpId::Add), kOPN, Frac({N("3")}, {N("4")}), kCPN}),
+             .input =
+                 branch({Frac({N("1")}, {N("2")}), Op_(OpId::Add), Pp({Frac({N("3")}, {N("4")})})}),
              .expected =
                  {.kind = K::Latex,
                   .left = {N("1")},
                   .right = {N("2")},
-                  .suffix = {Op_(OpId::Add), kOPN, Frac({N("3")}, {N("4")}), kCPN},
+                  .suffix = {Op_(OpId::Add), Pp({Frac({N("3")}, {N("4")})})},
                   .latex_kind = p::LatexKind::Frac}},
 
             // -- Nested latex (top-level token has nested Latex inside)
@@ -1329,38 +1460,34 @@ void unit_parser(TestContext &ctx) {
                   .right = {Frac({N("2")}, {N("3")})},
                   .latex_kind = p::LatexKind::Frac}},
 
-        // -- Nested parens around a latex (commented for Task 8)
-#if 0
-            // ((1+\frac{2}{3})) -> outermost paren wraps everything
+            // -- Nested parens around a latex --
+            // ((1+\frac{2}{3})) -> outermost paren wraps everything; inner paren
+            // becomes the sole element (also carries has_latex_descendant=true).
             {.id = "paren :: doubly nested wraps frac",
-             .input =
-                 branch({kOPN, kOPN, N("1"), Op_(OpId::Add), Frac({N("2")}, {N("3")}), kCPN, kCPN}),
+             .input = branch({Pp({Pp({EV({N("1"), Op_(OpId::Add), Frac({N("2")}, {N("3")})})})})}),
              .expected =
                  {.kind = K::Paren,
-                  .left = {kOPN, N("1"), Op_(OpId::Add), Frac({N("2")}, {N("3")}), kCPN},
-                  .open_tok = kPOP,
-                  .close_tok = kPCL}},
+                  .paren_kind = ParenKind::Paren,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements = {{Pp({EV({N("1"), Op_(OpId::Add), Frac({N("2")}, {N("3")})})})}}}},
 
-            // 1+(2+\frac{3}{4})*5 -> paren wraps frac, ops on both sides
+            // 1+(2+\frac{3}{4})*5 -> paren wraps frac; prefix=[1,+], suffix=[*,5].
             {.id = "paren :: wrap frac with ops on both sides",
              .input = branch(
                  {N("1"),
                   Op_(OpId::Add),
-                  kOPN,
-                  N("2"),
-                  Op_(OpId::Add),
-                  Frac({N("3")}, {N("4")}),
-                  kCPN,
+                  Pp({EV({N("2"), Op_(OpId::Add), Frac({N("3")}, {N("4")})})}),
                   Op_(OpId::Mul),
                   N("5")}),
              .expected =
                  {.kind = K::Paren,
                   .prefix = {N("1"), Op_(OpId::Add)},
-                  .left = {N("2"), Op_(OpId::Add), Frac({N("3")}, {N("4")})},
-                  .suffix = {Op_(OpId::Mul), N("5")},
-                  .open_tok = kPOP,
-                  .close_tok = kPCL}},
-#endif
+                  .paren_kind = ParenKind::Paren,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements = {{N("2"), Op_(OpId::Add), Frac({N("3")}, {N("4")})}},
+                  .suffix = {Op_(OpId::Mul), N("5")}}},
 
             // -- Sibling: more than two
             // \frac{1}{2}+\frac{3}{4}+\frac{5}{6} -> first wins, rest in suffix
@@ -1382,17 +1509,18 @@ void unit_parser(TestContext &ctx) {
                        Frac({N("5")}, {N("6")})},
                   .latex_kind = p::LatexKind::Frac}},
 
-#if 0
-            // (\frac{1}{2}+\frac{3}{4}) -> paren wraps both siblings (Task 8)
+            // (\frac{1}{2}+\frac{3}{4}) -> single paren element wraps two fracs
+            // separated by an operator.
             {.id = "paren :: wrap two sibling fracs",
              .input = branch(
-                 {kOPN, Frac({N("1")}, {N("2")}), Op_(OpId::Add), Frac({N("3")}, {N("4")}), kCPN}),
+                 {Pp({EV({Frac({N("1")}, {N("2")}), Op_(OpId::Add), Frac({N("3")}, {N("4")})})})}),
              .expected =
                  {.kind = K::Paren,
-                  .left = {Frac({N("1")}, {N("2")}), Op_(OpId::Add), Frac({N("3")}, {N("4")})},
-                  .open_tok = kPOP,
-                  .close_tok = kPCL}},
-#endif
+                  .paren_kind = ParenKind::Paren,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements =
+                      {{Frac({N("1")}, {N("2")}), Op_(OpId::Add), Frac({N("3")}, {N("4")})}}}},
 
             // -- Sibling + nested mix
             // \frac{1}{\frac{2}{3}}+\frac{4}{5} -> first frac wins
@@ -1408,121 +1536,116 @@ void unit_parser(TestContext &ctx) {
                   .suffix = {Op_(OpId::Add), Frac({N("4")}, {N("5")})},
                   .latex_kind = p::LatexKind::Frac}},
 
-#if 0
-            // (\frac{1}{2})+\frac{3}{4} -> outer paren wraps first frac (Task 8)
+            // (\frac{1}{2})+\frac{3}{4} -> first (paren-with-latex) wins; trailing
+            // sibling frac goes to suffix.
             {.id = "paren :: wrapped frac plus sibling outside",
-             .input = branch(
-                 {kOPN, Frac({N("1")}, {N("2")}), kCPN, Op_(OpId::Add), Frac({N("3")}, {N("4")})}),
+             .input =
+                 branch({Pp({Frac({N("1")}, {N("2")})}), Op_(OpId::Add), Frac({N("3")}, {N("4")})}),
              .expected =
                  {.kind = K::Paren,
-                  .left = {Frac({N("1")}, {N("2")})},
-                  .suffix = {Op_(OpId::Add), Frac({N("3")}, {N("4")})},
-                  .open_tok = kPOP,
-                  .close_tok = kPCL}},
+                  .paren_kind = ParenKind::Paren,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements = {{Frac({N("1")}, {N("2")})}},
+                  .suffix = {Op_(OpId::Add), Frac({N("3")}, {N("4")})}}},
 
-            // -- Two sibling ParenSplits (Task 8)
+            // -- Two sibling ParenSplits: first one wins
             {.id = "paren :: two sibling paren-wrapped fracs",
              .input = branch(
-                 {kOPN,
-                  Frac({N("1")}, {N("2")}),
-                  kCPN,
-                  Op_(OpId::Add),
-                  kOPN,
-                  Frac({N("3")}, {N("4")}),
-                  kCPN}),
+                 {Pp({Frac({N("1")}, {N("2")})}), Op_(OpId::Add), Pp({Frac({N("3")}, {N("4")})})}),
              .expected =
                  {.kind = K::Paren,
-                  .left = {Frac({N("1")}, {N("2")})},
-                  .suffix = {Op_(OpId::Add), kOPN, Frac({N("3")}, {N("4")}), kCPN},
-                  .open_tok = kPOP,
-                  .close_tok = kPCL}},
+                  .paren_kind = ParenKind::Paren,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements = {{Frac({N("1")}, {N("2")})}},
+                  .suffix = {Op_(OpId::Add), Pp({Frac({N("3")}, {N("4")})})}}},
 
             {.id = "paren :: two sibling paren groups with inner ops",
              .input = branch(
-                 {kOPN,
-                  Frac({N("1")}, {N("2")}),
-                  Op_(OpId::Add),
-                  N("1"),
-                  kCPN,
+                 {Pp({EV({Frac({N("1")}, {N("2")}), Op_(OpId::Add), N("1")})}),
                   Op_(OpId::Mul),
-                  kOPN,
-                  N("2"),
-                  Op_(OpId::Sub),
-                  Frac({N("3")}, {N("4")}),
-                  kCPN}),
+                  Pp({EV({N("2"), Op_(OpId::Sub), Frac({N("3")}, {N("4")})})})}),
              .expected =
                  {.kind = K::Paren,
-                  .left = {Frac({N("1")}, {N("2")}), Op_(OpId::Add), N("1")},
+                  .paren_kind = ParenKind::Paren,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements = {{Frac({N("1")}, {N("2")}), Op_(OpId::Add), N("1")}},
                   .suffix =
                       {Op_(OpId::Mul),
-                       kOPN,
-                       N("2"),
-                       Op_(OpId::Sub),
-                       Frac({N("3")}, {N("4")}),
-                       kCPN},
-                  .open_tok = kPOP,
-                  .close_tok = kPCL}},
+                       Pp({EV({N("2"), Op_(OpId::Sub), Frac({N("3")}, {N("4")})})})}}},
 
             {.id = "paren :: three sibling paren-wrapped fracs",
              .input = branch(
-                 {kOPN,
-                  Frac({N("1")}, {N("2")}),
-                  kCPN,
+                 {Pp({Frac({N("1")}, {N("2")})}),
                   Op_(OpId::Add),
-                  kOPN,
-                  Frac({N("3")}, {N("4")}),
-                  kCPN,
+                  Pp({Frac({N("3")}, {N("4")})}),
                   Op_(OpId::Mul),
-                  kOPN,
-                  Frac({N("5")}, {N("6")}),
-                  kCPN}),
+                  Pp({Frac({N("5")}, {N("6")})})}),
              .expected =
                  {.kind = K::Paren,
-                  .left = {Frac({N("1")}, {N("2")})},
+                  .paren_kind = ParenKind::Paren,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements = {{Frac({N("1")}, {N("2")})}},
                   .suffix =
                       {Op_(OpId::Add),
-                       kOPN,
-                       Frac({N("3")}, {N("4")}),
-                       kCPN,
+                       Pp({Frac({N("3")}, {N("4")})}),
                        Op_(OpId::Mul),
-                       kOPN,
-                       Frac({N("5")}, {N("6")}),
-                       kCPN},
-                  .open_tok = kPOP,
-                  .close_tok = kPCL}},
+                       Pp({Frac({N("5")}, {N("6")})})}}},
 
+            // Outer paren wraps a nested (paren-with-frac + N) group, plus two
+            // more sibling paren-wrapped fracs outside.
             {.id = "paren :: four paren groups, first has nested wrap",
              .input = branch(
-                 {kOPN,
-                  kOPN,
-                  Frac({N("1")}, {N("2")}),
+                 {Pp({EV({Pp({EV({Frac({N("1")}, {N("2")}), Op_(OpId::Add), N("1")})})})}),
                   Op_(OpId::Add),
-                  N("1"),
-                  kCPN,
-                  kCPN,
+                  Pp({Frac({N("3")}, {N("4")})}),
                   Op_(OpId::Add),
-                  kOPN,
-                  Frac({N("3")}, {N("4")}),
-                  kCPN,
-                  Op_(OpId::Add),
-                  kOPN,
-                  Frac({N("5")}, {N("6")}),
-                  kCPN}),
+                  Pp({Frac({N("5")}, {N("6")})})}),
              .expected =
                  {.kind = K::Paren,
-                  .left = {kOPN, Frac({N("1")}, {N("2")}), Op_(OpId::Add), N("1"), kCPN},
+                  .paren_kind = ParenKind::Paren,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements = {{Pp({EV({Frac({N("1")}, {N("2")}), Op_(OpId::Add), N("1")})})}},
                   .suffix =
                       {Op_(OpId::Add),
-                       kOPN,
-                       Frac({N("3")}, {N("4")}),
-                       kCPN,
+                       Pp({Frac({N("3")}, {N("4")})}),
                        Op_(OpId::Add),
-                       kOPN,
-                       Frac({N("5")}, {N("6")}),
-                       kCPN},
-                  .open_tok = kPOP,
-                  .close_tok = kPCL}},
-#endif
+                       Pp({Frac({N("5")}, {N("6")})})}}},
+
+            // -- Collection (List/Point) variants of ParenSplit --
+            // [\frac{1}{2}, 3] -> ParenSplit with Bracket kind, two elements.
+            {.id = "bracket :: list of latex",
+             .input = branch({Br({Frac({N("1")}, {N("2")}), EN("3")})}),
+             .expected =
+                 {.kind = K::Paren,
+                  .paren_kind = ParenKind::Bracket,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements = {{Frac({N("1")}, {N("2")})}, {N("3")}}}},
+
+            // (\frac{1}{2}, 3) -> Point: ParenSplit with Paren kind, two elements.
+            {.id = "paren-collection :: point of latex",
+             .input = branch({Pp({Frac({N("1")}, {N("2")}), EN("3")})}),
+             .expected =
+                 {.kind = K::Paren,
+                  .paren_kind = ParenKind::Paren,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements = {{Frac({N("1")}, {N("2")})}, {N("3")}}}},
+
+            // {\frac{1}{2}} (user brace around frac) -> ParenSplit with Brace kind.
+            {.id = "brace :: wraps frac",
+             .input = branch({Bc({Frac({N("1")}, {N("2")})})}),
+             .expected =
+                 {.kind = K::Paren,
+                  .paren_kind = ParenKind::Brace,
+                  .has_open = true,
+                  .has_close = true,
+                  .elements = {{Frac({N("1")}, {N("2")})}}}},
         };
 
         const auto to_vec = [](std::span<const Token> a) {
@@ -1545,27 +1668,21 @@ void unit_parser(TestContext &ctx) {
                 std::visit(
                     [&](const auto &s) {
                         using T = std::decay_t<decltype(s)>;
-                        if constexpr (std::is_same_v<T, p::CollectionSplit>) {
-                            // SplitExpected does not model CollectionSplit;
-                            // dedicated tests cover this variant.
-                            return;
+                        if constexpr (std::is_same_v<T, p::ParenSplit>) {
+                            EXPECT_TRUE(ctx, exp.kind == K::Paren);
+                            EXPECT_EQ(ctx, to_vec(s.prefix), exp.prefix);
+                            EXPECT_EQ(ctx, to_vec(s.suffix), exp.suffix);
+                            EXPECT_TRUE(ctx, s.kind == exp.paren_kind);
+                            EXPECT_TRUE(ctx, s.has_open == exp.has_open);
+                            EXPECT_TRUE(ctx, s.has_close == exp.has_close);
+                            EXPECT_EQ(ctx, element_tokens(s.elements), exp.elements);
                         } else {
-                            constexpr bool is_paren = std::is_same_v<T, p::ParenSplit>;
-
-                            EXPECT_TRUE(ctx, exp.kind == (is_paren ? K::Paren : K::Latex));
+                            EXPECT_TRUE(ctx, exp.kind == K::Latex);
                             EXPECT_EQ(ctx, to_vec(s.prefix), exp.prefix);
                             EXPECT_EQ(ctx, to_vec(s.left), exp.left);
                             EXPECT_EQ(ctx, to_vec(s.suffix), exp.suffix);
-
-                            if constexpr (is_paren) {
-                                EXPECT_TRUE(ctx, s.open_tok == exp.open_tok);
-                                EXPECT_EQ(ctx, s.close_tok.has_value(), exp.close_tok.has_value());
-                                if (s.close_tok && exp.close_tok)
-                                    EXPECT_TRUE(ctx, *s.close_tok == *exp.close_tok);
-                            } else {
-                                EXPECT_TRUE(ctx, s.kind == exp.latex_kind);
-                                EXPECT_EQ(ctx, to_vec(s.right), exp.right);
-                            }
+                            EXPECT_TRUE(ctx, s.kind == exp.latex_kind);
+                            EXPECT_EQ(ctx, to_vec(s.right), exp.right);
                         }
                     },
                     *got);
@@ -1671,90 +1788,74 @@ void unit_parser(TestContext &ctx) {
              .input = branch({Root({N("1"), Op_(OpId::Add), Pow({N("2")}, {N("3")})}, {N("4")})}),
              .expected = {Rtn({T_("1 + "), Pwn({T_("2")}, {T_("3")})}, {T_("4")})}},
 
-            // -- Paren cases --
+            // -- Paren cases (unified ParenToken model) --
 
-            // "(1)+\frac{2}{3}"
+            // "(1)+\frac{2}{3}"  — Paren has no latex descendant, stays as text prefix.
             {.id = "non-parenNode",
-             .input = branch({kOPN, N("1"), kCPN, Op_(OpId::Add), Frac({N("2")}, {N("3")})}),
+             .input = branch({Pp({EN("1")}), Op_(OpId::Add), Frac({N("2")}, {N("3")})}),
              .expected = {T_("(1) + "), Frn({T_("2")}, {T_("3")})}},
 
-            // "(1)+\frac{2}{3})"
+            // "(1)+\frac{2}{3})"  — Paren text + Frac + stray ')' (StrayC has has_open=false).
             {.id = "non-parenNode-w-close",
-             .input = branch({kOPN, N("1"), kCPN, Op_(OpId::Add), Frac({N("2")}, {N("3")}), kCPN}),
+             .input = branch(
+                 {Pp({EN("1")}), Op_(OpId::Add), Frac({N("2")}, {N("3")}), StrayC(PK::Paren)}),
              .expected = {T_("(1) + "), Frn({T_("2")}, {T_("3")}), T_(")")}},
 
-            // "(1)+(\frac{2}{3})"
+            // "(1)+(\frac{2}{3})"  — first paren prefix text, second wraps Frac → ParenNode.
             {.id = "render-parenNode",
-             .input =
-                 branch({kOPN, N("1"), kCPN, Op_(OpId::Add), kOPN, Frac({N("2")}, {N("3")}), kCPN}),
+             .input = branch({Pp({EN("1")}), Op_(OpId::Add), Pp({Frac({N("2")}, {N("3")})})}),
              .expected = {T_("(1) + "), Pn(PK::Paren, true, {Frn({T_("2")}, {T_("3")})})}},
 
-            // "(1)+(2+\frac{2}{3})"
+            // "(1)+(2+\frac{2}{3})"  — second paren contains "2 + Frac" → ParenNode.
             {.id = "paren-with-prefix-text",
              .input = branch(
-                 {kOPN,
-                  N("1"),
-                  kCPN,
+                 {Pp({EN("1")}),
                   Op_(OpId::Add),
-                  kOPN,
-                  N("2"),
-                  Op_(OpId::Add),
-                  Frac({N("2")}, {N("3")}),
-                  kCPN}),
+                  Pp({EV({N("2"), Op_(OpId::Add), Frac({N("2")}, {N("3")})})})}),
              .expected =
                  {T_("(1) + "), Pn(PK::Paren, true, {T_("2 + "), Frn({T_("2")}, {T_("3")})})}},
 
-            // "{\frac{2}{3}}"
+            // "{\frac{2}{3}}"  — Brace wraps Frac → ParenNode(Brace).
             {.id = "brace-widget",
-             .input = branch({OpenP(PK::Brace), Frac({N("2")}, {N("3")}), CloseP(PK::Brace)}),
+             .input = branch({Bc({Frac({N("2")}, {N("3")})})}),
              .expected = {Pn(PK::Brace, true, {Frn({T_("2")}, {T_("3")})})}},
 
-            // "{\frac{2}{3})"   (brace open + paren close, kinds don't match)
+            // "{\frac{2}{3})"  — Brace unclosed (kind-strict scan stops at ')'),
+            //                   ')' becomes top-level StrayC.
             {.id = "non-closed-brace-widget",
-             .input = branch({OpenP(PK::Brace), Frac({N("2")}, {N("3")}), kCPN}),
-             .expected = {Pn(PK::Brace, false, {Frn({T_("2")}, {T_("3")}), T_(")")})}},
+             .input = branch({Bc({Frac({N("2")}, {N("3")})}, false), StrayC(PK::Paren)}),
+             .expected = {Pn(PK::Brace, false, {Frn({T_("2")}, {T_("3")})}), T_(")")}},
 
-            // "{+\frac{2}{3}"   (brace stays open; leading + becomes UnaryPlus)
+            // "{+\frac{2}{3}"  — brace stays open; leading + becomes UnaryPlus inside.
             {.id = "open-brace-leading-op",
-             .input = branch({OpenP(PK::Brace), Op_(OpId::UnaryPlus), Frac({N("2")}, {N("3")})}),
+             .input = branch({Bc({EV({Op_(OpId::UnaryPlus), Frac({N("2")}, {N("3")})})}, false)}),
              .expected = {Pn(PK::Brace, false, {T_("+"), Frn({T_("2")}, {T_("3")})})}},
 
             // "(1)+{2+\root{2}{3}}"
             {.id = "brace-in-sum",
              .input = branch(
-                 {kOPN,
-                  N("1"),
-                  kCPN,
+                 {Pp({EN("1")}),
                   Op_(OpId::Add),
-                  OpenP(PK::Brace),
-                  N("2"),
-                  Op_(OpId::Add),
-                  Root({N("2")}, {N("3")}),
-                  CloseP(PK::Brace)}),
+                  Bc({EV({N("2"), Op_(OpId::Add), Root({N("2")}, {N("3")})})})}),
              .expected =
                  {T_("(1) + "), Pn(PK::Brace, true, {T_("2 + "), Rtn({T_("2")}, {T_("3")})})}},
 
             // "[\frac{2}{3}]"
             {.id = "bracket-widget",
-             .input = branch({OpenP(PK::Bracket), Frac({N("2")}, {N("3")}), CloseP(PK::Bracket)}),
+             .input = branch({Br({Frac({N("2")}, {N("3")})})}),
              .expected = {Pn(PK::Bracket, true, {Frn({T_("2")}, {T_("3")})})}},
 
             // "(1)+{2+[\pow{2}{3}]+4}"
             {.id = "outer-first-nested-parens",
              .input = branch(
-                 {kOPN,
-                  N("1"),
-                  kCPN,
+                 {Pp({EN("1")}),
                   Op_(OpId::Add),
-                  OpenP(PK::Brace),
-                  N("2"),
-                  Op_(OpId::Add),
-                  OpenP(PK::Bracket),
-                  Pow({N("2")}, {N("3")}),
-                  CloseP(PK::Bracket),
-                  Op_(OpId::Add),
-                  N("4"),
-                  CloseP(PK::Brace)}),
+                  Bc({EV(
+                      {N("2"),
+                       Op_(OpId::Add),
+                       Br({Pow({N("2")}, {N("3")})}),
+                       Op_(OpId::Add),
+                       N("4")})})}),
              .expected =
                  {T_("(1) + "),
                   Pn(PK::Brace,
@@ -1766,23 +1867,17 @@ void unit_parser(TestContext &ctx) {
             // "(1)+{2+[\frac{2}{3}+4+(\pow{2}{3})]}"
             {.id = "nested-brace-bracket-paren",
              .input = branch(
-                 {kOPN,
-                  N("1"),
-                  kCPN,
+                 {Pp({EN("1")}),
                   Op_(OpId::Add),
-                  OpenP(PK::Brace),
-                  N("2"),
-                  Op_(OpId::Add),
-                  OpenP(PK::Bracket),
-                  Frac({N("2")}, {N("3")}),
-                  Op_(OpId::Add),
-                  N("4"),
-                  Op_(OpId::Add),
-                  kOPN,
-                  Pow({N("2")}, {N("3")}),
-                  kCPN,
-                  CloseP(PK::Bracket),
-                  CloseP(PK::Brace)}),
+                  Bc({EV(
+                      {N("2"),
+                       Op_(OpId::Add),
+                       Br({EV(
+                           {Frac({N("2")}, {N("3")}),
+                            Op_(OpId::Add),
+                            N("4"),
+                            Op_(OpId::Add),
+                            Pp({Pow({N("2")}, {N("3")})})})})})})}),
              .expected =
                  {T_("(1) + "),
                   Pn(PK::Brace,
@@ -1794,22 +1889,22 @@ void unit_parser(TestContext &ctx) {
                           T_(" + 4 + "),
                           Pn(PK::Paren, true, {Pwn({T_("2")}, {T_("3")})})})})}},
 
+            // "(1)+{2+[\frac{2}{3}+4+(\pow{2}{3}"   — every wrapper unclosed at EOF.
             {.id = "nested-brace-bracket-paren-open-only",
              .input = branch(
-                 {kOPN,
-                  N("1"),
-                  kCPN,
+                 {Pp({EN("1")}),
                   Op_(OpId::Add),
-                  OpenP(PK::Brace),
-                  N("2"),
-                  Op_(OpId::Add),
-                  OpenP(PK::Bracket),
-                  Frac({N("2")}, {N("3")}),
-                  Op_(OpId::Add),
-                  N("4"),
-                  Op_(OpId::Add),
-                  kOPN,
-                  Pow({N("2")}, {N("3")})}),
+                  Bc({EV(
+                         {N("2"),
+                          Op_(OpId::Add),
+                          Br({EV(
+                                 {Frac({N("2")}, {N("3")}),
+                                  Op_(OpId::Add),
+                                  N("4"),
+                                  Op_(OpId::Add),
+                                  Pp({Pow({N("2")}, {N("3")})}, false)})},
+                             false)})},
+                     false)}),
              .expected =
                  {T_("(1) + "),
                   Pn(PK::Brace,
@@ -1821,16 +1916,18 @@ void unit_parser(TestContext &ctx) {
                           T_(" + 4 + "),
                           Pn(PK::Paren, false, {Pwn({T_("2")}, {T_("3")})})})})}},
 
+            // "\frac{1}{2} + sin(90)" — sin(90) Paren has no latex descendant, text.
             {.id = "trig-parens-non-paren",
-             .input = branch(
-                 {Frac({N("1")}, {N("2")}), Op_(OpId::Add), Op_(OpId::Sin), kOPN, N("90"), kCPN}),
+             .input =
+                 branch({Frac({N("1")}, {N("2")}), Op_(OpId::Add), Op_(OpId::Sin), Pp({EN("90")})}),
              .expected = {Frn({T_("1")}, {T_("2")}), T_(" + sin(90)")}},
 
+            // "1 + \frac{2}{3 + cos(90)}" — Paren in Frac.right (no latex desc), text.
             {.id = "trig-parens-non-paren-2",
              .input = branch(
                  {N("1"),
                   Op_(OpId::Add),
-                  Frac({N("2")}, {N("3"), Op_(OpId::Add), Op_(OpId::Cos), kOPN, N("90"), kCPN})}),
+                  Frac({N("2")}, {N("3"), Op_(OpId::Add), Op_(OpId::Cos), Pp({EN("90")})})}),
              .expected = {T_("1 + "), Frn({T_("2")}, {T_("3 + cos(90)")})}},
         };
 
@@ -1844,7 +1941,7 @@ void unit_parser(TestContext &ctx) {
 
     test_detail::with_case(ctx, "variant :: bare numbers all arm 0", [&] {
         auto branch = p::tokenize("[1, 2, 3]");
-        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        const auto &col = std::get<p::ParenToken>(branch.tokens[0].data);
         EXPECT_EQ(ctx, col.elements.size(), 3u);
         for (std::size_t i = 0; i < 3; ++i) {
             EXPECT_EQ(ctx, col.elements[i].index(), 0u);
@@ -1853,7 +1950,7 @@ void unit_parser(TestContext &ctx) {
 
     test_detail::with_case(ctx, "variant :: unary plus stays arm 1 (UnaryPlus preserved)", [&] {
         auto branch = p::tokenize("[+3]");
-        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        const auto &col = std::get<p::ParenToken>(branch.tokens[0].data);
         EXPECT_EQ(ctx, col.elements[0].index(), 1u);
         const auto &row = std::get<std::vector<p::Token>>(col.elements[0]);
         EXPECT_EQ(ctx, row.size(), 2u);
@@ -1863,33 +1960,33 @@ void unit_parser(TestContext &ctx) {
 
     test_detail::with_case(ctx, "variant :: unary minus is arm 1", [&] {
         auto branch = p::tokenize("[-5]");
-        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        const auto &col = std::get<p::ParenToken>(branch.tokens[0].data);
         EXPECT_EQ(ctx, col.elements[0].index(), 1u);
     });
 
     test_detail::with_case(ctx, "variant :: expression is arm 1", [&] {
         auto branch = p::tokenize("[1+2]");
-        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        const auto &col = std::get<p::ParenToken>(branch.tokens[0].data);
         EXPECT_EQ(ctx, col.elements[0].index(), 1u);
     });
 
     test_detail::with_case(ctx, "variant :: single latex element is arm 0", [&] {
         auto branch = p::tokenize("[\\frac{1}{2}]");
-        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        const auto &col = std::get<p::ParenToken>(branch.tokens[0].data);
         EXPECT_EQ(ctx, col.elements[0].index(), 0u);
         EXPECT_EQ(ctx, std::get<p::Token>(col.elements[0]).kind, p::TokenKind::Latex);
     });
 
     test_detail::with_case(ctx, "variant :: nested collection element is arm 0", [&] {
         auto branch = p::tokenize("[(1,2)]");
-        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        const auto &col = std::get<p::ParenToken>(branch.tokens[0].data);
         EXPECT_EQ(ctx, col.elements[0].index(), 0u);
-        EXPECT_EQ(ctx, std::get<p::Token>(col.elements[0]).kind, p::TokenKind::Collection);
+        EXPECT_EQ(ctx, std::get<p::Token>(col.elements[0]).kind, p::TokenKind::Paren);
     });
 
     test_detail::with_case(ctx, "variant :: empty element is arm 1 empty vector", [&] {
         auto branch = p::tokenize("[1,]");
-        const auto &col = std::get<p::CollectionToken>(branch.tokens[0].data);
+        const auto &col = std::get<p::ParenToken>(branch.tokens[0].data);
         EXPECT_EQ(ctx, col.elements.size(), 2u);
         EXPECT_EQ(ctx, col.elements[0].index(), 0u);
         EXPECT_EQ(ctx, col.elements[1].index(), 1u);
@@ -1911,8 +2008,8 @@ void unit_parser(TestContext &ctx) {
             // An arm-1 wrapping of the same Token is a different variant alternative and
             // does NOT compare equal — locks the invariant so tests catch construction-site
             // drift.
-            p::CollectionElement arm_zero{N("1")};
-            p::CollectionElement arm_one{std::vector<Token>{N("1")}};
+            p::ParenElement arm_zero{N("1")};
+            p::ParenElement arm_one{std::vector<Token>{N("1")}};
             EXPECT_TRUE(ctx, !(arm_zero == arm_one));
         });
 }

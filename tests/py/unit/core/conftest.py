@@ -204,21 +204,10 @@ class FakeRational(float):
         return super().__new__(cls, value)
 
 
-class FakeParenType(Enum):
-    Open = 0
-    Close = 1
-
-
 class FakeParenKind(Enum):
     Paren = 0
     Brace = 1
     Bracket = 2
-
-
-_FAKE_PAREN_TABLE: list[tuple[str, FakeParenType, FakeParenKind]] = [
-    ("(", FakeParenType.Open, FakeParenKind.Paren),
-    (")", FakeParenType.Close, FakeParenKind.Paren),
-]
 
 
 class FakeTokenKind:
@@ -226,7 +215,6 @@ class FakeTokenKind:
     Op = "op"
     Latex = "latex"
     Paren = "paren"
-    Collection = "collection"
 
 
 class FakeCollectionKind:
@@ -369,9 +357,7 @@ def _install_fake_calc_native() -> ModuleType:
 
     calc_native.OpArity = FakeArity
 
-    calc_native.ParenType = FakeParenType
     calc_native.ParenKind = FakeParenKind
-    calc_native.paren_table = lambda: list(_FAKE_PAREN_TABLE)
 
     calc_native.OpId = Id
 
@@ -391,8 +377,9 @@ def _install_fake_calc_native() -> ModuleType:
     calc_native.BigReal = FakeBigReal
     calc_native.BigComplex = FakeBigComplex
     calc_native.Rational = FakeRational
+    # Collection.Kind is exposed as an inner attribute (matching native binding).
+    FakeCollection.Kind = FakeCollectionKind
     calc_native.Collection = FakeCollection
-    calc_native.CollectionKind = FakeCollectionKind
     calc_native.Calculator = DummyCalc
     calc_native.CalculatorError = FakeNativeCalculatorError
     calc_native.Token = FakeToken
