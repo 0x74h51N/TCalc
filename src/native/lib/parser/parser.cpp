@@ -294,6 +294,24 @@ inline std::vector<Token> element_tokens(const ParenElement &e) {
     return std::get<std::vector<Token>>(e);
 }
 
+inline bool element_has_latex_descendant(const ParenElement &e) {
+    auto check = [](const Token &t) {
+        if (t.kind == TokenKind::Latex)
+            return true;
+        if (t.kind == TokenKind::Paren) {
+            return std::get<ParenToken>(t.data).has_latex_descendant;
+        }
+        return false;
+    };
+    if (e.index() == 0)
+        return check(std::get<Token>(e));
+    for (const auto &t : std::get<std::vector<Token>>(e)) {
+        if (check(t))
+            return true;
+    }
+    return false;
+}
+
 std::string_view
 extract_brace_content(std::string_view s, std::size_t start, std::size_t &out_end) {
     if (start >= s.size() || s[start] != '{') {
@@ -571,12 +589,25 @@ std::optional<StructuralSplit> structural_split(const TokensBranch &branch) {
 
 namespace detail {
 
+// Append text to a children list, merging into a trailing TextNode if
+// present. Keeps build_row output free of consecutive Text-Text runs so
+// the Python _render_row's setText overwrites cleanly.
+inline void emit_text(std::vector<MathNode> &out, std::string text) {
+    if (text.empty())
+        return;
+    if (!out.empty() && std::holds_alternative<TextNode>(out.back().data)) {
+        std::get<TextNode>(out.back().data).text += text;
+    } else {
+        out.emplace_back(TextNode{std::move(text)});
+    }
+}
+
 void build_row(std::vector<MathNode> &out, TokensBranch branch, bool after_node) {
     while (true) {
         auto split = structural_split(branch);
         if (!split) {
             if (!branch.tokens.empty()) {
-                out.emplace_back(TextNode{tokens_to_text(branch.tokens, after_node)});
+                emit_text(out, tokens_to_text(branch.tokens, after_node));
             }
             return;
         }
@@ -585,22 +616,41 @@ void build_row(std::vector<MathNode> &out, TokensBranch branch, bool after_node)
         std::visit(
             [&](const auto &s) {
                 if (!s.prefix.empty()) {
-                    out.emplace_back(TextNode{tokens_to_text(s.prefix, after_node)});
+                    emit_text(out, tokens_to_text(s.prefix, after_node));
                 }
 
                 using T = std::decay_t<decltype(s)>;
                 if constexpr (std::is_same_v<T, ParenSplit>) {
                     ParenNode pn{s.kind, s.has_close, {}};
+                    std::string pending_text;
+                    bool last_was_latex = false;
+
+                    auto flush_text = [&]() {
+                        emit_text(pn.children, std::move(pending_text));
+                        pending_text.clear();
+                    };
+
                     for (std::size_t k = 0; k < s.elements.size(); ++k) {
-                        if (k > 0) {
-                            pn.children.emplace_back(TextNode{", "});
+                        if (element_has_latex_descendant(s.elements[k])) {
+                            if (!pending_text.empty()) {
+                                pending_text += ", ";
+                            } else if (last_was_latex) {
+                                pending_text = ", ";
+                            }
+                            flush_text();
+                            build_row(
+                                /*out=*/pn.children,
+                                /*branch=*/classify_tokens(element_tokens(s.elements[k])),
+                                /*after_node=*/false);
+                            last_was_latex = true;
+                        } else {
+                            if (!pending_text.empty() || k > 0)
+                                pending_text += ", ";
+                            pending_text += tokens_to_text(element_tokens(s.elements[k]));
+                            last_was_latex = false;
                         }
-                        auto toks = element_tokens(s.elements[k]);
-                        build_row(
-                            /*out=*/pn.children,
-                            /*branch=*/classify_tokens(std::move(toks)),
-                            /*after_node=*/false);
                     }
+                    flush_text();
                     out.emplace_back(std::move(pn));
                 } else {
                     LatexNode ln{s.kind, {}, {}};
@@ -932,6 +982,19 @@ std::string tokens_to_text(std::span<const Token> tokens, const bool &after_node
             // after_node only matters for the first token
             const bool node_ctx = i == 0 && after_node;
             out.append(space_binary_op(op.op_id, token_text(tok), node_ctx));
+        } else if (tok.kind == TokenKind::Number && i == 0 && after_node) {
+            // Suffix segment right after a MathNode: a leading bare comma
+            // (NumberToken whose first char is ',') is the collection
+            // separator -- emit ", " (space_binary_op pattern). Other Numbers
+            // emitted verbatim.
+            const auto text = token_text(tok);
+            if (!text.empty() && text.front() == ',') {
+                out.append(", ");
+                if (text.size() > 1)
+                    out.append(text, 1, std::string::npos);
+            } else {
+                out.append(text);
+            }
         } else {
             out.append(token_text(tok));
         }

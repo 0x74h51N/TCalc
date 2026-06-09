@@ -1260,6 +1260,56 @@ void unit_parser(TestContext &ctx) {
         EXPECT_EQ(ctx, p::tokens_to_text(empty), std::string(""));
     });
 
+    test_detail::with_case(ctx, "tokens_to_text :: paren single number", [&] {
+        std::vector<Token> toks = {Br({EN("5")})};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("[5]"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: paren multi element comma joined", [&] {
+        std::vector<Token> toks = {Br({EN("1"), EN("2"), EN("3")})};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("[1, 2, 3]"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: paren element with binary op", [&] {
+        std::vector<Token> toks = {Pp({EV({N("1"), Op_(OpId::Add), N("2")}), EN("3")})};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("(1 + 2, 3)"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: paren unclosed retains opening only", [&] {
+        std::vector<Token> toks = {Br({EN("1"), EN("2")}, false)};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("[1, 2"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: bare comma after_node adds space", [&] {
+        std::vector<Token> toks = {N(",")};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string(", "));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: bare comma no after_node verbatim", [&] {
+        std::vector<Token> toks = {N(",")};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks, false), std::string(","));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: leading comma+digits after_node spaces", [&] {
+        std::vector<Token> toks = {N(",3")};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string(", 3"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: leading comma+digits no after_node", [&] {
+        std::vector<Token> toks = {N(",3")};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks, false), std::string(",3"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: non-comma number after_node unchanged", [&] {
+        std::vector<Token> toks = {N("3")};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string("3"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: comma only on first token", [&] {
+        std::vector<Token> toks = {N(",3"), Op_(OpId::Add), N(",5")};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string(", 3 + ,5"));
+    });
+
     // =========================================================================
     // structural_split
     // =========================================================================
@@ -1975,6 +2025,83 @@ void unit_parser(TestContext &ctx) {
                   Op_(OpId::Add),
                   Frac({N("2")}, {N("3"), Op_(OpId::Add), Op_(OpId::Cos), Pp({EN("90")})})}),
              .expected = {T_("1 + "), Frn({T_("2")}, {T_("3 + cos(90)")})}},
+
+            // "[1, 2\frac{}{}"
+            {.id = "bracket-comma-trailing-frac",
+             .input = branch({Br({EN("1"), EV({N("2"), Frac({}, {})})}, false)}),
+             .expected = {Pn(PK::Bracket, false, {T_("1, "), Frn({T_("2")}, {})})}},
+
+            // "[1, 2, 3, 4\frac{}{}" arity-4 variant.
+            {.id = "bracket-arity4-comma-trailing-frac",
+             .input = branch({Br({EN("1"), EN("2"), EN("3"), EV({N("4"), Frac({}, {})})}, false)}),
+             .expected = {Pn(PK::Bracket, false, {T_("1, 2, 3, "), Frn({T_("4")}, {})})}},
+
+            // "[\frac, 2]" Latex first, then number. Bridge: latex to text.
+            {.id = "bracket-latex-first",
+             .input = branch({Br({EV({Frac({}, {})}), EN("2")}, true)}),
+             .expected = {Pn(PK::Bracket, true, {Frn({}, {}), T_(", 2")})}},
+
+            // "[2, \frac, 3, 4]" Latex middle, text before+after.
+            {.id = "bracket-latex-middle-arity4",
+             .input = branch({Br({EN("2"), EV({Frac({}, {})}), EN("3"), EN("4")}, true)}),
+             .expected = {Pn(PK::Bracket, true, {T_("2, "), Frn({}, {}), T_(", 3, 4")})}},
+
+            // "[1, \frac, \frac, 4]" Latex-latex bridge needs ", " between two latex nodes.
+            {.id = "bracket-latex-latex-bridge",
+             .input =
+                 branch({Br({EN("1"), EV({Frac({}, {})}), EV({Frac({}, {})}), EN("4")}, true)}),
+             .expected = {Pn(
+                 PK::Bracket, true, {T_("1, "), Frn({}, {}), T_(", "), Frn({}, {}), T_(", 4")})}},
+
+            // "[2, \frac{}{} + 5, 3]" Latex element has trailing op+number; outer
+            // flush appends ", 3" onto recursion's Text(" + 5") (back-merge).
+            {.id = "bracket-latex-with-suffix-op",
+             .input =
+                 branch({Br({EN("2"), EV({Frac({}, {}), Op_(OpId::Add), N("5")}), EN("3")}, true)}),
+             .expected = {Pn(PK::Bracket, true, {T_("2, "), Frn({}, {}), T_(" + 5, 3")})}},
+
+            // "[(4+5), (4+4)-\frac{}{}]" outer non-latex bundle followed by
+            // vector element whose LatexSplit prefix emits its own Text.
+            // emit_text MUST merge bundle Text with prefix Text.
+            {.id = "bracket-paren-bundle-then-vec-latex-prefix",
+             .input = branch({Br(
+                 {Pp({EV({N("4"), Op_(OpId::Add), N("5")})}),
+                  EV({Pp({EV({N("4"), Op_(OpId::Add), N("4")})}), Op_(OpId::Sub), Frac({}, {})})},
+                 true)}),
+             .expected = {Pn(PK::Bracket, true, {T_("(4 + 5), (4 + 4) - "), Frn({}, {})})}},
+
+            // "[2, (\frac{3}{4})]" element 1 is a ParenToken (grouping) whose
+            // own descendant has latex. Outer ParenSplit recurses and emits
+            // a nested ParenNode inside the bundle.
+            {.id = "bracket-nested-paren-with-latex",
+             .input = branch({Br({EN("2"), Pp({EV({Frac({N("3")}, {N("4")})})})}, true)}),
+             .expected = {Pn(
+                 PK::Bracket,
+                 true,
+                 {T_("2, "), Pn(PK::Paren, true, {Frn({T_("3")}, {T_("4")})})})}},
+
+            // "[(2+3)+\frac{}{}]" arity-1 vector element with paren-prefix
+            // before binary op + Frac. LatexSplit prefix carries the Paren
+            // token through tokens_to_text + emit_text.
+            {.id = "bracket-vec-latex-with-paren-prefix-arity1",
+             .input = branch({Br(
+                 {EV({Pp({EV({N("2"), Op_(OpId::Add), N("3")})}), Op_(OpId::Add), Frac({}, {})})},
+                 true)}),
+             .expected = {Pn(PK::Bracket, true, {T_("(2 + 3) + "), Frn({}, {})})}},
+
+            // "[2, [\frac{3}{4}+5], 6]" element 1 is a ParenToken whose inner
+            // element is a vector with latex+text suffix. Tests deep nesting
+            // through outer ParenSplit -> inner ParenSplit recursion.
+            {.id = "bracket-deep-nested-paren-bracket-latex",
+             .input = branch({Br(
+                 {EN("2"), Br({EV({Frac({N("3")}, {N("4")}), Op_(OpId::Add), N("5")})}), EN("6")},
+                 true)}),
+             .expected = {Pn(
+                 PK::Bracket,
+                 true,
+                 {T_("2, "),
+                  Pn(PK::Bracket, true, {Frn({T_("3")}, {T_("4")}), T_(" + 5")}),
+                  T_(", 6")})}},
         };
 
         for (const auto &tc : build_nodes_cases) {
