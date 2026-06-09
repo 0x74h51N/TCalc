@@ -1,4 +1,3 @@
-
 ## Release Plans
 
 Goal: ship a stable v1 with a polished UI/UX and a solid native core.
@@ -22,6 +21,33 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [x] Add Shunting-yard
     - [x] Add RPN evaluation in Python (for minimal boilerplate)
     - [x] Unary/prefix/postfix handling + mode-based domain behavior (sqrt(-4): real MathError, complex 2i)
+  - [x] Add collection
+    - [x] Parser
+      - [x] Replace open/close pair token model with unified ParenToken containers
+        - [x] Unify grouped-expression tokenization into first-class ParenToken containers
+        - [x] Allow each element to store a Token or a token list (operations, latex, nested paren groups, etc.) <br>
+              `ParenElement = std::variant<Token, std::vector<Token>>;`
+        - [x] Parse round / square / curly spans as container tokens
+        - [x] Preserve open / close / stray-close cases during tokenization
+      - [x] Split top-level comma-separated elements into independent token trees
+      - [x] Adapt structural_split and build_math_nodes to ParenToken elements
+        - [x] Cascade ParenSplit vs LatexSplit per element based on has_latex_descendant
+        - [x] Cache has_latex_descendant bottom-up on each ParenToken
+      - [x] Add ParenElement single-token shortcut / SBO storage
+    - [x] Bindings (pybind)
+      - [x] Expose ParenKind / ParenToken / ParenElement to Python
+      - [x] Pickle support for ParenToken (state restore + history persistence)
+      - [x] Token element iteration helper for Python-side traversal
+    - [x] Evaluation
+      - [x] Canonicalization
+        - [x] Scalar canonicalization: bypass shunting-yard and RPN for single-token elements
+        - [x] Type canonicalization: Rational -> primitive types where exact
+      - [x] Route multi-token elements through shunting-yard and RPN evaluation
+      - [x] Add Collection runtime value
+        - [x] Evaluate ParenToken elements independently when element count > 1
+        - [x] Move List / Point classification to the eval layer from ParenToken type
+    - [x] Tests
+      - [x] Add native and Python regression coverage (tokenize, structural_split, build_math_nodes, eval scalar/multi-element)
   - [x] Undo/redo integrates with history navigation (rebuild expression from previous calc and auto-eval)
   - [x] Error mapping spec (engine -> UI)
   - [x] Test edge cases
@@ -36,6 +62,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [ ] Allow referencing previous lines / session values
     - [ ] Keep line evaluation isolated so one failed line does not break others
     - [ ] Add line actions (insert, remove, duplicate, reorder)
+    - [ ] Allow Collection values in row references
   - [ ] Add variable assignment
     - [ ] Parse assignments
     - [ ] Add variable store for current session
@@ -43,7 +70,6 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [ ] Define overwrite / invalid-name / undefined-variable behavior
 
 - [ ] Calc Modes
-
   - [x] Mode state, layout update, binding and side effects
   - [x] Simple Mode
   - [ ] Science mode
@@ -61,20 +87,21 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [x] Parser parity - Implement ops in native + pybind
     - [x] Edge cases + error messages
   - [ ] Statistic mode
-    - [ ] Data store
+    - [ ] Data store built on Collection
       - [ ] Add/remove/clear data points
       - [ ] Optional dataset persistence toggle (def false)
     - [ ] Data panel UI
-      - [ ] Place to the right of History with a vertical separator (History panel expands)
       - [ ] Show dataset list + summary (n, Σx, Σx²)
       - [ ] Show dataset change log (added/removed/cleared)
     - [ ] Keypad integration (left panel)
       - [ ] Statistic operations as buttons (mean, median, min, max)
       - [ ] variance + standard deviation (sample vs population)
       - [ ] Shift toggles secondary operations (Σx, Σx², etc.)
-    - [ ] Native + parser parity
-      - [ ] Implement ops in native + pybind
-      - [ ] Ensure parser maps symbols/aliases correctly
+    - [ ] Implement ops in native
+      - [ ] Add collection statistical ops (mean, median, variance, stddev, etc.)
+      - [ ] Add pybind bindings
+      - [ ] Add input-type validation and regression tests
+      - [ ] Ensure parser maps symbols / aliases correctly
     - [ ] Edge cases + error messages
 
 - [ ] Menubar
@@ -127,7 +154,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
       - [x] Add context menu
         - [x] Rename or remove custom pad
         - [x] Add customizable background and text colors
-        - [x] Add option to remove or change key operation  
+        - [x] Add option to remove or change key operation
   - [ ] Add mathematical expression GUI nodes (math render)
     - [x] Add ExpressionNode and ExpressionSlot class
       - [x] Make separate QLineEdits in math widgets (e.g., numerator/denominator, base/exponent)
@@ -139,12 +166,20 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [ ] Make toggleable for mathematical expressions (rawStr <-> rendered)
     - [ ] Add selective render mode in main display
     - [ ] Test edge cases and add GUI tests
+  - [ ] Collection GUI and Migration
+    - [x] Migrate
+      - [x] ParenWidget API to (kind, has_open, has_close) flags
+      - [x] Render pipeline (math_render, expression_node) to unified ParenToken
+    - [x] Comma input handling for collection element entry in the editor
+    - [ ] Add collection result rendering
+      - [ ] Show collection info text on result
+      - [ ] Add invalid input error handling and messages
+      - [ ] Show collection elements with comma + whitespace
   - [ ] Tab order + focus behavior
   - [ ] High-DPI/font scaling sanity pass
   - [ ] Basic tooltips for all keys
 
 - [ ] Packaging
-
   - [ ] Versioning + build metadata
     - [ ] App version (SemVer) + build number
     - [ ] About: version, platform, Qt/PySide version, commit hash
