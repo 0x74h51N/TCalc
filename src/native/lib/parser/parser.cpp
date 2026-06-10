@@ -982,18 +982,16 @@ std::string tokens_to_text(std::span<const Token> tokens, const bool &after_node
             // after_node only matters for the first token
             const bool node_ctx = i == 0 && after_node;
             out.append(space_binary_op(op.op_id, token_text(tok), node_ctx));
-        } else if (tok.kind == TokenKind::Number && i == 0 && after_node) {
-            // Suffix segment right after a MathNode: a leading bare comma
-            // (NumberToken whose first char is ',') is the collection
-            // separator -- emit ", " (space_binary_op pattern). Other Numbers
-            // emitted verbatim.
+        } else if (tok.kind == TokenKind::Number) {
+            // NumberToken values that contain ',' come from tokenize_core's
+            // fallback path (raw chunks). Comma is a collection separator --
+            // emit ", " for each occurrence so multi-comma typing renders
+            // with consistent spacing (space_binary_op pattern, unconditional).
             const auto text = token_text(tok);
-            if (!text.empty() && text.front() == ',') {
-                out.append(", ");
-                if (text.size() > 1)
-                    out.append(text, 1, std::string::npos);
-            } else {
-                out.append(text);
+            for (const char c : text) {
+                out.push_back(c);
+                if (c == ',')
+                    out.push_back(' ');
             }
         } else {
             out.append(token_text(tok));
