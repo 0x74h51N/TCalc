@@ -293,7 +293,11 @@ class CalculatorController:
 
         status_text, status_kind = _compute_status(self.tokens)
 
-        result_text = ""
+        # Default: keep whatever the result label already shows. Live eval
+        # errors (e.g. `[2,` empty element) suppress here, so the user keeps
+        # seeing the last good preview while mid-typing instead of flashing.
+        # Empty expression clears explicitly.
+        result_text = "" if not self.tokens else self._display.result.result_label.text()
         if self._force_error_display or _can_preview:
             self._result = self._evaluate_tokens(self.tokens, self._calculator)
 

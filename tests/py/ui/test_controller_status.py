@@ -109,6 +109,10 @@ def _make_stub_ctrl(expression: str, force: bool = False):
     ctrl._just_solved = False
     ctrl._result = None
     ctrl._display = MagicMock()
+    # Default: result label starts empty (matches a fresh widget). Tests that
+    # exercise "keep last result on live error" can override this before
+    # calling _compute_and_update.
+    ctrl._display.result.result_label.text.return_value = ""
     ctrl._history = MagicMock()
     ctrl._topbar = MagicMock()
     ctrl._memory_bar = MagicMock()
