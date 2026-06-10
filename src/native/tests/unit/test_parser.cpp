@@ -1280,34 +1280,41 @@ void unit_parser(TestContext &ctx) {
         EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("[1, 2"));
     });
 
-    test_detail::with_case(ctx, "tokens_to_text :: bare comma after_node adds space", [&] {
+    test_detail::with_case(ctx, "tokens_to_text :: bare comma always spaced", [&] {
         std::vector<Token> toks = {N(",")};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string(", "));
         EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string(", "));
     });
 
-    test_detail::with_case(ctx, "tokens_to_text :: bare comma no after_node verbatim", [&] {
-        std::vector<Token> toks = {N(",")};
-        EXPECT_EQ(ctx, p::tokens_to_text(toks, false), std::string(","));
-    });
-
-    test_detail::with_case(ctx, "tokens_to_text :: leading comma+digits after_node spaces", [&] {
+    test_detail::with_case(ctx, "tokens_to_text :: leading comma+digits spaced", [&] {
         std::vector<Token> toks = {N(",3")};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string(", 3"));
         EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string(", 3"));
     });
 
-    test_detail::with_case(ctx, "tokens_to_text :: leading comma+digits no after_node", [&] {
-        std::vector<Token> toks = {N(",3")};
-        EXPECT_EQ(ctx, p::tokens_to_text(toks, false), std::string(",3"));
-    });
-
-    test_detail::with_case(ctx, "tokens_to_text :: non-comma number after_node unchanged", [&] {
+    test_detail::with_case(ctx, "tokens_to_text :: non-comma number unchanged", [&] {
         std::vector<Token> toks = {N("3")};
         EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string("3"));
     });
 
-    test_detail::with_case(ctx, "tokens_to_text :: comma only on first token", [&] {
+    test_detail::with_case(ctx, "tokens_to_text :: multi comma values spaced everywhere", [&] {
+        std::vector<Token> toks = {N(",3,4,5")};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string(", 3, 4, 5"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: trailing comma kept", [&] {
+        std::vector<Token> toks = {N("2,3,3,3,")};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("2, 3, 3, 3, "));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: comma between digits no leading", [&] {
+        std::vector<Token> toks = {N("1,2")};
+        EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("1, 2"));
+    });
+
+    test_detail::with_case(ctx, "tokens_to_text :: every comma in every number token", [&] {
         std::vector<Token> toks = {N(",3"), Op_(OpId::Add), N(",5")};
-        EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string(", 3 + ,5"));
+        EXPECT_EQ(ctx, p::tokens_to_text(toks, true), std::string(", 3 + , 5"));
     });
 
     // =========================================================================
