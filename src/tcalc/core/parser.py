@@ -75,6 +75,27 @@ def _eval_element(element, calculator: Calculator) -> CalcValue:
     return evaluate_rpn(shunting_yard(list(element)), calculator)
 
 
+def _wrap_singleton_collection(
+    v: calc_native.Collection, outer_kind: calc_native.ParenKind
+) -> CalcValue:
+    """Wrap or reject an inner Collection produced by arity-1 _eval_element.
+
+    Canonicalization (arity-1 unwrap) applies only to scalar inner values.
+    A Collection arm requires policy:
+    - Bracket outer + Point inner  -> wrap as List([Point])
+    - Bracket outer + List inner   -> INVALID (List of List)
+    - Paren outer + any Collection -> INVALID (Point items must be scalar)
+    """
+    if outer_kind == calc_native.ParenKind.Paren:
+        raise_error(ErrorKind.INVALID, "Point item cannot be a collection")
+    if outer_kind == calc_native.ParenKind.Bracket:
+        if v.kind == calc_native.Collection.Kind.List:
+            raise_error(ErrorKind.INVALID, "List of List not allowed")
+        return calc_native.Collection(calc_native.Collection.Kind.List, [v])
+    # Brace is rejected earlier in _eval_paren_token; defensive fallback.
+    raise_error(ErrorKind.INVALID, "brace collection type not supported")
+
+
 def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
     """ParenToken -> CalcValue.
 
@@ -89,7 +110,10 @@ def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
     kind = par_tok.kind
 
     if arity == 1:
-        return _eval_element(par_tok.elements[0], calculator)
+        v = _eval_element(par_tok.elements[0], calculator)
+        if isinstance(v, calc_native.Collection):
+            return _wrap_singleton_collection(v, kind)
+        return v
 
     if kind == calc_native.ParenKind.Brace:
         raise_error(ErrorKind.INVALID, "brace collection type not supported")
@@ -100,16 +124,40 @@ def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
         return calc_native.Collection(calc_native.Collection.Kind.List, [])
 
     # Inline Rational scalarization in the hot loop: Collection storage has no
-    # Rational arm. Int Rationals collapse to int, fractional Rationals become double.
+    # Rational arm. Int Rationals collapse to int, fractional become double.
     #
-    # TODO: Fix Calculator (int, int) returning Rational(n, 1) instead of int
+    # Validation:
+    # - Paren (Point) items must be pure scalars; any nested Collection is rejected.
+    # - Bracket (List) items must be uniform: either all scalars or all Points.
+    #   Nested List is always rejected (no List-of-List).
+    #
+    # TODO: Fix Calculator (int, int) returning Rational(n, 1) instead of int.
     Rational = calc_native.Rational
     items = []
+    expected = None  # None | "scalar" | "point"
     for e in par_tok.elements:
         v = _eval_element(e, calculator)
         if isinstance(v, Rational):
             v = v.numerator if v.denominator == 1 else v.to_double()
+
+        if isinstance(v, calc_native.Collection):
+            if kind == calc_native.ParenKind.Paren:
+                raise_error(ErrorKind.INVALID, "Point item cannot be a collection")
+            # kind == Bracket here (Brace rejected before this loop).
+            if v.kind == calc_native.Collection.Kind.List:
+                raise_error(ErrorKind.INVALID, "List of List not allowed")
+            if expected is None:
+                expected = "point"
+            elif expected != "point":
+                raise_error(ErrorKind.INVALID, "List cannot mix scalars and points")
+        else:
+            if expected is None:
+                expected = "scalar"
+            elif expected != "scalar":
+                raise_error(ErrorKind.INVALID, "List cannot mix scalars and points")
+
         items.append(v)
+
     coll_kind = (
         calc_native.Collection.Kind.List
         if kind == calc_native.ParenKind.Bracket

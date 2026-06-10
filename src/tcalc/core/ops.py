@@ -93,6 +93,7 @@ _PAREN_SPECS = [
 _UI_SPECS = (
     ("DIGIT", "digit"),
     ("DOT", "."),
+    ("COMMA", ","),
     *_PAREN_SPECS,
     ("EQUALS", "="),
     ("CLEAR", "C"),
