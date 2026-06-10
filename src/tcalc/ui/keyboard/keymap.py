@@ -30,7 +30,7 @@ _KEY_TO_OPERATION: list[tuple[int, Operation]] = [
 
 _SPECIAL_LABEL_KEYS: dict[int, tuple[str, Operation]] = {
     int(Qt.Key.Key_Period): (".", Operation.DOT),
-    int(Qt.Key.Key_Comma): (".", Operation.DOT),
+    int(Qt.Key.Key_Comma): (",", Operation.COMMA),
 }
 
 EXPRESSION_KEY_MAP = {

@@ -122,8 +122,15 @@ class MathRender(QWidget):
             cursor_pos = seg.cursorPosition()
             # If no token starts before the cursor, the user's cursor sat in
             # whitespace that just got normalized away — snap to start of new text.
+            # Shift cursor by the amount of whitespace tokens_to_text added
+            # (delta when text expanded). When text shrank (e.g. `( + 5` →
+            # `(+5` after unary-plus collapse), keep the cursor where the
+            # user typed.
+            delta = max(0, len(new_text) - len(text))
             new_cursor = (
-                min(cursor_pos, len(new_text)) if tokens and tokens[0].start_pos < cursor_pos else 0
+                min(cursor_pos + delta, len(new_text))
+                if tokens and tokens[0].start_pos < cursor_pos
+                else 0
             )
             seg.setText(new_text)
             seg.setCursorPosition(new_cursor)
@@ -163,6 +170,10 @@ class MathRender(QWidget):
         cur_seg.setText("")
         dirty_inputs.add(cur_seg)
         focus_target: ExpressionNode | None = None
+        from tcalc.debug import fmt_math_nodes
+
+        fmt_math_nodes(nodes)
+        _log.debug(nodes)
 
         for node in nodes:
             kind = node[0]

@@ -37,7 +37,10 @@ def apply_hyp_variant(op: Operation, hyp_enabled: bool) -> Operation:
 
 
 def format_result(value) -> str:
-    """Format a numeric result (float, complex, Rational, etc.) for display."""
+    """Format a numeric result (float, complex, Rational, Collection, etc.) for display."""
+
+    if isinstance(value, calc_native.Collection):
+        return repr(value)
 
     if isinstance(value, calc_native.Rational):
         # Display as decimal value for now; fraction widget will use .numerator/.denominator
@@ -105,6 +108,6 @@ def format_result(value) -> str:
     return fmt_real(float(value))
 
 
-def clean_for_expression(formatted: str) -> str:
-    """Remove formatting (commas) from a display string for expression use."""
-    return formatted.replace(",", "")
+# def clean_for_expression(formatted: str) -> str:
+#     """Remove formatting (commas) from a display string for expression use."""
+#     return formatted.replace(",", "")

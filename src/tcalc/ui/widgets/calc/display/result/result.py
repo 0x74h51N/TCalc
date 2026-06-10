@@ -13,6 +13,7 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
+    QVBoxLayout,
     QWidget,
 )
 
@@ -32,8 +33,15 @@ class Result(QWidget):
         self._config = config
 
         self.setFixedHeight(self._config["height"])
-        self._layout = QHBoxLayout()
+        self._layout = QVBoxLayout()
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(2)
         self.setLayout(self._layout)
+
+        self._row_layout = QHBoxLayout()
+        self._row_layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.addLayout(self._row_layout)
+
         self._res_render = MathRender(read_only=True)
         self._res_slot = ExpressionSlot(
             kind=InputKind.MAIN, key="fracResult", align=InputAlign.RIGHT
@@ -48,9 +56,9 @@ class Result(QWidget):
         self.result_label.setFont(self._result_font)
         self.result_label.setAlignment(InputAlign.RIGHT.value)
 
-        self._layout.addWidget(self.result_label, 1)
+        self._row_layout.addWidget(self.result_label, 1)
         self._res_slot.hide()
-        self._layout.addWidget(self._res_slot, 1)
+        self._row_layout.addWidget(self._res_slot, 1)
         btn_size = self._config["btn_size"]
         btn_padding = self._config["btn_padding"]
         icon_base, _ = self._config["colors"]["frac_icon"]
@@ -68,14 +76,26 @@ class Result(QWidget):
         self._frac_btn.setObjectName("fracToggleBtn")
         self._frac_btn.hide()
         self._frac_btn.clicked.connect(self._toggle_fraction_view)
-        self._layout.addWidget(self._frac_btn, 0)
+        self._row_layout.addWidget(self._frac_btn, 0)
+
+        self.status_label = QLabel("", self)
+        self.status_label.setObjectName("statusLabel")
+        self.status_label.setAlignment(InputAlign.RIGHT.value)
+        self.status_label.hide()
+        self._layout.addWidget(self.status_label, 0)
 
         self._frac_visible = False
 
         apply_style(self)
         QTimer.singleShot(0, self._update_fonts)
 
-    def update_res(self, result_text: str, result: CalcValue | None) -> None:
+    def update_res(
+        self,
+        result_text: str,
+        result: CalcValue | None,
+        status_text: str = "",
+        status_kind: str = "",
+    ) -> None:
         self.setUpdatesEnabled(False)
         try:
             self.result_label.setText(result_text)
@@ -88,9 +108,22 @@ class Result(QWidget):
             else:
                 self._frac_btn.hide()
                 self._hide_fraction_view()
+
+            self._apply_status(status_text, status_kind)
             self._update_fonts()
         finally:
             self.setUpdatesEnabled(True)
+
+    def _apply_status(self, status_text: str, status_kind: str) -> None:
+        if not status_text:
+            self.status_label.hide()
+            self.status_label.setText("")
+            return
+        self.status_label.setText(status_text)
+        self.status_label.setProperty("statusKind", status_kind or "info")
+        self.status_label.style().unpolish(self.status_label)
+        self.status_label.style().polish(self.status_label)
+        self.status_label.show()
 
     def _sync_fraction_ui(self) -> None:
         self._frac_btn.update_icon(

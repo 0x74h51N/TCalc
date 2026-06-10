@@ -14,6 +14,7 @@ import calc_native
 from tcalc.app_state import AngleUnit, CalcValue, get_app_state
 from tcalc.core.ops import Operation
 from tcalc.core.utils import is_number_token
+from tcalc.errors import CalculatorError
 from tcalc.ui.controller.menubar import EditOperations
 from tcalc.ui.widgets import History, MemoryBar
 from tcalc.ui.widgets.calc import Display, TopBar
@@ -22,9 +23,46 @@ from tcalc.ui.widgets.history.storage import HistoryEntry
 from ...core import Calculator, evaluate_tokens
 from ...core.parser import tokenize
 from ..widgets.calc.topbar.defins import MEMORY_KEYS, MemoryKey
-from .utils import apply_hyp_variant, clean_for_expression, format_result
+from .utils import apply_hyp_variant, format_result
 
 _log = logging.getLogger("tcalc.ui.controller")
+
+
+def _short_error_for_expression(expression: str, tokens) -> str | None:
+    """Return a short user-facing error if the expression has bare comma
+    outside any Paren/Bracket. Otherwise None (caller uses raw error text)."""
+    if "," not in expression:
+        return None
+    for tok in tokens:
+        if tok.kind == calc_native.TokenKind.Paren:
+            return None
+    return "Use [ ] for lists or ( ) for points"
+
+
+def _compute_status(tokens) -> tuple[str, str]:
+    """Top-level token analysis -> ('status text', 'info' | 'error' | '').
+
+    Surfaces a friendly hint while the user is typing an unclosed
+    Collection literal. Returns ('', '') when no hint applies; the
+    caller then falls back to the live error text (if any) or shows
+    nothing.
+    """
+    if len(tokens) != 1:
+        return "", ""
+    tok = tokens[0]
+    if tok.kind != calc_native.TokenKind.Paren:
+        return "", ""
+    par = tok.as_paren()
+    arity = len(par.elements)
+    if par.kind == calc_native.ParenKind.Bracket:
+        word = {0: "none", 1: "one", 2: "two", 3: "three"}.get(arity, str(arity))
+        return f"{word} element list", "info"
+    if par.kind == calc_native.ParenKind.Paren:
+        if arity < 2:
+            return "", ""
+        word = {2: "two", 3: "three"}.get(arity, str(arity))
+        return f"{word} element point", "info"
+    return "", ""
 
 
 class CalculatorController:
@@ -105,7 +143,7 @@ class CalculatorController:
         entry = HistoryEntry(self._expression, formatted_res, self._tokenized, flat_text)
         self._history.update_history(entry)
         self._just_solved = True
-        self._display.editor.set_plain_text(clean_for_expression(formatted_res))
+        self._display.editor.set_plain_text(formatted_res)
         self._expression = formatted_res
 
         self._edit_ops.reset_navigation()
@@ -121,7 +159,7 @@ class CalculatorController:
         def recall() -> None:
             if self._app_state.memory is None:
                 return
-            token = clean_for_expression(format_result(self._app_state.memory))
+            token = format_result(self._app_state.memory)
             self._display.editor.insert_text(token)
 
         def store(value: CalcValue) -> None:
@@ -176,6 +214,7 @@ class CalculatorController:
             {
                 Operation.DIGIT: self._handle_digit,
                 Operation.DOT: lambda _: self._handle_digit(Operation.DOT.symbol),
+                Operation.COMMA: lambda _: self._handle_digit(Operation.COMMA.symbol),  # pyright: ignore[reportAttributeAccessIssue]
                 Operation.EQUALS: lambda _: self._handle_equals(),
                 Operation.CLEAR: lambda _: self._handle_clear(),
                 Operation.BACKSPACE: lambda _: self._display.editor.backspace(),
@@ -215,8 +254,17 @@ class CalculatorController:
     ) -> CalcValue | None:
         try:
             return evaluate_tokens(tokens, calculator)
+        except CalculatorError as exc:
+            # Drop the embedded detail (kept in the exception for logging);
+            # surface only the short ErrorKind.value to the user.
+            msg = str(exc)
+            self._error_text = msg.split(":", 1)[0] if ":" in msg else msg
+            _log.debug("Evaluate token error: %s", exc)
+            return None
         except Exception as exc:
-            self._error_text = str(exc)
+            # Non-CalculatorError (e.g., pybind11 incompatible-function-args):
+            # show a generic short message; full traceback only in debug log.
+            self._error_text = "Invalid inputs"
             _log.debug("Evaluate token native error: %s", exc)
             return None
 
@@ -243,17 +291,34 @@ class CalculatorController:
         self.tokens = self._tokenized.tokens
         _can_preview = self._can_compute_preview(self.tokens)
 
+        status_text, status_kind = _compute_status(self.tokens)
+
         result_text = ""
         if self._force_error_display or _can_preview:
             self._result = self._evaluate_tokens(self.tokens, self._calculator)
 
         if self._result is None:
             if self._force_error_display and self._error_text:
-                result_text = self._error_text
+                # Enter pressed — surface error in both status and result.
+                short = _short_error_for_expression(self._expression, self.tokens)
+                if short is not None:
+                    status_text = short
+                    result_text = "Invalid inputs"
+                else:
+                    status_text = self._error_text
+                    result_text = self._error_text
+                status_kind = "error"
+            # Live preview: keep info status (or empty); eval error stays in
+            # self._error_text but is NOT surfaced until force_display.
         else:
             self._error_text = None
             if _can_preview and not self._just_solved:
                 result_text = format_result(self._result)
 
         self._force_error_display = False
-        self._display.result.update_res(result_text, result=self._result)
+        self._display.result.update_res(
+            result_text,
+            result=self._result,
+            status_text=status_text,
+            status_kind=status_kind,
+        )

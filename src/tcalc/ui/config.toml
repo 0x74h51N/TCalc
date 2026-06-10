@@ -266,6 +266,8 @@ frac_bg = ["accent", 0.2]
 frac_bg_hover = ["accent", 0.28]
 frac_bg_pressed = ["accent", 0.38]
 frac_icon = ["accent_text", 1.0]
+status_info = ["text_secondary", 1.0]
+status_error = ["status_error", 1.0]
 
 [calc.topbar]
 side_margin = 10
