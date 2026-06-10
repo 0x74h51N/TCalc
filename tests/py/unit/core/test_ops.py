@@ -75,3 +75,10 @@ def test_is_int_like(value, expected):
 )
 def test_root_rule(x, y, promotes):
     assert ops_mod._cx_root(x, y) is promotes
+
+
+def test_comma_operation_exists_and_has_correct_symbol():
+    comma = getattr(ops_mod.Operation, "COMMA")
+    assert comma.symbol == ","
+    # COMMA is a UI-only op (no native OpId), so arity must be None.
+    assert comma.arity is None
