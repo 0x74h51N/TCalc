@@ -11,8 +11,10 @@ import calc_native
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QFrame,
     QHBoxLayout,
     QLabel,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -20,6 +22,7 @@ from PySide6.QtWidgets import (
 from tcalc.core.utils import CalcValue
 from tcalc.theme import get_theme
 from tcalc.ui.widgets.common.button import IconButton
+from tcalc.ui.widgets.history.utils import wrap_expression
 from tcalc.ui.widgets.math import ExpressionSlot, InputKind, MathRender
 from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
 
@@ -51,12 +54,26 @@ class Result(QWidget):
         self._result_font.setPointSize(self._config["font_size"])
         self._result_font.setBold(True)
 
-        self.result_label = QLabel("0", self)
+        self.result_label = QLabel("0")
         self.result_label.setObjectName("displayResult")
         self.result_label.setFont(self._result_font)
         self.result_label.setAlignment(InputAlign.RIGHT.value)
+        self.result_label.setWordWrap(True)
 
-        self._row_layout.addWidget(self.result_label, 1)
+        # Wrap the label in a vertical scroll area: if the wrapped Collection
+        # outgrows the result widget's fixed height, the scrollbar appears
+        # without expanding the panel.
+        self._result_scroll = QScrollArea(self)
+        self._result_scroll.setObjectName("displayResultScroll")
+        self._result_scroll.setWidget(self.result_label)
+        self._result_scroll.setWidgetResizable(True)
+        self._result_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._result_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._result_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._result_scroll.viewport().setAutoFillBackground(False)
+        self.result_label.setAutoFillBackground(False)
+
+        self._row_layout.addWidget(self._result_scroll, 1)
         self._res_slot.hide()
         self._row_layout.addWidget(self._res_slot, 1)
         btn_size = self._config["btn_size"]
@@ -78,6 +95,11 @@ class Result(QWidget):
         self._frac_btn.clicked.connect(self._toggle_fraction_view)
         self._row_layout.addWidget(self._frac_btn, 0)
 
+        self._resize_timer = QTimer(self)
+        self._resize_timer.setSingleShot(True)
+        self._resize_timer.setInterval(int(self._config.get("resize_debounce_ms", 30)))
+        self._resize_timer.timeout.connect(self._on_resize_settled)
+
         self.status_label = QLabel("", self)
         self.status_label.setObjectName("statusLabel")
         self.status_label.setAlignment(InputAlign.RIGHT.value)
@@ -98,7 +120,13 @@ class Result(QWidget):
     ) -> None:
         self.setUpdatesEnabled(False)
         try:
-            self.result_label.setText(result_text)
+            self.result_label.setText(
+                wrap_expression(
+                    result_text,
+                    self.result_label.fontMetrics(),
+                    self._result_scroll.viewport().width(),
+                )
+            )
 
             # Check if result can be rendered as fraction
             if isinstance(result, calc_native.Rational):
@@ -193,4 +221,16 @@ class Result(QWidget):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
+        self._resize_timer.start()
+
+    def _on_resize_settled(self) -> None:
+        """Debounced resize handler: re-apply font scaling + re-flow the
+        wrapped text against the now-stable viewport width."""
         self._update_fonts()
+        self.result_label.setText(
+            wrap_expression(
+                self.result_label.text().replace("\n", ""),
+                self.result_label.fontMetrics(),
+                self._result_scroll.viewport().width(),
+            )
+        )

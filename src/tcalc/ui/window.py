@@ -172,7 +172,11 @@ class MainWindow(QMainWindow):
             [self.history.list],
             int(history_style["font_size"]),
             int(history_style["max_pt"]),
-            callback=self.history.update_fonts,
+            # Debounced side-panel resize: re-wrap + force refresh_layout so
+            # each item's QListWidget cell size is recomputed against the
+            # final viewport width (initial wrap can lock in a too-tall hint
+            # before the panel has settled on its real size).
+            callback=lambda: self.history.update_fonts(force_layout=True),
         )
         self.side_panel.register_font_targets(
             [self.history.clear_button],

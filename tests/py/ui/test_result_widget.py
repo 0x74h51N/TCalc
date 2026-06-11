@@ -59,6 +59,11 @@ def test_status_label_error_kind_marks_property(result_widget):
 
 
 def test_format_result_collection_in_result_label(result_widget):
+    result_widget.show()
+    result_widget.resize(600, 100)
+    result_widget.result_label.setFixedWidth(500)
     coll = calc_native.Collection(calc_native.Collection.Kind.List, [1, 2, 3])
     result_widget.update_res(repr(coll), coll, status_text="", status_kind="")
-    assert result_widget.result_label.text() == "[1, 2, 3]"
+    # Wrap may still insert newlines if the font/metrics disagree; compare on
+    # the joined form.
+    assert result_widget.result_label.text().replace("\n", "") == "[1, 2, 3]"

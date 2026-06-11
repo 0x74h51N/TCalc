@@ -249,10 +249,11 @@ scroll_anim_duration = 140
 scroll_anim_curve = "InCubic"
 
 [calc.display.result]
-height = 90
+height = 110
 font_size = 24
 max_pt = 32
 font_norm = 8  # FractionWidget font size normalizer
+resize_debounce_ms = 30
 
 btn_size = 32
 btn_padding = 6

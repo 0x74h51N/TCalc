@@ -9,6 +9,7 @@ BREAK_SYMBOLS: frozenset[str] = frozenset(
         Operation.MUL.symbol,
         Operation.DIV.symbol,
         Operation.EQUALS.symbol,
+        Operation.COMMA.symbol,  # pyright: ignore[reportAttributeAccessIssue]
         Operation.CLOSE_PAREN.symbol,
         Operation.CLOSE_BRACE.symbol,
         Operation.CLOSE_BRACKET.symbol,
@@ -18,7 +19,7 @@ BREAK_SYMBOLS: frozenset[str] = frozenset(
 
 def wrap_expression(expr: str, fm: QFontMetrics, max_width: int) -> str:
     if not expr:
-        return ""
+        return expr
 
     advance = fm.horizontalAdvance
     lines: list[str] = []
