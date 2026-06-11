@@ -90,6 +90,24 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [ ] Data store built on Collection
       - [ ] Add/remove/clear data points
       - [ ] Optional dataset persistence toggle (def false)
+    - [ ] CSV collection load
+      - [ ] Native fast-path: build Collection directly from CSV stream, bypass the tokenize -> shunting-yard -> eval pipeline (`Collection.from_csv()`)
+      - [ ] Multi-column ingest: each column becomes its own Collection, bound to a user-named variable
+      - [ ] Load UX
+        - [ ] File picker + delimiter/header inference
+        - [ ] Column preview with type detection
+        - [ ] Missing-value detection during load
+        - [ ] Imputation strategy per column (mean, median, nearest-neighbor, constant, drop row)
+        - [ ] Preview imputed vs original side-by-side before commit
+      - [ ] Edge cases + error messages (malformed rows, mixed types, encoding)
+    - [ ] Data normalization / preprocessing
+      - [ ] Per-column transform pipeline (chainable, preview before commit)
+      - [ ] Scaling
+        - [ ] Min-max (configurable target range, default 0..1)
+        - [ ] Z-score standardization (mean=0, std=1)
+      - [ ] Log / log1p transform (for skewed distributions)
+      - [ ] Outlier handling (IQR or z-score detection, clip / drop)
+      - [ ] Persist applied pipeline on the Collection (reproducibility + inverse transform)
     - [ ] Data panel UI
       - [ ] Show dataset list + summary (n, Σx, Σx²)
       - [ ] Show dataset change log (added/removed/cleared)
@@ -98,7 +116,17 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
       - [ ] variance + standard deviation (sample vs population)
       - [ ] Shift toggles secondary operations (Σx, Σx², etc.)
     - [ ] Implement ops in native
-      - [ ] Add collection statistical ops (mean, median, variance, stddev, etc.)
+      - [ ] Aggregation
+        - [ ] Basic: mean, median, min, max, variance, stddev (sample vs population)
+        - [ ] Percentile / quantile (Q1, Q3, configurable p)
+        - [ ] Mode, range (max - min), count of unique values
+      - [ ] Sort / filter / select
+        - [ ] Ascending / descending sort
+        - [ ] Filter by predicate (`> x`, `< x`, `between(a, b)`, `== x`)
+        - [ ] Random `sample(n)` (bootstrap-friendly)
+      - [ ] Pairwise / two-collection
+        - [ ] Pearson correlation, covariance
+        - [ ] Simple linear regression (slope, intercept, R²)
       - [ ] Add pybind bindings
       - [ ] Add input-type validation and regression tests
       - [ ] Ensure parser maps symbols / aliases correctly
@@ -166,15 +194,15 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [ ] Make toggleable for mathematical expressions (rawStr <-> rendered)
     - [ ] Add selective render mode in main display
     - [ ] Test edge cases and add GUI tests
-  - [ ] Collection GUI and Migration
+  - [x] Collection GUI and Migration
     - [x] Migrate
       - [x] ParenWidget API to (kind, has_open, has_close) flags
       - [x] Render pipeline (math_render, expression_node) to unified ParenToken
     - [x] Comma input handling for collection element entry in the editor
-    - [ ] Add collection result rendering
-      - [ ] Show collection info text on result
-      - [ ] Add invalid input error handling and messages
-      - [ ] Show collection elements with comma + whitespace
+    - [x] Add collection result rendering
+      - [x] Show collection info text on result (`status_label`: "N element list / point" while typing)
+      - [x] Add invalid input error handling and messages (user-friendly hint for bare comma outside any paren)
+      - [x] Show collection elements with comma + whitespace
   - [ ] Tab order + focus behavior
   - [ ] High-DPI/font scaling sanity pass
   - [ ] Basic tooltips for all keys

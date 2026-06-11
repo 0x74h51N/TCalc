@@ -6,8 +6,6 @@ from PySide6.QtWidgets import QApplication
 
 from tcalc.app_state import get_app_state
 
-from ..utils import clean_for_expression
-
 if TYPE_CHECKING:
     from ...window import MainWindow
 
@@ -48,7 +46,7 @@ class EditOperations:
 
     def _do_clip(self, action: str, after: Optional[Callable[[], None]] = None) -> None:
         exprs = self._display.expression.expression_inputs()
-        cleaned = clean_for_expression(self._display.result.result_label.text())
+        cleaned = self._display.result.result_label.text()
         for expr in exprs:
             if expr.hasSelectedText():
                 getattr(expr, action)()
@@ -87,7 +85,7 @@ class EditOperations:
         self._do_clip("cut", after=lambda: self._display.result.clear_result())
 
     def paste(self) -> None:
-        cleaned = clean_for_expression(self.clipboard.text())
+        cleaned = self.clipboard.text()
         self._display.expression.set_plain_text(cleaned)
 
     def undo(self) -> None:

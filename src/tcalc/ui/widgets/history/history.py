@@ -367,8 +367,9 @@ class HistoryItem(QWidget):
         self._expr_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._expr_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         # Result label
-        self.result_label = QLabel(entry.result, self)
+        self.result_label = QLabel(self)
         self.result_label.setAlignment(InputAlign.RIGHT.value)
+        self.result_label.setText(self._wrap_text(entry.result))
 
         self._layout.addWidget(self.expression_label)
         self._layout.addWidget(self._expr_scroll)
@@ -468,9 +469,10 @@ class HistoryItem(QWidget):
             self._list_item.setSizeHint(hint)
 
     def re_wrap(self) -> None:
-        """Re-wrap expression label text using current font metrics."""
+        """Re-wrap expression and result label text using current font metrics."""
         if self._current_render_mode in (RenderMode.FLAT, RenderMode.RAW):
             self.expression_label.setText(self._expression_text(self._current_render_mode))
+        self.result_label.setText(self._wrap_text(self._entry.result))
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)

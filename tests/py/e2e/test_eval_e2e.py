@@ -134,6 +134,27 @@ def _eval(expr: str) -> object:
             "e+309",
             id="complex-plus-bigreal-promotes-bigcomplex",
         ),
+        # ----------------------------
+        # Collection literals (List / Point)
+        # ----------------------------
+        param("[1, 2, 3]", "List", [1, 2, 3], id="list-bare-numbers"),
+        param("[]", "List", [], id="list-empty"),
+        param("(3, 4)", "Point", (3, 4), id="point-arity-2"),
+        param("(1, 2, 3)", "Point", (1, 2, 3), id="point-arity-3"),
+        param("[\\frac{1}{2}, 3]", "List", [0.5, 3.0], id="list-with-latex-element"),
+        param("[1+2, 3*4]", "List", [3, 12], id="list-with-expression-element"),
+        param("[1,2,3", "List", [1, 2, 3], id="list-unclosed"),
+        param("[(1,2)]", "List", [(1, 2)], id="list-singleton-point-wrapped"),
+        param("[(1,2),(3,4)]", "List", [(1, 2), (3, 4)], id="list-of-points"),
+        # ----------------------------
+        # Collection arity-1 demote (scalar canonicalization)
+        # ----------------------------
+        param("[5]", "float", 5.0, id="list-arity-1-demote-scalar"),
+        param("[2+3]", "float", 5.0, id="list-arity-1-demote-expression"),
+        param("(2+3", "float", 5.0, id="paren-unclosed-grouping"),
+        param("{2+3", "float", 5.0, id="brace-unclosed-grouping"),
+        param("1+2)", "float", 3.0, id="stray-close-skipped"),
+        param("[[5]]", "float", 5.0, id="nested-list-arity-1-demote-chain"),
     ],
 )
 def test_native_eval_golden(expr: str, expected_type: str, expected_value: object) -> None:
@@ -149,15 +170,66 @@ def test_native_eval_golden(expr: str, expected_type: str, expected_value: objec
     if expected_type == "complex":
         out = _eval(expr)
         assert isinstance(out, complex)
+        assert isinstance(expected_value, tuple)
         real, imag = out.real, out.imag
         exp_real, exp_imag = expected_value
         assert real == pytest.approx(exp_real)
         assert imag == pytest.approx(exp_imag)
         return
 
+    if expected_type in ("List", "Point"):
+        assert isinstance(expected_value, (list, tuple))
+        out = _eval(expr)
+        assert isinstance(out, calc_native.Collection)
+        kind = (
+            calc_native.Collection.Kind.List
+            if expected_type == "List"
+            else calc_native.Collection.Kind.Point
+        )
+        assert out.kind == kind
+        assert len(out) == len(expected_value)
+        for actual, expected in zip(out, expected_value):
+            if isinstance(expected, tuple):
+                # Nested Point item inside a List of Points.
+                assert isinstance(actual, calc_native.Collection)
+                assert actual.kind == calc_native.Collection.Kind.Point
+                assert list(actual) == list(expected)
+            else:
+                assert actual == expected
+        return
+
     out = _eval(expr)
     assert type(out).__name__ == expected_type
+    assert isinstance(expected_value, str)
     assert expected_value in str(out)
+
+
+@pytest.mark.parametrize(
+    ("expr", "expected_msg_substr"),
+    [
+        param("()", None, id="empty-point"),
+        param("(1, 2, 3, 4)", None, id="point-arity-too-many"),
+        param("[1, ]", None, id="empty-element-in-list"),
+        param("[[1,2], 3]", "List of List", id="nested-list-in-list-arity2"),
+        param("[[1,2]]", "List of List", id="singleton-list-in-list"),
+        param("[[1,2],[3,4]]", "List of List", id="list-of-lists-multi"),
+        param("[(1,2), (3,4,5)]", None, id="list-of-points-mixed-arity"),
+        param("[1, (2,3)]", "mix scalars and points", id="list-mixed-scalar-then-point"),
+        param("[(1,2), 3]", "mix scalars and points", id="list-mixed-point-then-scalar"),
+        param("5 + [1, 2]", None, id="scalar-plus-collection-undefined"),
+        param("((1,2))", "Point item cannot be a collection", id="singleton-point-in-point"),
+        param("([1,2])", "Point item cannot be a collection", id="singleton-list-in-point"),
+        param("((1,2),(3,4))", "Point item cannot be a collection", id="point-of-points-multi"),
+        param("(1, [2,3])", "Point item cannot be a collection", id="point-with-list-item"),
+    ],
+)
+def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> None:
+    from tcalc.errors import Error
+
+    with pytest.raises(Error) as exc_info:
+        _eval(expr)
+    if expected_msg_substr is not None:
+        assert expected_msg_substr in str(exc_info.value)
 
 
 def test_pow_boundary_exactness() -> None:

@@ -25,6 +25,6 @@ def raise_error(kind: ErrorKind, detail: object | None = None) -> NoReturn:
     message = kind.value
     if detail:
         _log.debug("%s: %s", message, detail)
-    else:
-        _log.debug("%s", message)
+        raise Error(f"{message}: {detail}")
+    _log.debug("%s", message)
     raise Error(message)

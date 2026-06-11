@@ -13,3 +13,11 @@ QPushButton#fracToggleBtn:hover {
 QPushButton#fracToggleBtn:pressed {
     background-color: $frac_bg_pressed;
 }
+
+QLabel#statusLabel {
+    color: $status_info;
+    font-style: italic;
+}
+QLabel#statusLabel[statusKind="error"] {
+    color: $status_error;
+}
