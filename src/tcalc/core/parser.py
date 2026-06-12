@@ -75,27 +75,6 @@ def _eval_element(element, calculator: Calculator) -> CalcValue:
     return evaluate_rpn(shunting_yard(list(element)), calculator)
 
 
-def _wrap_singleton_collection(
-    v: calc_native.Collection, outer_kind: calc_native.ParenKind
-) -> CalcValue:
-    """Wrap or reject an inner Collection produced by arity-1 _eval_element.
-
-    Canonicalization (arity-1 unwrap) applies only to scalar inner values.
-    A Collection arm requires policy:
-    - Bracket outer + Point inner  -> wrap as List([Point])
-    - Bracket outer + List inner   -> INVALID (List of List)
-    - Paren outer + any Collection -> INVALID (Point items must be scalar)
-    """
-    if outer_kind == calc_native.ParenKind.Paren:
-        raise_error(ErrorKind.INVALID, "Point item cannot be a collection")
-    if outer_kind == calc_native.ParenKind.Bracket:
-        if v.kind == calc_native.Collection.Kind.List:
-            raise_error(ErrorKind.INVALID, "List of List not allowed")
-        return calc_native.Collection(calc_native.Collection.Kind.List, [v])
-    # Brace is rejected earlier in _eval_paren_token; defensive fallback.
-    raise_error(ErrorKind.INVALID, "brace collection type not supported")
-
-
 def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
     """ParenToken -> CalcValue.
 
@@ -111,8 +90,14 @@ def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
 
     if arity == 1:
         v = _eval_element(par_tok.elements[0], calculator)
-        if isinstance(v, calc_native.Collection):
-            return _wrap_singleton_collection(v, kind)
+        # arity-1 (no top-level comma) is grouping: "(x)" == "x" for any x.
+        # Transparent for scalars AND collections, so "mean([1,2,3])" works like
+        # "mean[1,2,3]". Only Bracket "[X]" is a real 1-element List literal with
+        # its own demote/wrap policy.
+        if isinstance(v, calc_native.Collection) and kind == calc_native.ParenKind.Bracket:
+            if v.kind == calc_native.Collection.Kind.List:
+                raise_error(ErrorKind.INVALID, "List of List not allowed")
+            return calc_native.Collection(calc_native.Collection.Kind.List, [v])
         return v
 
     if kind == calc_native.ParenKind.Brace:

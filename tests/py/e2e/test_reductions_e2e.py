@@ -106,8 +106,8 @@ def test_reduction_eval_golden(expr: str, expected_type: str, expected_value: ob
         param("min[]", "min of an empty collection", id="min-empty"),
         param("mean(3,4)", "mean is not defined for a single point", id="mean-bare-point"),
         param("median(3,4)", "median is not defined for a single point", id="median-bare-point"),
-        param("min[1+2j, 3]", "min is not defined for complex values", id="min-complex"),
-        param("max[1+2j, 3]", "max is not defined for complex values", id="max-complex"),
+        param("min[1+2j, 3]", "min-max not defined for complex values", id="min-complex"),
+        param("max[1+2j, 3]", "min-max not defined for complex values", id="max-complex"),
         param("median[1+2j, 3]", "median is not defined for complex values", id="median-complex"),
     ],
 )

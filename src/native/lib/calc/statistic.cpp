@@ -25,6 +25,7 @@ using tcalc::ScalarArm;
 namespace {
 
 constexpr std::size_t kPairwiseBlock = 128;
+constexpr double kPairMeanDivisor = 2.0;
 
 template <typename T> T pairwise_sum(std::span<const CollectionItem> items) {
     const std::size_t n = items.size();
@@ -41,7 +42,7 @@ template <typename T> T pairwise_sum(std::span<const CollectionItem> items) {
 template <typename T> CollectionItem mean_pair(const T &a, const T &b) {
     if constexpr (std::is_same_v<T, std::int64_t>) {
         const __int128 sum = static_cast<__int128>(a) + static_cast<__int128>(b);
-        return static_cast<double>(sum) / 2.0;
+        return static_cast<double>(sum) / kPairMeanDivisor;
     } else {
         return (a + b) / T(2);
     }
@@ -50,7 +51,7 @@ template <typename T> CollectionItem mean_pair(const T &a, const T &b) {
 // Per-column reduction over a List of Points: re-normalize each column's arm,
 // then apply the scalar reducer. Shared by mean/min/max/median.
 template <typename Reducer>
-CollectionItem reduce_points(std::span<const CollectionItem> pts, Reducer &&reducer) {
+CollectionItem reduce_points(std::span<const CollectionItem> pts, const Reducer &reducer) {
     const auto &p0 = *std::get<std::shared_ptr<const Collection>>(pts[0]);
     const std::size_t k = p0.items.size();
 
@@ -127,9 +128,7 @@ CollectionItem Calculator::minmax_scalar(std::span<const CollectionItem> items) 
     if constexpr (std::is_same_v<T, std::shared_ptr<const Collection>>) {
         throw CalculatorError("minmax: unexpected nested collection arm");
     } else if constexpr (std::is_same_v<T, Complex> || std::is_same_v<T, BigComplex>) {
-        throw CalculatorError(
-            IsMax ? "max is not defined for complex values"
-                  : "min is not defined for complex values");
+        throw CalculatorError("min-max not defined for complex values");
     } else {
         T best = std::get<T>(items[0]);
         for (std::size_t i = 1; i < items.size(); ++i) {
