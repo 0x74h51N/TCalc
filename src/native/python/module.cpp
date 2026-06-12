@@ -30,7 +30,10 @@ PYBIND11_MODULE(calc_native, m) {
     m.attr("i") = py::cast(Z(0.0, 1.0));
 
     bind_angle_unit(m);
+    // Collection must register before Calculator: the reduction methods
+    // (mean/min/max/median) take/return Collection, so its py type must exist
+    // when those signatures are bound (else stubgen emits raw C++ types).
+    bind_collection(m);
     bind_calculator(m);
     bind_parser(m);
-    bind_collection(m);
 }

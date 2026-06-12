@@ -71,6 +71,11 @@ enum class OpId : std::uint8_t {
     Gcd,
     Lcm,
 
+    Mean,
+    Median,
+    Min,
+    Max,
+
     /// Sentinel: not a real op; used for number tokens.
     Count,
 };
@@ -564,6 +569,46 @@ inline constexpr std::array kOps{
         .arity = Arity::Binary,
         .aliases = {},
         .method = "lcm",
+        .flags = Flags::None,
+    },
+    OpSpec{
+        .id = OpId::Mean,
+        .symbol = "mean",
+        .precedence = 4,
+        .associativity = Assoc::Right,
+        .arity = Arity::Unary,
+        .aliases = {},
+        .method = "mean",
+        .flags = Flags::None,
+    },
+    OpSpec{
+        .id = OpId::Median,
+        .symbol = "median",
+        .precedence = 4,
+        .associativity = Assoc::Right,
+        .arity = Arity::Unary,
+        .aliases = {},
+        .method = "median",
+        .flags = Flags::None,
+    },
+    OpSpec{
+        .id = OpId::Min,
+        .symbol = "min",
+        .precedence = 4,
+        .associativity = Assoc::Right,
+        .arity = Arity::Unary,
+        .aliases = {},
+        .method = "min",
+        .flags = Flags::None,
+    },
+    OpSpec{
+        .id = OpId::Max,
+        .symbol = "max",
+        .precedence = 4,
+        .associativity = Assoc::Right,
+        .arity = Arity::Unary,
+        .aliases = {},
+        .method = "max",
         .flags = Flags::None,
     },
 };

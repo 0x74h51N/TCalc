@@ -22,8 +22,13 @@
 #pragma once
 
 #include <complex>
+#include <span>
 #include "calc/pub/errors.hpp"
+#include "collection/collection.hpp"
 #include "types.hpp"
+
+using tcalc::Collection;
+using tcalc::CollectionItem;
 
 class Calculator {
   public:
@@ -160,4 +165,16 @@ class Calculator {
     // Permute/Choose
     BigReal permute(long long a, long long b) const;
     BigReal choose(long long a, long long b) const;
+
+    // Collection reductions
+    CollectionItem mean(const Collection &a) const;
+    CollectionItem min(const Collection &a) const;
+    CollectionItem max(const Collection &a) const;
+    CollectionItem median(const Collection &a) const;
+
+  private:
+    template <typename T> CollectionItem mean_scalar(std::span<const CollectionItem> items) const;
+    template <typename T, bool IsMax>
+    CollectionItem minmax_scalar(std::span<const CollectionItem> items) const;
+    template <typename T> CollectionItem median_scalar(std::span<const CollectionItem> items) const;
 };

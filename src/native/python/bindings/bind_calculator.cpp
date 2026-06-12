@@ -379,4 +379,10 @@ void bind_calculator(py::module_ &m) {
         [](const C &calc, long long a, long long b) { return calc.lcm(a, b); },
         py::arg("a"),
         py::arg("b"));
+
+    // Collection reductions
+    cls.def("mean", &C::mean, py::arg("a"));
+    cls.def("min", &C::min, py::arg("a"));
+    cls.def("max", &C::max, py::arg("a"));
+    cls.def("median", &C::median, py::arg("a"));
 }
