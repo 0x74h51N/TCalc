@@ -1,5 +1,6 @@
 #pragma once
 
+#include <complex>
 #include <cstdint>
 #include <boost/multiprecision/cpp_complex.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
@@ -12,6 +13,7 @@ constexpr int kBigRealPrecisionDigits = 50;
 using BigReal = boost::multiprecision::number<
     boost::multiprecision::cpp_dec_float<kBigRealPrecisionDigits, std::int64_t>>;
 
+using Complex = std::complex<double>;
 using BigComplex = boost::multiprecision::cpp_complex_50;
 
 /// Exact rational number backed by boost::rational<int64_t>.

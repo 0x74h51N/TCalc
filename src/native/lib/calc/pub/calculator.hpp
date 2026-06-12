@@ -27,7 +27,7 @@
 
 class Calculator {
   public:
-    using Complex = std::complex<double>;
+    using Complex = ::Complex;
 
     enum class AngleUnit : std::uint8_t { DEG, RAD, GRAD };
 

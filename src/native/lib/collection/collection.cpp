@@ -26,7 +26,7 @@ ScalarArm compute_target_arm(std::span<const CollectionItem> items) {
                     has_double = true;
                 else if constexpr (std::is_same_v<T, BigReal>)
                     has_bigreal = true;
-                else if constexpr (std::is_same_v<T, std::complex<double>>)
+                else if constexpr (std::is_same_v<T, Complex>)
                     has_complex = true;
                 else if constexpr (std::is_same_v<T, BigComplex>)
                     has_bigcomplex = true;
@@ -68,8 +68,8 @@ BigReal i64_to_bigreal(std::int64_t n) {
     return BigReal(n);
 }
 
-std::complex<double> i64_to_complex(std::int64_t n) {
-    return std::complex<double>(static_cast<double>(n), 0.0);
+Complex i64_to_complex(std::int64_t n) {
+    return Complex(static_cast<double>(n), 0.0);
 }
 
 BigComplex i64_to_bigcomplex(std::int64_t n) {
@@ -80,23 +80,23 @@ BigReal double_to_bigreal(double d) {
     return BigReal(d);
 }
 
-std::complex<double> double_to_complex(double d) {
-    return std::complex<double>(d, 0.0);
+Complex double_to_complex(double d) {
+    return Complex(d, 0.0);
 }
 
 BigComplex double_to_bigcomplex(double d) {
     return BigComplex(BF(d), BF(0));
 }
 
-std::complex<double> bigreal_to_complex(const BigReal &r) {
-    return std::complex<double>(static_cast<double>(r), 0.0);
+Complex bigreal_to_complex(const BigReal &r) {
+    return Complex(static_cast<double>(r), 0.0);
 }
 
 BigComplex bigreal_to_bigcomplex(const BigReal &r) {
     return BigComplex(bigreal_to_bf(r), BF(0));
 }
 
-BigComplex complex_to_bigcomplex(const std::complex<double> &c) {
+BigComplex complex_to_bigcomplex(const Complex &c) {
     return BigComplex(BF(c.real()), BF(c.imag()));
 }
 
@@ -158,7 +158,7 @@ void promote_item(CollectionItem &it, ScalarArm target) {
                     it = bigreal_to_bigcomplex(v);
                     return;
                 }
-            } else if constexpr (std::is_same_v<T, std::complex<double>>) {
+            } else if constexpr (std::is_same_v<T, Complex>) {
                 switch (target) {
                 case ScalarArm::I64:
                 case ScalarArm::Double:
