@@ -354,3 +354,87 @@ def make_multi_edit_func(qapp, widget: Expression, num_steps: int = 5):
         drain_events(qapp)
 
     return multi_edit
+
+
+# //// Collection benchmark datasets \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+
+COLLECTION_SCALAR_SIZES = {
+    "simple": 10,
+    "medium": 100,
+    "complex": 1_000,
+    "heavy": 10_000,
+    "sick": 25_000,
+}
+
+# Aggregation feeds a pre-built Collection straight into eval (no tokenize), so it
+# stresses the reduction at 10x the scalar counts, with sick pinned to 1M elements —
+# the worst-case stress ceiling (~CSV-load scale), independent of the shrunk scalar ladder.
+COLLECTION_AGG_SIZES = {tier: n * 10 for tier, n in COLLECTION_SCALAR_SIZES.items()}
+COLLECTION_AGG_SIZES["sick"] = 1_000_000
+
+COLLECTION_CALC_SIZES = {
+    "simple": 5,
+    "medium": 50,
+    "complex": 200,
+    "heavy": 500,
+    "sick": 1_000,
+}
+
+# (rounds, warmup_rounds) per tier for the slow tokenize/e2e string benchmarks.
+# Aggregation reductions are cheap and use run_benchmark defaults instead.
+COLLECTION_ROUNDS = {
+    "simple": (120, 10),
+    "medium": (120, 10),
+    "complex": (120, 10),
+    "heavy": (10, 2),
+    "sick": (10, 2),
+}
+
+# Per-tier thresholds (ms), sized for the CI runner (the gating environment), not the
+# dev machine. CI is uniformly slower per group — tokenize (native, clock-bound) ~2.5x,
+# e2e (Python-bound) ~1.45x — and every tier scales linearly, so these are ~1.35x over
+# the observed CI medians (noise margin), catching gross regressions without flaking.
+# Scalar tiers carry ~25x more elements than calc, so they get their own (higher) map.
+COLLECTION_TOKENIZE_CALC_THRESHOLDS_MS = {
+    "simple": 0.15,
+    "medium": 0.7,
+    "complex": 3,
+    "heavy": 10,
+    "sick": 25,
+}
+COLLECTION_TOKENIZE_SCALAR_THRESHOLDS_MS = {
+    "simple": 0.15,
+    "medium": 0.7,
+    "complex": 5.6,
+    "heavy": 100,
+    "sick": 200,
+}
+COLLECTION_E2E_CALC_THRESHOLDS_MS = {
+    "simple": 2,
+    "medium": 17,
+    "complex": 70,
+    "heavy": 250,
+    "sick": 500,
+}
+COLLECTION_E2E_SCALAR_THRESHOLDS_MS = {
+    "simple": 1,
+    "medium": 5,
+    "complex": 50,
+    "heavy": 500,
+    "sick": 1300,
+}
+
+
+def make_scalar_collection_expr(n: int) -> str:
+    """List of n decimal scalars: '[0.5,1.5,...]' (decimals -> double arm)."""
+    return "[" + ",".join(f"{i + 0.5}" for i in range(n)) + "]"
+
+
+def make_calc_collection_expr(n: int) -> str:
+    """List of n single-op elements with decimal operands: '[0+1.5,1+2.5,...]'."""
+    return "[" + ",".join(f"{i}+{i + 1.5}" for i in range(n)) + "]"
+
+
+def make_scalar_collection_value(n: int):
+    """Pre-built List Collection of n decimal scalars, without tokenize (aggregation input)."""
+    return calc_native.Collection(calc_native.Collection.Kind.List, [i + 0.5 for i in range(n)])

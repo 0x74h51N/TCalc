@@ -21,13 +21,8 @@ namespace tcalc {
 
 struct Collection;
 
-using CollectionItem = std::variant<
-    std::int64_t,
-    double,
-    BigReal,
-    std::complex<double>,
-    BigComplex,
-    std::shared_ptr<const Collection>>;
+using CollectionItem = std::
+    variant<std::int64_t, double, BigReal, Complex, BigComplex, std::shared_ptr<const Collection>>;
 
 enum class CollectionKind : std::uint8_t { List, Point };
 

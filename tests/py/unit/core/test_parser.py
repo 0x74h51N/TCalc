@@ -83,3 +83,16 @@ def test_coerce_token(literal, expected):
 def test_coerce_token_invalid_raises():
     with pytest.raises(errors.Error):
         parser_mod._coerce_token("si")
+
+
+def test_value_operand_pushed_directly(dummy_calc):
+    sentinel = object()
+    rpn = [parser_mod.ValueOperand(sentinel)]
+    assert parser_mod.evaluate_rpn(rpn, dummy_calc) is sentinel
+
+
+def test_value_operand_feeds_into_op(op_ids, token_factory, dummy_calc):
+    _num, op = token_factory
+    rpn = [parser_mod.ValueOperand(5), op(op_ids.Negate)]
+    assert parser_mod.evaluate_rpn(rpn, dummy_calc) == -5
+    assert dummy_calc.calls == [("negate", (5,))]

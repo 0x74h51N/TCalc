@@ -19,6 +19,17 @@ from .ops import OP_BY_ID
 from .utils import CalcValue, is_number_token, parse_number_token
 
 
+class ValueOperand:
+    """A pre-evaluated runtime operand injected into an rpn stream, bypassing
+    tokenize and collection construction. evaluate_rpn pushes `.value` straight
+    onto the operand stack. Forward-compatible with variable resolution."""
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: CalcValue) -> None:
+        self.value = value
+
+
 def tokenize_string(expression: str) -> List[calc_native.Token]:
     """Tokenize expression and return token list."""
     return calc_native.tokenize_string(expression).tokens
@@ -75,27 +86,6 @@ def _eval_element(element, calculator: Calculator) -> CalcValue:
     return evaluate_rpn(shunting_yard(list(element)), calculator)
 
 
-def _wrap_singleton_collection(
-    v: calc_native.Collection, outer_kind: calc_native.ParenKind
-) -> CalcValue:
-    """Wrap or reject an inner Collection produced by arity-1 _eval_element.
-
-    Canonicalization (arity-1 unwrap) applies only to scalar inner values.
-    A Collection arm requires policy:
-    - Bracket outer + Point inner  -> wrap as List([Point])
-    - Bracket outer + List inner   -> INVALID (List of List)
-    - Paren outer + any Collection -> INVALID (Point items must be scalar)
-    """
-    if outer_kind == calc_native.ParenKind.Paren:
-        raise_error(ErrorKind.INVALID, "Point item cannot be a collection")
-    if outer_kind == calc_native.ParenKind.Bracket:
-        if v.kind == calc_native.Collection.Kind.List:
-            raise_error(ErrorKind.INVALID, "List of List not allowed")
-        return calc_native.Collection(calc_native.Collection.Kind.List, [v])
-    # Brace is rejected earlier in _eval_paren_token; defensive fallback.
-    raise_error(ErrorKind.INVALID, "brace collection type not supported")
-
-
 def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
     """ParenToken -> CalcValue.
 
@@ -111,8 +101,14 @@ def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
 
     if arity == 1:
         v = _eval_element(par_tok.elements[0], calculator)
-        if isinstance(v, calc_native.Collection):
-            return _wrap_singleton_collection(v, kind)
+        # arity-1 (no top-level comma) is grouping: "(x)" == "x" for any x.
+        # Transparent for scalars AND collections, so "mean([1,2,3])" works like
+        # "mean[1,2,3]". Only Bracket "[X]" is a real 1-element List literal with
+        # its own demote/wrap policy.
+        if isinstance(v, calc_native.Collection) and kind == calc_native.ParenKind.Bracket:
+            if v.kind == calc_native.Collection.Kind.List:
+                raise_error(ErrorKind.INVALID, "List of List not allowed")
+            return calc_native.Collection(calc_native.Collection.Kind.List, [v])
         return v
 
     if kind == calc_native.ParenKind.Brace:
@@ -169,10 +165,17 @@ def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
         raise_error(ErrorKind.INVALID, str(e))
 
 
-def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator) -> CalcValue:
+def evaluate_rpn(
+    rpn_tokens: Iterable[calc_native.Token | ValueOperand], calculator: Calculator
+) -> CalcValue:
     operand_stack: List[CalcValue] = []
 
     for tok in rpn_tokens:
+        if type(tok) is ValueOperand:
+            operand_stack.append(tok.value)
+            continue
+
+        assert isinstance(tok, calc_native.Token)
         if is_number_token(tok):
             operand_stack.append(_coerce_token(tok.data.value))
             continue

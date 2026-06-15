@@ -146,6 +146,9 @@ def _eval(expr: str) -> object:
         param("[1,2,3", "List", [1, 2, 3], id="list-unclosed"),
         param("[(1,2)]", "List", [(1, 2)], id="list-singleton-point-wrapped"),
         param("[(1,2),(3,4)]", "List", [(1, 2), (3, 4)], id="list-of-points"),
+        # arity-1 "(...)" is transparent grouping: "(x)" == "x" for collections too.
+        param("([1, 2])", "List", [1, 2], id="paren-groups-list"),
+        param("((1, 2))", "Point", (1, 2), id="paren-groups-point"),
         # ----------------------------
         # Collection arity-1 demote (scalar canonicalization)
         # ----------------------------
@@ -217,8 +220,6 @@ def test_native_eval_golden(expr: str, expected_type: str, expected_value: objec
         param("[1, (2,3)]", "mix scalars and points", id="list-mixed-scalar-then-point"),
         param("[(1,2), 3]", "mix scalars and points", id="list-mixed-point-then-scalar"),
         param("5 + [1, 2]", None, id="scalar-plus-collection-undefined"),
-        param("((1,2))", "Point item cannot be a collection", id="singleton-point-in-point"),
-        param("([1,2])", "Point item cannot be a collection", id="singleton-list-in-point"),
         param("((1,2),(3,4))", "Point item cannot be a collection", id="point-of-points-multi"),
         param("(1, [2,3])", "Point item cannot be a collection", id="point-with-list-item"),
     ],

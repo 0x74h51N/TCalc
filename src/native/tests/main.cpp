@@ -11,6 +11,7 @@ void unit_trig(TestContext &ctx);
 void unit_combinatorics(TestContext &ctx);
 void unit_parser(TestContext &ctx);
 void unit_collection(TestContext &ctx);
+void unit_statistic(TestContext &ctx);
 void unit_helpers(TestContext &ctx);
 void unit_ops(TestContext &ctx);
 
@@ -55,6 +56,8 @@ int main(int argc, char **argv) { // NOLINT(modernize-use-trailing-return-type)
         ctx, "unit parser", "src/native/tests/unit/test_parser.cpp", unit_parser);
     test_detail::run_suite(
         ctx, "unit collection", "src/native/tests/unit/test_collection.cpp", unit_collection);
+    test_detail::run_suite(
+        ctx, "unit statistic", "src/native/tests/unit/test_statistic.cpp", unit_statistic);
 
     const auto all_end = std::chrono::steady_clock::now();
     const auto all_elapsed_ms =

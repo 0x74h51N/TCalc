@@ -31,6 +31,7 @@ add_library(calc_core STATIC
   lib/calc/transcendental.cpp
   lib/calc/trig.cpp
   lib/calc/combinatorics.cpp
+  lib/calc/statistic.cpp
   lib/collection/collection.cpp
   lib/parser/parser.cpp
 )
@@ -49,6 +50,7 @@ add_executable(native_tests
   tests/smoke/smoke_stress.cpp
   tests/unit/test_parser.cpp
   tests/unit/test_collection.cpp
+  tests/unit/test_statistic.cpp
   tests/test_test_helpers.cpp
 )
 target_include_directories(native_tests PRIVATE
