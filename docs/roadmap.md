@@ -117,7 +117,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
       - [ ] Shift toggles secondary operations (Σx, Σx², etc.)
     - [ ] Implement ops in native
       - [ ] Aggregation
-        - [ ] Basic: mean, median, min, max, variance, stddev (sample vs population)
+        - [x] Basic: mean, median, min, max, variance, stddev (sample & population)
         - [ ] Percentile / quantile (Q1, Q3, configurable p)
         - [ ] Mode, range (max - min), count of unique values
       - [ ] Sort / filter / select

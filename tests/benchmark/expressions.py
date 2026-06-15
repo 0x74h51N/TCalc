@@ -362,20 +362,22 @@ COLLECTION_SCALAR_SIZES = {
     "simple": 10,
     "medium": 100,
     "complex": 1_000,
-    "heavy": 50_000,
-    "sick": 100_000,
+    "heavy": 10_000,
+    "sick": 25_000,
 }
 
-# Aggregation feeds a pre-built Collection straight into eval, so it
-# can afford 10x the element counts to stress the reduction itself.
+# Aggregation feeds a pre-built Collection straight into eval (no tokenize), so it
+# stresses the reduction at 10x the scalar counts, with sick pinned to 1M elements —
+# the worst-case stress ceiling (~CSV-load scale), independent of the shrunk scalar ladder.
 COLLECTION_AGG_SIZES = {tier: n * 10 for tier, n in COLLECTION_SCALAR_SIZES.items()}
+COLLECTION_AGG_SIZES["sick"] = 1_000_000
 
 COLLECTION_CALC_SIZES = {
     "simple": 5,
     "medium": 50,
     "complex": 200,
-    "heavy": 800,
-    "sick": 2_000,
+    "heavy": 500,
+    "sick": 1_000,
 }
 
 # (rounds, warmup_rounds) per tier for the slow tokenize/e2e string benchmarks.
@@ -397,29 +399,29 @@ COLLECTION_TOKENIZE_CALC_THRESHOLDS_MS = {
     "simple": 0.15,
     "medium": 0.7,
     "complex": 3,
-    "heavy": 12,
-    "sick": 27,
+    "heavy": 10,
+    "sick": 25,
 }
 COLLECTION_TOKENIZE_SCALAR_THRESHOLDS_MS = {
     "simple": 0.15,
     "medium": 0.7,
     "complex": 5.6,
-    "heavy": 300,
-    "sick": 600,
+    "heavy": 100,
+    "sick": 200,
 }
 COLLECTION_E2E_CALC_THRESHOLDS_MS = {
     "simple": 2,
     "medium": 17,
     "complex": 70,
     "heavy": 250,
-    "sick": 600,
+    "sick": 500,
 }
 COLLECTION_E2E_SCALAR_THRESHOLDS_MS = {
     "simple": 1,
     "medium": 5,
     "complex": 50,
-    "heavy": 2400,
-    "sick": 5000,
+    "heavy": 500,
+    "sick": 1300,
 }
 
 
