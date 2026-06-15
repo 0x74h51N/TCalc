@@ -388,36 +388,38 @@ COLLECTION_ROUNDS = {
     "sick": (10, 2),
 }
 
-# Per-tier thresholds (ms), set just above the measured baseline. Scalar tiers carry
-# ~25x more elements than calc, so scalar tokenize/e2e ceilings are much higher; each
-# variant gets its own map.
+# Per-tier thresholds (ms), sized for the CI runner (the gating environment), not the
+# dev machine. CI is uniformly slower per group — tokenize (native, clock-bound) ~2.5x,
+# e2e (Python-bound) ~1.45x — and every tier scales linearly, so these are ~1.35x over
+# the observed CI medians (noise margin), catching gross regressions without flaking.
+# Scalar tiers carry ~25x more elements than calc, so they get their own (higher) map.
 COLLECTION_TOKENIZE_CALC_THRESHOLDS_MS = {
     "simple": 0.15,
-    "medium": 0.5,
-    "complex": 2.5,
-    "heavy": 5,
-    "sick": 15,
+    "medium": 0.7,
+    "complex": 3,
+    "heavy": 10,
+    "sick": 25,
 }
 COLLECTION_TOKENIZE_SCALAR_THRESHOLDS_MS = {
     "simple": 0.15,
-    "medium": 0.5,
-    "complex": 2.5,
-    "heavy": 125,
-    "sick": 250,
+    "medium": 0.7,
+    "complex": 5,
+    "heavy": 300,
+    "sick": 500,
 }
 COLLECTION_E2E_CALC_THRESHOLDS_MS = {
-    "simple": 1.5,
-    "medium": 12,
-    "complex": 50,
-    "heavy": 200,
-    "sick": 450,
+    "simple": 2,
+    "medium": 15,
+    "complex": 70,
+    "heavy": 250,
+    "sick": 600,
 }
 COLLECTION_E2E_SCALAR_THRESHOLDS_MS = {
     "simple": 1,
-    "medium": 4,
-    "complex": 40,
-    "heavy": 2000,
-    "sick": 4000,
+    "medium": 5,
+    "complex": 50,
+    "heavy": 2400,
+    "sick": 5000,
 }
 
 

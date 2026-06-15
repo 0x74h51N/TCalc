@@ -7,6 +7,7 @@
 #include "calc/pub/calculator.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <span>
 #include <string>
@@ -24,19 +25,41 @@ using tcalc::ScalarArm;
 
 namespace {
 
-constexpr std::size_t kPairwiseBlock = 128;
 constexpr double kPairMeanDivisor = 2.0;
 
-template <typename T> T pairwise_sum(std::span<const CollectionItem> items) {
-    const std::size_t n = items.size();
-    if (n <= kPairwiseBlock) {
-        T acc = std::get<T>(items[0]);
-        for (std::size_t i = 1; i < n; ++i)
-            acc += std::get<T>(items[i]);
-        return acc;
+// Neumaier (Kahan-Babuska-Neumaier) compensated sum: error ~2*eps, independent of
+// element count and magnitude spread (recovers low bits lost to cancellation).
+// double scalar; complex componentwise.
+template <typename T> T neumaier_sum(std::span<const CollectionItem> items) {
+    if constexpr (std::is_same_v<T, Complex>) {
+        const Complex first = std::get<Complex>(items[0]);
+        double sr = first.real();
+        double si = first.imag();
+        double cr = 0.0;
+        double ci = 0.0;
+        for (std::size_t i = 1; i < items.size(); ++i) {
+            const Complex v = std::get<Complex>(items[i]);
+            const double vr = v.real();
+            const double tr = sr + vr;
+            cr += (std::abs(sr) >= std::abs(vr)) ? (sr - tr) + vr : (vr - tr) + sr;
+            sr = tr;
+            const double vi = v.imag();
+            const double ti = si + vi;
+            ci += (std::abs(si) >= std::abs(vi)) ? (si - ti) + vi : (vi - ti) + si;
+            si = ti;
+        }
+        return Complex(sr + cr, si + ci);
+    } else {
+        double sum = std::get<double>(items[0]);
+        double c = 0.0;
+        for (std::size_t i = 1; i < items.size(); ++i) {
+            const double v = std::get<double>(items[i]);
+            const double t = sum + v;
+            c += (std::abs(sum) >= std::abs(v)) ? (sum - t) + v : (v - t) + sum;
+            sum = t;
+        }
+        return sum + c;
     }
-    const std::size_t mid = n / 2;
-    return pairwise_sum<T>(items.first(mid)) + pairwise_sum<T>(items.subspan(mid));
 }
 
 template <typename T> CollectionItem mean_pair(const T &a, const T &b) {
@@ -113,7 +136,7 @@ CollectionItem Calculator::mean_scalar(std::span<const CollectionItem> items) co
             sum += std::get<std::int64_t>(it);
         return static_cast<double>(sum) / static_cast<double>(n);
     } else if constexpr (std::is_same_v<T, double> || std::is_same_v<T, Complex>) {
-        const T sum = pairwise_sum<T>(items);
+        const T sum = neumaier_sum<T>(items);
         return sum / T(static_cast<double>(n));
     } else {
         T acc = std::get<T>(items[0]);

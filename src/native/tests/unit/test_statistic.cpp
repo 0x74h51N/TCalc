@@ -99,6 +99,24 @@ void unit_statistic(TestContext &ctx) {
         EXPECT_TRUE(ctx, approx(std::get<double>(r), exact, exact * 1e-9));
     });
 
+    test_detail::with_case(ctx, "mean :: cancellation (double)", [&] {
+        // Exact sum is 1.0; naive/pairwise running-add loses it and returns 0.0.
+        // mean = 1.0 / 3.
+        const auto r = calc.mean(list({1e16, 1.0, -1e16}));
+        EXPECT_EQ(ctx, r.index(), 1u);
+        EXPECT_TRUE(ctx, approx(std::get<double>(r), 1.0 / 3.0, 1e-6));
+    });
+
+    test_detail::with_case(ctx, "mean :: cancellation (complex)", [&] {
+        // Componentwise exact sum (1.0, 1.0); naive loses both. mean = (1/3, 1/3).
+        const auto r =
+            calc.mean(list({Complex(1e16, -1e16), Complex(1.0, 1.0), Complex(-1e16, 1e16)}));
+        EXPECT_EQ(ctx, r.index(), 3u);
+        const auto c = std::get<Complex>(r);
+        EXPECT_TRUE(ctx, approx(c.real(), 1.0 / 3.0, 1e-6));
+        EXPECT_TRUE(ctx, approx(c.imag(), 1.0 / 3.0, 1e-6));
+    });
+
     // ---- min / max -----------------------------------------------------
     test_detail::with_case(ctx, "min :: int list keeps arm", [&] {
         const auto r = calc.min(list({std::int64_t{3}, std::int64_t{1}, std::int64_t{2}}));
