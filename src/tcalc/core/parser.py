@@ -19,6 +19,17 @@ from .ops import OP_BY_ID
 from .utils import CalcValue, is_number_token, parse_number_token
 
 
+class ValueOperand:
+    """A pre-evaluated runtime operand injected into an rpn stream, bypassing
+    tokenize and collection construction. evaluate_rpn pushes `.value` straight
+    onto the operand stack. Forward-compatible with variable resolution."""
+
+    __slots__ = ("value",)
+
+    def __init__(self, value: CalcValue) -> None:
+        self.value = value
+
+
 def tokenize_string(expression: str) -> List[calc_native.Token]:
     """Tokenize expression and return token list."""
     return calc_native.tokenize_string(expression).tokens
@@ -154,10 +165,17 @@ def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
         raise_error(ErrorKind.INVALID, str(e))
 
 
-def evaluate_rpn(rpn_tokens: Iterable[calc_native.Token], calculator: Calculator) -> CalcValue:
+def evaluate_rpn(
+    rpn_tokens: Iterable[calc_native.Token | ValueOperand], calculator: Calculator
+) -> CalcValue:
     operand_stack: List[CalcValue] = []
 
     for tok in rpn_tokens:
+        if type(tok) is ValueOperand:
+            operand_stack.append(tok.value)
+            continue
+
+        assert isinstance(tok, calc_native.Token)
         if is_number_token(tok):
             operand_stack.append(_coerce_token(tok.data.value))
             continue
