@@ -171,10 +171,20 @@ class Calculator {
     CollectionItem min(const Collection &a) const;
     CollectionItem max(const Collection &a) const;
     CollectionItem median(const Collection &a) const;
+    CollectionItem sum(const Collection &a) const;
+    CollectionItem variance(const Collection &a) const;
+    CollectionItem variance_pop(const Collection &a) const;
+    CollectionItem stddev(const Collection &a) const;
+    CollectionItem stddev_pop(const Collection &a) const;
 
   private:
     template <typename T> CollectionItem mean_scalar(std::span<const CollectionItem> items) const;
     template <typename T, bool IsMax>
     CollectionItem minmax_scalar(std::span<const CollectionItem> items) const;
     template <typename T> CollectionItem median_scalar(std::span<const CollectionItem> items) const;
+    template <typename T> CollectionItem sum_scalar(std::span<const CollectionItem> items) const;
+    template <typename T, bool Sample>
+    CollectionItem variance_scalar(std::span<const CollectionItem> items) const;
+    template <typename T, bool Sample>
+    CollectionItem stddev_scalar(std::span<const CollectionItem> items) const;
 };

@@ -121,7 +121,12 @@ void bind_parser(py::module_ &m) {
         .value("Mean", OpId::Mean)
         .value("Median", OpId::Median)
         .value("Min", OpId::Min)
-        .value("Max", OpId::Max);
+        .value("Max", OpId::Max)
+        .value("Sum", OpId::Sum)
+        .value("Var", OpId::Var)
+        .value("VarP", OpId::VarP)
+        .value("Std", OpId::Std)
+        .value("StdP", OpId::StdP);
 
     py::class_<tcalc::parser::LatexEntry>(
         m, "LatexEntry", "LaTeX expression mapping: symbol -> LatexKind.")

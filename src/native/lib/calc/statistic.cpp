@@ -62,6 +62,19 @@ template <typename T> T neumaier_sum(std::span<const CollectionItem> items) {
     }
 }
 
+// Compensated (Neumaier) sum of f(item) in double, for derived quantities.
+template <typename F> double neumaier_sum_map(std::span<const CollectionItem> items, const F &f) {
+    double sum = f(items[0]);
+    double c = 0.0;
+    for (std::size_t i = 1; i < items.size(); ++i) {
+        const double v = f(items[i]);
+        const double t = sum + v;
+        c += (std::abs(sum) >= std::abs(v)) ? (sum - t) + v : (v - t) + sum;
+        sum = t;
+    }
+    return sum + c;
+}
+
 template <typename T> CollectionItem mean_pair(const T &a, const T &b) {
     if constexpr (std::is_same_v<T, std::int64_t>) {
         const __int128 sum = static_cast<__int128>(a) + static_cast<__int128>(b);
@@ -98,13 +111,14 @@ CollectionItem reduce_points(std::span<const CollectionItem> pts, const Reducer 
 // `arm` is a per-arm reducer (callable as arm.operator()<T>(span)); the only thing
 // each op varies is its name (for errors) and which scalar reducer it passes.
 template <typename ArmReducer>
-CollectionItem reduce_collection(const Collection &a, const char *name, ArmReducer arm) {
+CollectionItem reduce_collection(
+    const Collection &a, const char *name, ArmReducer arm, bool singleton_shortcut = true) {
     const auto &items = a.items;
     if (items.empty())
         throw CalculatorError((std::string(name) + " of an empty collection").c_str());
     if (a.kind == CollectionKind::Point)
         throw CalculatorError((std::string(name) + " is not defined for a single point").c_str());
-    if (items.size() == 1)
+    if (singleton_shortcut && items.size() == 1)
         return items[0];
 
     const auto on_column = [&](std::span<const CollectionItem> col) {
@@ -188,6 +202,71 @@ CollectionItem Calculator::median_scalar(std::span<const CollectionItem> items) 
     }
 }
 
+template <typename T>
+CollectionItem Calculator::sum_scalar(std::span<const CollectionItem> items) const {
+    if constexpr (std::is_same_v<T, std::shared_ptr<const Collection>>) {
+        throw CalculatorError("sum: unexpected nested collection arm");
+    } else if constexpr (std::is_same_v<T, std::int64_t>) {
+        __int128 acc = 0;
+        for (const auto &it : items)
+            acc += std::get<std::int64_t>(it);
+        return static_cast<std::int64_t>(acc);
+    } else if constexpr (std::is_same_v<T, double> || std::is_same_v<T, Complex>) {
+        return neumaier_sum<T>(items);
+    } else {
+        T acc = std::get<T>(items[0]);
+        for (std::size_t i = 1; i < items.size(); ++i)
+            acc += std::get<T>(items[i]);
+        return acc;
+    }
+}
+
+template <typename T, bool Sample>
+CollectionItem Calculator::variance_scalar(std::span<const CollectionItem> items) const {
+    if constexpr (std::is_same_v<T, std::shared_ptr<const Collection>>) {
+        throw CalculatorError("variance: unexpected nested collection arm");
+    } else if constexpr (std::is_same_v<T, Complex> || std::is_same_v<T, BigComplex>) {
+        throw CalculatorError("variance is not defined for complex values");
+    } else if constexpr (std::is_same_v<T, BigReal>) {
+        const std::size_t n = items.size();
+        if (Sample && n < 2)
+            throw CalculatorError("sample variance needs at least 2 elements");
+        BigReal sum = 0;
+        for (const auto &it : items)
+            sum += std::get<BigReal>(it);
+        const BigReal m = sum / BigReal(static_cast<long long>(n));
+        BigReal ss = 0;
+        for (const auto &it : items) {
+            const BigReal d = std::get<BigReal>(it) - m;
+            ss += d * d;
+        }
+        return ss / BigReal(static_cast<long long>(Sample ? n - 1 : n));
+    } else {
+        const std::size_t n = items.size();
+        if (Sample && n < 2)
+            throw CalculatorError("sample variance needs at least 2 elements");
+        const auto as_double = [](const CollectionItem &it) {
+            return static_cast<double>(std::get<T>(it));
+        };
+        const double m = neumaier_sum_map(items, as_double) / static_cast<double>(n);
+        const double ss = neumaier_sum_map(items, [&](const CollectionItem &it) {
+            const double d = as_double(it) - m;
+            return d * d;
+        });
+        return ss / static_cast<double>(Sample ? n - 1 : n);
+    }
+}
+
+template <typename T, bool Sample>
+CollectionItem Calculator::stddev_scalar(std::span<const CollectionItem> items) const {
+    const CollectionItem v = variance_scalar<T, Sample>(items);
+    if constexpr (std::is_same_v<T, BigReal>) {
+        return CollectionItem{sqrt(std::get<BigReal>(v))};
+    } else {
+        return CollectionItem{std::sqrt(std::get<double>(v))};
+    }
+}
+
 CollectionItem Calculator::mean(const Collection &a) const {
     return reduce_collection(a, "mean", [this]<typename T>(std::span<const CollectionItem> col) {
         return mean_scalar<T>(col);
@@ -210,4 +289,50 @@ CollectionItem Calculator::median(const Collection &a) const {
     return reduce_collection(a, "median", [this]<typename T>(std::span<const CollectionItem> col) {
         return median_scalar<T>(col);
     });
+}
+
+CollectionItem Calculator::sum(const Collection &a) const {
+    return reduce_collection(a, "sum", [this]<typename T>(std::span<const CollectionItem> col) {
+        return sum_scalar<T>(col);
+    });
+}
+
+CollectionItem Calculator::variance(const Collection &a) const {
+    return reduce_collection(
+        a,
+        "variance",
+        [this]<typename T>(std::span<const CollectionItem> col) {
+            return variance_scalar<T, true>(col);
+        },
+        false);
+}
+
+CollectionItem Calculator::variance_pop(const Collection &a) const {
+    return reduce_collection(
+        a,
+        "variance",
+        [this]<typename T>(std::span<const CollectionItem> col) {
+            return variance_scalar<T, false>(col);
+        },
+        false);
+}
+
+CollectionItem Calculator::stddev(const Collection &a) const {
+    return reduce_collection(
+        a,
+        "stddev",
+        [this]<typename T>(std::span<const CollectionItem> col) {
+            return stddev_scalar<T, true>(col);
+        },
+        false);
+}
+
+CollectionItem Calculator::stddev_pop(const Collection &a) const {
+    return reduce_collection(
+        a,
+        "stddev",
+        [this]<typename T>(std::span<const CollectionItem> col) {
+            return stddev_scalar<T, false>(col);
+        },
+        false);
 }

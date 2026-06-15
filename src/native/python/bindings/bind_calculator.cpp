@@ -385,4 +385,9 @@ void bind_calculator(py::module_ &m) {
     cls.def("min", &C::min, py::arg("a"));
     cls.def("max", &C::max, py::arg("a"));
     cls.def("median", &C::median, py::arg("a"));
+    cls.def("sum", &C::sum, py::arg("a"));
+    cls.def("variance", &C::variance, py::arg("a"));
+    cls.def("variance_pop", &C::variance_pop, py::arg("a"));
+    cls.def("stddev", &C::stddev, py::arg("a"));
+    cls.def("stddev_pop", &C::stddev_pop, py::arg("a"));
 }

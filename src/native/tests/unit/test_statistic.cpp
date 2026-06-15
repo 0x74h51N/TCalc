@@ -117,6 +117,79 @@ void unit_statistic(TestContext &ctx) {
         EXPECT_TRUE(ctx, approx(c.imag(), 1.0 / 3.0, 1e-6));
     });
 
+    // ---- sum ----------------------------------------------------------
+    test_detail::with_case(ctx, "sum :: int list -> int64", [&] {
+        const auto r = calc.sum(list({std::int64_t{1}, std::int64_t{2}, std::int64_t{3}}));
+        EXPECT_EQ(ctx, r.index(), 0u);
+        EXPECT_EQ(ctx, std::get<std::int64_t>(r), std::int64_t{6});
+    });
+
+    test_detail::with_case(ctx, "sum :: double list (neumaier cancellation)", [&] {
+        const auto r = calc.sum(list({1e16, 1.0, -1e16}));
+        EXPECT_EQ(ctx, r.index(), 1u);
+        EXPECT_TRUE(ctx, approx(std::get<double>(r), 1.0, 1e-6));
+    });
+
+    test_detail::with_case(ctx, "sum :: single element returns it", [&] {
+        const auto r = calc.sum(list({std::int64_t{7}}));
+        EXPECT_EQ(ctx, std::get<std::int64_t>(r), std::int64_t{7});
+    });
+
+    test_detail::with_case(ctx, "sum :: per-column of points", [&] {
+        const auto r = calc.sum(list(
+            {point({std::int64_t{1}, std::int64_t{2}}),
+             point({std::int64_t{3}, std::int64_t{4}})}));
+        EXPECT_EQ(ctx, r.index(), 5u);
+        const auto &p = *std::get<std::shared_ptr<const Collection>>(r);
+        EXPECT_EQ(ctx, std::get<std::int64_t>(p.items[0]), std::int64_t{4});
+        EXPECT_EQ(ctx, std::get<std::int64_t>(p.items[1]), std::int64_t{6});
+    });
+
+    // ---- variance / stddev --------------------------------------------
+    test_detail::with_case(ctx, "varp :: population variance", [&] {
+        const auto r = calc.variance_pop(list({2.0, 4.0, 6.0})); // mean 4, ss 8, /3
+        EXPECT_EQ(ctx, r.index(), 1u);
+        EXPECT_TRUE(ctx, approx(std::get<double>(r), 8.0 / 3.0, 1e-9));
+    });
+
+    test_detail::with_case(ctx, "var :: sample variance", [&] {
+        const auto r = calc.variance(list({2.0, 4.0, 6.0})); // ss 8, /2
+        EXPECT_TRUE(ctx, approx(std::get<double>(r), 4.0, 1e-9));
+    });
+
+    test_detail::with_case(ctx, "stdp :: population stddev", [&] {
+        const auto r = calc.stddev_pop(list({2.0, 4.0, 6.0}));
+        EXPECT_TRUE(ctx, approx(std::get<double>(r), std::sqrt(8.0 / 3.0), 1e-9));
+    });
+
+    test_detail::with_case(ctx, "std :: sample stddev", [&] {
+        const auto r = calc.stddev(list({2.0, 4.0, 6.0}));
+        EXPECT_TRUE(ctx, approx(std::get<double>(r), 2.0, 1e-9));
+    });
+
+    test_detail::with_case(ctx, "varp :: single element is zero", [&] {
+        const auto r = calc.variance_pop(list({std::int64_t{5}}));
+        EXPECT_TRUE(ctx, approx(std::get<double>(r), 0.0, 1e-12));
+    });
+
+    test_detail::with_case(ctx, "var :: single element throws", [&] {
+        EXPECT_THROWS(ctx, calc.variance(list({std::int64_t{5}})));
+    });
+
+    test_detail::with_case(ctx, "var :: complex rejected", [&] {
+        EXPECT_THROWS(ctx, calc.variance(list({Complex(1.0, 2.0), Complex(3.0, 4.0)})));
+    });
+
+    test_detail::with_case(ctx, "varp :: per-column of points", [&] {
+        const auto r = calc.variance_pop(list(
+            {point({std::int64_t{0}, std::int64_t{0}}),
+             point({std::int64_t{2}, std::int64_t{0}})})); // col0 mean1 ss2 /2=1; col1 all0=0
+        EXPECT_EQ(ctx, r.index(), 5u);
+        const auto &p = *std::get<std::shared_ptr<const Collection>>(r);
+        EXPECT_TRUE(ctx, approx(std::get<double>(p.items[0]), 1.0, 1e-9));
+        EXPECT_TRUE(ctx, approx(std::get<double>(p.items[1]), 0.0, 1e-12));
+    });
+
     // ---- min / max -----------------------------------------------------
     test_detail::with_case(ctx, "min :: int list keeps arm", [&] {
         const auto r = calc.min(list({std::int64_t{3}, std::int64_t{1}, std::int64_t{2}}));

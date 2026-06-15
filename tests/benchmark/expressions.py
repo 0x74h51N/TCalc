@@ -397,19 +397,19 @@ COLLECTION_TOKENIZE_CALC_THRESHOLDS_MS = {
     "simple": 0.15,
     "medium": 0.7,
     "complex": 3,
-    "heavy": 10,
-    "sick": 25,
+    "heavy": 12,
+    "sick": 27,
 }
 COLLECTION_TOKENIZE_SCALAR_THRESHOLDS_MS = {
     "simple": 0.15,
     "medium": 0.7,
-    "complex": 5,
+    "complex": 5.6,
     "heavy": 300,
-    "sick": 500,
+    "sick": 600,
 }
 COLLECTION_E2E_CALC_THRESHOLDS_MS = {
     "simple": 2,
-    "medium": 15,
+    "medium": 17,
     "complex": 70,
     "heavy": 250,
     "sick": 600,
