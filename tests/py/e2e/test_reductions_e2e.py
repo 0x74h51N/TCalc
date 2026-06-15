@@ -117,3 +117,29 @@ def test_reduction_eval_errors(expr: str, expected_msg_substr: str) -> None:
     with pytest.raises(Error) as exc_info:
         _eval(expr)
     assert expected_msg_substr in str(exc_info.value)
+
+
+def test_value_operand_feeds_prebuilt_collection_into_mean() -> None:
+    from tcalc.core.engine import Calculator
+    from tcalc.core.parser import (
+        ValueOperand,
+        evaluate_rpn,
+        shunting_yard,
+        tokenize_string,
+    )
+
+    calc = Calculator()
+
+    # A pre-built runtime Collection (as if produced earlier / stored).
+    collection = evaluate_rpn(shunting_yard(tokenize_string("[1,2,3,4]")), calc)
+    assert isinstance(collection, calc_native.Collection)
+
+    # The real mean OpToken, taken from a normal tokenized reduction.
+    mean_op = shunting_yard(tokenize_string("mean[1,2,3]"))[1]
+    assert mean_op.kind == calc_native.TokenKind.Op
+    assert mean_op.as_op().op_id == calc_native.OpId.Mean
+
+    # Inject the pre-built collection straight into eval; no list re-tokenize.
+    result = evaluate_rpn([ValueOperand(collection), mean_op], calc)
+    assert isinstance(result, (int, float))
+    assert float(result) == pytest.approx(2.5)
