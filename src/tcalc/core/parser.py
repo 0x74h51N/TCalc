@@ -68,8 +68,8 @@ def _eval_element(element, calculator: Calculator) -> CalcValue:
 
     Fast-paths arm 0 NumberToken (direct _coerce_token) and arm 0 ParenToken
     (direct _eval_paren_token recursion) to skip wrapping + shunting_yard +
-    evaluate_rpn unnecessarily. Latex and multi-token arm 1 paths go through
-    evaluate_rpn so TokenKind dispatch stays single-sourced there.
+    evaluate_rpn unnecessarily. Latex, Call, and multi-token arm 1 paths go
+    through evaluate_rpn so TokenKind dispatch stays single-sourced there.
     """
     if isinstance(element, calc_native.Token):
         kind = element.kind
@@ -79,6 +79,8 @@ def _eval_element(element, calculator: Calculator) -> CalcValue:
             return _eval_paren_token(element.as_paren(), calculator)
         if kind == calc_native.TokenKind.Latex:
             return evaluate_rpn([element], calculator)
+        if kind == calc_native.TokenKind.Call:
+            return evaluate_rpn([element], calculator)
         raise_error(ErrorKind.INVALID, f"element kind {kind}")
 
     if not element:
@@ -86,21 +88,18 @@ def _eval_element(element, calculator: Calculator) -> CalcValue:
     return evaluate_rpn(shunting_yard(list(element)), calculator)
 
 
-def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
-    """ParenToken -> CalcValue.
+def _eval_elements(elements, kind, calculator: Calculator) -> CalcValue:
+    """elements (ParenToken.elements OR CallToken.args) + ParenKind -> CalcValue.
 
     Dispatches per ParenKind: Bracket -> Collection.List, Paren -> Collection.Point,
     Brace -> grouping (arity-1 only). arity-1 of any kind demotes to inner eval.
-    has_close=False (unclosed) does NOT block eval: an unclosed paren still
-    carries valid content (grouping value, Collection elements). Hot-eval keeps
-    working as the user types. Stray closes (has_open=False) are filtered out
-    by evaluate_rpn before reaching here.
+    Shared by ParenToken eval and Call eval (call-paren args have identical
+    comma-split/element shape to a Paren-kind ParenToken's elements).
     """
-    arity = len(par_tok.elements)
-    kind = par_tok.kind
+    arity = len(elements)
 
     if arity == 1:
-        v = _eval_element(par_tok.elements[0], calculator)
+        v = _eval_element(elements[0], calculator)
         # arity-1 (no top-level comma) is grouping: "(x)" == "x" for any x.
         # Transparent for scalars AND collections, so "mean([1,2,3])" works like
         # "mean[1,2,3]". Only Bracket "[X]" is a real 1-element List literal with
@@ -131,7 +130,7 @@ def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
     Rational = calc_native.Rational
     items = []
     expected = None  # None | "scalar" | "point"
-    for e in par_tok.elements:
+    for e in elements:
         v = _eval_element(e, calculator)
         if isinstance(v, Rational):
             v = v.numerator if v.denominator == 1 else v.to_double()
@@ -163,6 +162,17 @@ def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
         return calc_native.Collection(coll_kind, items)
     except ValueError as e:
         raise_error(ErrorKind.INVALID, str(e))
+
+
+def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
+    """ParenToken -> CalcValue.
+
+    has_close=False (unclosed) does NOT block eval: an unclosed paren still
+    carries valid content (grouping value, Collection elements). Hot-eval keeps
+    working as the user types. Stray closes (has_open=False) are filtered out
+    by evaluate_rpn before reaching here.
+    """
+    return _eval_elements(par_tok.elements, par_tok.kind, calculator)
 
 
 def evaluate_rpn(
@@ -205,6 +215,25 @@ def evaluate_rpn(
                 raise
             except Exception as e:
                 raise_error(ErrorKind.INVALID, f"Parse expression token error: {e}")
+
+        if tok.kind == calc_native.TokenKind.Call:
+            call = tok.as_call()
+            # Call-paren args have the identical comma-split shape as a
+            # Paren-kind ParenToken's elements: "(3,4)" is a Point, just like
+            # the bare grouping/Point paren. Reuse the same collapse so
+            # "mean(3,4)" sees one Point argument, exactly as it did when
+            # this was Op + ParenToken(Paren).
+            arg_val = _eval_elements(call.args, calc_native.ParenKind.Paren, calculator)
+            spec = OP_BY_ID.get(call.op_id)
+            assert spec is not None
+            func = getattr(calculator, spec.method)
+            if spec.angle_unit:
+                from tcalc.app_state import get_app_state
+
+                operand_stack.append(func(arg_val, get_app_state().angle_unit))
+            else:
+                operand_stack.append(func(arg_val))
+            continue
 
         if tok.kind == calc_native.TokenKind.Paren:
             par = tok.as_paren()

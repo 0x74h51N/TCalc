@@ -215,6 +215,7 @@ class FakeTokenKind:
     Op = "op"
     Latex = "latex"
     Paren = "paren"
+    Call = "call"
 
 
 class FakeCollectionKind:

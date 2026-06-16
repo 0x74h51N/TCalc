@@ -88,7 +88,7 @@ inline constexpr ParenRole paren_role_of(char c) {
     }
 }
 
-enum class TokenKind : std::uint8_t { Number, Op, Latex, Paren };
+enum class TokenKind : std::uint8_t { Number, Op, Latex, Paren, Call };
 
 /// Expression kinds for compound Latex tokens.
 enum class LatexKind : std::uint8_t {
@@ -167,7 +167,19 @@ struct LatexToken {
     bool operator==(const LatexToken &) const = default;
 };
 
-using TokenData = std::variant<NumberToken, OpToken, LatexToken, ParenToken>;
+/// A function call: `f(arg0, arg1, …)`. `args` holds the call-paren's top-level
+/// comma-split arguments, each recursively tokenized (like a ParenToken's elements).
+/// has_close=false marks an unclosed call (live eval while typing).
+struct CallToken {
+    tcalc::ops::OpId op_id{};
+    std::vector<ParenElement> args;
+    bool has_close = true;
+    // Defined out-of-line below to defer variant<Token, vector<Token>>
+    // instantiation until after Token is complete.
+    bool operator==(const CallToken &) const;
+};
+
+using TokenData = std::variant<NumberToken, OpToken, LatexToken, ParenToken, CallToken>;
 
 struct Token {
     TokenKind kind{};
@@ -206,6 +218,8 @@ struct TokenEqual {
         } else if constexpr (std::is_same_v<T, ParenToken>) {
             return lhs.kind == r->kind && lhs.has_open == r->has_open &&
                    lhs.has_close == r->has_close && lhs.elements == r->elements;
+        } else if constexpr (std::is_same_v<T, CallToken>) {
+            return lhs == *std::get_if<CallToken>(rhs);
         }
     }
 };
@@ -227,6 +241,12 @@ inline bool operator==(const Token &a, const Token &b) {
 inline bool ParenToken::operator==(const ParenToken &o) const {
     return kind == o.kind && has_open == o.has_open && has_close == o.has_close &&
            elements == o.elements;
+}
+
+// CallToken::operator== defined out-of-line so variant<Token, vector<Token>>
+// special-member instantiation is deferred until Token is complete (above).
+inline bool CallToken::operator==(const CallToken &o) const {
+    return op_id == o.op_id && has_close == o.has_close && args == o.args;
 }
 
 /// Structural split payload for a ParenToken (wraps a latex descendant).

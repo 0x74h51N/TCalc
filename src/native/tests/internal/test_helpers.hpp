@@ -362,6 +362,9 @@ token_kind_name(TokenKind kind, ParenKind pk = ParenKind::Paren, LatexKind lk = 
             return "Bracket";
         }
         return "<unknown-paren>";
+    case TokenKind::Call:
+        // TODO: real Call rendering in diagnostics.
+        return "Call";
     }
     return "<unknown>";
 }
@@ -408,6 +411,17 @@ inline void print_value(std::ostream &os, const LatexToken &t) {
     print_value(os, t.left);
     os << ", right=";
     print_value(os, t.right);
+}
+// TODO: real Call rendering in diagnostics.
+inline void print_value(std::ostream &os, const CallToken &t) {
+    os << "op_id=" << op_id_name(t.op_id) << ", has_close=" << (t.has_close ? "true" : "false")
+       << ", args=[";
+    for (std::size_t i = 0; i < t.args.size(); ++i) {
+        if (i > 0)
+            os << ", ";
+        print_value(os, t.args[i]);
+    }
+    os << "]";
 }
 
 /// Dispatch print_value into the active variant alternative.

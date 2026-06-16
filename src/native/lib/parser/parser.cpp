@@ -112,28 +112,33 @@ ParenExtent scan_paren_extent(std::string_view s, std::size_t open_pos) {
     return ext;
 }
 
-Token build_paren_token(
-    std::string_view s, std::size_t open_pos, const ParenExtent &ext, ParenKind kind) {
+// Shared by build_paren_token / build_call_token: split the paren interior on
+// top-level commas and recursively tokenize each slice into ParenElements.
+struct BuiltElements {
+    std::vector<ParenElement> elements;
+    bool has_latex_descendant = false;
+};
+
+BuiltElements
+build_paren_elements(std::string_view s, std::size_t open_pos, const ParenExtent &ext) {
     const std::size_t inner_begin = open_pos + 1;
     const std::size_t inner_end = ext.end_pos;
 
-    std::vector<ParenElement> elements;
-    bool has_latex_descendant = false;
-
+    BuiltElements out;
     const bool inner_empty = (inner_begin >= inner_end) && ext.top_commas.empty();
     if (!inner_empty) {
         std::size_t seg_begin = inner_begin;
-        elements.reserve(ext.top_commas.size() + 1);
+        out.elements.reserve(ext.top_commas.size() + 1);
         auto push_slice = [&](std::string_view slice) {
             auto branch = tokenize(slice);
-            if (!has_latex_descendant &&
+            if (!out.has_latex_descendant &&
                 (!branch.latex_indices.empty() || branch.has_latex_descendant)) {
-                has_latex_descendant = true;
+                out.has_latex_descendant = true;
             }
             if (branch.tokens.size() == 1) {
-                elements.emplace_back(std::move(branch.tokens.front()));
+                out.elements.emplace_back(std::move(branch.tokens.front()));
             } else {
-                elements.emplace_back(std::move(branch.tokens));
+                out.elements.emplace_back(std::move(branch.tokens));
             }
         };
         for (const std::size_t comma_pos : ext.top_commas) {
@@ -142,19 +147,39 @@ Token build_paren_token(
         }
         push_slice(s.substr(seg_begin, inner_end - seg_begin));
     }
+    return out;
+}
 
+Token build_paren_token(
+    std::string_view s, std::size_t open_pos, const ParenExtent &ext, ParenKind kind) {
+    auto built = build_paren_elements(s, open_pos, ext);
     const std::size_t end_pos_excl = ext.closed ? ext.end_pos + 1 : ext.end_pos;
     return Token{
         TokenKind::Paren,
         ParenToken{
             kind,
-            std::move(elements),
+            std::move(built.elements),
             /*has_open=*/true,
             /*has_close=*/ext.closed,
-            has_latex_descendant},
+            built.has_latex_descendant},
         open_pos,
         end_pos_excl,
     };
+}
+
+Token build_call_token(
+    std::string_view s,
+    std::size_t open_pos,
+    const ParenExtent &ext,
+    tcalc::ops::OpId op_id,
+    std::size_t func_start) {
+    auto built = build_paren_elements(s, open_pos, ext);
+    const std::size_t end_pos_excl = ext.closed ? ext.end_pos + 1 : ext.end_pos;
+    return Token{
+        TokenKind::Call,
+        CallToken{op_id, std::move(built.elements), /*has_close=*/ext.closed},
+        func_start,
+        end_pos_excl};
 }
 
 const OpSpec *match_op(std::string_view s, std::size_t i, std::size_t &out_len) {
@@ -416,6 +441,23 @@ TokensBranch tokenize(std::string_view s) {
         if (role == ParenRole::Open) {
             const ParenKind kind = paren_kind_of(c);
             const auto ext = detail::scan_paren_extent(s, i);
+
+            if (kind == ParenKind::Paren && !result.tokens.empty() &&
+                result.tokens.back().kind == TokenKind::Op) {
+                const auto &prev_op = std::get<OpToken>(result.tokens.back().data);
+                if (const ops::OpSpec *sp = ops::op_spec(prev_op.op_id);
+                    sp && ops::is_call_function(*sp)) {
+                    const std::size_t func_start = result.tokens.back().start_pos;
+                    const ops::OpId fop = prev_op.op_id;
+                    result.tokens.pop_back();
+                    auto call = detail::build_call_token(s, i, ext, fop, func_start);
+                    result.tokens.push_back(std::move(call));
+                    i = ext.closed ? ext.end_pos + 1 : ext.end_pos;
+                    expect_operand = false;
+                    continue;
+                }
+            }
+
             const auto tok_idx = static_cast<TokenIndex>(result.tokens.size());
             result.paren_indices.push_back(tok_idx);
             auto tok = detail::build_paren_token(s, i, ext, kind);
@@ -508,9 +550,12 @@ split_operand(std::span<const Token> tokens, TokenIndex begin, TokenIndex end, b
         return {};
     }
 
+    // TODO: Call is unreachable (nothing emits it yet); routed like Paren
+    // since it is a single-token closed operand.
     if (lead) {
         const Token &first = tokens[begin];
-        if (first.kind == TokenKind::Paren || first.kind == TokenKind::Number) {
+        if (first.kind == TokenKind::Paren || first.kind == TokenKind::Number ||
+            first.kind == TokenKind::Call) {
             return {
                 tokens.subspan(begin, 1),
                 tokens.subspan(begin + 1, end - begin - 1),
@@ -520,7 +565,8 @@ split_operand(std::span<const Token> tokens, TokenIndex begin, TokenIndex end, b
     }
 
     const Token &last = tokens[end - 1];
-    if (last.kind == TokenKind::Paren || last.kind == TokenKind::Number) {
+    if (last.kind == TokenKind::Paren || last.kind == TokenKind::Number ||
+        last.kind == TokenKind::Call) {
         return {
             tokens.subspan(begin, end - begin - 1),
             tokens.subspan(end - 1, 1),
@@ -713,6 +759,8 @@ TokensBranch classify_tokens(std::vector<Token> tokens) {
             }
             break;
         }
+        // TODO: Call is unreachable (nothing emits it yet); once tokenized,
+        // classify it like Paren (own indices vector or latex-descendant scan into args).
         default:
             break;
         }
@@ -754,6 +802,11 @@ std::vector<Token> normalize(std::vector<Token> raw) {
         if (t.kind == TokenKind::Paren) {
             return std::get<ParenToken>(t.data).has_close;
         }
+        // TODO: Call is unreachable (nothing emits it yet); treated like
+        // Paren since a call is a closed operand once its ')' is seen.
+        if (t.kind == TokenKind::Call) {
+            return std::get<CallToken>(t.data).has_close;
+        }
         if (t.kind == TokenKind::Op) {
             const auto &op_token = std::get<OpToken>(t.data);
             return op_spec(op_token.op_id)->arity == Arity::Postfix;
@@ -767,6 +820,11 @@ std::vector<Token> normalize(std::vector<Token> raw) {
         }
         if (t.kind == TokenKind::Paren) {
             return std::get<ParenToken>(t.data).has_open;
+        }
+        // TODO: Call is unreachable (nothing emits it yet); treated like
+        // Paren — a call token always starts an operand (its head is the func name).
+        if (t.kind == TokenKind::Call) {
+            return true;
         }
         if (t.kind == TokenKind::Op) {
             const auto &op_token = std::get<OpToken>(t.data);
@@ -826,6 +884,7 @@ std::vector<Token> shunting_yard(const std::vector<Token> &tokens) {
         case TokenKind::Number:
         case TokenKind::Latex:
         case TokenKind::Paren:
+        case TokenKind::Call:
             output.push_back(std::move(tok));
             break;
         case TokenKind::Op: {
@@ -946,6 +1005,20 @@ std::string token_text(const Token &tok) {
                 }
                 if (data.has_close)
                     out.push_back(paren_symbol(false, data.kind));
+                return out;
+            } else if constexpr (std::is_same_v<T, CallToken>) {
+                std::string out;
+                const auto *spec = ops::op_spec(data.op_id);
+                if (spec)
+                    out += spec->symbol;
+                out.push_back(paren_symbol(true, ParenKind::Paren));
+                for (std::size_t i = 0; i < data.args.size(); ++i) {
+                    if (i > 0)
+                        out += ", ";
+                    out += tokens_to_text(element_tokens(data.args[i]));
+                }
+                if (data.has_close)
+                    out.push_back(paren_symbol(false, ParenKind::Paren));
                 return out;
             }
 

@@ -143,3 +143,16 @@ def test_value_operand_feeds_prebuilt_collection_into_mean() -> None:
     result = evaluate_rpn([ValueOperand(collection), mean_op], calc)
     assert isinstance(result, (int, float))
     assert float(result) == pytest.approx(2.5)
+
+
+def test_call_token_evaluates_function():
+    from tcalc.core.engine import Calculator
+    from tcalc.core.parser import evaluate_tokens, tokenize_string
+
+    calc = Calculator()
+    out = evaluate_tokens(tokenize_string("sin(45)"), calc)  # DEG default
+    assert isinstance(out, (int, float))
+    a = evaluate_tokens(tokenize_string("mean([1,2,3])"), calc)
+    b = evaluate_tokens(tokenize_string("mean[1,2,3]"), calc)
+    assert isinstance(a, (int, float)) and isinstance(b, (int, float))
+    assert float(a) == pytest.approx(float(b)) == pytest.approx(2.0)
