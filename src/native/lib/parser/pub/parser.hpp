@@ -156,6 +156,7 @@ struct TokensBranch {
     std::vector<TokenIndex> latex_indices{};
     std::vector<TokenIndex> paren_indices{};
     bool has_latex_descendant = false;
+    bool has_call = false; // any top-level CallToken (render-lowering gate)
     bool operator==(const TokensBranch &) const = default;
 };
 
@@ -174,6 +175,7 @@ struct CallToken {
     tcalc::ops::OpId op_id{};
     std::vector<ParenElement> args;
     bool has_close = true;
+    bool has_latex_descendant = false; // any arg carries a latex descendant (set at tokenize)
     // Defined out-of-line below to defer variant<Token, vector<Token>>
     // instantiation until after Token is complete.
     bool operator==(const CallToken &) const;
@@ -246,7 +248,8 @@ inline bool ParenToken::operator==(const ParenToken &o) const {
 // CallToken::operator== defined out-of-line so variant<Token, vector<Token>>
 // special-member instantiation is deferred until Token is complete (above).
 inline bool CallToken::operator==(const CallToken &o) const {
-    return op_id == o.op_id && has_close == o.has_close && args == o.args;
+    return op_id == o.op_id && has_close == o.has_close &&
+           has_latex_descendant == o.has_latex_descendant && args == o.args;
 }
 
 /// Structural split payload for a ParenToken (wraps a latex descendant).

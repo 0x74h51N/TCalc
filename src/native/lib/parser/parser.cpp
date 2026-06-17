@@ -177,7 +177,8 @@ Token build_call_token(
     const std::size_t end_pos_excl = ext.closed ? ext.end_pos + 1 : ext.end_pos;
     return Token{
         TokenKind::Call,
-        CallToken{op_id, std::move(built.elements), /*has_close=*/ext.closed},
+        CallToken{
+            op_id, std::move(built.elements), /*has_close=*/ext.closed, built.has_latex_descendant},
         func_start,
         end_pos_excl};
 }
@@ -451,7 +452,10 @@ TokensBranch tokenize(std::string_view s) {
                     const ops::OpId fop = prev_op.op_id;
                     result.tokens.pop_back();
                     auto call = detail::build_call_token(s, i, ext, fop, func_start);
+                    if (std::get<CallToken>(call.data).has_latex_descendant)
+                        result.has_latex_descendant = true;
                     result.tokens.push_back(std::move(call));
+                    result.has_call = true;
                     i = ext.closed ? ext.end_pos + 1 : ext.end_pos;
                     expect_operand = false;
                     continue;
@@ -736,32 +740,60 @@ std::vector<MathNode> build_math_nodes(const TokensBranch &branch, bool after_no
     if (branch.tokens.empty()) {
         return out;
     }
-    detail::build_row(out, branch, after_node);
+    if (branch.has_call) {
+        detail::build_row(
+            out, classify_tokens(branch.tokens), after_node); // lower calls, then render
+    } else {
+        detail::build_row(out, branch, after_node); // hot path, unchanged
+    }
     return out;
 }
 
 TokensBranch classify_tokens(std::vector<Token> tokens) {
     TokensBranch result;
-    result.tokens = std::move(tokens);
+    result.tokens.reserve(tokens.size() + 1);
 
-    const auto n = static_cast<TokenIndex>(result.tokens.size());
-    for (TokenIndex i = 0; i < n; ++i) {
-        const auto &tok = result.tokens[i];
+    // Single pass building the token row + its latex/paren indices. A CallToken is lowered
+    // (render-only) to Op(symbol) + Paren(args) so the existing Op-text / Paren / LaTeX
+    // render path applies unchanged, no Call MathNode. has_latex_descendant is read off the
+    // token (precomputed at tokenize), never rescanned.
+    for (auto &tok : tokens) {
         switch (tok.kind) {
-        case TokenKind::Latex:
-            result.latex_indices.push_back(i);
-            break;
-        case TokenKind::Paren: {
-            result.paren_indices.push_back(i);
-            const auto &ptok = std::get<ParenToken>(tok.data);
-            if (ptok.has_latex_descendant) {
+        case TokenKind::Call: {
+            auto &c = std::get<CallToken>(tok.data);
+            const bool hld = c.has_latex_descendant;
+            result.tokens.push_back(
+                Token{TokenKind::Op, OpToken{c.op_id}, tok.start_pos, tok.start_pos});
+            const auto idx = static_cast<TokenIndex>(result.tokens.size());
+            result.tokens.push_back(
+                Token{
+                    TokenKind::Paren,
+                    ParenToken{
+                        ParenKind::Paren, std::move(c.args), /*has_open=*/true, c.has_close, hld},
+                    tok.start_pos,
+                    tok.end_pos});
+            result.paren_indices.push_back(idx);
+            if (hld)
                 result.has_latex_descendant = true;
-            }
             break;
         }
-        // TODO: Call is unreachable (nothing emits it yet); once tokenized,
-        // classify it like Paren (own indices vector or latex-descendant scan into args).
+        case TokenKind::Latex: {
+            const auto idx = static_cast<TokenIndex>(result.tokens.size());
+            result.tokens.push_back(std::move(tok));
+            result.latex_indices.push_back(idx);
+            break;
+        }
+        case TokenKind::Paren: {
+            const bool hld = std::get<ParenToken>(tok.data).has_latex_descendant;
+            const auto idx = static_cast<TokenIndex>(result.tokens.size());
+            result.tokens.push_back(std::move(tok));
+            result.paren_indices.push_back(idx);
+            if (hld)
+                result.has_latex_descendant = true;
+            break;
+        }
         default:
+            result.tokens.push_back(std::move(tok));
             break;
         }
     }
@@ -1074,6 +1106,23 @@ std::string tokens_to_text(std::span<const Token> tokens, const bool &after_node
     return out;
 }
 
+// Flat text for a comma group: "(e0, e1, ...)" (or [ ]/{ }), each element flattened.
+// Shared by the Paren and Call arms of token_flat_text.
+std::string flat_group(
+    ParenKind kind, const std::vector<ParenElement> &elements, bool has_open, bool has_close) {
+    std::string out;
+    if (has_open)
+        out.push_back(paren_symbol(true, kind));
+    for (std::size_t i = 0; i < elements.size(); ++i) {
+        if (i > 0)
+            out += ", ";
+        out += tokens_to_flat_text(element_tokens(elements[i]));
+    }
+    if (has_close)
+        out.push_back(paren_symbol(false, kind));
+    return out;
+}
+
 std::string token_flat_text(const Token &tok) {
     if (tok.kind == TokenKind::Latex) {
         const auto &latex = std::get<LatexToken>(tok.data);
@@ -1099,16 +1148,14 @@ std::string token_flat_text(const Token &tok) {
     }
     if (tok.kind == TokenKind::Paren) {
         const auto &p = std::get<ParenToken>(tok.data);
+        return flat_group(p.kind, p.elements, p.has_open, p.has_close);
+    }
+    if (tok.kind == TokenKind::Call) {
+        const auto &c = std::get<CallToken>(tok.data);
         std::string out;
-        if (p.has_open)
-            out.push_back(paren_symbol(true, p.kind));
-        for (std::size_t i = 0; i < p.elements.size(); ++i) {
-            if (i > 0)
-                out += ", ";
-            out += tokens_to_flat_text(element_tokens(p.elements[i]));
-        }
-        if (p.has_close)
-            out.push_back(paren_symbol(false, p.kind));
+        if (const ops::OpSpec *spec = ops::op_spec(c.op_id))
+            out.append(spec->symbol);
+        out += flat_group(ParenKind::Paren, c.args, /*has_open=*/true, c.has_close);
         return out;
     }
     return token_text(tok);

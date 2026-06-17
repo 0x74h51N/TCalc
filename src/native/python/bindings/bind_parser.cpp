@@ -260,14 +260,19 @@ void bind_parser(py::module_ &m) {
         .def_readonly("latex_indices", &TokensBranch::latex_indices)
         .def_readonly("paren_indices", &TokensBranch::paren_indices)
         .def_readonly("has_latex_descendant", &TokensBranch::has_latex_descendant)
+        .def_readonly("has_call", &TokensBranch::has_call)
         .def(
             py::pickle(
                 [](const TokensBranch &r) {
                     return py::make_tuple(
-                        r.tokens, r.latex_indices, r.paren_indices, r.has_latex_descendant);
+                        r.tokens,
+                        r.latex_indices,
+                        r.paren_indices,
+                        r.has_latex_descendant,
+                        r.has_call);
                 },
                 [](const py::tuple &t) {
-                    constexpr std::size_t kTokensBranchPickleArity = 4;
+                    constexpr std::size_t kTokensBranchPickleArity = 5;
                     if (t.size() != kTokensBranchPickleArity)
                         throw std::runtime_error("Invalid TokensBranch state");
                     TokensBranch r;
@@ -275,6 +280,7 @@ void bind_parser(py::module_ &m) {
                     r.latex_indices = t[1].cast<std::vector<tcalc::parser::TokenIndex>>();
                     r.paren_indices = t[2].cast<std::vector<tcalc::parser::TokenIndex>>();
                     r.has_latex_descendant = t[3].cast<bool>();
+                    r.has_call = t[4].cast<bool>();
                     return r;
                 }));
 
@@ -349,12 +355,15 @@ void bind_parser(py::module_ &m) {
     // CallToken — properties + pickle
     CallToken_.def_readonly("op_id", &CallToken::op_id);
     CallToken_.def_readonly("has_close", &CallToken::has_close);
+    CallToken_.def_readonly("has_latex_descendant", &CallToken::has_latex_descendant);
     def_readonly_ref(CallToken_, "args", &CallToken::args);
     CallToken_.def(
         py::pickle(
-            [](const CallToken &t) { return py::make_tuple(t.op_id, t.args, t.has_close); },
+            [](const CallToken &t) {
+                return py::make_tuple(t.op_id, t.args, t.has_close, t.has_latex_descendant);
+            },
             [](const py::tuple &t) {
-                constexpr std::size_t kCallTokenPickleArity = 3;
+                constexpr std::size_t kCallTokenPickleArity = 4;
                 if (t.size() != kCallTokenPickleArity)
                     throw std::runtime_error("Invalid CallToken state");
                 // Manually iterate args to avoid pybind11 default-constructing
@@ -368,7 +377,8 @@ void bind_parser(py::module_ &m) {
                         args.emplace_back(obj.cast<std::vector<Token>>());
                     }
                 }
-                return CallToken{t[0].cast<OpId>(), std::move(args), t[2].cast<bool>()};
+                return CallToken{
+                    t[0].cast<OpId>(), std::move(args), t[2].cast<bool>(), t[3].cast<bool>()};
             }));
 
     py::enum_<tcalc::ops::Assoc>(m, "OpAssoc", "Operator associativity.")

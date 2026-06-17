@@ -1,3 +1,4 @@
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -2149,6 +2150,18 @@ void unit_parser(TestContext &ctx) {
                  {T_("2, "),
                   Pn(PK::Bracket, true, {Frn({T_("3")}, {T_("4")}), T_(" + 5")}),
                   T_(", 6")})}},
+
+            // -- Call cases (CallToken lowered render-only to Op(symbol) + Paren) --
+            // "mean([2, \frac{1}{2}])": latex inside a function call must render
+            // structurally. Input via tokenize so has_call / has_latex_descendant are
+            // set as in real use; the symbol "x̄" rides the paren's prefix as text.
+            {.id = "call-with-latex-arg",
+             .input = p::tokenize("mean([2, \\frac{1}{2}])"),
+             .expected =
+                 {T_("x̄"),
+                  Pn(PK::Paren,
+                     true,
+                     {Pn(PK::Bracket, true, {T_("2, "), Frn({T_("1")}, {T_("2")})})})}},
         };
 
         for (const auto &tc : build_nodes_cases) {
