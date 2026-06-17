@@ -129,13 +129,13 @@ def test_compute_and_update_live_eval_error_suppressed():
 
 
 def test_compute_and_update_force_display_surfaces_error():
-    """Enter on [[1,2]] -> short error visible in both status and result."""
+    """Enter on [[1,2]] -> kind in result, reason detail in status."""
     ctrl = _make_stub_ctrl("[[1,2]]", force=True)
     ctrl._compute_and_update()
     call = ctrl._display.result.update_res.call_args  # pyright: ignore[reportAttributeAccessIssue]
     assert call.kwargs.get("status_kind") == "error"
-    # Short form: only ErrorKind.value (no embedded detail).
-    assert call.kwargs.get("status_text") == "Invalid expression"
+    # Result shows the short kind; status surfaces the reason detail.
+    assert call.kwargs.get("status_text") == "List of List not allowed"
     assert call.args[0] == "Invalid expression"
 
 
@@ -200,3 +200,44 @@ def test_compute_and_update_unclosed_paren_grouping():
     ctrl._compute_and_update()
     call = ctrl._display.result.update_res.call_args  # pyright: ignore[reportAttributeAccessIssue]
     assert call.args[0] == "8"
+
+
+def test_short_error_suppressed_for_call_token():
+    """A call's comma args are not bare commas: no list/point hint for gcd(...)."""
+    from tcalc.ui.controller.controller import _short_error_for_expression
+
+    expr = "gcd(21, 3/9)"
+    assert _short_error_for_expression(expr, _tokens(expr)) is None
+
+
+def test_short_error_fires_for_bare_comma():
+    """Bare top-level comma (no enclosing paren/bracket/call) keeps the hint."""
+    from tcalc.ui.controller.controller import _short_error_for_expression
+
+    expr = "3,4"
+    assert _short_error_for_expression(expr, _tokens(expr)) == "Use [ ] for lists or ( ) for points"
+
+
+def _eval_error(expr: str):
+    """Run _evaluate_tokens on a bare controller stub; return (kind, detail)."""
+    from tcalc.core.engine import Calculator
+    from tcalc.core.parser import tokenize_string
+    from tcalc.ui.controller.controller import CalculatorController
+
+    ctrl = CalculatorController.__new__(CalculatorController)
+    ctrl._evaluate_tokens(tokenize_string(expr), Calculator())
+    return ctrl._error_text, ctrl._error_detail
+
+
+def test_math_error_detail_surfaces():
+    assert _eval_error("gcd(21,3/9)") == ("Math Error", "gcd is only defined for integers")
+
+
+def test_invalid_detail_surfaces():
+    assert _eval_error("sin(90,3)") == ("Invalid expression", "sin takes 1 argument")
+
+
+def test_malformed_detail_stays_hidden():
+    kind, detail = _eval_error("1++")
+    assert kind == "Malformed Expression"
+    assert detail is None

@@ -104,8 +104,6 @@ def test_reduction_eval_golden(expr: str, expected_type: str, expected_value: ob
     [
         param("mean[]", "mean of an empty collection", id="mean-empty"),
         param("min[]", "min of an empty collection", id="min-empty"),
-        param("mean(3,4)", "mean is not defined for a single point", id="mean-bare-point"),
-        param("median(3,4)", "median is not defined for a single point", id="median-bare-point"),
         param("min[1+2j, 3]", "min-max not defined for complex values", id="min-complex"),
         param("max[1+2j, 3]", "min-max not defined for complex values", id="max-complex"),
         param("median[1+2j, 3]", "median is not defined for complex values", id="median-complex"),
@@ -156,3 +154,41 @@ def test_call_token_evaluates_function():
     b = evaluate_tokens(tokenize_string("mean[1,2,3]"), calc)
     assert isinstance(a, (int, float)) and isinstance(b, (int, float))
     assert float(a) == pytest.approx(float(b)) == pytest.approx(2.0)
+
+
+@pytest.mark.parametrize(
+    ("expr", "expected"),
+    [
+        param("x̄(2,3,5,6)", 4.0, id="mean-bare-args"),
+        param("x̄[2,3,5,6]", 4.0, id="mean-bracket"),
+        param("x̄([2,3,5,6])", 4.0, id="mean-paren-wrapped-list"),
+        param("x̄(2,3)", 2.5, id="mean-two-args"),
+        param("gcd(12,8)", 4, id="gcd-two-args"),
+        param("gcd(12,8,6)", 2, id="gcd-three-args"),
+        param("gcd[12,8]", 4, id="gcd-bracket"),
+        param("gcd([12,8])", 4, id="gcd-paren-wrapped-list"),
+        param("lcm(4,6)", 12, id="lcm-two-args"),
+    ],
+)
+def test_variadic_call_args(expr: str, expected: float) -> None:
+    result = _eval(expr)
+    assert isinstance(result, (int, float))
+    assert result == float(expected)
+
+
+@pytest.mark.parametrize(
+    ("expr", "expected_msg_substr"),
+    [
+        param("x̄((3,4))", "single point", id="mean-of-point"),
+        param("sin(45,2)", "takes 1 argument", id="too-many-args"),
+        param("sin([2,3])", "not defined for a list or point", id="scalar-fn-collection"),
+        param("gcd(21, 3/9)", "only defined for integers", id="gcd-non-integer"),
+        param("lcm(4, 2.5)", "only defined for integers", id="lcm-non-integer"),
+    ],
+)
+def test_call_arg_errors(expr: str, expected_msg_substr: str) -> None:
+    from tcalc.errors import Error
+
+    with pytest.raises(Error) as exc_info:
+        _eval(expr)
+    assert expected_msg_substr in str(exc_info.value)

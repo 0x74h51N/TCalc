@@ -56,6 +56,13 @@ void unit_ops(TestContext &ctx) {
             });
     }
 
+    test_detail::with_case(ctx, "call_arity :: reducers variadic, unary calls fixed-1", [&] {
+        EXPECT_TRUE(ctx, is_variadic(*op_spec(OpId::Mean)), "Mean should be variadic");
+        EXPECT_TRUE(ctx, is_variadic(*op_spec(OpId::Sum)), "Sum should be variadic");
+        EXPECT_EQ(ctx, op_spec(OpId::Sin)->call_arity, std::uint8_t{1});
+        EXPECT_TRUE(ctx, !is_variadic(*op_spec(OpId::Sin)), "Sin should not be variadic");
+    });
+
     std::unordered_map<std::string_view, const OpSpec *> tokens;
     for (const auto &entry : kTokenTable) {
         const auto id = entry.spec ? (std::string("token :: ") + std::string(entry.spec->method))

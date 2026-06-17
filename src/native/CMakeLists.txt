@@ -27,7 +27,7 @@ find_package(pybind11 CONFIG REQUIRED)
 
 add_library(calc_core STATIC
   lib/calc/arithmetic.cpp
-  lib/calc/function.cpp
+  lib/calc/number_theory.cpp
   lib/calc/transcendental.cpp
   lib/calc/trig.cpp
   lib/calc/combinatorics.cpp
@@ -51,6 +51,7 @@ add_executable(native_tests
   tests/unit/test_parser.cpp
   tests/unit/test_collection.cpp
   tests/unit/test_statistic.cpp
+  tests/unit/test_number_theory.cpp
   tests/test_test_helpers.cpp
 )
 target_include_directories(native_tests PRIVATE

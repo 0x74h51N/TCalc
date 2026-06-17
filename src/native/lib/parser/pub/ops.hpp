@@ -111,6 +111,9 @@ struct OpSpec {
 
     /// Extra operator capabilities.
     OpFlags flags{OpFlags::None};
+
+    /// Number of call arguments; kVariadicArity = aggregate over a dataset.
+    std::uint8_t call_arity = 1;
 };
 
 /// Bitwise OR for OpFlags.
@@ -144,9 +147,17 @@ constexpr bool rational_supported(const OpSpec &op) {
     return has_flag(op.flags, OpSpec::OpFlags::RationalSupported);
 }
 
+/// Sentinel for OpSpec::call_arity: function folds its args into a dataset.
+inline constexpr std::uint8_t kVariadicArity = 0xFF;
+
 /// True when the op is invoked via call syntax: `f(arg0, arg1, …)`.
 inline constexpr bool is_call_function(const OpSpec &op) {
     return has_flag(op.flags, OpSpec::OpFlags::CallFunction);
+}
+
+/// True when the call function folds its args into a single dataset.
+inline constexpr bool is_variadic(const OpSpec &op) {
+    return op.call_arity == kVariadicArity;
 }
 
 /// Short alias for OpFlags.
@@ -572,20 +583,22 @@ inline constexpr std::array kOps{
         .symbol = "gcd",
         .precedence = 4,
         .associativity = Assoc::Right,
-        .arity = Arity::Binary,
+        .arity = Arity::Unary,
         .aliases = {},
         .method = "gcd",
-        .flags = Flags::None,
+        .flags = Flags::CallFunction,
+        .call_arity = kVariadicArity,
     },
     OpSpec{
         .id = OpId::Lcm,
         .symbol = "lcm",
         .precedence = 4,
         .associativity = Assoc::Right,
-        .arity = Arity::Binary,
+        .arity = Arity::Unary,
         .aliases = {},
         .method = "lcm",
-        .flags = Flags::None,
+        .flags = Flags::CallFunction,
+        .call_arity = kVariadicArity,
     },
     OpSpec{
         .id = OpId::Mean,
@@ -596,6 +609,7 @@ inline constexpr std::array kOps{
         .aliases = {"mean"},
         .method = "mean",
         .flags = Flags::CallFunction,
+        .call_arity = kVariadicArity,
     },
     OpSpec{
         .id = OpId::Median,
@@ -606,6 +620,7 @@ inline constexpr std::array kOps{
         .aliases = {"median"},
         .method = "median",
         .flags = Flags::CallFunction,
+        .call_arity = kVariadicArity,
     },
     OpSpec{
         .id = OpId::Min,
@@ -616,6 +631,7 @@ inline constexpr std::array kOps{
         .aliases = {},
         .method = "min",
         .flags = Flags::CallFunction,
+        .call_arity = kVariadicArity,
     },
     OpSpec{
         .id = OpId::Max,
@@ -626,6 +642,7 @@ inline constexpr std::array kOps{
         .aliases = {},
         .method = "max",
         .flags = Flags::CallFunction,
+        .call_arity = kVariadicArity,
     },
     OpSpec{
         .id = OpId::Sum,
@@ -636,6 +653,7 @@ inline constexpr std::array kOps{
         .aliases = {"sum"},
         .method = "sum",
         .flags = Flags::CallFunction,
+        .call_arity = kVariadicArity,
     },
     OpSpec{
         .id = OpId::Var,
@@ -646,6 +664,7 @@ inline constexpr std::array kOps{
         .aliases = {"var"},
         .method = "variance",
         .flags = Flags::CallFunction,
+        .call_arity = kVariadicArity,
     },
     OpSpec{
         .id = OpId::VarP,
@@ -656,6 +675,7 @@ inline constexpr std::array kOps{
         .aliases = {"varp"},
         .method = "variance_pop",
         .flags = Flags::CallFunction,
+        .call_arity = kVariadicArity,
     },
     OpSpec{
         .id = OpId::Std,
@@ -666,6 +686,7 @@ inline constexpr std::array kOps{
         .aliases = {"std"},
         .method = "stddev",
         .flags = Flags::CallFunction,
+        .call_arity = kVariadicArity,
     },
     OpSpec{
         .id = OpId::StdP,
@@ -676,6 +697,7 @@ inline constexpr std::array kOps{
         .aliases = {"stdp"},
         .method = "stddev_pop",
         .flags = Flags::CallFunction,
+        .call_arity = kVariadicArity,
     },
 };
 
