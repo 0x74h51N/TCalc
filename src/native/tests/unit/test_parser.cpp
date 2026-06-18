@@ -606,6 +606,22 @@ void unit_parser(TestContext &ctx) {
         EXPECT_EQ(ctx, c.args.size(), std::size_t{3});
     });
 
+    test_detail::with_case(ctx, "tokenize :: mod(7,3) -> CallToken Mod 2 args", [&] {
+        const auto branch = p::tokenize("mod(7,3)");
+        EXPECT_EQ(ctx, branch.tokens[0].kind, p::TokenKind::Call);
+        const auto &c = std::get<p::CallToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, c.op_id, o::OpId::Mod);
+        EXPECT_EQ(ctx, c.args.size(), std::size_t{2});
+    });
+
+    test_detail::with_case(ctx, "tokenize :: nCr(5,2) -> CallToken Choose 2 args", [&] {
+        const auto branch = p::tokenize("nCr(5,2)");
+        EXPECT_EQ(ctx, branch.tokens[0].kind, p::TokenKind::Call);
+        const auto &c = std::get<p::CallToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, c.op_id, o::OpId::Choose);
+        EXPECT_EQ(ctx, c.args.size(), std::size_t{2});
+    });
+
     test_detail::with_case(ctx, "tokenize :: bare (1,2) stays Paren/Point", [&] {
         const auto branch = p::tokenize("(1,2)");
         EXPECT_EQ(ctx, branch.tokens[0].kind, p::TokenKind::Paren);

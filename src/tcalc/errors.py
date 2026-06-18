@@ -52,12 +52,16 @@ class Msg:
         return f"element kind {kind}"
 
     @staticmethod
-    def takes_one_argument(fn: str) -> str:
-        return f"{fn} takes 1 argument"
+    def takes_arguments(fn: str, n: int) -> str:
+        return f"{fn} takes {n} argument" + ("s" if n != 1 else "")
 
     @staticmethod
     def not_for_list_or_point(fn: str) -> str:
         return f"{fn} is not defined for a list or point"
+
+    @staticmethod
+    def needs_call_form(fn: str) -> str:
+        return f"{fn} must be written as {fn}(...)"
 
 
 def raise_error(kind: ErrorKind, detail: object | None = None) -> NoReturn:

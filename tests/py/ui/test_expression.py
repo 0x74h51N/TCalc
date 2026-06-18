@@ -871,6 +871,22 @@ EXPRESSION_NODE_CASES = [
         ),
         id="call-gcd-with-frac",
     ),
+    pytest.param(
+        expression_node_case(
+            expression=r"nPr(\frac{200}{2}, 3)",
+            expected_widget_cls_idx=[
+                (0, RoundParenWidget),
+                (1, FractionWidget),
+            ],
+            idx_slot_count=[(0, 1), (1, 2)],
+            idx_segment_count=[(0, 5), (1, 2)],
+            total_slot_count=3,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text=r"nPr(\frac{200}{2}, 3)",
+        ),
+        id="call-npr-with-frac",
+    ),
 ]
 
 

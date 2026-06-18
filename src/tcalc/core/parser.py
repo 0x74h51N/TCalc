@@ -237,17 +237,18 @@ def evaluate_rpn(
             if spec.is_variadic:
                 operand_stack.append(func(_eval_call_dataset(call.args, calculator)))
                 continue
-            if len(call.args) != 1:
-                raise_error(ErrorKind.INVALID, Msg.takes_one_argument(spec.symbol))
-            arg_val = _eval_element(call.args[0], calculator)
-            if isinstance(arg_val, calc_native.Collection):
+            n = spec.call_arity
+            if len(call.args) != n:
+                raise_error(ErrorKind.INVALID, Msg.takes_arguments(spec.symbol, n))
+            arg_vals = [_eval_element(a, calculator) for a in call.args]
+            if any(isinstance(v, calc_native.Collection) for v in arg_vals):
                 raise_error(ErrorKind.INVALID, Msg.not_for_list_or_point(spec.symbol))
             if spec.angle_unit:
                 from tcalc.app_state import get_app_state
 
-                operand_stack.append(func(arg_val, get_app_state().angle_unit))
+                operand_stack.append(func(*arg_vals, get_app_state().angle_unit))
             else:
-                operand_stack.append(func(arg_val))
+                operand_stack.append(func(*arg_vals))
             continue
 
         if tok.kind == calc_native.TokenKind.Paren:
@@ -263,6 +264,12 @@ def evaluate_rpn(
             op_tok = tok.as_op()
             spec = OP_BY_ID.get(op_tok.op_id)
             assert spec is not None
+            # Fixed-arity (>= 2) call functions have no infix form and need
+            # their parentheses; typed bare they reach here as an Op token with
+            # too few operands. Variadic ops (e.g. min[1,2,3]) validly apply to
+            # a following collection operand, so they are not rejected here.
+            if not spec.is_variadic and spec.call_arity != 1:
+                raise_error(ErrorKind.INVALID, Msg.needs_call_form(spec.symbol))
             val_a = _pop_operand(operand_stack)
             func = getattr(calculator, spec.method, None)
             assert func is not None

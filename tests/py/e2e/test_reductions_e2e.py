@@ -192,3 +192,40 @@ def test_call_arg_errors(expr: str, expected_msg_substr: str) -> None:
     with pytest.raises(Error) as exc_info:
         _eval(expr)
     assert expected_msg_substr in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    ("expr", "expected"),
+    [
+        param("mod(7,3)", 1, id="mod"),
+        param("intdiv(7,2)", 3, id="intdiv"),
+        param("nCr(5,2)", 10, id="ncr"),
+        param("nPr(5,2)", 20, id="npr"),
+    ],
+)
+def test_fixed_arity_calls(expr: str, expected: int) -> None:
+    result = _eval(expr)
+    if isinstance(result, (int, float)):
+        assert float(result) == pytest.approx(float(expected))
+    else:
+        assert str(result) == str(expected)
+
+
+@pytest.mark.parametrize(
+    ("expr", "expected_msg_substr"),
+    [
+        param("mod(7)", "mod takes 2 arguments", id="too-few"),
+        param("mod(7,3,1)", "mod takes 2 arguments", id="too-many"),
+        param("nCr([1,2],3)", "is not defined for a list or point", id="collection-arg"),
+        param("sin(90,3)", "sin takes 1 argument", id="unary-arity-still-1"),
+        param("mod 5", "mod must be written as mod(...)", id="bare-no-parens"),
+        param("4 mod 3", "mod must be written as mod(...)", id="bare-infix"),
+        param("4 nCr 3", "nCr must be written as nCr(...)", id="bare-infix-ncr"),
+    ],
+)
+def test_fixed_arity_errors(expr: str, expected_msg_substr: str) -> None:
+    from tcalc.errors import Error
+
+    with pytest.raises(Error) as exc_info:
+        _eval(expr)
+    assert expected_msg_substr in str(exc_info.value)
