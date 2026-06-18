@@ -368,17 +368,9 @@ void bind_calculator(py::module_ &m) {
     cls.def("permute", &C::permute, py::arg("n"), py::arg("r"));
     cls.def("choose", &C::choose, py::arg("n"), py::arg("r"));
 
-    // GCD / LCM
-    cls.def(
-        "gcd",
-        [](const C &calc, long long a, long long b) { return calc.gcd(a, b); },
-        py::arg("a"),
-        py::arg("b"));
-    cls.def(
-        "lcm",
-        [](const C &calc, long long a, long long b) { return calc.lcm(a, b); },
-        py::arg("a"),
-        py::arg("b"));
+    // GCD / LCM (variadic fold over a list)
+    cls.def("gcd", &C::gcd, py::arg("a"));
+    cls.def("lcm", &C::lcm, py::arg("a"));
 
     // Collection reductions
     cls.def("mean", &C::mean, py::arg("a"));

@@ -739,6 +739,154 @@ EXPRESSION_NODE_CASES = [
         ),
         id="bracket-frac-with-suffix-op",
     ),
+    # ---- function-call (CallToken) render: a LaTeX descendant inside a call must
+    # render structurally (Bug 2: call interception must propagate has_latex_descendant
+    # so the editor builds node widgets). Closed / unclosed / nested / multi / prefix. ----
+    pytest.param(
+        expression_node_case(
+            expression="x̄([2, \\frac{1}{2}])",
+            expected_widget_cls_idx=[
+                (0, RoundParenWidget),
+                (1, BracketWidget),
+                (2, FractionWidget),
+            ],
+            idx_slot_count=[(0, 1), (1, 1), (2, 2)],
+            idx_segment_count=[(0, 5), (1, 5), (2, 2)],
+            total_slot_count=4,
+            total_segment_count=15,
+            total_edit_count=8,
+            expected_plain_text="x̄([2, \\frac{1}{2}])",
+        ),
+        id="call-wrapped-bracket-frac",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="x̄(\\frac{1}{2})",
+            expected_widget_cls_idx=[(0, RoundParenWidget), (1, FractionWidget)],
+            idx_slot_count=[(0, 1), (1, 2)],
+            idx_segment_count=[(0, 5), (1, 2)],
+            total_slot_count=3,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text="x̄(\\frac{1}{2})",
+        ),
+        id="call-direct-frac",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="x̄([2, \\frac{1}{2}",
+            expected_widget_cls_idx=[
+                (0, RoundParenWidget),
+                (1, BracketWidget),
+                (2, FractionWidget),
+            ],
+            idx_slot_count=[(0, 1), (1, 1), (2, 2)],
+            idx_segment_count=[(0, 3), (1, 4), (2, 2)],
+            total_slot_count=4,
+            total_segment_count=11,
+            total_edit_count=6,
+            expected_plain_text="x̄([2, \\frac{1}{2}",
+        ),
+        id="call-unclosed-wrapped-frac",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="x̄(\\frac{1}{2}",
+            expected_widget_cls_idx=[(0, RoundParenWidget), (1, FractionWidget)],
+            idx_slot_count=[(0, 1), (1, 2)],
+            idx_segment_count=[(0, 4), (1, 2)],
+            total_slot_count=3,
+            total_segment_count=8,
+            total_edit_count=5,
+            expected_plain_text="x̄(\\frac{1}{2}",
+        ),
+        id="call-unclosed-direct-frac",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="x̄([\\frac{1}{2}, \\frac{3}{4}])",
+            expected_widget_cls_idx=[
+                (0, RoundParenWidget),
+                (1, BracketWidget),
+                (2, FractionWidget),
+                (3, FractionWidget),
+            ],
+            idx_slot_count=[(0, 1), (1, 1), (2, 2), (3, 2)],
+            idx_segment_count=[(0, 5), (1, 7), (2, 2), (3, 2)],
+            total_slot_count=6,
+            total_segment_count=19,
+            total_edit_count=11,
+            expected_plain_text="x̄([\\frac{1}{2}, \\frac{3}{4}])",
+        ),
+        id="call-multi-frac",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="x̄([\\frac{\\frac{1}{2}}{3}])",
+            expected_widget_cls_idx=[
+                (0, RoundParenWidget),
+                (1, BracketWidget),
+                (2, FractionWidget),
+                (3, FractionWidget),
+            ],
+            idx_slot_count=[(0, 1), (1, 1), (2, 2), (3, 2)],
+            idx_segment_count=[(0, 5), (1, 5), (2, 4), (3, 2)],
+            total_slot_count=6,
+            total_segment_count=19,
+            total_edit_count=11,
+            expected_plain_text="x̄([\\frac{\\frac{1}{2}}{3}])",
+        ),
+        id="call-nested-frac",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression="2+x̄([2, \\frac{1}{2}])",
+            expected_widget_cls_idx=[
+                (0, RoundParenWidget),
+                (1, BracketWidget),
+                (2, FractionWidget),
+            ],
+            idx_slot_count=[(0, 1), (1, 1), (2, 2)],
+            idx_segment_count=[(0, 5), (1, 5), (2, 2)],
+            total_slot_count=4,
+            total_segment_count=15,
+            total_edit_count=8,
+            expected_plain_text="2 + x̄([2, \\frac{1}{2}])",
+        ),
+        id="call-with-prefix",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression=r"gcd(12, \frac{1}{2})",
+            expected_widget_cls_idx=[
+                (0, RoundParenWidget),
+                (1, FractionWidget),
+            ],
+            idx_slot_count=[(0, 1), (1, 2)],
+            idx_segment_count=[(0, 5), (1, 2)],
+            total_slot_count=3,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text=r"gcd(12, \frac{1}{2})",
+        ),
+        id="call-gcd-with-frac",
+    ),
+    pytest.param(
+        expression_node_case(
+            expression=r"nPr(\frac{200}{2}, 3)",
+            expected_widget_cls_idx=[
+                (0, RoundParenWidget),
+                (1, FractionWidget),
+            ],
+            idx_slot_count=[(0, 1), (1, 2)],
+            idx_segment_count=[(0, 5), (1, 2)],
+            total_slot_count=3,
+            total_segment_count=10,
+            total_edit_count=6,
+            expected_plain_text=r"nPr(\frac{200}{2}, 3)",
+        ),
+        id="call-npr-with-frac",
+    ),
 ]
 
 

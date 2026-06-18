@@ -158,49 +158,4 @@ void unit_rational(TestContext &ctx) {
     TEST_CASE(ctx, "pow_overflows :: denominator fits (1/2)^61", {
         EXPECT_TRUE(ctx, !calc_detail::rational_pow_overflows(Rational(1, 2), 61));
     });
-
-    // -----------------------------------------------------------------------
-    // GCD / LCM
-    // -----------------------------------------------------------------------
-
-    TEST_CASE(ctx, "gcd :: basic", {
-        EXPECT_EQ(ctx, c.gcd(12, 8), 4LL);
-        EXPECT_EQ(ctx, c.gcd(7, 13), 1LL);
-        EXPECT_EQ(ctx, c.gcd(100, 75), 25LL);
-    });
-
-    TEST_CASE(ctx, "gcd :: zero", {
-        EXPECT_EQ(ctx, c.gcd(0, 5), 5LL);
-        EXPECT_EQ(ctx, c.gcd(5, 0), 5LL);
-        EXPECT_EQ(ctx, c.gcd(0, 0), 0LL);
-    });
-
-    TEST_CASE(ctx, "gcd :: negative", {
-        EXPECT_EQ(ctx, c.gcd(-12, 8), 4LL);
-        EXPECT_EQ(ctx, c.gcd(12, -8), 4LL);
-        EXPECT_EQ(ctx, c.gcd(-12, -8), 4LL);
-    });
-
-    TEST_CASE(ctx, "gcd :: same number", { EXPECT_EQ(ctx, c.gcd(42, 42), 42LL); });
-
-    TEST_CASE(ctx, "gcd :: coprime", { EXPECT_EQ(ctx, c.gcd(17, 31), 1LL); });
-
-    TEST_CASE(ctx, "lcm :: basic", {
-        EXPECT_EQ(ctx, c.lcm(4, 6), 12LL);
-        EXPECT_EQ(ctx, c.lcm(3, 5), 15LL);
-        EXPECT_EQ(ctx, c.lcm(12, 8), 24LL);
-    });
-
-    TEST_CASE(ctx, "lcm :: zero", {
-        EXPECT_EQ(ctx, c.lcm(0, 5), 0LL);
-        EXPECT_EQ(ctx, c.lcm(5, 0), 0LL);
-        EXPECT_EQ(ctx, c.lcm(0, 0), 0LL);
-    });
-
-    TEST_CASE(ctx, "lcm :: one", {
-        EXPECT_EQ(ctx, c.lcm(1, 7), 7LL);
-        EXPECT_EQ(ctx, c.lcm(7, 1), 7LL);
-    });
-
-    TEST_CASE(ctx, "lcm :: same number", { EXPECT_EQ(ctx, c.lcm(42, 42), 42LL); });
 }

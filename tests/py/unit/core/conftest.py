@@ -101,12 +101,18 @@ class _OpDef:
     needs_angle_unit: bool = False
     big_supported: bool = False
     big_complex_supported: bool = False
+    call_arity: int = 1
     cx: Callable[..., bool] | None = None
 
     @property
     def angle_unit(self) -> bool:
         """Alias for needs_angle_unit to match native OpSpec property name."""
         return self.needs_angle_unit
+
+    @property
+    def is_variadic(self) -> bool:
+        """Match native OpSpec: call_arity == kVariadicArity (0xFF)."""
+        return self.call_arity == 0xFF
 
     def __iter__(self):
         return iter(
@@ -215,6 +221,7 @@ class FakeTokenKind:
     Op = "op"
     Latex = "latex"
     Paren = "paren"
+    Call = "call"
 
 
 class FakeCollectionKind:

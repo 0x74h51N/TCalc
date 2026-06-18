@@ -11,7 +11,7 @@ from typing import Iterable, List, Sequence
 
 import calc_native
 
-from tcalc.errors import CalculatorError, ErrorKind, raise_error
+from tcalc.errors import CalculatorError, ErrorKind, Msg, raise_error
 
 from .constants import CONSTANTS
 from .engine import Calculator
@@ -46,7 +46,7 @@ def shunting_yard(tokens: Sequence[calc_native.Token]) -> List[calc_native.Token
 
 def _pop_operand(operand_stack: List[CalcValue]) -> CalcValue:
     if not operand_stack:
-        raise_error(ErrorKind.MALFORMED, "Pop operand, not operand in stack.")
+        raise_error(ErrorKind.MALFORMED, Msg.POP_OPERAND)
     return operand_stack.pop()
 
 
@@ -57,7 +57,7 @@ def _coerce_token(tok: str | int | float) -> CalcValue:
         try:
             return parse_number_token(tok)
         except Exception as e:
-            raise_error(ErrorKind.INVALID, f"Parse number token error: {e}")
+            raise_error(ErrorKind.INVALID, Msg.parse_number_error(e))
     if isinstance(tok, int):
         return calc_native.Rational(tok)
     return tok
@@ -68,8 +68,8 @@ def _eval_element(element, calculator: Calculator) -> CalcValue:
 
     Fast-paths arm 0 NumberToken (direct _coerce_token) and arm 0 ParenToken
     (direct _eval_paren_token recursion) to skip wrapping + shunting_yard +
-    evaluate_rpn unnecessarily. Latex and multi-token arm 1 paths go through
-    evaluate_rpn so TokenKind dispatch stays single-sourced there.
+    evaluate_rpn unnecessarily. Latex, Call, and multi-token arm 1 paths go
+    through evaluate_rpn so TokenKind dispatch stays single-sourced there.
     """
     if isinstance(element, calc_native.Token):
         kind = element.kind
@@ -79,44 +79,43 @@ def _eval_element(element, calculator: Calculator) -> CalcValue:
             return _eval_paren_token(element.as_paren(), calculator)
         if kind == calc_native.TokenKind.Latex:
             return evaluate_rpn([element], calculator)
-        raise_error(ErrorKind.INVALID, f"element kind {kind}")
+        if kind == calc_native.TokenKind.Call:
+            return evaluate_rpn([element], calculator)
+        raise_error(ErrorKind.INVALID, Msg.element_kind(kind))
 
     if not element:
-        raise_error(ErrorKind.INVALID, "empty element")
+        raise_error(ErrorKind.INVALID, Msg.EMPTY_ELEMENT)
     return evaluate_rpn(shunting_yard(list(element)), calculator)
 
 
-def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
-    """ParenToken -> CalcValue.
+def _eval_elements(elements, kind, calculator: Calculator) -> CalcValue:
+    """elements (ParenToken.elements OR CallToken.args) + ParenKind -> CalcValue.
 
     Dispatches per ParenKind: Bracket -> Collection.List, Paren -> Collection.Point,
     Brace -> grouping (arity-1 only). arity-1 of any kind demotes to inner eval.
-    has_close=False (unclosed) does NOT block eval: an unclosed paren still
-    carries valid content (grouping value, Collection elements). Hot-eval keeps
-    working as the user types. Stray closes (has_open=False) are filtered out
-    by evaluate_rpn before reaching here.
+    Shared by ParenToken eval and Call eval (call-paren args have identical
+    comma-split/element shape to a Paren-kind ParenToken's elements).
     """
-    arity = len(par_tok.elements)
-    kind = par_tok.kind
+    arity = len(elements)
 
     if arity == 1:
-        v = _eval_element(par_tok.elements[0], calculator)
+        v = _eval_element(elements[0], calculator)
         # arity-1 (no top-level comma) is grouping: "(x)" == "x" for any x.
         # Transparent for scalars AND collections, so "mean([1,2,3])" works like
         # "mean[1,2,3]". Only Bracket "[X]" is a real 1-element List literal with
         # its own demote/wrap policy.
         if isinstance(v, calc_native.Collection) and kind == calc_native.ParenKind.Bracket:
             if v.kind == calc_native.Collection.Kind.List:
-                raise_error(ErrorKind.INVALID, "List of List not allowed")
+                raise_error(ErrorKind.INVALID, Msg.LIST_OF_LIST)
             return calc_native.Collection(calc_native.Collection.Kind.List, [v])
         return v
 
     if kind == calc_native.ParenKind.Brace:
-        raise_error(ErrorKind.INVALID, "brace collection type not supported")
+        raise_error(ErrorKind.INVALID, Msg.BRACE_UNSUPPORTED)
 
     if arity == 0:
         if kind == calc_native.ParenKind.Paren:
-            raise_error(ErrorKind.INVALID, "empty Point")
+            raise_error(ErrorKind.INVALID, Msg.EMPTY_POINT)
         return calc_native.Collection(calc_native.Collection.Kind.List, [])
 
     # Inline Rational scalarization in the hot loop: Collection storage has no
@@ -131,26 +130,26 @@ def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
     Rational = calc_native.Rational
     items = []
     expected = None  # None | "scalar" | "point"
-    for e in par_tok.elements:
+    for e in elements:
         v = _eval_element(e, calculator)
         if isinstance(v, Rational):
             v = v.numerator if v.denominator == 1 else v.to_double()
 
         if isinstance(v, calc_native.Collection):
             if kind == calc_native.ParenKind.Paren:
-                raise_error(ErrorKind.INVALID, "Point item cannot be a collection")
+                raise_error(ErrorKind.INVALID, Msg.POINT_ITEM_COLLECTION)
             # kind == Bracket here (Brace rejected before this loop).
             if v.kind == calc_native.Collection.Kind.List:
-                raise_error(ErrorKind.INVALID, "List of List not allowed")
+                raise_error(ErrorKind.INVALID, Msg.LIST_OF_LIST)
             if expected is None:
                 expected = "point"
             elif expected != "point":
-                raise_error(ErrorKind.INVALID, "List cannot mix scalars and points")
+                raise_error(ErrorKind.INVALID, Msg.LIST_MIX)
         else:
             if expected is None:
                 expected = "scalar"
             elif expected != "scalar":
-                raise_error(ErrorKind.INVALID, "List cannot mix scalars and points")
+                raise_error(ErrorKind.INVALID, Msg.LIST_MIX)
 
         items.append(v)
 
@@ -163,6 +162,30 @@ def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
         return calc_native.Collection(coll_kind, items)
     except ValueError as e:
         raise_error(ErrorKind.INVALID, str(e))
+
+
+def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
+    """ParenToken -> CalcValue.
+
+    has_close=False (unclosed) does NOT block eval: an unclosed paren still
+    carries valid content (grouping value, Collection elements). Hot-eval keeps
+    working as the user types. Stray closes (has_open=False) are filtered out
+    by evaluate_rpn before reaching here.
+    """
+    return _eval_elements(par_tok.elements, par_tok.kind, calculator)
+
+
+def _eval_call_dataset(args, calculator: Calculator) -> CalcValue:
+    # Variadic call args -> a List dataset. A lone collection is the dataset;
+    # a lone scalar wraps as List([v]); N args reuse the Bracket list rule.
+    if len(args) == 1:
+        v = _eval_element(args[0], calculator)
+        if isinstance(v, calc_native.Collection):
+            return v
+        if isinstance(v, calc_native.Rational):
+            v = v.numerator if v.denominator == 1 else v.to_double()
+        return calc_native.Collection(calc_native.Collection.Kind.List, [v])
+    return _eval_elements(args, calc_native.ParenKind.Bracket, calculator)
 
 
 def evaluate_rpn(
@@ -204,7 +227,29 @@ def evaluate_rpn(
             except CalculatorError:
                 raise
             except Exception as e:
-                raise_error(ErrorKind.INVALID, f"Parse expression token error: {e}")
+                raise_error(ErrorKind.INVALID, Msg.parse_expression_error(e))
+
+        if tok.kind == calc_native.TokenKind.Call:
+            call = tok.as_call()
+            spec = OP_BY_ID.get(call.op_id)
+            assert spec is not None
+            func = getattr(calculator, spec.method)
+            if spec.is_variadic:
+                operand_stack.append(func(_eval_call_dataset(call.args, calculator)))
+                continue
+            n = spec.call_arity
+            if len(call.args) != n:
+                raise_error(ErrorKind.INVALID, Msg.takes_arguments(spec.symbol, n))
+            arg_vals = [_eval_element(a, calculator) for a in call.args]
+            if any(isinstance(v, calc_native.Collection) for v in arg_vals):
+                raise_error(ErrorKind.INVALID, Msg.not_for_list_or_point(spec.symbol))
+            if spec.angle_unit:
+                from tcalc.app_state import get_app_state
+
+                operand_stack.append(func(*arg_vals, get_app_state().angle_unit))
+            else:
+                operand_stack.append(func(*arg_vals))
+            continue
 
         if tok.kind == calc_native.TokenKind.Paren:
             par = tok.as_paren()
@@ -219,6 +264,12 @@ def evaluate_rpn(
             op_tok = tok.as_op()
             spec = OP_BY_ID.get(op_tok.op_id)
             assert spec is not None
+            # Fixed-arity (>= 2) call functions have no infix form and need
+            # their parentheses; typed bare they reach here as an Op token with
+            # too few operands. Variadic ops (e.g. min[1,2,3]) validly apply to
+            # a following collection operand, so they are not rejected here.
+            if not spec.is_variadic and spec.call_arity != 1:
+                raise_error(ErrorKind.INVALID, Msg.needs_call_form(spec.symbol))
             val_a = _pop_operand(operand_stack)
             func = getattr(calculator, spec.method, None)
             assert func is not None
@@ -245,7 +296,7 @@ def evaluate_rpn(
         raise_error(ErrorKind.MALFORMED)
 
     if not operand_stack:
-        raise_error(ErrorKind.MALFORMED, "Operand stack empty")
+        raise_error(ErrorKind.MALFORMED, Msg.OPERAND_STACK_EMPTY)
     return operand_stack[0]
 
 

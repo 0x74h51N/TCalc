@@ -14,7 +14,7 @@ import calc_native
 from tcalc.app_state import AngleUnit, CalcValue, get_app_state
 from tcalc.core.ops import Operation
 from tcalc.core.utils import is_number_token
-from tcalc.errors import CalculatorError
+from tcalc.errors import CalculatorError, ErrorKind, Msg
 from tcalc.ui.controller.menubar import EditOperations
 from tcalc.ui.widgets import History, MemoryBar
 from tcalc.ui.widgets.calc import Display, TopBar
@@ -34,9 +34,9 @@ def _short_error_for_expression(expression: str, tokens) -> str | None:
     if "," not in expression:
         return None
     for tok in tokens:
-        if tok.kind == calc_native.TokenKind.Paren:
+        if tok.kind in (calc_native.TokenKind.Paren, calc_native.TokenKind.Call):
             return None
-    return "Use [ ] for lists or ( ) for points"
+    return Msg.USE_LIST_OR_POINT
 
 
 def _compute_status(tokens) -> tuple[str, str]:
@@ -94,6 +94,7 @@ class CalculatorController:
         self._result: CalcValue | None = None
         self._just_solved = False
         self._error_text: Optional[str] = None
+        self._error_detail: Optional[str] = None
         self._force_error_display = False
 
         self._memory_ops = {str(k.operation) for k in MEMORY_KEYS}
@@ -259,12 +260,19 @@ class CalculatorController:
             # surface only the short ErrorKind.value to the user.
             msg = str(exc)
             self._error_text = msg.split(":", 1)[0] if ":" in msg else msg
+            # Math Error / Invalid details explain the reason ("gcd is only
+            # defined for integers", "sin takes 1 argument") and surface as a
+            # status hint under the short kind. Malformed stays logging-only.
+            detail = msg.split(":", 1)[1].strip() if ":" in msg else ""
+            surfaced = {ErrorKind.MATH_ERR.value, ErrorKind.INVALID.value}
+            self._error_detail = detail if self._error_text in surfaced else None
             _log.debug("Evaluate token error: %s", exc)
             return None
         except Exception as exc:
             # Non-CalculatorError (e.g., pybind11 incompatible-function-args):
             # show a generic short message; full traceback only in debug log.
             self._error_text = "Invalid inputs"
+            self._error_detail = None
             _log.debug("Evaluate token native error: %s", exc)
             return None
 
@@ -275,6 +283,7 @@ class CalculatorController:
             len(tokens) == 1
             and tokens[0].kind != calc_native.TokenKind.Latex
             and tokens[0].kind != calc_native.TokenKind.Paren
+            and tokens[0].kind != calc_native.TokenKind.Call
         ):
             return is_number_token(tokens[0])
 
@@ -309,7 +318,7 @@ class CalculatorController:
                     status_text = short
                     result_text = "Invalid inputs"
                 else:
-                    status_text = self._error_text
+                    status_text = self._error_detail or self._error_text
                     result_text = self._error_text
                 status_kind = "error"
             # Live preview: keep info status (or empty); eval error stays in

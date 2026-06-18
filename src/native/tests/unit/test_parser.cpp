@@ -1,3 +1,4 @@
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -12,6 +13,7 @@ namespace o = tcalc::ops;
 namespace d = p::detail;
 
 using o::OpId;
+using p::CallToken;
 using p::LatexKind;
 using p::LatexToken;
 using p::NumberToken;
@@ -182,6 +184,15 @@ inline Token Br(std::vector<ParenElement> elements, bool has_close = true) {
 inline Token Bc(std::vector<ParenElement> elements, bool has_close = true) {
     return Pr(ParenKind::Brace, std::move(elements), true, has_close);
 }
+/// Token factory: CallToken (function call `f(arg0, arg1, ...)`).
+inline Token
+Cl(OpId op_id,
+   std::vector<ParenElement> args,
+   bool has_close = true,
+   std::size_t start = 0,
+   std::size_t end = 0) {
+    return Token{TokenKind::Call, CallToken{op_id, std::move(args), has_close}, start, end};
+}
 /// Shorthand: stray close ParenToken (no open, has_close=true, empty elements).
 inline Token StrayC(ParenKind kind) {
     return Token{
@@ -288,15 +299,14 @@ void unit_parser(TestContext &ctx) {
 
         {.id = "func parens imag",
          .input = "sin(2i)",
-         .expected = {Op_(OpId::Sin, 0, 3), Pp({EN("2i")})}},
+         .expected = {Cl(OpId::Sin, {EN("2i")}, true, 0, 7)}},
 
         {.id = "spacing and unicode",
          .input = "-2 ³√( 3 ( π ",
          .expected =
              {Op_(OpId::Negate, 0, 1),
               N("2", 1, 2),
-              Op_(OpId::Cbrt, 3, 4),
-              Pp({EV({N("3"), Pp({EN("π")}, false)})}, false)}},
+              Cl(OpId::Cbrt, {EV({N("3"), Pp({EN("π")}, false)})}, false, 3, 13)}},
 
         {.id = "sci notation imag", .input = "1.2e-3i", .expected = {N("1.2e-3i", 0, 7)}},
 
@@ -310,11 +320,11 @@ void unit_parser(TestContext &ctx) {
 
         {.id = "asinh parens",
          .input = "asinh(2)",
-         .expected = {Op_(OpId::Asinh, 0, 5), Pp({EN("2")})}},
+         .expected = {Cl(OpId::Asinh, {EN("2")}, true, 0, 8)}},
 
         {.id = "sqrt parens",
          .input = "sqrt(2)",
-         .expected = {Op_(OpId::Sqrt, 0, 4), Pp({EN("2")})}},
+         .expected = {Cl(OpId::Sqrt, {EN("2")}, true, 0, 7)}},
 
         {.id = "postfix unicode", .input = "2³", .expected = {N("2", 0, 1), Op_(OpId::Cube, 1, 2)}},
 
@@ -558,6 +568,69 @@ void unit_parser(TestContext &ctx) {
             EXPECT_EQ(ctx, p::tokenize(tc.input).tokens, tc.expected);
         });
     }
+
+    // -----------------------------------------------------------------
+    // CallToken tokenization (call-function `(`)
+    // -----------------------------------------------------------------
+
+    test_detail::with_case(ctx, "tokenize :: sin(45) -> CallToken 1 arg", [&] {
+        const auto branch = p::tokenize("sin(45)");
+        EXPECT_EQ(ctx, branch.tokens.size(), std::size_t{1});
+        EXPECT_EQ(ctx, branch.tokens[0].kind, p::TokenKind::Call);
+        const auto &c = std::get<p::CallToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, c.op_id, o::OpId::Sin);
+        EXPECT_EQ(ctx, c.args.size(), std::size_t{1});
+    });
+
+    test_detail::with_case(ctx, "tokenize :: mean(1,2) -> CallToken 2 args", [&] {
+        const auto branch = p::tokenize("mean(1,2)");
+        EXPECT_EQ(ctx, branch.tokens[0].kind, p::TokenKind::Call);
+        const auto &c = std::get<p::CallToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, c.op_id, o::OpId::Mean);
+        EXPECT_EQ(ctx, c.args.size(), std::size_t{2});
+    });
+
+    test_detail::with_case(ctx, "tokenize :: gcd(12,8) -> CallToken 2 args", [&] {
+        const auto branch = p::tokenize("gcd(12,8)");
+        EXPECT_EQ(ctx, branch.tokens[0].kind, p::TokenKind::Call);
+        const auto &c = std::get<p::CallToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, c.op_id, o::OpId::Gcd);
+        EXPECT_EQ(ctx, c.args.size(), std::size_t{2});
+    });
+
+    test_detail::with_case(ctx, "tokenize :: lcm(4,6,8) -> CallToken 3 args", [&] {
+        const auto branch = p::tokenize("lcm(4,6,8)");
+        EXPECT_EQ(ctx, branch.tokens[0].kind, p::TokenKind::Call);
+        const auto &c = std::get<p::CallToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, c.op_id, o::OpId::Lcm);
+        EXPECT_EQ(ctx, c.args.size(), std::size_t{3});
+    });
+
+    test_detail::with_case(ctx, "tokenize :: mod(7,3) -> CallToken Mod 2 args", [&] {
+        const auto branch = p::tokenize("mod(7,3)");
+        EXPECT_EQ(ctx, branch.tokens[0].kind, p::TokenKind::Call);
+        const auto &c = std::get<p::CallToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, c.op_id, o::OpId::Mod);
+        EXPECT_EQ(ctx, c.args.size(), std::size_t{2});
+    });
+
+    test_detail::with_case(ctx, "tokenize :: nCr(5,2) -> CallToken Choose 2 args", [&] {
+        const auto branch = p::tokenize("nCr(5,2)");
+        EXPECT_EQ(ctx, branch.tokens[0].kind, p::TokenKind::Call);
+        const auto &c = std::get<p::CallToken>(branch.tokens[0].data);
+        EXPECT_EQ(ctx, c.op_id, o::OpId::Choose);
+        EXPECT_EQ(ctx, c.args.size(), std::size_t{2});
+    });
+
+    test_detail::with_case(ctx, "tokenize :: bare (1,2) stays Paren/Point", [&] {
+        const auto branch = p::tokenize("(1,2)");
+        EXPECT_EQ(ctx, branch.tokens[0].kind, p::TokenKind::Paren);
+    });
+
+    test_detail::with_case(ctx, "tokenize :: mean[1,2,3] stays Op + Paren (not call)", [&] {
+        const auto branch = p::tokenize("mean[1,2,3]");
+        EXPECT_EQ(ctx, branch.tokens[0].kind, p::TokenKind::Op);
+    });
 
     // =========================================================================
     // Normalizations
@@ -2109,6 +2182,18 @@ void unit_parser(TestContext &ctx) {
                  {T_("2, "),
                   Pn(PK::Bracket, true, {Frn({T_("3")}, {T_("4")}), T_(" + 5")}),
                   T_(", 6")})}},
+
+            // -- Call cases (CallToken lowered render-only to Op(symbol) + Paren) --
+            // "mean([2, \frac{1}{2}])": latex inside a function call must render
+            // structurally. Input via tokenize so has_call / has_latex_descendant are
+            // set as in real use; the symbol "x̄" rides the paren's prefix as text.
+            {.id = "call-with-latex-arg",
+             .input = p::tokenize("mean([2, \\frac{1}{2}])"),
+             .expected =
+                 {T_("x̄"),
+                  Pn(PK::Paren,
+                     true,
+                     {Pn(PK::Bracket, true, {T_("2, "), Frn({T_("1")}, {T_("2")})})})}},
         };
 
         for (const auto &tc : build_nodes_cases) {

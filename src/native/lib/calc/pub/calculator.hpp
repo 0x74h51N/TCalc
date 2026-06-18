@@ -152,9 +152,9 @@ class Calculator {
     Complex log(Complex a) const;
     Complex ln(Complex a) const;
 
-    // GCD / LCM
-    long long gcd(long long a, long long b) const;
-    long long lcm(long long a, long long b) const;
+    // GCD / LCM (variadic fold over a list of integers)
+    CollectionItem gcd(const Collection &a) const;
+    CollectionItem lcm(const Collection &a) const;
 
     // Factorial
     double fact(double a) const;

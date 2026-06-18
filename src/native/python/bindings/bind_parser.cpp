@@ -46,6 +46,7 @@ py::list math_nodes_to_list(const std::vector<p::MathNode> &nodes) {
 } // namespace
 
 void bind_parser(py::module_ &m) {
+    using p::CallToken;
     using p::LatexKind;
     using p::LatexToken;
     using p::NumberToken;
@@ -61,7 +62,8 @@ void bind_parser(py::module_ &m) {
         .value("Number", TokenKind::Number)
         .value("Op", TokenKind::Op)
         .value("Paren", TokenKind::Paren)
-        .value("Latex", TokenKind::Latex);
+        .value("Latex", TokenKind::Latex)
+        .value("Call", TokenKind::Call);
 
     py::enum_<LatexKind>(m, "LatexKind", "Expression kinds for compound Latex tokens.")
         .value("Frac", LatexKind::Frac)
@@ -181,6 +183,10 @@ void bind_parser(py::module_ &m) {
         "ParenToken",
         "Unified paren token: '(...)', '[...]', '{...}', unclosed open, or stray close.");
 
+    // CallToken — forward-declare, properties added after Token (recursive args
+    // reference Token, same as ParenToken's elements).
+    py::class_<CallToken> CallToken_(m, "CallToken", "Function call: op + argument token lists.");
+
     auto Token_ = py::class_<Token>(m, "Token")
                       .def_readonly("kind", &Token::kind)
                       .def_readonly("start_pos", &Token::start_pos)
@@ -203,6 +209,8 @@ void bind_parser(py::module_ &m) {
         .def("as_paren", &token_as<ParenToken>, py::return_value_policy::reference_internal)
 
         .def("as_latex", &token_as<LatexToken>, py::return_value_policy::reference_internal)
+
+        .def("as_call", &token_as<CallToken>, py::return_value_policy::reference_internal)
 
         .def_property_readonly(
             "symbol",
@@ -240,6 +248,9 @@ void bind_parser(py::module_ &m) {
                     case TokenKind::Latex:
                         tok.data = t[1].cast<LatexToken>();
                         break;
+                    case TokenKind::Call:
+                        tok.data = t[1].cast<CallToken>();
+                        break;
                     }
                     return tok;
                 }));
@@ -249,14 +260,19 @@ void bind_parser(py::module_ &m) {
         .def_readonly("latex_indices", &TokensBranch::latex_indices)
         .def_readonly("paren_indices", &TokensBranch::paren_indices)
         .def_readonly("has_latex_descendant", &TokensBranch::has_latex_descendant)
+        .def_readonly("has_call", &TokensBranch::has_call)
         .def(
             py::pickle(
                 [](const TokensBranch &r) {
                     return py::make_tuple(
-                        r.tokens, r.latex_indices, r.paren_indices, r.has_latex_descendant);
+                        r.tokens,
+                        r.latex_indices,
+                        r.paren_indices,
+                        r.has_latex_descendant,
+                        r.has_call);
                 },
                 [](const py::tuple &t) {
-                    constexpr std::size_t kTokensBranchPickleArity = 4;
+                    constexpr std::size_t kTokensBranchPickleArity = 5;
                     if (t.size() != kTokensBranchPickleArity)
                         throw std::runtime_error("Invalid TokensBranch state");
                     TokensBranch r;
@@ -264,6 +280,7 @@ void bind_parser(py::module_ &m) {
                     r.latex_indices = t[1].cast<std::vector<tcalc::parser::TokenIndex>>();
                     r.paren_indices = t[2].cast<std::vector<tcalc::parser::TokenIndex>>();
                     r.has_latex_descendant = t[3].cast<bool>();
+                    r.has_call = t[4].cast<bool>();
                     return r;
                 }));
 
@@ -335,6 +352,35 @@ void bind_parser(py::module_ &m) {
                     t[4].cast<bool>()};
             }));
 
+    // CallToken — properties + pickle
+    CallToken_.def_readonly("op_id", &CallToken::op_id);
+    CallToken_.def_readonly("has_close", &CallToken::has_close);
+    CallToken_.def_readonly("has_latex_descendant", &CallToken::has_latex_descendant);
+    def_readonly_ref(CallToken_, "args", &CallToken::args);
+    CallToken_.def(
+        py::pickle(
+            [](const CallToken &t) {
+                return py::make_tuple(t.op_id, t.args, t.has_close, t.has_latex_descendant);
+            },
+            [](const py::tuple &t) {
+                constexpr std::size_t kCallTokenPickleArity = 4;
+                if (t.size() != kCallTokenPickleArity)
+                    throw std::runtime_error("Invalid CallToken state");
+                // Manually iterate args to avoid pybind11 default-constructing
+                // a type_caster<variant<Token, vector<Token>>>.
+                std::vector<p::ParenElement> args;
+                for (auto h : t[1]) {
+                    auto obj = py::reinterpret_borrow<py::object>(h);
+                    if (py::isinstance<Token>(obj)) {
+                        args.emplace_back(obj.cast<Token>());
+                    } else {
+                        args.emplace_back(obj.cast<std::vector<Token>>());
+                    }
+                }
+                return CallToken{
+                    t[0].cast<OpId>(), std::move(args), t[2].cast<bool>(), t[3].cast<bool>()};
+            }));
+
     py::enum_<tcalc::ops::Assoc>(m, "OpAssoc", "Operator associativity.")
         .value("Left", tcalc::ops::Assoc::Left)
         .value("Right", tcalc::ops::Assoc::Right);
@@ -374,8 +420,12 @@ void bind_parser(py::module_ &m) {
         .def_property_readonly(
             "big_complex_supported",
             [](const tcalc::ops::OpSpec &op) { return tcalc::ops::big_complex_supported(op); })
-        .def_property_readonly("rational_supported", [](const tcalc::ops::OpSpec &op) {
-            return tcalc::ops::rational_supported(op);
+        .def_property_readonly(
+            "rational_supported",
+            [](const tcalc::ops::OpSpec &op) { return tcalc::ops::rational_supported(op); })
+        .def_readonly("call_arity", &tcalc::ops::OpSpec::call_arity, "Call argument count")
+        .def_property_readonly("is_variadic", [](const tcalc::ops::OpSpec &op) {
+            return tcalc::ops::is_variadic(op);
         });
 
     m.def(
