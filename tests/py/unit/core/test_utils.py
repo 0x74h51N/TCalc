@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import math
+import time
 
 import pytest
 
@@ -60,6 +61,18 @@ def test_parse_number_token_scientific_notation(
 
     assert out.__class__.__name__ == expected_type
     assert str(out) == literal
+
+
+def test_parse_number_token_huge_exponent_no_hang(fake_calc_native):
+    # A BigReal result ("1.2e+410909525") fed back into the editor is re-parsed.
+    # Decimal.as_integer_ratio() would materialize a ~410M-digit int and hang;
+    # parse_number_token must bail to BigReal via the adjusted() guard instead.
+    start = time.monotonic()
+    out = utils_mod.parse_number_token("1.243693235223141e+410909525")
+    elapsed = time.monotonic() - start
+
+    assert elapsed < 1.0, f"parse_number_token hung ({elapsed:.1f}s) on a huge-exponent decimal"
+    assert out.__class__.__name__ == "FakeBigReal"
 
 
 @pytest.mark.parametrize(

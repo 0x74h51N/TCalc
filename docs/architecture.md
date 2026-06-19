@@ -205,7 +205,7 @@ flowchart TD
         B3["build Collection.List[1, 2, 3]"]
         ERR(["raise Invalid:<br/>LIST_MIX / LIST_OF_LIST"])
         RED["Calculator.mean(collection)"]
-        KERN["statistic kernel [C++]<br/>reduces columnar storage"]
+        KERN["statistic kernel [C++]<br/>reduces the collection items"]
         SY -->|flat RPN list| RUN
         RUN -->|"ParenToken operand: recurse"| B1
         B1 --> B2
@@ -275,7 +275,9 @@ Under `src/native/`:
   `shunting_yard`, the structural render-tree builder (`build_math_nodes`,
   `structural_split`), and the **ops table** (`pub/ops.hpp`). Internals in
   [parser.md](./parser.md).
-- `lib/collection/` the immutable `Collection` (List / Point) with columnar storage.
+- `lib/collection/` the immutable `Collection` (List / Point), stored as an array of
+  typed-variant items (`CollectionItem`). (A columnar SoA representation is drafted but
+  not yet implemented.)
 - `lib/types.hpp` the numeric value types: exact `Rational` (`boost::rational`),
   `BigReal` (`cpp_dec_float_50`), `Complex`, `BigComplex`.
 - `python/bindings/` pybind11 bindings (one file per type), assembled in

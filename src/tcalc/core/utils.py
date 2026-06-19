@@ -71,7 +71,12 @@ def parse_number_token(
 
     # Decimal literal => Boost rational normalizes (GCD) internally.
     try:
-        num, den = Decimal(s).as_integer_ratio()
+        dec = Decimal(s)
+        # |adjusted| > 18 is past i64's ~19 digits, so it can't be an i64 Rational;
+        # bail before as_integer_ratio() materializes a giant int
+        if abs(dec.adjusted()) > 18:
+            return _parse_real_token(s)
+        num, den = dec.as_integer_ratio()
         if num < _I64_MIN or num > _I64_MAX or den > _I64_MAX:
             return _parse_real_token(s)
         return calc_native.Rational(num, den)
