@@ -1,7 +1,6 @@
-
 ## Requirements
 
-- Python >= 3.10
+- Python >= 3.14
 - Qt bindings: PySide6
 - C++ toolchain
 - CMake + Ninja (for native build/test)
