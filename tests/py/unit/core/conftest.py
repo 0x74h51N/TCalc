@@ -39,6 +39,9 @@ class FakeToken:
     def as_op(self) -> Optional["FakeToken"]:
         return self if self.kind == FakeTokenKind.Op else None
 
+    def as_char(self) -> Optional["FakeToken"]:
+        return self if self.kind == FakeTokenKind.Char else None
+
 
 class FakeArity(Enum):
     Unary = "unary"
@@ -66,6 +69,7 @@ class Id(Enum):
     Acosh = "acosh"
     Atanh = "atanh"
     Root = "root"
+    Assign = "assign"
     BAD_TYPE = "bad_type"
     BAD_NATIVE = "bad_native"
     CEKOMASTIK = "cekomastik"
@@ -222,6 +226,7 @@ class FakeTokenKind:
     Latex = "latex"
     Paren = "paren"
     Call = "call"
+    Char = "char"
 
 
 class FakeCollectionKind:
@@ -285,7 +290,13 @@ def _cx_log(x: float) -> bool:
 
 _FAKE_OPS: tuple[_OpDef, ...] = (
     _OpDef(
-        Id.Add, "+", FakeArity.Binary, Id.Add.value, big_supported=True, big_complex_supported=True
+        Id.Add,
+        "+",
+        FakeArity.Binary,
+        Id.Add.value,
+        aliases=("add",),
+        big_supported=True,
+        big_complex_supported=True,
     ),
     _OpDef(Id.Sub, "-", FakeArity.Binary, Id.Sub.value),
     _OpDef(Id.Div, "/", FakeArity.Binary, Id.Div.value),
@@ -317,6 +328,7 @@ _FAKE_OPS: tuple[_OpDef, ...] = (
     _OpDef(Id.Acos, "acos", FakeArity.Unary, Id.Acos.value),
     _OpDef(Id.Acosh, "acosh", FakeArity.Unary, Id.Acosh.value),
     _OpDef(Id.Atanh, "atanh", FakeArity.Unary, Id.Atanh.value),
+    _OpDef(Id.Assign, "=", FakeArity.Binary, Id.Assign.value),
     _OpDef(Id.BAD_TYPE, "", FakeArity.Binary, Id.BAD_TYPE.value),
     _OpDef(Id.BAD_NATIVE, "", FakeArity.Binary, Id.BAD_NATIVE.value),
 )
@@ -379,7 +391,7 @@ def _install_fake_calc_native() -> ModuleType:
         raise NotImplementedError("calc_native is faked in unit tests")
 
     calc_native.tokenize_string = _unavailable
-    calc_native.shunting_yard = _unavailable
+    calc_native.shunting_yard = list
 
     calc_native.BigReal = FakeBigReal
     calc_native.BigComplex = FakeBigComplex
@@ -415,7 +427,10 @@ def token_factory():
     def op(op_id):
         return FakeToken(FakeTokenKind.Op, op_id=op_id)
 
-    return num, op
+    def char(letter):
+        return FakeToken(FakeTokenKind.Char, value=letter)
+
+    return num, op, char
 
 
 @pytest.fixture

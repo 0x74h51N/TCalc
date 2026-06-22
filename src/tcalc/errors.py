@@ -39,6 +39,24 @@ class Msg:
     # controller status hint
     USE_LIST_OR_POINT = "Use [ ] for lists or ( ) for points"
 
+    # variable assignment
+    INVALID_ASSIGNMENT_TARGET = "left of = must be a single letter (A-Za-z)"
+
+    @staticmethod
+    def assignment_target_is_operator(symbol: str) -> str:
+        return f"{symbol} is an operator, use another letter"
+
+    EMPTY_ASSIGNMENT = "assignment has no value"
+    INVALID_ASSIGNMENT = "misplaced ="
+
+    @staticmethod
+    def undefined_variable(name: str) -> str:
+        return f"undefined variable {name}"
+
+    @staticmethod
+    def invalid_variable_name(name: str) -> str:
+        return f"{name} is a reserved name"
+
     @staticmethod
     def parse_number_error(detail: object) -> str:
         return f"Parse number token error: {detail}"

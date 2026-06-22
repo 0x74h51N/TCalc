@@ -81,6 +81,11 @@ enum class OpId : std::uint8_t {
     Std,
     StdP,
 
+    Assign,
+
+    /// Logical ops:
+    Equal,
+
     /// Sentinel: not a real op; used for number tokens.
     Count,
 };
@@ -702,6 +707,24 @@ inline constexpr std::array kOps{
         .method = "stddev_pop",
         .flags = Flags::CallFunction,
         .call_arity = kVariadicArity,
+    },
+    OpSpec{
+        .id = OpId::Assign,
+        .symbol = "=",
+        .precedence = 0,
+        .associativity = Assoc::Right,
+        .arity = Arity::Binary,
+        .aliases = {},
+        .method = "",
+    },
+    OpSpec{
+        .id = OpId::Equal,
+        .symbol = "==",
+        .precedence = 0,
+        .associativity = Assoc::Right,
+        .arity = Arity::Binary,
+        .aliases = {},
+        .method = "",
     },
 };
 

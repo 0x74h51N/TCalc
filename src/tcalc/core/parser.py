@@ -17,6 +17,7 @@ from .constants import CONSTANTS
 from .engine import Calculator
 from .ops import OP_BY_ID
 from .utils import CalcValue, is_number_token, parse_number_token
+from .varstore import VarStore, is_reserved
 
 
 class ValueOperand:
@@ -50,6 +51,17 @@ def _pop_operand(operand_stack: List[CalcValue]) -> CalcValue:
     return operand_stack.pop()
 
 
+def _resolve_name(name: str, env: VarStore) -> CalcValue:
+    # env-first: a bound name can't be a constant (reserved names are rejected at
+    # assignment), so the variable hot-path is a single lookup; constants are rare.
+    v = env.get(name)
+    if v is not None:
+        return v
+    if name in CONSTANTS:
+        return CONSTANTS[name]
+    raise_error(ErrorKind.INVALID, Msg.undefined_variable(name))
+
+
 def _coerce_token(tok: str | int | float) -> CalcValue:
     if isinstance(tok, str):
         if tok in CONSTANTS:
@@ -63,7 +75,7 @@ def _coerce_token(tok: str | int | float) -> CalcValue:
     return tok
 
 
-def _eval_element(element, calculator: Calculator) -> CalcValue:
+def _eval_element(element, calculator: Calculator, env: VarStore) -> CalcValue:
     """Element (arm 0 Token OR arm 1 list[Token]) -> CalcValue.
 
     Fast-paths arm 0 NumberToken (direct _coerce_token) and arm 0 ParenToken
@@ -75,20 +87,22 @@ def _eval_element(element, calculator: Calculator) -> CalcValue:
         kind = element.kind
         if kind == calc_native.TokenKind.Number:
             return _coerce_token(element.data.value)
+        if kind == calc_native.TokenKind.Char:
+            return _resolve_name(element.as_char().value, env)
         if kind == calc_native.TokenKind.Paren:
-            return _eval_paren_token(element.as_paren(), calculator)
+            return _eval_paren_token(element.as_paren(), calculator, env)
         if kind == calc_native.TokenKind.Latex:
-            return evaluate_rpn([element], calculator)
+            return evaluate_rpn([element], calculator, env)
         if kind == calc_native.TokenKind.Call:
-            return evaluate_rpn([element], calculator)
+            return evaluate_rpn([element], calculator, env)
         raise_error(ErrorKind.INVALID, Msg.element_kind(kind))
 
     if not element:
         raise_error(ErrorKind.INVALID, Msg.EMPTY_ELEMENT)
-    return evaluate_rpn(shunting_yard(list(element)), calculator)
+    return evaluate_rpn(shunting_yard(list(element)), calculator, env)
 
 
-def _eval_elements(elements, kind, calculator: Calculator) -> CalcValue:
+def _eval_elements(elements, kind, calculator: Calculator, env: VarStore) -> CalcValue:
     """elements (ParenToken.elements OR CallToken.args) + ParenKind -> CalcValue.
 
     Dispatches per ParenKind: Bracket -> Collection.List, Paren -> Collection.Point,
@@ -99,7 +113,7 @@ def _eval_elements(elements, kind, calculator: Calculator) -> CalcValue:
     arity = len(elements)
 
     if arity == 1:
-        v = _eval_element(elements[0], calculator)
+        v = _eval_element(elements[0], calculator, env)
         # arity-1 (no top-level comma) is grouping: "(x)" == "x" for any x.
         # Transparent for scalars AND collections, so "mean([1,2,3])" works like
         # "mean[1,2,3]". Only Bracket "[X]" is a real 1-element List literal with
@@ -131,7 +145,7 @@ def _eval_elements(elements, kind, calculator: Calculator) -> CalcValue:
     items = []
     expected = None  # None | "scalar" | "point"
     for e in elements:
-        v = _eval_element(e, calculator)
+        v = _eval_element(e, calculator, env)
         if isinstance(v, Rational):
             v = v.numerator if v.denominator == 1 else v.to_double()
 
@@ -164,7 +178,7 @@ def _eval_elements(elements, kind, calculator: Calculator) -> CalcValue:
         raise_error(ErrorKind.INVALID, str(e))
 
 
-def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
+def _eval_paren_token(par_tok, calculator: Calculator, env: VarStore) -> CalcValue:
     """ParenToken -> CalcValue.
 
     has_close=False (unclosed) does NOT block eval: an unclosed paren still
@@ -172,25 +186,29 @@ def _eval_paren_token(par_tok, calculator: Calculator) -> CalcValue:
     working as the user types. Stray closes (has_open=False) are filtered out
     by evaluate_rpn before reaching here.
     """
-    return _eval_elements(par_tok.elements, par_tok.kind, calculator)
+    return _eval_elements(par_tok.elements, par_tok.kind, calculator, env)
 
 
-def _eval_call_dataset(args, calculator: Calculator) -> CalcValue:
+def _eval_call_dataset(args, calculator: Calculator, env: VarStore) -> CalcValue:
     # Variadic call args -> a List dataset. A lone collection is the dataset;
     # a lone scalar wraps as List([v]); N args reuse the Bracket list rule.
     if len(args) == 1:
-        v = _eval_element(args[0], calculator)
+        v = _eval_element(args[0], calculator, env)
         if isinstance(v, calc_native.Collection):
             return v
         if isinstance(v, calc_native.Rational):
             v = v.numerator if v.denominator == 1 else v.to_double()
         return calc_native.Collection(calc_native.Collection.Kind.List, [v])
-    return _eval_elements(args, calc_native.ParenKind.Bracket, calculator)
+    return _eval_elements(args, calc_native.ParenKind.Bracket, calculator, env)
 
 
 def evaluate_rpn(
-    rpn_tokens: Iterable[calc_native.Token | ValueOperand], calculator: Calculator
+    rpn_tokens: Iterable[calc_native.Token | ValueOperand],
+    calculator: Calculator,
+    env: VarStore | None = None,
 ) -> CalcValue:
+    if env is None:
+        env = VarStore()
     operand_stack: List[CalcValue] = []
 
     for tok in rpn_tokens:
@@ -203,16 +221,22 @@ def evaluate_rpn(
             operand_stack.append(_coerce_token(tok.data.value))
             continue
 
+        if tok.kind == calc_native.TokenKind.Char:
+            operand_stack.append(_resolve_name(tok.as_char().value, env))
+            continue
+
         if tok.kind == calc_native.TokenKind.Latex:
             try:
                 latex_tok = tok.as_latex()
                 left_rpn = shunting_yard(latex_tok.left)
                 right_rpn = shunting_yard(latex_tok.right)
                 left_val = (
-                    evaluate_rpn(left_rpn, calculator) if left_rpn else calc_native.Rational(0)
+                    evaluate_rpn(left_rpn, calculator, env) if left_rpn else calc_native.Rational(0)
                 )
                 right_val = (
-                    evaluate_rpn(right_rpn, calculator) if right_rpn else calc_native.Rational(0)
+                    evaluate_rpn(right_rpn, calculator, env)
+                    if right_rpn
+                    else calc_native.Rational(0)
                 )
                 # Root with empty degree defaults to square root
                 if latex_tok.kind == calc_native.LatexKind.Root and not right_rpn:
@@ -235,12 +259,12 @@ def evaluate_rpn(
             assert spec is not None
             func = getattr(calculator, spec.method)
             if spec.is_variadic:
-                operand_stack.append(func(_eval_call_dataset(call.args, calculator)))
+                operand_stack.append(func(_eval_call_dataset(call.args, calculator, env)))
                 continue
             n = spec.call_arity
             if len(call.args) != n:
                 raise_error(ErrorKind.INVALID, Msg.takes_arguments(spec.symbol, n))
-            arg_vals = [_eval_element(a, calculator) for a in call.args]
+            arg_vals = [_eval_element(a, calculator, env) for a in call.args]
             if any(isinstance(v, calc_native.Collection) for v in arg_vals):
                 raise_error(ErrorKind.INVALID, Msg.not_for_list_or_point(spec.symbol))
             if spec.angle_unit:
@@ -257,13 +281,15 @@ def evaluate_rpn(
             # value to contribute, leave the operand stack untouched.
             if not par.has_open:
                 continue
-            operand_stack.append(_eval_paren_token(par, calculator))
+            operand_stack.append(_eval_paren_token(par, calculator, env))
             continue
 
         if tok.kind == calc_native.TokenKind.Op:
             op_tok = tok.as_op()
             spec = OP_BY_ID.get(op_tok.op_id)
             assert spec is not None
+            if spec.id == calc_native.OpId.Assign:
+                raise_error(ErrorKind.INVALID, Msg.INVALID_ASSIGNMENT)
             # Fixed-arity (>= 2) call functions have no infix form and need
             # their parentheses; typed bare they reach here as an Op token with
             # too few operands. Variadic ops (e.g. min[1,2,3]) validly apply to
@@ -300,5 +326,33 @@ def evaluate_rpn(
     return operand_stack[0]
 
 
-def evaluate_tokens(tokens: Sequence[calc_native.Token], calculator: Calculator) -> CalcValue:
-    return evaluate_rpn(shunting_yard(tokens), calculator)
+def evaluate_tokens(
+    tokens: Sequence[calc_native.Token], calculator: Calculator, env: VarStore | None = None
+) -> CalcValue:
+    if env is None:
+        env = VarStore()
+    if (
+        len(tokens) >= 2
+        and tokens[1].kind == calc_native.TokenKind.Op
+        and tokens[1].as_op().op_id == calc_native.OpId.Assign
+    ):
+        if tokens[0].kind != calc_native.TokenKind.Char:
+            if tokens[0].kind == calc_native.TokenKind.Op:
+                spec = OP_BY_ID.get(tokens[0].as_op().op_id)
+                raise_error(
+                    ErrorKind.INVALID,
+                    Msg.assignment_target_is_operator(
+                        spec.symbol if spec else str(tokens[0].as_op().op_id)
+                    ),
+                )
+            raise_error(ErrorKind.INVALID, Msg.INVALID_ASSIGNMENT_TARGET)
+        name = tokens[0].as_char().value
+        if is_reserved(name):
+            raise_error(ErrorKind.INVALID, Msg.invalid_variable_name(name))
+        rhs = list(tokens[2:])
+        if not rhs:
+            raise_error(ErrorKind.INVALID, Msg.EMPTY_ASSIGNMENT)
+        value = evaluate_rpn(shunting_yard(rhs), calculator, env)
+        env.set(name, value)
+        return value
+    return evaluate_rpn(shunting_yard(tokens), calculator, env)
