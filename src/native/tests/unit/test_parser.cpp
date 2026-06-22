@@ -14,6 +14,7 @@ namespace d = p::detail;
 
 using o::OpId;
 using p::CallToken;
+using p::CharToken;
 using p::LatexKind;
 using p::LatexToken;
 using p::NumberToken;
@@ -2277,4 +2278,95 @@ void unit_parser(TestContext &ctx) {
             p::ParenElement arm_one{std::vector<Token>{N("1")}};
             EXPECT_TRUE(ctx, !(arm_zero == arm_one));
         });
+
+    // =========================================================================
+    // CharToken equality
+    // =========================================================================
+    test_detail::with_case(ctx, "CharToken :: equal same value", [&] {
+        Token a{TokenKind::Char, CharToken{'a'}};
+        Token b{TokenKind::Char, CharToken{'a'}};
+        Token c{TokenKind::Char, CharToken{'b'}};
+        EXPECT_TRUE(ctx, a == b);
+        EXPECT_TRUE(ctx, !(a == c));
+    });
+
+    // =========================================================================
+    // OpId::Assign tokenization
+    // =========================================================================
+    test_detail::with_case(ctx, "tokenize :: '=' -> Op(Assign)", [&] {
+        auto r = p::tokenize("=");
+        EXPECT_TRUE(ctx, r.tokens.size() == 1);
+        EXPECT_TRUE(ctx, r.tokens[0].kind == TokenKind::Op);
+        EXPECT_TRUE(ctx, std::get<OpToken>(r.tokens[0].data).op_id == OpId::Assign);
+    });
+
+    test_detail::with_case(ctx, "tokenize :: '==' -> Equal", [&] {
+        auto r = p::tokenize("==");
+        EXPECT_TRUE(ctx, r.tokens.size() == 1);
+        EXPECT_TRUE(ctx, std::get<OpToken>(r.tokens[0].data).op_id == OpId::Equal);
+    });
+
+    // =========================================================================
+    // CharToken free-text fallback (Task 3)
+    // =========================================================================
+    test_detail::with_case(ctx, "tokenize :: 'ab' -> 2 CharTokens a b", [&] {
+        auto ab = p::tokenize("ab");
+        EXPECT_TRUE(ctx, ab.tokens.size() == 2);
+        EXPECT_TRUE(ctx, ab.tokens[0].kind == TokenKind::Char);
+        EXPECT_TRUE(ctx, std::get<CharToken>(ab.tokens[0].data).value == 'a');
+        EXPECT_TRUE(ctx, ab.tokens[1].kind == TokenKind::Char);
+        EXPECT_TRUE(ctx, std::get<CharToken>(ab.tokens[1].data).value == 'b');
+    });
+
+    test_detail::with_case(ctx, "tokenize :: '2A' -> [Number('2'), Char('A')]", [&] {
+        auto two_a = p::tokenize("2A");
+        EXPECT_TRUE(ctx, two_a.tokens.size() == 2);
+        EXPECT_TRUE(ctx, two_a.tokens[0].kind == TokenKind::Number);
+        EXPECT_TRUE(ctx, two_a.tokens[1].kind == TokenKind::Char);
+    });
+
+    test_detail::with_case(ctx, "tokenize :: 'π' -> one Number token value='π'", [&] {
+        auto pi = p::tokenize("π"); // U+03C0, 2 UTF-8 bytes
+        EXPECT_TRUE(ctx, pi.tokens.size() == 1);
+        EXPECT_TRUE(ctx, pi.tokens[0].kind == TokenKind::Number);
+        EXPECT_TRUE(ctx, std::get<NumberToken>(pi.tokens[0].data).value == "π");
+    });
+
+    test_detail::with_case(ctx, "tokenize :: '∑' -> one Number token value='∑'", [&] {
+        auto sm = p::tokenize("∑"); // U+2211, 3 UTF-8 bytes \xE2\x88\x91
+        EXPECT_TRUE(ctx, sm.tokens.size() == 1);
+        EXPECT_TRUE(ctx, sm.tokens[0].kind == TokenKind::Number);
+        EXPECT_TRUE(ctx, std::get<NumberToken>(sm.tokens[0].data).value == "∑");
+    });
+
+    test_detail::with_case(ctx, "tokenize :: 'sin' -> one Op token", [&] {
+        auto sin = p::tokenize("sin");
+        EXPECT_TRUE(ctx, sin.tokens.size() == 1 && sin.tokens[0].kind == TokenKind::Op);
+    });
+
+    test_detail::with_case(ctx, "tokenize :: '2i' -> one Number token", [&] {
+        auto two_i = p::tokenize("2i");
+        EXPECT_TRUE(ctx, two_i.tokens.size() == 1 && two_i.tokens[0].kind == TokenKind::Number);
+    });
+
+    // =========================================================================
+    // CharToken as operand + flat-text render arms (Task 4)
+    // =========================================================================
+    test_detail::with_case(ctx, "char operand :: 'ab' shunts to [Char, Char, Op(Mul)]", [&] {
+        auto rpn = p::shunting_yard(p::tokenize("ab").tokens);
+        EXPECT_TRUE(ctx, rpn.size() == 3);
+        EXPECT_TRUE(ctx, rpn[0].kind == TokenKind::Char && rpn[1].kind == TokenKind::Char);
+        EXPECT_TRUE(
+            ctx, rpn[2].kind == TokenKind::Op && std::get<OpToken>(rpn[2].data).op_id == OpId::Mul);
+    });
+
+    test_detail::with_case(ctx, "char operand :: lone 'A' shunts to single Char", [&] {
+        auto rpn1 = p::shunting_yard(p::tokenize("A").tokens);
+        EXPECT_TRUE(ctx, rpn1.size() == 1 && rpn1[0].kind == TokenKind::Char);
+    });
+
+    test_detail::with_case(ctx, "char operand :: token_text(Char 'a') == \"a\"", [&] {
+        Token ch{TokenKind::Char, CharToken{'a'}};
+        EXPECT_TRUE(ctx, p::token_text(ch) == "a");
+    });
 }

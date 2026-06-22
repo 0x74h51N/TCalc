@@ -32,9 +32,11 @@ void unit_ops(TestContext &ctx) {
                 EXPECT_MSG(ctx, !op.symbol.empty(), [&](auto &os) {
                     os << "op symbol empty for id " << idx;
                 });
-                EXPECT_MSG(ctx, !op.method.empty(), [&](auto &os) {
-                    os << "op method empty for id " << idx;
-                });
+                // Assign is intentionally engine-less (peeled in Python before RPN).
+                const bool method_ok =
+                    !op.method.empty() || op.id == OpId::Assign || op.id == OpId::Equal;
+                EXPECT_MSG(
+                    ctx, method_ok, [&](auto &os) { os << "op method empty for id " << idx; });
             }
         });
     }

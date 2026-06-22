@@ -219,6 +219,11 @@ inline bool is_paren_char(char c) {
     return paren_role_of(c) != ParenRole::None;
 }
 
+// UTF-8 byte classification for the free-text fallback.
+constexpr unsigned char kAsciiLimit = 0x80U;   // below this byte value is 7-bit ASCII
+constexpr unsigned char kContByteMask = 0xC0U; // selects a byte's top two bits
+constexpr unsigned char kContByteTag = 0x80U;  // 10xxxxxx marks a UTF-8 continuation byte
+
 bool tokenize_core(
     std::string_view expression,
     TokensBranch &result,
@@ -282,30 +287,30 @@ bool tokenize_core(
             }
         }
 
-        const std::size_t start = i;
-        while (i < n) {
-            const unsigned char cc = static_cast<unsigned char>(expression[i]);
-            if (std::isspace(cc) != 0) {
-                break;
-            }
-            if (is_paren_char(expression[i]))
-                break;
-
-            std::size_t op_len = 0;
-            if (match_op(expression, i, op_len) != nullptr && op_len != 0)
-                break;
-
+        // Free text, one unit per token. An ASCII letter is a single-letter
+        // variable (CharToken); adjacent letters become an implicit product via normalize.
+        const unsigned char fc = static_cast<unsigned char>(expression[i]);
+        if (std::isalpha(fc) != 0 && fc < kAsciiLimit) {
+            tokens.push_back(
+                Token{
+                    .kind = TokenKind::Char,
+                    .data = CharToken{static_cast<char>(fc)},
+                    .start_pos = tok_start,
+                    .end_pos = base_offset + i + 1});
             ++i;
-        }
-
-        if (start == i) {
-            ++i;
+            expect_operand = false;
             continue;
         }
-
-        const std::string_view chunk = expression.substr(start, i - start);
-        std::string number = std::string(chunk);
-        push_number(tokens, tok_start, base_offset + i, std::move(number));
+        // Multibyte: consume the lead byte + its UTF-8 continuation bytes (10xxxxxx),
+        // so any codepoint stays one NumberToken
+        std::size_t cp_len = 1;
+        while (i + cp_len < n && (static_cast<unsigned char>(expression[i + cp_len]) &
+                                  kContByteMask) == kContByteTag) {
+            ++cp_len;
+        }
+        push_number(
+            tokens, tok_start, base_offset + i + cp_len, std::string(expression.substr(i, cp_len)));
+        i += cp_len;
         expect_operand = false;
     }
     return expect_operand;
@@ -554,12 +559,10 @@ split_operand(std::span<const Token> tokens, TokenIndex begin, TokenIndex end, b
         return {};
     }
 
-    // TODO: Call is unreachable (nothing emits it yet); routed like Paren
-    // since it is a single-token closed operand.
     if (lead) {
         const Token &first = tokens[begin];
         if (first.kind == TokenKind::Paren || first.kind == TokenKind::Number ||
-            first.kind == TokenKind::Call) {
+            first.kind == TokenKind::Call || first.kind == TokenKind::Char) {
             return {
                 tokens.subspan(begin, 1),
                 tokens.subspan(begin + 1, end - begin - 1),
@@ -570,7 +573,7 @@ split_operand(std::span<const Token> tokens, TokenIndex begin, TokenIndex end, b
 
     const Token &last = tokens[end - 1];
     if (last.kind == TokenKind::Paren || last.kind == TokenKind::Number ||
-        last.kind == TokenKind::Call) {
+        last.kind == TokenKind::Call || last.kind == TokenKind::Char) {
         return {
             tokens.subspan(begin, end - begin - 1),
             tokens.subspan(end - 1, 1),
@@ -828,14 +831,13 @@ std::vector<Token> normalize(std::vector<Token> raw) {
     };
 
     const auto ends_operand = [](const Token &t) -> bool {
-        if (t.kind == TokenKind::Number || t.kind == TokenKind::Latex) {
+        if (t.kind == TokenKind::Number || t.kind == TokenKind::Latex ||
+            t.kind == TokenKind::Char) {
             return true;
         }
         if (t.kind == TokenKind::Paren) {
             return std::get<ParenToken>(t.data).has_close;
         }
-        // TODO: Call is unreachable (nothing emits it yet); treated like
-        // Paren since a call is a closed operand once its ')' is seen.
         if (t.kind == TokenKind::Call) {
             return std::get<CallToken>(t.data).has_close;
         }
@@ -847,7 +849,8 @@ std::vector<Token> normalize(std::vector<Token> raw) {
     };
 
     const auto starts_operand = [](const Token &t) -> bool {
-        if (t.kind == TokenKind::Number || t.kind == TokenKind::Latex) {
+        if (t.kind == TokenKind::Number || t.kind == TokenKind::Latex ||
+            t.kind == TokenKind::Char) {
             return true;
         }
         if (t.kind == TokenKind::Paren) {
@@ -917,6 +920,7 @@ std::vector<Token> shunting_yard(const std::vector<Token> &tokens) {
         case TokenKind::Latex:
         case TokenKind::Paren:
         case TokenKind::Call:
+        case TokenKind::Char:
             output.push_back(std::move(tok));
             break;
         case TokenKind::Op: {
@@ -1052,6 +1056,8 @@ std::string token_text(const Token &tok) {
                 if (data.has_close)
                     out.push_back(paren_symbol(false, ParenKind::Paren));
                 return out;
+            } else if constexpr (std::is_same_v<T, CharToken>) {
+                return std::string(1, data.value);
             }
 
             return {};
@@ -1157,6 +1163,9 @@ std::string token_flat_text(const Token &tok) {
             out.append(spec->symbol);
         out += flat_group(ParenKind::Paren, c.args, /*has_open=*/true, c.has_close);
         return out;
+    }
+    if (tok.kind == TokenKind::Char) {
+        return std::string(1, std::get<CharToken>(tok.data).value);
     }
     return token_text(tok);
 }

@@ -66,23 +66,26 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [x] Tests (native tokenize/number_theory, py e2e variadic + fixed-arity + arg-type errors, controller status surfacing, call render node cases)
 - [x] Undo/redo integrates with history navigation (rebuild expression from previous calc and auto-eval)
 - [x] Test edge cases
-- [ ] Add ans / previous-result reference
 - [x] Add Rational support
   - [x] Extend ops with rational arithmetic (add, sub, mul, div, pow, root)
   - [x] Toggle any result between decimal and fraction view
   - [x] Keep results exact whenever possible, fall back to high-precision BigReal or float on overflow
   - [x] Resolve fractional exponents exactly when the result is a clean integer or fraction
 - [ ] Add line-based calculation
+  <!-- GUI form = the new Advanced calc mode (sheet/tab, stacked editable lines, per-sheet env,
+       history panel deactivated, tabs persist + lazy per-tab render/eval).-->
   - [ ] Add row-based expression model (one expression per line)
   - [ ] Allow referencing previous lines / session values
+  - [ ] ANS / previous-result reference
+  - [ ] Per-line eval with a per-sheet variable store (env per sheet/tab, no cross-sheet visibility)
   - [ ] Keep line evaluation isolated so one failed line does not break others
   - [ ] Add line actions (insert, remove, duplicate, reorder)
   - [ ] Allow Collection values in row references
-- [ ] Add variable assignment
-  - [ ] Parse assignments
-  - [ ] Add variable store for current session
-  - [ ] Allow assigned variables in other lines
-  - [ ] Define overwrite / invalid-name / undefined-variable behavior
+- [x] Add variable assignment, parser -> eval
+  - [x] Parse assignments (`=` operator + single-letter `CharToken`)
+  - [x] Add variable store for current session (`VarStore`, stored as-is, native-typed)
+  - [x] Allow assigned variables in other lines (env threaded through eval)
+  - [x] Define overwrite / invalid-name / undefined-variable behavior
 - [ ] Add user-defined (custom) functions
   - [ ] Parse function definitions (`f(x) = expr`)
   - [ ] Bind named user functions in the session store; call them like built-ins
@@ -200,7 +203,23 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [ ] Themes
     - [ ] Constants
   - [ ] Configure keyboard shortcuts
+  - [ ] Calc Modes
+      <!-- A real mode, not a keypad layout; separate from the keypad-preset/dock buttons
+          the View menu item moves out of Settings. -->
+    - [ ] Simple
+      - [ ] Add button + handler with global state
+      - [ ] Keep the history panel, single-line calc/display, and keypads (positions + active/hidden)
+      - [ ] Local persistence - pads (positions + active/hidd)
+    - [ ] Advanced
+      - [ ] Add button + handler with global state
+      - [ ] Disable the history panel; do not add/persistance calculations to it
+      - [ ] Disable memory buttons (M+/MR/MC/MS) + feature
+      - [ ] Activate the sheet/tab calc/display view
+      - [ ] Make "=" keypad button operation Ops::Assign
+    - [ ] Local persistence last selected mod state
+
 - [ ] View menu
+  - [ ] Add this menu
   - [x] Dock window toggle buttons
     <!-- TODO: buttons work but still live under the Settings menu in code; move them to this View menu -->
     - [x] Keypad Presets (basic, scientific, statistic)
@@ -248,7 +267,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
       - [x] Rename or remove custom pad
       - [x] Add customizable background and text colors
       - [x] Add option to remove or change key operation
-- [ ] Keypad layout presets (preset dock/keypad layouts; repurposes the old calc-mode state; modes are gone, keypads are dock-composable with no per-mode op restriction)
+- [ ] Keypad layout presets (preset dock/keypad layouts; keypads are dock-composable)
   - [x] Layout state, layout update, binding and side effects
   - [ ] Basic preset: simpler-operations keypad dock layout
   - [ ] Scientific preset: sci-fi / advanced-operations keypad dock layout
@@ -264,6 +283,12 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [ ] Make toggleable for mathematical expressions (rawStr <-> rendered)
   - [ ] Add selective render mode in main display
   - [ ] Test edge cases and add GUI tests
+- [ ] Sheet calc/display (Advanced-mode line-based view)
+  - [ ] Stacked editable lines: one expression per line; each renders via the expression.py editor pipeline and evaluates independently (parser.py) with the sheet's env; result shown inline per line
+  - [ ] Each sheet holds its own variables (per-sheet env; no cross-sheet visibility)
+  - [ ] Each sheet is persisted (tabs + their lines saved; restored on startup with lazy per-tab render/eval)
+  - [ ] Sheets switchable via dock layout (tabs as dock widgets; optional side-by-side)
+  - [ ] Default / app opening: always tab view with a single sheet (restore as tabs, not windows, to avoid first-load lag)
 - [x] Collection GUI and Migration
   - [x] Migrate
     - [x] ParenWidget API to (kind, has_open, has_close) flags

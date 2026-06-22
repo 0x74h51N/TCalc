@@ -47,6 +47,7 @@ py::list math_nodes_to_list(const std::vector<p::MathNode> &nodes) {
 
 void bind_parser(py::module_ &m) {
     using p::CallToken;
+    using p::CharToken;
     using p::LatexKind;
     using p::LatexToken;
     using p::NumberToken;
@@ -63,7 +64,8 @@ void bind_parser(py::module_ &m) {
         .value("Op", TokenKind::Op)
         .value("Paren", TokenKind::Paren)
         .value("Latex", TokenKind::Latex)
-        .value("Call", TokenKind::Call);
+        .value("Call", TokenKind::Call)
+        .value("Char", TokenKind::Char);
 
     py::enum_<LatexKind>(m, "LatexKind", "Expression kinds for compound Latex tokens.")
         .value("Frac", LatexKind::Frac)
@@ -128,7 +130,9 @@ void bind_parser(py::module_ &m) {
         .value("Var", OpId::Var)
         .value("VarP", OpId::VarP)
         .value("Std", OpId::Std)
-        .value("StdP", OpId::StdP);
+        .value("StdP", OpId::StdP)
+        .value("Assign", OpId::Assign)
+        .value("Equal", OpId::Equal);
 
     py::class_<tcalc::parser::LatexEntry>(
         m, "LatexEntry", "LaTeX expression mapping: symbol -> LatexKind.")
@@ -159,6 +163,18 @@ void bind_parser(py::module_ &m) {
                     if (t.size() != 1)
                         throw std::runtime_error("Invalid NumberToken state");
                     return NumberToken{t[0].cast<std::string>()};
+                }));
+
+    // CharToken
+    py::class_<CharToken>(m, "CharToken")
+        .def_property_readonly("value", [](const CharToken &t) { return std::string(1, t.value); })
+        .def(
+            py::pickle(
+                [](const CharToken &t) { return py::make_tuple(std::string(1, t.value)); },
+                [](const py::tuple &t) {
+                    if (t.size() != 1)
+                        throw std::runtime_error("Invalid CharToken state");
+                    return CharToken{t[0].cast<std::string>().at(0)};
                 }));
 
     // OpToken
@@ -212,6 +228,8 @@ void bind_parser(py::module_ &m) {
 
         .def("as_call", &token_as<CallToken>, py::return_value_policy::reference_internal)
 
+        .def("as_char", &token_as<CharToken>, py::return_value_policy::reference_internal)
+
         .def_property_readonly(
             "symbol",
             [](const Token &tok) -> std::string {
@@ -250,6 +268,9 @@ void bind_parser(py::module_ &m) {
                         break;
                     case TokenKind::Call:
                         tok.data = t[1].cast<CallToken>();
+                        break;
+                    case TokenKind::Char:
+                        tok.data = t[1].cast<CharToken>();
                         break;
                     }
                     return tok;

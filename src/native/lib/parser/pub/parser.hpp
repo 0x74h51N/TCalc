@@ -88,7 +88,7 @@ inline constexpr ParenRole paren_role_of(char c) {
     }
 }
 
-enum class TokenKind : std::uint8_t { Number, Op, Latex, Paren, Call };
+enum class TokenKind : std::uint8_t { Number, Op, Latex, Paren, Call, Char };
 
 /// Expression kinds for compound Latex tokens.
 enum class LatexKind : std::uint8_t {
@@ -129,6 +129,13 @@ struct NumberToken {
 struct OpToken {
     OpId op_id;
     bool operator==(const OpToken &) const = default;
+};
+
+/// A single-letter variable token. Holds one ASCII letter; emitted by the
+/// tokenizer's free-text fallback, one per letter (so `ab` is `a` then `b`).
+struct CharToken {
+    char value;
+    bool operator==(const CharToken &) const = default;
 };
 
 /// Element of a ParenToken: either a single Token (single-arity canonical SBO)
@@ -181,7 +188,7 @@ struct CallToken {
     bool operator==(const CallToken &) const;
 };
 
-using TokenData = std::variant<NumberToken, OpToken, LatexToken, ParenToken, CallToken>;
+using TokenData = std::variant<NumberToken, OpToken, LatexToken, ParenToken, CallToken, CharToken>;
 
 struct Token {
     TokenKind kind{};
@@ -210,7 +217,8 @@ struct TokenEqual {
         if (!r)
             return false;
 
-        if constexpr (std::is_same_v<T, NumberToken>) {
+        if constexpr (std::is_same_v<T, NumberToken> || std::is_same_v<T, CharToken>) {
+            // Both carry a single `value` member compared by equality.
             return lhs.value == r->value;
         } else if constexpr (std::is_same_v<T, OpToken>) {
             return lhs.op_id == r->op_id;

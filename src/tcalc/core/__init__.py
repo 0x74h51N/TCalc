@@ -28,6 +28,7 @@ from .ops import (
     get_symbols_with_aliases,
 )
 from .parser import evaluate_tokens, tokenize, tokenize_string
+from .varstore import VarStore, is_reserved
 
 __all__ = [
     "Calculator",
@@ -38,4 +39,6 @@ __all__ = [
     "tokenize",
     "tokenize_string",
     "CONSTANTS",
+    "VarStore",
+    "is_reserved",
 ]

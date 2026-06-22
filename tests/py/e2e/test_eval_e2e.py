@@ -150,6 +150,10 @@ def _eval(expr: str) -> object:
         param("([1, 2])", "List", [1, 2], id="paren-groups-list"),
         param("((1, 2))", "Point", (1, 2), id="paren-groups-point"),
         # ----------------------------
+        # Variable assignment returns value (single-expr, integer result)
+        # ----------------------------
+        param("A = 5", "float", 5.0, id="assign-integer-returns-value"),
+        # ----------------------------
         # Collection arity-1 demote (scalar canonicalization)
         # ----------------------------
         param("[5]", "float", 5.0, id="list-arity-1-demote-scalar"),
@@ -222,6 +226,12 @@ def test_native_eval_golden(expr: str, expected_type: str, expected_value: objec
         param("5 + [1, 2]", None, id="scalar-plus-collection-undefined"),
         param("((1,2),(3,4))", "Point item cannot be a collection", id="point-of-points-multi"),
         param("(1, [2,3])", "Point item cannot be a collection", id="point-with-list-item"),
+        # ----------------------------
+        # Variable assignment errors
+        # ----------------------------
+        param("2 = 5", None, id="assign-non-variable-lhs"),
+        param("e = 1", None, id="assign-reserved-name"),
+        param("mean(B)", None, id="undefined-variable-reference"),
     ],
 )
 def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> None:
@@ -318,6 +328,11 @@ class TestRational:
             param("2^2^2^2", 65536, 1, id="pow-chain-2-2-2-2"),
             param("(2^3) + (3^2)", 17, 1, id="pow-then-add"),
             param("(1/2)^2 * 8", 2, 1, id="pow-then-mul"),
+            # ----------------------------
+            # Variable assignment returns value (single-expression)
+            # ----------------------------
+            param("A = 1/2", 1, 2, id="assign-fraction-returns-value"),
+            param("A = 2/3 * 3/4", 1, 2, id="assign-expr-result-rational"),
         ],
     )
     def test_stays_rational(self, expr: str, num: int, den: int) -> None:
@@ -434,3 +449,75 @@ class TestRational:
         except Error:
             return
         assert isinstance(out, (int, float, complex, calc_native.BigReal, calc_native.Rational))
+
+
+# ============================================================================
+# Stateful multi-line variable tests (shared env across lines)
+# ============================================================================
+
+
+def _to_int(v) -> int:
+    if isinstance(v, calc_native.Rational):
+        assert v.denominator == 1, f"expected integer Rational, got {v}"
+        return v.numerator
+    return int(v)
+
+
+def _ev_multi(lines, *, assert_env_key=None):
+    from tcalc.core.engine import Calculator
+    from tcalc.core.parser import evaluate_tokens, tokenize_string
+    from tcalc.core.varstore import VarStore
+
+    calc, env = Calculator(), VarStore()
+    result = None
+    for line in lines:
+        result = evaluate_tokens(tokenize_string(line), calc, env)
+    if assert_env_key is not None:
+        return env.get(assert_env_key)
+    return result
+
+
+@pytest.mark.parametrize(
+    ("lines", "assert_env_key", "check"),
+    [
+        param(
+            ["A = [1, 2, 4, 5]", "mean(A)"],
+            None,
+            lambda v: v == 3.0,
+            id="cross-line-collection-mean",
+        ),
+        param(
+            ["a = 2", "b = 3", "ab"],
+            None,
+            lambda v: _to_int(v) == 6,
+            id="implicit-mul-ab",
+        ),
+        param(
+            ["a = 2", "b = 3", "ba"],
+            None,
+            lambda v: _to_int(v) == 6,
+            id="implicit-mul-ba",
+        ),
+        param(
+            ["A = 34", "A = A^2"],
+            "A",
+            lambda v: _to_int(v) == 1156,
+            id="eager-self-reference",
+        ),
+        param(
+            ["A = 2^4", "mean(A)"],
+            None,
+            lambda v: v == 16,
+            id="scalar-var-feeds-mean",
+        ),
+        param(
+            ["A = 1/2"],
+            "A",
+            lambda v: isinstance(v, calc_native.Rational),
+            id="type-preserved-rational",
+        ),
+    ],
+)
+def test_stateful_variable_cases(lines, assert_env_key, check) -> None:
+    result = _ev_multi(lines, assert_env_key=assert_env_key)
+    assert check(result)
