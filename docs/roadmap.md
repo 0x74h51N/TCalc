@@ -86,6 +86,11 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [x] Add variable store for current session (`VarStore`, stored as-is, native-typed)
   - [x] Allow assigned variables in other lines (env threaded through eval)
   - [x] Define overwrite / invalid-name / undefined-variable behavior
+- [x] Add native constant table matched at tokenize (`ConstToken`)
+  - [x] Declarative `ConstId`/`ConstSpec`/`kConstants` (value native-sourced, `variant<double, Complex>`)
+  - [x] `match_const` longest-match before the `CharToken` splitter (fixes multi-char constants splitting)
+  - [x] Eval resolves value by `ConstId` from native `const_table()` (single source; `constants.py` derived)
+  - [x] Reject assignment to a constant (math set done; engineering/physics/chemistry later)
 - [ ] Add user-defined (custom) functions
   - [ ] Parse function definitions (`f(x) = expr`)
   - [ ] Bind named user functions in the session store; call them like built-ins
@@ -187,8 +192,14 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 - [x] File menu
 - [x] Edit menu (undo, redo, cut, copy, paste), binding/apply
 - [ ] Constant menu
-  - [ ] All math or physic constants on menu
-  - [ ] All constants side panel window
+  - [ ] Add constants grouped by category
+    - [ ] Mathematics
+    - [ ] Universal
+    - [ ] Electromagnetism
+    - [ ] Atomic & Nuclear
+    - [ ] Thermodynamics
+    - [ ] Chemistry
+  - [ ] Add constants' pad
 - [ ] Help menu
   - [ ] Find Action
   - [ ] User manual
