@@ -61,6 +61,19 @@ def _eval(expr: str) -> object:
         param("(1e-3 + 2e-3) * 1000", "float", 3.0, id="scientific-notation-flow"),
         param("2π", "float", 2.0 * math.pi, id="pi-symbol-implicit-mul"),
         param("π*10^309", "BigReal", "3.141592653589793e+309", id="pi-symbol-promotes-bigreal"),
+        # ----------------------------
+        # named constants (constant table)
+        # ----------------------------
+        param("pi", "float", math.pi, id="const-pi"),
+        param("π", "float", math.pi, id="const-pi-symbol"),
+        param("e", "float", math.e, id="const-e"),
+        param("φ", "float", 1.618033988749895, id="const-phi"),
+        param("τ", "float", 2.0 * math.pi, id="const-tau"),
+        param("i", "complex", (0.0, 1.0), id="const-imaginary-unit"),
+        # constants inside normal operations
+        param("pi+e", "float", math.pi + math.e, id="const-sum"),
+        param("i^2", "complex", (-1.0, 0.0), id="const-i-squared"),
+        param("2τ", "float", 4.0 * math.pi, id="const-tau-implicit-mul"),
         param("2(3+4)", "float", 14.0, id="implicit-mul-paren"),
         param("2sqrt(9)", "float", 6.0, id="implicit-mul-func"),
         param("(1+1)(1+2)", "float", 6.0, id="implicit-mul-paren-paren"),
@@ -521,3 +534,38 @@ def _ev_multi(lines, *, assert_env_key=None):
 def test_stateful_variable_cases(lines, assert_env_key, check) -> None:
     result = _ev_multi(lines, assert_env_key=assert_env_key)
     assert check(result)
+
+
+# ============================================================================
+# Constant table non-eval checks
+# ============================================================================
+
+
+def test_const_table_binding_shape() -> None:
+    rows = {s.id: s for s in calc_native.const_table()}
+    pi = rows[calc_native.ConstId.Pi]
+    assert pi.symbol == "π"
+    assert "pi" in pi.aliases
+    assert isinstance(pi.value, float) and pi.value == math.pi
+    iv = rows[calc_native.ConstId.ImagUnit].value
+    assert isinstance(iv, complex) and iv == 1j
+
+
+def test_constants_module_derived_from_table() -> None:
+    from tcalc.core import constants
+
+    assert (
+        constants.CONST_VALUES[calc_native.ConstId.Pi]
+        == constants.CONST_BY_ID[calc_native.ConstId.Pi].value
+    )
+    assert not hasattr(constants, "CONSTANTS")
+
+
+def test_assign_to_constant_rejected() -> None:
+    from tcalc.core.engine import Calculator
+    from tcalc.core.parser import evaluate_tokens, tokenize_string
+    from tcalc.errors import CalculatorError
+
+    with pytest.raises(CalculatorError) as e:
+        evaluate_tokens(tokenize_string("pi = 3"), Calculator())
+    assert "constant" in str(e.value)

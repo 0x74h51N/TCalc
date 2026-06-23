@@ -46,16 +46,16 @@ class Msg:
     def assignment_target_is_operator(symbol: str) -> str:
         return f"{symbol} is an operator, use another letter"
 
+    @staticmethod
+    def assignment_target_is_constant(symbol: str) -> str:
+        return f"{symbol} is defined as a constant, use another letter"
+
     EMPTY_ASSIGNMENT = "assignment has no value"
     INVALID_ASSIGNMENT = "misplaced ="
 
     @staticmethod
     def undefined_variable(name: str) -> str:
         return f"undefined variable {name}"
-
-    @staticmethod
-    def invalid_variable_name(name: str) -> str:
-        return f"{name} is a reserved name"
 
     @staticmethod
     def parse_number_error(detail: object) -> str:

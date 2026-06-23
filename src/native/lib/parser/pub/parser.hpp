@@ -29,12 +29,14 @@
 #include <type_traits>
 #include <utility>
 #include <variant>
+#include "parser/pub/consts.hpp"
 #include "parser/pub/ops.hpp"
 
 namespace tcalc::parser {
 
 struct Token;
 
+using tcalc::consts::ConstId;
 using tcalc::ops::OpId;
 using Value = std::string;
 
@@ -88,7 +90,7 @@ inline constexpr ParenRole paren_role_of(char c) {
     }
 }
 
-enum class TokenKind : std::uint8_t { Number, Op, Latex, Paren, Call, Char };
+enum class TokenKind : std::uint8_t { Number, Op, Latex, Paren, Call, Char, Const };
 
 /// Expression kinds for compound Latex tokens.
 enum class LatexKind : std::uint8_t {
@@ -136,6 +138,12 @@ struct OpToken {
 struct CharToken {
     char value;
     bool operator==(const CharToken &) const = default;
+};
+
+/// A named constant (π, e, i, φ, τ). Carries a ConstId; value resolved by id.
+struct ConstToken {
+    ConstId id;
+    bool operator==(const ConstToken &) const = default;
 };
 
 /// Element of a ParenToken: either a single Token (single-arity canonical SBO)
@@ -188,7 +196,8 @@ struct CallToken {
     bool operator==(const CallToken &) const;
 };
 
-using TokenData = std::variant<NumberToken, OpToken, LatexToken, ParenToken, CallToken, CharToken>;
+using TokenData =
+    std::variant<NumberToken, OpToken, LatexToken, ParenToken, CallToken, CharToken, ConstToken>;
 
 struct Token {
     TokenKind kind{};
@@ -230,6 +239,8 @@ struct TokenEqual {
                    lhs.has_close == r->has_close && lhs.elements == r->elements;
         } else if constexpr (std::is_same_v<T, CallToken>) {
             return lhs == *std::get_if<CallToken>(rhs);
+        } else if constexpr (std::is_same_v<T, ConstToken>) {
+            return lhs.id == r->id;
         }
     }
 };

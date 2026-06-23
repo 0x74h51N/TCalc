@@ -287,6 +287,24 @@ bool tokenize_core(
             }
         }
 
+        // Named constant (π, e, i, φ, τ) — matched whole before the single-letter
+        // CharToken splitter so multi-char constants ("pi") do not split.
+        {
+            std::size_t clen = 0;
+            if (const auto *cspec = tcalc::consts::match_const(expression, i, clen);
+                cspec != nullptr) {
+                tokens.push_back(
+                    Token{
+                        .kind = TokenKind::Const,
+                        .data = ConstToken{cspec->id},
+                        .start_pos = tok_start,
+                        .end_pos = base_offset + i + clen});
+                i += clen;
+                expect_operand = false;
+                continue;
+            }
+        }
+
         // Free text, one unit per token. An ASCII letter is a single-letter
         // variable (CharToken); adjacent letters become an implicit product via normalize.
         const unsigned char fc = static_cast<unsigned char>(expression[i]);
@@ -562,7 +580,8 @@ split_operand(std::span<const Token> tokens, TokenIndex begin, TokenIndex end, b
     if (lead) {
         const Token &first = tokens[begin];
         if (first.kind == TokenKind::Paren || first.kind == TokenKind::Number ||
-            first.kind == TokenKind::Call || first.kind == TokenKind::Char) {
+            first.kind == TokenKind::Call || first.kind == TokenKind::Char ||
+            first.kind == TokenKind::Const) {
             return {
                 tokens.subspan(begin, 1),
                 tokens.subspan(begin + 1, end - begin - 1),
@@ -573,7 +592,8 @@ split_operand(std::span<const Token> tokens, TokenIndex begin, TokenIndex end, b
 
     const Token &last = tokens[end - 1];
     if (last.kind == TokenKind::Paren || last.kind == TokenKind::Number ||
-        last.kind == TokenKind::Call || last.kind == TokenKind::Char) {
+        last.kind == TokenKind::Call || last.kind == TokenKind::Char ||
+        last.kind == TokenKind::Const) {
         return {
             tokens.subspan(begin, end - begin - 1),
             tokens.subspan(end - 1, 1),
@@ -832,7 +852,7 @@ std::vector<Token> normalize(std::vector<Token> raw) {
 
     const auto ends_operand = [](const Token &t) -> bool {
         if (t.kind == TokenKind::Number || t.kind == TokenKind::Latex ||
-            t.kind == TokenKind::Char) {
+            t.kind == TokenKind::Char || t.kind == TokenKind::Const) {
             return true;
         }
         if (t.kind == TokenKind::Paren) {
@@ -850,7 +870,7 @@ std::vector<Token> normalize(std::vector<Token> raw) {
 
     const auto starts_operand = [](const Token &t) -> bool {
         if (t.kind == TokenKind::Number || t.kind == TokenKind::Latex ||
-            t.kind == TokenKind::Char) {
+            t.kind == TokenKind::Char || t.kind == TokenKind::Const) {
             return true;
         }
         if (t.kind == TokenKind::Paren) {
@@ -921,6 +941,7 @@ std::vector<Token> shunting_yard(const std::vector<Token> &tokens) {
         case TokenKind::Paren:
         case TokenKind::Call:
         case TokenKind::Char:
+        case TokenKind::Const:
             output.push_back(std::move(tok));
             break;
         case TokenKind::Op: {
@@ -1058,6 +1079,9 @@ std::string token_text(const Token &tok) {
                 return out;
             } else if constexpr (std::is_same_v<T, CharToken>) {
                 return std::string(1, data.value);
+            } else if constexpr (std::is_same_v<T, ConstToken>) {
+                const auto *spec = tcalc::consts::const_spec(data.id);
+                return spec ? std::string(spec->symbol) : std::string{};
             }
 
             return {};

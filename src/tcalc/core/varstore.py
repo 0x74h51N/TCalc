@@ -5,19 +5,7 @@
 
 from __future__ import annotations
 
-from .constants import CONSTANTS
-from .ops import get_symbols_with_aliases
 from .utils import CalcValue
-
-_reserved: frozenset[str] | None = None
-
-
-def is_reserved(name: str) -> bool:
-    """A name is reserved if it collides with a constant or an op symbol/alias."""
-    global _reserved
-    if _reserved is None:
-        _reserved = frozenset(CONSTANTS) | frozenset(get_symbols_with_aliases())
-    return name in _reserved
 
 
 class VarStore:

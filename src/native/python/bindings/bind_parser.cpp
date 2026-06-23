@@ -4,13 +4,16 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+#include <pybind11/complex.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/typing.h>
 
 #include <string>
+#include <variant>
 
 #include "bindings.hpp"
+#include "parser/pub/consts.hpp"
 #include "parser/pub/ops.hpp"
 #include "parser/pub/parser.hpp"
 
@@ -48,6 +51,7 @@ py::list math_nodes_to_list(const std::vector<p::MathNode> &nodes) {
 void bind_parser(py::module_ &m) {
     using p::CallToken;
     using p::CharToken;
+    using p::ConstToken;
     using p::LatexKind;
     using p::LatexToken;
     using p::NumberToken;
@@ -57,6 +61,8 @@ void bind_parser(py::module_ &m) {
     using p::Token;
     using p::TokenKind;
     using p::TokensBranch;
+    using tcalc::consts::ConstId;
+    using tcalc::consts::ConstSpec;
     using tcalc::ops::OpId;
 
     py::enum_<TokenKind>(m, "TokenKind", "Token categories produced by the native tokenizer.")
@@ -65,7 +71,8 @@ void bind_parser(py::module_ &m) {
         .value("Paren", TokenKind::Paren)
         .value("Latex", TokenKind::Latex)
         .value("Call", TokenKind::Call)
-        .value("Char", TokenKind::Char);
+        .value("Char", TokenKind::Char)
+        .value("Const", TokenKind::Const);
 
     py::enum_<LatexKind>(m, "LatexKind", "Expression kinds for compound Latex tokens.")
         .value("Frac", LatexKind::Frac)
@@ -134,6 +141,13 @@ void bind_parser(py::module_ &m) {
         .value("Assign", OpId::Assign)
         .value("Equal", OpId::Equal);
 
+    py::enum_<ConstId>(m, "ConstId", "Constant identifiers used by ConstToken and const_table.")
+        .value("Pi", ConstId::Pi)
+        .value("E", ConstId::E)
+        .value("ImagUnit", ConstId::ImagUnit)
+        .value("Phi", ConstId::Phi)
+        .value("Tau", ConstId::Tau);
+
     py::class_<tcalc::parser::LatexEntry>(
         m, "LatexEntry", "LaTeX expression mapping: symbol -> LatexKind.")
         .def_property_readonly(
@@ -175,6 +189,18 @@ void bind_parser(py::module_ &m) {
                     if (t.size() != 1)
                         throw std::runtime_error("Invalid CharToken state");
                     return CharToken{t[0].cast<std::string>().at(0)};
+                }));
+
+    // ConstToken
+    py::class_<ConstToken>(m, "ConstToken")
+        .def_readonly("id", &ConstToken::id)
+        .def(
+            py::pickle(
+                [](const ConstToken &t) { return py::make_tuple(t.id); },
+                [](const py::tuple &t) {
+                    if (t.size() != 1)
+                        throw std::runtime_error("Invalid ConstToken state");
+                    return ConstToken{t[0].cast<ConstId>()};
                 }));
 
     // OpToken
@@ -230,6 +256,8 @@ void bind_parser(py::module_ &m) {
 
         .def("as_char", &token_as<CharToken>, py::return_value_policy::reference_internal)
 
+        .def("as_const", &token_as<ConstToken>, py::return_value_policy::reference_internal)
+
         .def_property_readonly(
             "symbol",
             [](const Token &tok) -> std::string {
@@ -271,6 +299,9 @@ void bind_parser(py::module_ &m) {
                         break;
                     case TokenKind::Char:
                         tok.data = t[1].cast<CharToken>();
+                        break;
+                    case TokenKind::Const:
+                        tok.data = t[1].cast<ConstToken>();
                         break;
                     }
                     return tok;
@@ -459,6 +490,33 @@ void bind_parser(py::module_ &m) {
             return out;
         },
         "Return list of OpSpec objects from the native operation table.",
+        py::return_value_policy::reference);
+
+    py::class_<ConstSpec>(m, "ConstSpec", "Constant specification from the native constant table.")
+        .def_readonly("id", &ConstSpec::id)
+        .def_property_readonly("symbol", [](const ConstSpec &c) { return std::string(c.symbol); })
+        .def_property_readonly(
+            "aliases",
+            [](const ConstSpec &c) {
+                py::list out;
+                for (const auto a : c.aliases)
+                    if (!a.empty())
+                        out.append(std::string(a));
+                return out;
+            })
+        .def_property_readonly("value", [](const ConstSpec &c) -> py::object {
+            return std::visit([](auto v) -> py::object { return py::cast(v); }, c.value);
+        });
+
+    m.def(
+        "const_table",
+        []() {
+            py::list out;
+            for (const auto &c : tcalc::consts::kConstants)
+                out.append(&c);
+            return out;
+        },
+        "Return list of ConstSpec objects from the native constant table.",
         py::return_value_policy::reference);
 
     m.def("tokenize_string", &tcalc::parser::tokenize, py::arg("expression"));

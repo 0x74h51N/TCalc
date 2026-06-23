@@ -13,11 +13,11 @@ import calc_native
 
 from tcalc.errors import CalculatorError, ErrorKind, Msg, raise_error
 
-from .constants import CONSTANTS
+from .constants import CONST_BY_ID, CONST_VALUES
 from .engine import Calculator
 from .ops import OP_BY_ID
 from .utils import CalcValue, is_number_token, parse_number_token
-from .varstore import VarStore, is_reserved
+from .varstore import VarStore
 
 
 class ValueOperand:
@@ -52,20 +52,14 @@ def _pop_operand(operand_stack: List[CalcValue]) -> CalcValue:
 
 
 def _resolve_name(name: str, env: VarStore) -> CalcValue:
-    # env-first: a bound name can't be a constant (reserved names are rejected at
-    # assignment), so the variable hot-path is a single lookup; constants are rare.
     v = env.get(name)
     if v is not None:
         return v
-    if name in CONSTANTS:
-        return CONSTANTS[name]
     raise_error(ErrorKind.INVALID, Msg.undefined_variable(name))
 
 
 def _coerce_token(tok: str | int | float) -> CalcValue:
     if isinstance(tok, str):
-        if tok in CONSTANTS:
-            return CONSTANTS[tok]
         try:
             return parse_number_token(tok)
         except Exception as e:
@@ -89,6 +83,8 @@ def _eval_element(element, calculator: Calculator, env: VarStore) -> CalcValue:
             return _coerce_token(element.data.value)
         if kind == calc_native.TokenKind.Char:
             return _resolve_name(element.as_char().value, env)
+        if kind == calc_native.TokenKind.Const:
+            return CONST_VALUES[element.as_const().id]
         if kind == calc_native.TokenKind.Paren:
             return _eval_paren_token(element.as_paren(), calculator, env)
         if kind == calc_native.TokenKind.Latex:
@@ -225,6 +221,10 @@ def evaluate_rpn(
             operand_stack.append(_resolve_name(tok.as_char().value, env))
             continue
 
+        if tok.kind == calc_native.TokenKind.Const:
+            operand_stack.append(CONST_VALUES[tok.as_const().id])
+            continue
+
         if tok.kind == calc_native.TokenKind.Latex:
             try:
                 latex_tok = tok.as_latex()
@@ -345,10 +345,16 @@ def evaluate_tokens(
                         spec.symbol if spec else str(tokens[0].as_op().op_id)
                     ),
                 )
+            if tokens[0].kind == calc_native.TokenKind.Const:
+                cspec = CONST_BY_ID.get(tokens[0].as_const().id)
+                raise_error(
+                    ErrorKind.INVALID,
+                    Msg.assignment_target_is_constant(
+                        cspec.symbol if cspec else str(tokens[0].as_const().id)
+                    ),
+                )
             raise_error(ErrorKind.INVALID, Msg.INVALID_ASSIGNMENT_TARGET)
         name = tokens[0].as_char().value
-        if is_reserved(name):
-            raise_error(ErrorKind.INVALID, Msg.invalid_variable_name(name))
         rhs = list(tokens[2:])
         if not rhs:
             raise_error(ErrorKind.INVALID, Msg.EMPTY_ASSIGNMENT)

@@ -284,6 +284,7 @@ class CalculatorController:
             and tokens[0].kind != calc_native.TokenKind.Latex
             and tokens[0].kind != calc_native.TokenKind.Paren
             and tokens[0].kind != calc_native.TokenKind.Call
+            and tokens[0].kind != calc_native.TokenKind.Const
         ):
             return is_number_token(tokens[0])
 

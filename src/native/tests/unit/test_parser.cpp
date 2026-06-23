@@ -5,6 +5,7 @@
 
 #include "internal/parser_internal.hpp"
 #include "internal/test_helpers.hpp"
+#include "parser/pub/consts.hpp"
 #include "parser/pub/ops.hpp"
 #include "parser/pub/parser.hpp"
 
@@ -15,6 +16,7 @@ namespace d = p::detail;
 using o::OpId;
 using p::CallToken;
 using p::CharToken;
+using p::ConstToken;
 using p::LatexKind;
 using p::LatexToken;
 using p::NumberToken;
@@ -108,10 +110,22 @@ inline Token N(const char *value, std::size_t start = 0, std::size_t end = 0) {
 inline Token Op_(OpId id, std::size_t start = 0, std::size_t end = 0) {
     return Token{TokenKind::Op, OpToken{id}, start, end};
 }
+/// Token factory: CharToken for the given character value.
+inline Token Ch(char c, std::size_t start = 0, std::size_t end = 0) {
+    return Token{TokenKind::Char, CharToken{c}, start, end};
+}
+/// Token factory: ConstToken for the given constant id.
+inline Token Co(tcalc::consts::ConstId id, std::size_t start = 0, std::size_t end = 0) {
+    return Token{TokenKind::Const, ConstToken{id}, start, end};
+}
 
 /// EN: single-Token element (variant arm 0). Bare-number shortcut.
 inline ParenElement EN(std::string value) {
     return ParenElement{Token{TokenKind::Number, NumberToken{std::move(value)}}};
+}
+/// EC: single-Token ConstToken element (variant arm 0).
+inline ParenElement EC(tcalc::consts::ConstId id) {
+    return ParenElement{Token{TokenKind::Const, ConstToken{id}}};
 }
 /// EV: multi-Token element (variant arm 1). Used for expressions, postfix, unary signs.
 /// Note: under canonicalization, a single-Token tokenize result lands in arm 0;
@@ -307,7 +321,11 @@ void unit_parser(TestContext &ctx) {
          .expected =
              {Op_(OpId::Negate, 0, 1),
               N("2", 1, 2),
-              Cl(OpId::Cbrt, {EV({N("3"), Pp({EN("π")}, false)})}, false, 3, 13)}},
+              Cl(OpId::Cbrt,
+                 {EV({N("3"), Pp({EC(tcalc::consts::ConstId::Pi)}, false)})},
+                 false,
+                 3,
+                 13)}},
 
         {.id = "sci notation imag", .input = "1.2e-3i", .expected = {N("1.2e-3i", 0, 7)}},
 
@@ -561,6 +579,30 @@ void unit_parser(TestContext &ctx) {
          {Br({Pp({EN("1"), EN("2")}), Pp({EN("3"), EN("4")})})}},
 
         /// TODO: Add more latex and paren tokenize edge cases
+
+        // == Const and Char tokenize ==================================
+
+        {.id = "const pi (alias) -> Const(Pi)",
+         .input = "pi",
+         .expected = {Co(tcalc::consts::ConstId::Pi)}},
+        {.id = "const pi (symbol) -> Const(Pi)",
+         .input = "π",
+         .expected = {Co(tcalc::consts::ConstId::Pi)}},
+        {.id = "const tau -> Const(Tau)",
+         .input = "tau",
+         .expected = {Co(tcalc::consts::ConstId::Tau)}},
+        {.id = "const e -> Const(E)", .input = "e", .expected = {Co(tcalc::consts::ConstId::E)}},
+        {.id = "const j -> Const(ImagUnit)",
+         .input = "j",
+         .expected = {Co(tcalc::consts::ConstId::ImagUnit)}},
+        {.id = "non-const letter p stays Char", .input = "p", .expected = {Ch('p')}},
+        {.id = "sci notation 2e3 one Number", .input = "2e3", .expected = {N("2e3")}},
+        {.id = "2e -> Number then Const(E)",
+         .input = "2e",
+         .expected = {N("2"), Co(tcalc::consts::ConstId::E)}},
+        {.id = "2i stays one imaginary Number", .input = "2i", .expected = {N("2i")}},
+        {.id = "ab -> two CharTokens", .input = "ab", .expected = {Ch('a'), Ch('b')}},
+        {.id = "2A -> Number then Char", .input = "2A", .expected = {N("2"), Ch('A')}},
     };
 
     for (std::size_t i = 0; i < tok_cases.size(); ++i) {
@@ -814,6 +856,17 @@ void unit_parser(TestContext &ctx) {
                  N("4"),
                  Op_(OpId::Add),
              }},
+
+        {.id = "implicit mul: 2 pi",
+         .input = {N("2"), Co(tcalc::consts::ConstId::Pi)},
+         .expected = {N("2"), Co(tcalc::consts::ConstId::Pi), Op_(OpId::Mul)}},
+        {.id = "implicit mul: pi e",
+         .input = {Co(tcalc::consts::ConstId::Pi), Co(tcalc::consts::ConstId::E)},
+         .expected =
+             {Co(tcalc::consts::ConstId::Pi), Co(tcalc::consts::ConstId::E), Op_(OpId::Mul)}},
+        {.id = "implicit mul: a b chars",
+         .input = {Ch('a'), Ch('b')},
+         .expected = {Ch('a'), Ch('b'), Op_(OpId::Mul)}},
     };
 
     for (std::size_t i = 0; i < shunt_cases.size(); ++i) {
@@ -2309,29 +2362,6 @@ void unit_parser(TestContext &ctx) {
     // =========================================================================
     // CharToken free-text fallback (Task 3)
     // =========================================================================
-    test_detail::with_case(ctx, "tokenize :: 'ab' -> 2 CharTokens a b", [&] {
-        auto ab = p::tokenize("ab");
-        EXPECT_TRUE(ctx, ab.tokens.size() == 2);
-        EXPECT_TRUE(ctx, ab.tokens[0].kind == TokenKind::Char);
-        EXPECT_TRUE(ctx, std::get<CharToken>(ab.tokens[0].data).value == 'a');
-        EXPECT_TRUE(ctx, ab.tokens[1].kind == TokenKind::Char);
-        EXPECT_TRUE(ctx, std::get<CharToken>(ab.tokens[1].data).value == 'b');
-    });
-
-    test_detail::with_case(ctx, "tokenize :: '2A' -> [Number('2'), Char('A')]", [&] {
-        auto two_a = p::tokenize("2A");
-        EXPECT_TRUE(ctx, two_a.tokens.size() == 2);
-        EXPECT_TRUE(ctx, two_a.tokens[0].kind == TokenKind::Number);
-        EXPECT_TRUE(ctx, two_a.tokens[1].kind == TokenKind::Char);
-    });
-
-    test_detail::with_case(ctx, "tokenize :: 'π' -> one Number token value='π'", [&] {
-        auto pi = p::tokenize("π"); // U+03C0, 2 UTF-8 bytes
-        EXPECT_TRUE(ctx, pi.tokens.size() == 1);
-        EXPECT_TRUE(ctx, pi.tokens[0].kind == TokenKind::Number);
-        EXPECT_TRUE(ctx, std::get<NumberToken>(pi.tokens[0].data).value == "π");
-    });
-
     test_detail::with_case(ctx, "tokenize :: '∑' -> one Number token value='∑'", [&] {
         auto sm = p::tokenize("∑"); // U+2211, 3 UTF-8 bytes \xE2\x88\x91
         EXPECT_TRUE(ctx, sm.tokens.size() == 1);
@@ -2344,22 +2374,9 @@ void unit_parser(TestContext &ctx) {
         EXPECT_TRUE(ctx, sin.tokens.size() == 1 && sin.tokens[0].kind == TokenKind::Op);
     });
 
-    test_detail::with_case(ctx, "tokenize :: '2i' -> one Number token", [&] {
-        auto two_i = p::tokenize("2i");
-        EXPECT_TRUE(ctx, two_i.tokens.size() == 1 && two_i.tokens[0].kind == TokenKind::Number);
-    });
-
     // =========================================================================
     // CharToken as operand + flat-text render arms (Task 4)
     // =========================================================================
-    test_detail::with_case(ctx, "char operand :: 'ab' shunts to [Char, Char, Op(Mul)]", [&] {
-        auto rpn = p::shunting_yard(p::tokenize("ab").tokens);
-        EXPECT_TRUE(ctx, rpn.size() == 3);
-        EXPECT_TRUE(ctx, rpn[0].kind == TokenKind::Char && rpn[1].kind == TokenKind::Char);
-        EXPECT_TRUE(
-            ctx, rpn[2].kind == TokenKind::Op && std::get<OpToken>(rpn[2].data).op_id == OpId::Mul);
-    });
-
     test_detail::with_case(ctx, "char operand :: lone 'A' shunts to single Char", [&] {
         auto rpn1 = p::shunting_yard(p::tokenize("A").tokens);
         EXPECT_TRUE(ctx, rpn1.size() == 1 && rpn1[0].kind == TokenKind::Char);
@@ -2368,5 +2385,10 @@ void unit_parser(TestContext &ctx) {
     test_detail::with_case(ctx, "char operand :: token_text(Char 'a') == \"a\"", [&] {
         Token ch{TokenKind::Char, CharToken{'a'}};
         EXPECT_TRUE(ctx, p::token_text(ch) == "a");
+    });
+
+    test_detail::with_case(ctx, "const :: token_text(Const Pi) == \"π\"", [&] {
+        p::Token t{p::TokenKind::Const, p::ConstToken{tcalc::consts::ConstId::Pi}, 0, 1};
+        EXPECT_TRUE(ctx, p::token_text(t) == "π");
     });
 }
