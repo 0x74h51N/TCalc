@@ -61,6 +61,7 @@ void bind_parser(py::module_ &m) {
     using p::Token;
     using p::TokenKind;
     using p::TokensBranch;
+    using tcalc::consts::CategoryId;
     using tcalc::consts::ConstId;
     using tcalc::consts::ConstSpec;
     using tcalc::ops::OpId;
@@ -146,7 +147,34 @@ void bind_parser(py::module_ &m) {
         .value("E", ConstId::E)
         .value("ImagUnit", ConstId::ImagUnit)
         .value("Phi", ConstId::Phi)
-        .value("Tau", ConstId::Tau);
+        .value("Tau", ConstId::Tau)
+        .value("SpeedOfLight", ConstId::SpeedOfLight)
+        .value("PlanckH", ConstId::PlanckH)
+        .value("PlanckHbar", ConstId::PlanckHbar)
+        .value("Gravitation", ConstId::Gravitation)
+        .value("VacuumPermittivity", ConstId::VacuumPermittivity)
+        .value("VacuumPermeability", ConstId::VacuumPermeability)
+        .value("VacuumImpedance", ConstId::VacuumImpedance)
+        .value("ElementaryCharge", ConstId::ElementaryCharge)
+        .value("FineStructure", ConstId::FineStructure)
+        .value("BohrRadius", ConstId::BohrRadius)
+        .value("Rydberg", ConstId::Rydberg)
+        .value("ElectronMass", ConstId::ElectronMass)
+        .value("ProtonMass", ConstId::ProtonMass)
+        .value("NeutronMass", ConstId::NeutronMass)
+        .value("GasConstant", ConstId::GasConstant)
+        .value("Boltzmann", ConstId::Boltzmann)
+        .value("Avogadro", ConstId::Avogadro)
+        .value("Faraday", ConstId::Faraday)
+        .value("AtomicMass", ConstId::AtomicMass);
+
+    py::enum_<CategoryId>(m, "CategoryId", "Constant category for GUI menu grouping.")
+        .value("Mathematics", CategoryId::Mathematics)
+        .value("Universal", CategoryId::Universal)
+        .value("Electromagnetism", CategoryId::Electromagnetism)
+        .value("AtomicNuclear", CategoryId::AtomicNuclear)
+        .value("Thermodynamics", CategoryId::Thermodynamics)
+        .value("Chemistry", CategoryId::Chemistry);
 
     py::class_<tcalc::parser::LatexEntry>(
         m, "LatexEntry", "LaTeX expression mapping: symbol -> LatexKind.")
@@ -494,6 +522,7 @@ void bind_parser(py::module_ &m) {
 
     py::class_<ConstSpec>(m, "ConstSpec", "Constant specification from the native constant table.")
         .def_readonly("id", &ConstSpec::id)
+        .def_readonly("category", &ConstSpec::category)
         .def_property_readonly("symbol", [](const ConstSpec &c) { return std::string(c.symbol); })
         .def_property_readonly(
             "aliases",

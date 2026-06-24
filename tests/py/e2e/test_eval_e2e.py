@@ -74,6 +74,9 @@ def _eval(expr: str) -> object:
         param("pi+e", "float", math.pi + math.e, id="const-sum"),
         param("i^2", "complex", (-1.0, 0.0), id="const-i-squared"),
         param("2τ", "float", 4.0 * math.pi, id="const-tau-implicit-mul"),
+        param("c", "float", 299792458.0, id="const-c"),
+        param("ℏ", "float", 6.62607015e-34 / (2 * math.pi), id="const-hbar"),
+        param("2c", "float", 2 * 299792458.0, id="const-c-implicit-mul"),
         param("2(3+4)", "float", 14.0, id="implicit-mul-paren"),
         param("2sqrt(9)", "float", 6.0, id="implicit-mul-func"),
         param("(1+1)(1+2)", "float", 6.0, id="implicit-mul-paren-paren"),
@@ -166,6 +169,12 @@ def _eval(expr: str) -> object:
         # Variable assignment returns value (single-expr, integer result)
         # ----------------------------
         param("A = 5", "float", 5.0, id="assign-integer-returns-value"),
+        param("ᵉ", "float", 1.602176634e-19, id="const-elementary-charge"),
+        param("mₑ", "float", 9.1093837139e-31, id="const-electron-mass"),
+        param("k", "float", 1.380649e-23, id="const-boltzmann"),
+        param("R", "float", 8.314462618, id="const-gas"),
+        param("Nₐ", "float", 6.02214076e23, id="const-avogadro"),
+        param("F", "float", 96485.33212, id="const-faraday"),
         # ----------------------------
         # Collection arity-1 demote (scalar canonicalization)
         # ----------------------------
@@ -569,3 +578,83 @@ def test_assign_to_constant_rejected() -> None:
     with pytest.raises(CalculatorError) as e:
         evaluate_tokens(tokenize_string("pi = 3"), Calculator())
     assert "constant" in str(e.value)
+
+
+@pytest.mark.parametrize(
+    ("const_id", "symbol", "category", "value"),
+    [
+        param(
+            calc_native.ConstId.PlanckHbar,
+            "ℏ",
+            calc_native.CategoryId.Universal,
+            6.62607015e-34 / (2 * math.pi),
+            id="hbar",
+        ),
+        param(
+            calc_native.ConstId.Gravitation,
+            "G",
+            calc_native.CategoryId.Universal,
+            6.67430e-11,
+            id="G",
+        ),
+        param(
+            calc_native.ConstId.VacuumImpedance,
+            "Z₀",
+            calc_native.CategoryId.Electromagnetism,
+            376.730313412,
+            id="Z0",
+        ),
+        param(
+            calc_native.ConstId.ElementaryCharge,
+            "ᵉ",
+            calc_native.CategoryId.Electromagnetism,
+            1.602176634e-19,
+            id="elem-charge",
+        ),
+        param(
+            calc_native.ConstId.Rydberg,
+            "R∞",
+            calc_native.CategoryId.AtomicNuclear,
+            10973731.568157,
+            id="rydberg",
+        ),
+        param(
+            calc_native.ConstId.ElectronMass,
+            "mₑ",
+            calc_native.CategoryId.AtomicNuclear,
+            9.1093837139e-31,
+            id="m_e",
+        ),
+        param(
+            calc_native.ConstId.Avogadro,
+            "Nₐ",
+            calc_native.CategoryId.Chemistry,
+            6.02214076e23,
+            id="avogadro",
+        ),
+        param(
+            calc_native.ConstId.AtomicMass,
+            "mᵤ",
+            calc_native.CategoryId.Chemistry,
+            1.66053906892e-27,
+            id="atomic-mass",
+        ),
+    ],
+)
+def test_physics_constant_spec(const_id, symbol, category, value) -> None:
+    spec = {s.id: s for s in calc_native.const_table()}[const_id]
+    assert spec.symbol == symbol
+    assert spec.category == category
+    assert isinstance(spec.value, float)
+    assert spec.value == value  # exact: no float() cast, no tolerance
+
+
+def test_every_constant_symbol_and_alias_tokenizes() -> None:
+    for spec in calc_native.const_table():
+        spellings = [spec.symbol, *spec.aliases]
+        for s in spellings:
+            branch = calc_native.tokenize_string(s)
+            assert len(branch.tokens) == 1, f"{s!r} -> {len(branch.tokens)} tokens"
+            tok = branch.tokens[0]
+            assert tok.kind == calc_native.TokenKind.Const, f"{s!r} -> {tok.kind}"
+            assert tok.as_const().id == spec.id, f"{s!r} -> {tok.as_const().id}, want {spec.id}"
