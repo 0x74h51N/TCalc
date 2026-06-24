@@ -556,7 +556,7 @@ def test_const_table_binding_shape() -> None:
     assert pi.symbol == "π"
     assert "pi" in pi.aliases
     assert isinstance(pi.value, float) and pi.value == math.pi
-    iv = rows[calc_native.ConstId.ImagUnit].value
+    iv = rows[calc_native.ConstId.Imaginary].value
     assert isinstance(iv, complex) and iv == 1j
 
 

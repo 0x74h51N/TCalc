@@ -70,14 +70,6 @@ class _UIOpSpec:
     method: str = ""
 
 
-# Global registry mapping OpId to native OpSpec
-OP_BY_ID: dict[calc_native.OpId, calc_native.OpSpec] = {}
-
-# Build from native op_table
-for native_spec in calc_native.op_table():
-    OP_BY_ID[native_spec.id] = native_spec
-
-
 # Paren UI specs — derived locally now that the native module no longer exposes
 # a paren_table (the unified ParenToken model has no separate open/close enum).
 _PAREN_SPECS = [
@@ -99,14 +91,17 @@ _UI_SPECS = (
     ("CLEAR", "C"),
     ("BACKSPACE", "⌫"),
     ("HYP", "hyp"),
-    ("IMAG", "i"),
 )
+
+# Global registry mapping OpId to native OpSpec
+OP_BY_ID: dict[calc_native.OpId, calc_native.OpSpec] = {}
 
 _specs_by_name: dict[str, calc_native.OpSpec | _UIOpSpec] = {}
 _operation_values: dict[str, str] = {}
 
 # Add native operations
 for native_spec in calc_native.op_table():
+    OP_BY_ID[native_spec.id] = native_spec  # Build from native op_table
     name = native_spec.id.name.upper()
     _specs_by_name[name] = native_spec
     _operation_values[name] = native_spec.method or native_spec.id.name.lower()

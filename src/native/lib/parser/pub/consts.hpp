@@ -28,9 +28,9 @@ enum class CategoryId : std::uint8_t {
 
 enum class ConstId : std::uint8_t {
     Pi,
-    E,
-    ImagUnit,
-    Phi,
+    EulerNumber,
+    Imaginary,
+    GoldenRatio,
     Tau,
     SpeedOfLight,
     PlanckH,
@@ -73,19 +73,19 @@ inline constexpr std::array kConstants{
         .aliases = {"pi"},
         .value = boost::math::constants::pi<double>()},
     ConstSpec{
-        .id = ConstId::E,
+        .id = ConstId::EulerNumber,
         .category = CategoryId::Mathematics,
         .symbol = "e",
         .aliases = {"euler"},
         .value = boost::math::constants::e<double>()},
     ConstSpec{
-        .id = ConstId::ImagUnit,
+        .id = ConstId::Imaginary,
         .category = CategoryId::Mathematics,
         .symbol = "i",
         .aliases = {"I", "j", "J"},
         .value = Complex(0.0, 1.0)},
     ConstSpec{
-        .id = ConstId::Phi,
+        .id = ConstId::GoldenRatio,
         .category = CategoryId::Mathematics,
         .symbol = "φ",
         .aliases = {"phi"},

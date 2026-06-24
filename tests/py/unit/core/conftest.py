@@ -398,8 +398,8 @@ def _install_fake_calc_native() -> ModuleType:
 
     class FakeConstId(Enum):
         Pi = 0
-        E = 1
-        ImagUnit = 2
+        EulerNumber = 1
+        Imaginary = 2
 
     calc_native.ConstId = FakeConstId
 
@@ -409,8 +409,8 @@ def _install_fake_calc_native() -> ModuleType:
 
     _FAKE_CONSTS = [
         _ConstDef(FakeConstId.Pi, "π", ["pi"], 3.141592653589793),
-        _ConstDef(FakeConstId.E, "e", [], 2.718281828459045),
-        _ConstDef(FakeConstId.ImagUnit, "i", ["I", "j", "J"], complex(0, 1)),
+        _ConstDef(FakeConstId.EulerNumber, "e", [], 2.718281828459045),
+        _ConstDef(FakeConstId.Imaginary, "i", ["I", "j", "J"], complex(0, 1)),
     ]
     calc_native.ConstSpec = _ConstDef
     calc_native.const_table = lambda: list(_FAKE_CONSTS)

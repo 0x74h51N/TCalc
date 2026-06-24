@@ -144,9 +144,9 @@ void bind_parser(py::module_ &m) {
 
     py::enum_<ConstId>(m, "ConstId", "Constant identifiers used by ConstToken and const_table.")
         .value("Pi", ConstId::Pi)
-        .value("E", ConstId::E)
-        .value("ImagUnit", ConstId::ImagUnit)
-        .value("Phi", ConstId::Phi)
+        .value("EulerNumber", ConstId::EulerNumber)
+        .value("Imaginary", ConstId::Imaginary)
+        .value("GoldenRatio", ConstId::GoldenRatio)
         .value("Tau", ConstId::Tau)
         .value("SpeedOfLight", ConstId::SpeedOfLight)
         .value("PlanckH", ConstId::PlanckH)
@@ -539,8 +539,8 @@ void bind_parser(py::module_ &m) {
 
     m.def(
         "const_table",
-        []() {
-            py::list out;
+        []() -> py::typing::List<ConstSpec> {
+            py::typing::List<ConstSpec> out;
             for (const auto &c : tcalc::consts::kConstants)
                 out.append(&c);
             return out;

@@ -14,9 +14,7 @@ for _spec in calc_native.const_table():
     CONST_BY_ID[_spec.id] = _spec
     CONST_VALUES[_spec.id] = _spec.value
 
-# Table-derived convenience values for existing consumers (no hand-written numbers).
-# E (per-exp) and I_UNIT_CHARS (per number-parse) are hot, so kept as ready values.
-E = CONST_VALUES[calc_native.ConstId.E]
+E = CONST_VALUES[calc_native.ConstId.EulerNumber]
 
-_imag = CONST_BY_ID[calc_native.ConstId.ImagUnit]
+_imag = CONST_BY_ID[calc_native.ConstId.Imaginary]
 I_UNIT_CHARS: frozenset[str] = frozenset({_imag.symbol, *_imag.aliases})
