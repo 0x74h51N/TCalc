@@ -189,7 +189,7 @@ POWER_KEYS: list[KeyDef] = [
     KeyDef(
         label=SQR_LABEL,
         operation=Operation.SQR,
-        row=3,
+        row=2,
         col=1,
         tooltip="square",
         shifted=SHIFTED_KEYS[Operation.SQR],
@@ -197,7 +197,7 @@ POWER_KEYS: list[KeyDef] = [
     KeyDef(
         label=SQRT_LABEL,
         operation=Operation.SQRT,
-        row=4,
+        row=3,
         col=1,
         tooltip="square root",
         shifted=SHIFTED_KEYS[Operation.SQRT],
@@ -205,13 +205,10 @@ POWER_KEYS: list[KeyDef] = [
     KeyDef(
         label=POW_LABEL,
         operation=Operation.POW,
-        row=5,
+        row=4,
         col=1,
         tooltip="power",
         shifted=SHIFTED_KEYS[Operation.POW],
-    ),
-    KeyDef(
-        label=Operation.IMAG.symbol, operation=Operation.IMAG, row=5, col=0, tooltip="imaginary"
     ),
     KeyDef(
         label=Operation.POLAR.symbol,
@@ -221,7 +218,6 @@ POWER_KEYS: list[KeyDef] = [
         tooltip="polar complex",
     ),
     KeyDef(label="π", operation="π", row=1, col=1, tooltip="pi"),
-    KeyDef(label="e", operation="e", row=2, col=1, tooltip="Euler's number"),
 ]
 
 FUNCTION_GROUP: dict[str, list[KeyDef]] = {"function": FUNCTION_KEYS}

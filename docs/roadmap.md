@@ -86,6 +86,19 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [x] Add variable store for current session (`VarStore`, stored as-is, native-typed)
   - [x] Allow assigned variables in other lines (env threaded through eval)
   - [x] Define overwrite / invalid-name / undefined-variable behavior
+- [x] Add native constant table matched at tokenize (`ConstToken`)
+  - [x] Declarative `ConstId`/`ConstSpec`/`kConstants` (value native-sourced, `variant<double, Complex>`)
+  - [x] `match_const` longest-match before the `CharToken` splitter (fixes multi-char constants splitting)
+  - [x] Eval resolves value by `ConstId` from native `const_table()` (single source; `constants.py` derived)
+  - [x] Reject assignment to a constant
+  - [x] Constants grouped by category
+    - [x] Mathematics: π, e, i, φ, τ
+    - [x] Universal: c, h, ℏ, G
+    - [x] Electromagnetism: ε₀, μ₀, Z₀, ᵉ
+    - [x] Atomic & Nuclear: α, a₀, R∞, mₑ, mₚ, mₙ
+    - [x] Thermodynamics: R, k
+    - [x] Chemistry: Nₐ, F, mᵤ
+    - [ ] Deferred: b_W, R_K, K_J, μ_B, μ_N (depends on variable index rendering, e.g. b\_{W})
 - [ ] Add user-defined (custom) functions
   - [ ] Parse function definitions (`f(x) = expr`)
   - [ ] Bind named user functions in the session store; call them like built-ins
@@ -186,9 +199,8 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 
 - [x] File menu
 - [x] Edit menu (undo, redo, cut, copy, paste), binding/apply
-- [ ] Constant menu
-  - [ ] All math or physic constants on menu
-  - [ ] All constants side panel window
+- [x] Constant menu
+  - [x] Add constants grouped by category
 - [ ] Help menu
   - [ ] Find Action
   - [ ] User manual
@@ -229,6 +241,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
       - [x] Constant pad toggle
     - [x] History panel toggle
     - [x] Restore keypads layout style
+  - [ ] Add constants' keypad toggle buttons
 
 ### History panel
 
@@ -277,7 +290,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [x] Make separate QLineEdits in math widgets (e.g., numerator/denominator, base/exponent)
   - [ ] Add fraction, pow, root, log, summation, product widgets
   - [ ] Add absolute value `|x|` and floor/ceil `⌊x⌋` `⌈x⌉` widgets
-  - [ ] Add custom variable node with subscript (bound to user-defined variables from line-based calculation)
+  - [ ] Add variable indexing (variable node w/subscript e.g. x\_{0} -> x₀)
   - [x] Add ParenNode to cover math expression
     - [x] Add draw object for each parentheses kind
   - [ ] Make toggleable for mathematical expressions (rawStr <-> rendered)

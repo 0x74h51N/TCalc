@@ -24,6 +24,7 @@ class FakeToken:
     left: Optional[List["FakeToken"]] = None
     right: Optional[List["FakeToken"]] = None
     expr_kind: Optional[object] = None
+    const_id: object = None
 
     @property
     def data(self):
@@ -41,6 +42,13 @@ class FakeToken:
 
     def as_char(self) -> Optional["FakeToken"]:
         return self if self.kind == FakeTokenKind.Char else None
+
+    def as_const(self) -> Optional["FakeToken"]:
+        return self if self.kind == FakeTokenKind.Const else None
+
+    @property
+    def id(self):
+        return self.const_id
 
 
 class FakeArity(Enum):
@@ -227,6 +235,7 @@ class FakeTokenKind:
     Paren = "paren"
     Call = "call"
     Char = "char"
+    Const = "const"
 
 
 class FakeCollectionKind:
@@ -387,6 +396,25 @@ def _install_fake_calc_native() -> ModuleType:
 
     calc_native.op_table = op_table
 
+    class FakeConstId(Enum):
+        Pi = 0
+        EulerNumber = 1
+        Imaginary = 2
+
+    calc_native.ConstId = FakeConstId
+
+    class _ConstDef:
+        def __init__(self, cid, symbol, aliases, value):
+            self.id, self.symbol, self.aliases, self.value = cid, symbol, aliases, value
+
+    _FAKE_CONSTS = [
+        _ConstDef(FakeConstId.Pi, "π", ["pi"], 3.141592653589793),
+        _ConstDef(FakeConstId.EulerNumber, "e", [], 2.718281828459045),
+        _ConstDef(FakeConstId.Imaginary, "i", ["I", "j", "J"], complex(0, 1)),
+    ]
+    calc_native.ConstSpec = _ConstDef
+    calc_native.const_table = lambda: list(_FAKE_CONSTS)
+
     def _unavailable(*_args, **_kwargs):
         raise NotImplementedError("calc_native is faked in unit tests")
 
@@ -430,7 +458,10 @@ def token_factory():
     def char(letter):
         return FakeToken(FakeTokenKind.Char, value=letter)
 
-    return num, op, char
+    def const(cid):
+        return FakeToken(FakeTokenKind.Const, const_id=cid)
+
+    return num, op, char, const
 
 
 @pytest.fixture

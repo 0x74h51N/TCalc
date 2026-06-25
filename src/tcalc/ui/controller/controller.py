@@ -221,7 +221,6 @@ class CalculatorController:
                 Operation.BACKSPACE: lambda _: self._display.editor.backspace(),
                 Operation.NEGATE: lambda _: self._display.editor.handle_negate(),
                 Operation.HYP: lambda _: self._toggle_hyp(),
-                Operation.IMAG: lambda _: self._handle_digit(Operation.IMAG.symbol),
                 Operation.DIV: lambda _: self._display.editor.insert_expr_str(
                     calc_native.LatexKind.Frac
                 ),
@@ -284,6 +283,7 @@ class CalculatorController:
             and tokens[0].kind != calc_native.TokenKind.Latex
             and tokens[0].kind != calc_native.TokenKind.Paren
             and tokens[0].kind != calc_native.TokenKind.Call
+            and tokens[0].kind != calc_native.TokenKind.Const
         ):
             return is_number_token(tokens[0])
 

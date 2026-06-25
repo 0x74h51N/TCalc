@@ -21,14 +21,14 @@
 
 from tcalc.errors import CalculatorError
 
-from .constants import CONSTANTS
+from .constants import CONST_BY_ID, CONST_VALUES
 from .engine import Calculator
 from .ops import (
     Operation,
     get_symbols_with_aliases,
 )
 from .parser import evaluate_tokens, tokenize, tokenize_string
-from .varstore import VarStore, is_reserved
+from .varstore import VarStore
 
 __all__ = [
     "Calculator",
@@ -38,7 +38,7 @@ __all__ = [
     "evaluate_tokens",
     "tokenize",
     "tokenize_string",
-    "CONSTANTS",
+    "CONST_VALUES",
+    "CONST_BY_ID",
     "VarStore",
-    "is_reserved",
 ]

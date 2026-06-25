@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TypedDict
 
+import calc_native
+
 from tcalc.core.ops import Operation
 
 
@@ -22,7 +24,7 @@ class KeySettings(TypedDict, total=False):
 @dataclass
 class KeyDef:
     label: str = ""
-    operation: Operation | str | None = None
+    operation: Operation | str | calc_native.ConstId | None = None
     row: int = 0
     col: int = 0
     rowspan: int = 1
@@ -46,7 +48,7 @@ class KeyDef:
 
     def to_settings(self) -> KeySettings:
         data: KeySettings = {}
-        if isinstance(self.operation, Operation):
+        if isinstance(self.operation, (Operation, calc_native.ConstId)):
             data["operation"] = self.operation.name
         if self.bg_color:
             data["bg_color"] = self.bg_color

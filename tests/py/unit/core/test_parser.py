@@ -10,7 +10,7 @@ import pytest
 
 from tcalc import errors
 from tcalc.core import parser as parser_mod
-from tcalc.core.varstore import VarStore, is_reserved
+from tcalc.core.varstore import VarStore
 
 param = pytest.param
 
@@ -73,7 +73,6 @@ def test_rpn_malformed_raises(op_ids, token_factory, dummy_calc, rpn_spec):
 @pytest.mark.parametrize(
     ("literal", "expected"),
     [
-        param("π", parser_mod.CONSTANTS["π"], id="constant-pi"),
         param("123", 123, id="number-int"),
     ],
 )
@@ -120,7 +119,7 @@ def test_value_operand_feeds_into_op(op_ids, token_factory, dummy_calc):
     ],
 )
 def test_var_eval_cases(op_ids, token_factory, dummy_calc, setup, tokens_spec, expected):
-    num, op, char = token_factory
+    num, op, char, _const = token_factory
     env = VarStore()
     for k, v in setup.items():
         env.set(k, v)
@@ -149,7 +148,6 @@ def test_var_eval_cases(op_ids, token_factory, dummy_calc, setup, tokens_spec, e
     ("tokens_spec", "match"),
     [
         param(("char", "A"), "undefined variable A", id="char-undefined-variable"),
-        param(("assign-reserved", "e", "num", 1), "reserved", id="assignment-reserved-name"),
         param(
             ("assign-non-char", "num", 2, "num", 5),
             "left of = must be a single letter",
@@ -161,17 +159,12 @@ def test_var_eval_cases(op_ids, token_factory, dummy_calc, setup, tokens_spec, e
     ],
 )
 def test_var_error_cases(op_ids, token_factory, dummy_calc, tokens_spec, match):
-    num, op, char = token_factory
+    num, op, char, _const = token_factory
     kind = tokens_spec[0]
     if kind == "char":
         tokens = [char(tokens_spec[1])]
         with pytest.raises(errors.CalculatorError, match=match):
             parser_mod.evaluate_rpn(tokens, dummy_calc, VarStore())
-    elif kind == "assign-reserved":
-        name = tokens_spec[1]
-        tokens = [char(name), op(op_ids.Assign), num(tokens_spec[3])]
-        with pytest.raises(errors.CalculatorError, match=match):
-            parser_mod.evaluate_tokens(tokens, dummy_calc, VarStore())
     elif kind == "assign-non-char":
         tokens = [num(tokens_spec[2]), op(op_ids.Assign), num(tokens_spec[4])]
         with pytest.raises(errors.CalculatorError, match=match):
@@ -190,21 +183,7 @@ def test_var_error_cases(op_ids, token_factory, dummy_calc, tokens_spec, match):
             parser_mod.evaluate_tokens(tokens, dummy_calc, VarStore())
 
 
-# --- VarStore + is_reserved (moved here from a separate file) ---
-
-
-@pytest.mark.parametrize(
-    ("name", "reserved"),
-    [
-        param("e", True, id="constant"),
-        param("sin", True, id="op-symbol"),
-        param("add", True, id="op-alias"),
-        param("A", False, id="plain-letter"),
-        param("x", False, id="plain-letter-x"),
-    ],
-)
-def test_is_reserved(name, reserved):
-    assert is_reserved(name) is reserved
+# --- VarStore ---
 
 
 def test_varstore_set_get_clear():

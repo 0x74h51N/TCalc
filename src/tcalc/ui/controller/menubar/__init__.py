@@ -24,8 +24,14 @@
 
 from __future__ import annotations
 
+from .constant import ConstantOperations
 from .edit import EditOperations
 from .file import FileOperations
 from .settings import SettingsOperations
 
-__all__ = ["EditOperations", "FileOperations", "SettingsOperations"]
+__all__ = [
+    "ConstantOperations",
+    "EditOperations",
+    "FileOperations",
+    "SettingsOperations",
+]

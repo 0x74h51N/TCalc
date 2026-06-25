@@ -4,10 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#include <pybind11/complex.h>
 #include <pybind11/pybind11.h>
-
-#include <boost/math/constants/constants.hpp>
 
 #include "bindings.hpp"
 #include "calc/pub/calculator.hpp"
@@ -21,13 +18,6 @@ PYBIND11_MODULE(calc_native, m) {
     bind_bigreal(m);
     bind_bigcomplex(m);
     bind_rational(m);
-
-    using Z = Calculator::Complex;
-    using D = double;
-    m.attr("pi") = py::float_(boost::math::constants::pi<D>());
-    m.attr("e") = py::float_(boost::math::constants::e<D>());
-    m.attr("φ") = py::float_(boost::math::constants::phi<D>());
-    m.attr("i") = py::cast(Z(0.0, 1.0));
 
     bind_angle_unit(m);
     // Collection must register before Calculator: the reduction methods

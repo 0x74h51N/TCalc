@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..keyboard import ShortcutManager
+from .menus.constant import ConstantMenu
 from .menus.edit import EditMenu
 from .menus.file import FileMenu
 from .menus.settings import SettingsMenu
@@ -34,4 +35,5 @@ class Menubar:
         FileMenu(menubar, self.window, self.shortcuts)
         EditMenu(menubar, self.window, self.shortcuts)
         self.settings_menu = SettingsMenu(menubar, self.window, self.shortcuts)
+        ConstantMenu(menubar, self.window)
         menubar.addMenu("Help")

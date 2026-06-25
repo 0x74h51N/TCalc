@@ -6,27 +6,13 @@
 #
 from __future__ import annotations
 
-import math
 import time
 
 import pytest
 
-from tcalc.core import constants as constants_mod
 from tcalc.core import utils as utils_mod
 
 param = pytest.param
-
-
-@pytest.mark.parametrize(
-    ("literal", "expected"),
-    [
-        param("e", math.e, id="constant-e"),
-    ],
-)
-def test_constant_is_float(literal: str, expected: float) -> None:
-    value = constants_mod.CONSTANTS[literal]
-    assert isinstance(value, float)
-    assert value == pytest.approx(expected)
 
 
 @pytest.mark.parametrize(
