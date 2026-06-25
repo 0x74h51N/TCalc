@@ -14,6 +14,8 @@
 
 #include <boost/math/constants/constants.hpp>
 
+#include "parser/internal/helpers.hpp"
+
 namespace tcalc::consts {
 
 enum class CategoryId : std::uint8_t {
@@ -212,32 +214,34 @@ inline constexpr std::array kConstants{
         .value = 1.66053906892e-27},
 };
 
-consteval auto build_consts_by_id() {
-    std::array<const ConstSpec *, static_cast<std::size_t>(ConstId::Count)> out{};
-    for (auto &p : out) {
-        p = nullptr;
-    }
-    for (const auto &c : kConstants) {
-        const std::size_t idx = static_cast<std::size_t>(c.id);
-        if (idx >= out.size()) {
-            throw "consts.hpp: ConstId out of range";
-        }
-        if (out[idx] != nullptr) {
-            throw "consts.hpp: duplicate ConstId";
-        }
-        out[idx] = &c;
-    }
-    return out;
-}
-inline constexpr auto kConstsById = build_consts_by_id();
+inline constexpr auto kConstsById =
+    parser::index_by_id<ConstSpec, static_cast<std::size_t>(ConstId::Count)>(kConstants);
 
 inline constexpr const ConstSpec *const_spec(ConstId id) {
     return kConstsById[static_cast<std::size_t>(id)];
 }
 
+// First-byte filter: kConstCanStart[b] is true iff some constant symbol or alias
+// starts with byte b. Lets match_const skip the scan at non-constant positions.
+consteval parser::FirstByteTable build_const_can_start() {
+    parser::FirstByteTable out{};
+    for (const auto &c : kConstants) {
+        parser::mark_first_byte(out, c.symbol);
+        for (const auto &alias : c.aliases) {
+            parser::mark_first_byte(out, alias);
+        }
+    }
+    return out;
+}
+inline constexpr auto kConstCanStart = build_const_can_start();
+
 inline constexpr const ConstSpec *
 match_const(std::string_view s, std::size_t i, std::size_t &out_len) {
     const std::string_view rest = s.substr(i);
+    if (rest.empty() || !kConstCanStart[static_cast<unsigned char>(rest[0])]) {
+        out_len = 0;
+        return nullptr;
+    }
     const ConstSpec *best = nullptr;
     std::size_t best_len = 0;
     const auto consider = [&](std::string_view name, const ConstSpec &c) {

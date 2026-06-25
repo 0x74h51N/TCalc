@@ -185,6 +185,10 @@ Token build_call_token(
 
 const OpSpec *match_op(std::string_view s, std::size_t i, std::size_t &out_len) {
     const std::string_view rest = s.substr(i);
+    if (rest.empty() || !tcalc::ops::kOpCanStart[static_cast<unsigned char>(rest[0])]) {
+        out_len = 0;
+        return nullptr;
+    }
     const OpSpec *best = nullptr;
     std::size_t best_len = 0;
 

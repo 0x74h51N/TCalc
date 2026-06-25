@@ -10,6 +10,8 @@
 #include <cstdint>
 #include <string_view>
 
+#include "parser/internal/helpers.hpp"
+
 namespace tcalc::ops {
 
 /// Operator associativity for precedence resolution.
@@ -762,27 +764,19 @@ consteval auto build_token_table() {
 
 inline constexpr auto kTokenTable = build_token_table();
 
-consteval auto build_ops_by_id() {
-    std::array<const OpSpec *, static_cast<std::size_t>(OpId::Count)> out{};
-    for (auto &p : out) {
-        p = nullptr;
+// First-byte filter: kOpCanStart[b] is true iff some op token starts with byte b.
+// Lets match_op skip the longest-match scan at positions that begin no token.
+consteval parser::FirstByteTable build_op_can_start() {
+    parser::FirstByteTable out{};
+    for (const auto &entry : kTokenTable) {
+        parser::mark_first_byte(out, entry.token);
     }
-
-    for (const auto &op : kOps) {
-        const std::size_t idx = static_cast<std::size_t>(op.id);
-        if (idx >= out.size()) {
-            throw "ops.hpp: OpId out of range";
-        }
-        if (out[idx] != nullptr) {
-            throw "ops.hpp: duplicate OpId";
-        }
-        out[idx] = &op;
-    }
-
     return out;
 }
+inline constexpr auto kOpCanStart = build_op_can_start();
 
-inline constexpr auto kOpsById = build_ops_by_id();
+inline constexpr auto kOpsById =
+    parser::index_by_id<OpSpec, static_cast<std::size_t>(OpId::Count)>(kOps);
 
 inline constexpr const OpSpec *op_spec(OpId id) {
     return kOpsById[static_cast<std::size_t>(id)];
