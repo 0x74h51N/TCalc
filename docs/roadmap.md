@@ -199,15 +199,8 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 
 - [x] File menu
 - [x] Edit menu (undo, redo, cut, copy, paste), binding/apply
-- [ ] Constant menu
-  - [ ] Add constants grouped by category
-    - [ ] Mathematics
-    - [ ] Universal
-    - [ ] Electromagnetism
-    - [ ] Atomic & Nuclear
-    - [ ] Thermodynamics
-    - [ ] Chemistry
-  - [ ] Add constants' pad
+- [x] Constant menu
+  - [x] Add constants grouped by category
 - [ ] Help menu
   - [ ] Find Action
   - [ ] User manual
@@ -248,6 +241,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
       - [x] Constant pad toggle
     - [x] History panel toggle
     - [x] Restore keypads layout style
+  - [ ] Add constants' keypad toggle buttons
 
 ### History panel
 

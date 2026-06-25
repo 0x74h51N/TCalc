@@ -124,19 +124,19 @@ inline constexpr std::array kConstants{
         .id = ConstId::VacuumPermittivity,
         .category = CategoryId::Electromagnetism,
         .symbol = "ε₀",
-        .aliases = {"vacuumpermittivity, permittivity"},
+        .aliases = {"vacuumpermittivity", "permittivity"},
         .value = 8.8541878188e-12},
     ConstSpec{
         .id = ConstId::VacuumPermeability,
         .category = CategoryId::Electromagnetism,
         .symbol = "μ₀",
-        .aliases = {"vacuumpermeability, permeability"},
+        .aliases = {"vacuumpermeability", "permeability"},
         .value = 1.25663706127e-6},
     ConstSpec{
         .id = ConstId::VacuumImpedance,
         .category = CategoryId::Electromagnetism,
         .symbol = "Z₀",
-        .aliases = {"vacuumimpedance, impedance"},
+        .aliases = {"vacuumimpedance", "impedance"},
         .value = 376.730313412},
     ConstSpec{
         .id = ConstId::ElementaryCharge,
