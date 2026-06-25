@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 
+import calc_native
 from PySide6.QtCore import QPoint, QSettings, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -23,9 +24,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from tcalc.core.constants import CONST_BY_ID
 from tcalc.core.ops import Operation
 from tcalc.theme import get_theme
+from tcalc.ui.utils import split_camel
 from tcalc.ui.widgets.common.button import IconButton, KeyButton, KSSpinBox
+from tcalc.ui.widgets.common.constants_menu import ConstEntry, build_constant_menu
 from tcalc.ui.widgets.common.picker import SearchablePicker
 from tcalc.ui.widgets.common.toolbar import Toolbar
 from tcalc.ui.widgets.common.types import KeyDef
@@ -52,6 +56,19 @@ def _recalc_positions(keys: list[KeyDef], max_rows: int) -> None:
 def _add_operation(keys: list[KeyDef], op: Operation, max_rows: int) -> None:
     idx = len(keys)
     keys.append(KeyDef.from_op(op, idx % max_rows, idx // max_rows))
+
+
+def _add_constant(keys: list[KeyDef], entry: ConstEntry, max_rows: int) -> None:
+    idx = len(keys)
+    keys.append(
+        KeyDef(
+            label=entry.symbol,
+            operation=entry.id,
+            row=idx % max_rows,
+            col=idx // max_rows,
+            tooltip=entry.name,
+        )
+    )
 
 
 def _replace_operation(keys: list[KeyDef], index: int, op: Operation) -> None:
@@ -88,24 +105,36 @@ def _set_key_color(
         kd.text_color = text
 
 
+def _resolve_key(name: str, row: int, col: int) -> KeyDef | None:
+    """Rebuild a KeyDef from a saved key name (an Operation or a constant)."""
+    if name in Operation.__members__:
+        return KeyDef.from_op(Operation[name], row, col)
+
+    cid = calc_native.ConstId.__members__.get(name)
+    if cid is not None:
+        spec = CONST_BY_ID[cid]
+        return KeyDef(
+            label=spec.symbol,
+            operation=cid,
+            row=row,
+            col=col,
+            tooltip=split_camel(cid.name),
+        )
+    return None
+
+
 def _load_keys(data: list[dict[str, str]], max_rows: int) -> list[KeyDef]:
     keys: list[KeyDef] = []
-
     for i, entry in enumerate(data):
-        op_name = entry.get("operation")
-        if not op_name:
+        name = entry.get("operation")
+        if not name:
             continue
-
-        try:
-            op = Operation[op_name]
-        except KeyError:
+        kd = _resolve_key(name, i % max_rows, i // max_rows)
+        if kd is None:
             continue
-
-        kd = KeyDef.from_op(op, i % max_rows, i // max_rows)
         kd.bg_color = entry.get("bg_color", "")
         kd.text_color = entry.get("text_color", "")
         keys.append(kd)
-
     return keys
 
 
@@ -312,12 +341,16 @@ class KSGrid(QWidget):
         """Create a click handler for a key button."""
 
         def handler(_: bool = False) -> None:
-            if kd.operation is None:
+            op = kd.operation
+            if op is None:
                 return
-            value = (
-                kd.operation.symbol if isinstance(kd.operation, Operation) else str(kd.operation)
-            )
-            self.key_clicked.emit(value, kd.operation)
+            if isinstance(op, Operation):
+                value = op.symbol
+            elif isinstance(op, calc_native.ConstId):
+                value = CONST_BY_ID[op].symbol
+            else:
+                value = str(op)
+            self.key_clicked.emit(value, op)
 
         return handler
 
@@ -604,8 +637,8 @@ class CustomPad(QWidget):
         menu.addAction(
             "Add Operation", lambda: self._open_op_picker(popup_pos, grid_index=grid_index)
         )
-        const_action = menu.addAction("Add Constant")
-        const_action.setEnabled(False)
+        const_sub = self._styled_menu(btn, parent_menu=menu, title="Add Constant")
+        build_constant_menu(const_sub, lambda e: self._on_constant_picked(e, grid_index))
         menu.exec(popup_pos)
 
     @staticmethod
@@ -663,6 +696,12 @@ class CustomPad(QWidget):
             if gi < len(self._grids):
                 _add_operation(self._grids[gi].keys, op, self._grids[gi].max_rows)
                 self._grids[gi].rebuild()
+
+    def _on_constant_picked(self, entry: ConstEntry, grid_index: int) -> None:
+        if grid_index < len(self._grids):
+            grid = self._grids[grid_index]
+            _add_constant(grid.keys, entry, grid.max_rows)
+            grid.rebuild()
 
     def _on_color_picked(self, color_value: str | None) -> None:
         if color_value is None:
