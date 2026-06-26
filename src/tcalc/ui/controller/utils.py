@@ -36,15 +36,19 @@ def apply_hyp_variant(op: Operation, hyp_enabled: bool) -> Operation:
     return HYP_MAP.get(op, op)
 
 
-def format_result(value) -> str:
-    """Format a numeric result (float, complex, Rational, Collection, etc.) for display."""
+def format_result(value, *, group: bool = False) -> str:
+    """Format a numeric result (float, complex, Rational, Collection, etc.).
+
+    Default output is tokenizer-safe (no thousands separators) so it can be fed
+    back into the editor. Pass group=True only for display widgets (result
+    screen, memory bar, history), where the comma is a visual separator."""
 
     if isinstance(value, calc_native.Collection):
         return repr(value)
 
     if isinstance(value, calc_native.Rational):
         # Display as decimal value for now; fraction widget will use .numerator/.denominator
-        return format_result(value.to_double())
+        return format_result(value.to_double(), group=group)
 
     if isinstance(value, calc_native.BigReal):
         return str(value)
@@ -58,7 +62,7 @@ def format_result(value) -> str:
             return f"{x:.16e}"
 
         if x.is_integer():
-            return f"{int(x):,}"
+            return f"{int(x):,}" if group else str(int(x))
 
         result = f"{x:.16g}"
         if "999999999999" in result:
@@ -66,7 +70,7 @@ def format_result(value) -> str:
 
         if "." in result:
             int_part, dec_part = result.split(".", 1)
-            if abs(float(int_part)) >= 1000:
+            if group and abs(float(int_part)) >= 1000:
                 return f"{int(int_part):,}.{dec_part}"
 
         return result
@@ -106,8 +110,3 @@ def format_result(value) -> str:
         return f"{fmt_real(re)}{sign}{imag_part}"
 
     return fmt_real(float(value))
-
-
-# def clean_for_expression(formatted: str) -> str:
-#     """Remove formatting (commas) from a display string for expression use."""
-#     return formatted.replace(",", "")

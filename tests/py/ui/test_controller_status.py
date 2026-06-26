@@ -218,6 +218,39 @@ def test_short_error_fires_for_bare_comma():
     assert _short_error_for_expression(expr, _tokens(expr)) == "Use [ ] for lists or ( ) for points"
 
 
+def test_handle_equals_feeds_grouping_free_expression():
+    """Enter on a result >= 1000 must push a comma-free expression to the editor,
+    so the next tokenize sees one Number (not comma-separated list elements)."""
+    from tcalc.core.parser import tokenize
+
+    ctrl = _make_stub_ctrl("1000000+234567")
+    ctrl._tokenized = tokenize(ctrl._expression)
+    ctrl.tokens = ctrl._tokenized.tokens
+    ctrl._result = 1234567.0
+    ctrl._edit_ops = MagicMock()
+
+    ctrl._handle_equals()
+
+    ctrl._display.editor.set_plain_text.assert_called_once_with("1234567")  # pyright: ignore[reportAttributeAccessIssue]
+    assert ctrl._expression == "1234567"
+
+
+def test_handle_equals_history_keeps_display_format():
+    """History still records the human-readable display form (with separators)."""
+    from tcalc.core.parser import tokenize
+
+    ctrl = _make_stub_ctrl("1000000+234567")
+    ctrl._tokenized = tokenize(ctrl._expression)
+    ctrl.tokens = ctrl._tokenized.tokens
+    ctrl._result = 1234567.0
+    ctrl._edit_ops = MagicMock()
+
+    ctrl._handle_equals()
+
+    entry = ctrl._history.update_history.call_args.args[0]  # pyright: ignore[reportAttributeAccessIssue]
+    assert entry.result == "1,234,567"
+
+
 def _eval_error(expr: str):
     """Run _evaluate_tokens on a bare controller stub; return (kind, detail)."""
     from tcalc.core.engine import Calculator
