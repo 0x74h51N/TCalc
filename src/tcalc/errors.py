@@ -38,6 +38,7 @@ class Msg:
 
     # controller status hint
     USE_LIST_OR_POINT = "Use [ ] for lists or ( ) for points"
+    MEMORY_NUMBERS_ONLY = "Memory holds numbers only"
 
     # variable assignment
     INVALID_ASSIGNMENT_TARGET = "left of = must be a single letter (A-Za-z)"

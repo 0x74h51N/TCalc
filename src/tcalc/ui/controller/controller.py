@@ -183,6 +183,16 @@ class CalculatorController:
                 self._force_error_display = True
                 self._compute_and_update()
                 return
+            # Memory is scalar-only; reject collections at the single write path
+            # so MR/M+ never operate on a list/point.
+            if isinstance(value, calc_native.Collection):
+                self._display.result.update_res(
+                    self._display.result.result_label.text(),
+                    result=value,
+                    status_text=Msg.MEMORY_NUMBERS_ONLY,
+                    status_kind="error",
+                )
+                return
             fn(value)
 
         actions = {
