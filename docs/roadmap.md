@@ -98,7 +98,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [x] Atomic & Nuclear: α, a₀, R∞, mₑ, mₚ, mₙ
     - [x] Thermodynamics: R, k
     - [x] Chemistry: Nₐ, F, mᵤ
-    - [ ] Deferred: b_W, R_K, K_J, μ_B, μ_N (depends on variable index rendering, e.g. b\_{W})
+    - [ ] Deferred: σ_SB, b_W, R_K, K_J, μ_B, μ_N (depends on variable index rendering, e.g. b\_{W})
 - [ ] Add user-defined (custom) functions
   - [ ] Parse function definitions (`f(x) = expr`)
   - [ ] Bind named user functions in the session store; call them like built-ins

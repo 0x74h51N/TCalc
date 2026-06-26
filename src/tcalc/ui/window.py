@@ -243,7 +243,7 @@ class MainWindow(QMainWindow):
     def _sync_memory_state(self, app_state) -> None:
         self.calc_widget.topbar.set_memory_available(app_state.memory is not None)
         self.memory_bar.set_memory(
-            "" if app_state.memory is None else format_result(app_state.memory)
+            "" if app_state.memory is None else format_result(app_state.memory, group=True)
         )
 
     # ------------------------------------------------------------------

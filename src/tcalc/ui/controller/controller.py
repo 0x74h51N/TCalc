@@ -139,13 +139,17 @@ class CalculatorController:
             self._compute_and_update()
             return
 
-        formatted_res = format_result(self._result)
         flat_text = calc_native.tokens_to_flat_text(self._tokenized.tokens)
-        entry = HistoryEntry(self._expression, formatted_res, self._tokenized, flat_text)
+        entry = HistoryEntry(
+            self._expression, format_result(self._result, group=True), self._tokenized, flat_text
+        )
         self._history.update_history(entry)
         self._just_solved = True
-        self._display.editor.set_plain_text(formatted_res)
-        self._expression = formatted_res
+        # The editor re-tokenizes its plain text; the default (ungrouped) form is
+        # tokenizer-safe, since the comma is the list/point separator.
+        expr_res = format_result(self._result)
+        self._display.editor.set_plain_text(expr_res)
+        self._expression = expr_res
 
         self._edit_ops.reset_navigation()
 
@@ -193,7 +197,9 @@ class CalculatorController:
         action()
         self._topbar.set_memory_available(self._app_state.memory is not None)
         self._memory_bar.set_memory(
-            "" if self._app_state.memory is None else format_result(self._app_state.memory)
+            ""
+            if self._app_state.memory is None
+            else format_result(self._app_state.memory, group=True)
         )
 
     # Mode handlers
@@ -326,7 +332,7 @@ class CalculatorController:
         else:
             self._error_text = None
             if _can_preview and not self._just_solved:
-                result_text = format_result(self._result)
+                result_text = format_result(self._result, group=True)
 
         self._force_error_display = False
         self._display.result.update_res(
