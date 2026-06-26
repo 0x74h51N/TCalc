@@ -251,6 +251,56 @@ def test_handle_equals_history_keeps_display_format():
     assert entry.result == "1,234,567"
 
 
+def _collection(items):
+    import calc_native
+
+    return calc_native.Collection(calc_native.Collection.Kind.List, items)
+
+
+def test_memory_store_rejects_collection():
+    """MS with a collection result must not enter memory; surfaces an error."""
+    from tcalc.ui.widgets.calc.topbar.defins import MemoryKey
+
+    ctrl = _make_stub_ctrl("[3,4,5]")
+    ctrl._app_state.memory = None
+    ctrl._result = _collection([3, 4, 5])
+
+    ctrl._handle_memory(MemoryKey.MS.value)
+
+    assert ctrl._app_state.memory is None
+    call = ctrl._display.result.update_res.call_args
+    assert call.kwargs.get("status_kind") == "error"
+    assert call.kwargs.get("status_text") == "Memory holds numbers only"
+
+
+def test_memory_add_rejects_collection_without_raising():
+    """M+ with a collection result must not raise (add() crashed before)."""
+    from tcalc.ui.widgets.calc.topbar.defins import MemoryKey
+
+    ctrl = _make_stub_ctrl("[3,4,5,6]")
+    ctrl._app_state.memory = None
+    ctrl._result = _collection([3, 4, 5, 6])
+
+    ctrl._handle_memory(MemoryKey.M_PLUS.value)  # must not raise
+
+    assert ctrl._app_state.memory is None
+    call = ctrl._display.result.update_res.call_args
+    assert call.kwargs.get("status_kind") == "error"
+
+
+def test_memory_store_accepts_scalar():
+    """Regression guard: a normal scalar still stores."""
+    from tcalc.ui.widgets.calc.topbar.defins import MemoryKey
+
+    ctrl = _make_stub_ctrl("5")
+    ctrl._app_state.memory = None
+    ctrl._result = 5.0
+
+    ctrl._handle_memory(MemoryKey.MS.value)
+
+    assert ctrl._app_state.memory == 5.0
+
+
 def _eval_error(expr: str):
     """Run _evaluate_tokens on a bare controller stub; return (kind, detail)."""
     from tcalc.core.engine import Calculator
