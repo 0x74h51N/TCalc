@@ -6,7 +6,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence
 
 from tcalc.core.ops import Operation
-from tcalc.ui.controller.menubar import EditOperations, FileOperations, SettingsOperations
+from tcalc.ui.controller.menubar import EditOperations, FileOperations, ViewOperations
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
 
 _KEY_TO_OPERATION: list[tuple[int, Operation]] = [
@@ -55,11 +55,11 @@ DEFAULT_ACTION_SHORTCUTS: dict[ShortcutId, str] = {
     EditOperations.cut: "Ctrl+X",
     EditOperations.copy: "Ctrl+C",
     EditOperations.paste: "Ctrl+V",
-    SettingsOperations.toggle_history: "Ctrl+H",
-    SettingsOperations.toggle_numpad: "Ctrl+N",
-    SettingsOperations.toggle_funcpad: "Ctrl+F",
-    SettingsOperations.toggle_trigpad: "Ctrl+T",
-    SettingsOperations.restore_default_layout: "CTRL+.",
+    ViewOperations.toggle_history: "Ctrl+H",
+    ViewOperations.toggle_numpad: "Ctrl+N",
+    ViewOperations.toggle_funcpad: "Ctrl+F",
+    ViewOperations.toggle_trigpad: "Ctrl+T",
+    ViewOperations.restore_default_layout: "CTRL+.",
 }
 
 

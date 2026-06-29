@@ -9,7 +9,6 @@ from typing import List
 import calc_native
 from PySide6.QtCore import QStandardPaths
 
-from tcalc.app_state import CalculatorMode
 from tcalc.ui.config import history_config
 
 _log = logging.getLogger("tcalc.ui.history.storage")
@@ -31,13 +30,13 @@ def _get_data_dir() -> Path:
     return data_dir
 
 
-def _history_path(mode: CalculatorMode) -> Path:
-    return _get_data_dir() / f"history_{mode.value}.dat"
+def _history_path() -> Path:
+    return _get_data_dir() / "history.dat"
 
 
-def load_history(mode: CalculatorMode) -> List[HistoryEntry]:
+def load_history() -> List[HistoryEntry]:
     """Load history from binary file."""
-    path = _history_path(mode)
+    path = _history_path()
 
     if not path.exists():
         return []
@@ -50,9 +49,9 @@ def load_history(mode: CalculatorMode) -> List[HistoryEntry]:
         return []
 
 
-def save_history(history: List[HistoryEntry], mode: CalculatorMode) -> None:
+def save_history(history: List[HistoryEntry]) -> None:
     """Save history to binary file."""
-    path = _history_path(mode)
+    path = _history_path()
 
     max_items = int(history_config["max_items"])
     if len(history) > max_items:
@@ -65,9 +64,9 @@ def save_history(history: List[HistoryEntry], mode: CalculatorMode) -> None:
         _log.debug("History storage write error: %s", path, exc_info=True)
 
 
-def clear_history_file(mode: CalculatorMode) -> None:
+def clear_history_file() -> None:
     """Clear history file."""
-    path = _history_path(mode)
+    path = _history_path()
 
     try:
         with open(path, "wb") as f:

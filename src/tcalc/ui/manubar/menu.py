@@ -14,6 +14,7 @@ from .menus.constant import ConstantMenu
 from .menus.edit import EditMenu
 from .menus.file import FileMenu
 from .menus.settings import SettingsMenu
+from .menus.view import ViewMenu
 from .style import apply_menu_styles
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
 class Menubar:
     def __init__(self, window: MainWindow) -> None:
         self.window = window
-        self.settings_menu: SettingsMenu
+        self.view_menu: ViewMenu
         self.shortcuts = ShortcutManager()
         self._create_menubar()
 
@@ -34,6 +35,7 @@ class Menubar:
 
         FileMenu(menubar, self.window, self.shortcuts)
         EditMenu(menubar, self.window, self.shortcuts)
-        self.settings_menu = SettingsMenu(menubar, self.window, self.shortcuts)
+        self.view_menu = ViewMenu(menubar, self.window, self.shortcuts)
+        SettingsMenu(menubar, self.window, self.shortcuts)
         ConstantMenu(menubar, self.window)
         menubar.addMenu("Help")

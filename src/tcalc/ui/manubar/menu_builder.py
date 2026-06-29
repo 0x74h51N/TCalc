@@ -15,21 +15,21 @@ from typing import TYPE_CHECKING, Callable, Generic, TypeVar, cast
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
 
-from tcalc.app_state import AppState, CalculatorMode
-from tcalc.ui.controller.menubar import EditOperations, FileOperations, SettingsOperations
+from tcalc.app_state import AppState, KeypadPreset
+from tcalc.ui.controller.menubar import EditOperations, FileOperations, ViewOperations
 from tcalc.ui.utils import get_icon
 
 if TYPE_CHECKING:
     from ..keyboard import ShortcutManager
     from ..window import MainWindow
 
-OpsType = TypeVar("OpsType", FileOperations, EditOperations, SettingsOperations)
+OpsType = TypeVar("OpsType", FileOperations, EditOperations, ViewOperations)
 
 
 class MenuActionType(Enum):
     """Menu action item type - determines callback behavior and context."""
 
-    OPS = "ops"  # fn(ops) - EditOperations/FileOperations/SettingsOperations
+    OPS = "ops"  # fn(ops) - EditOperations/FileOperations/ViewOperations
     TOGGLE = "toggle"  # fn(ops, checked) - with app_state
     BUTTON = "button"  # fn(ctx)
 
@@ -75,7 +75,7 @@ class MenuActionItem(MenuItem[TMenuContext], Generic[TMenuContext]):
     item_type: MenuActionType = MenuActionType.OPS
     checked_getter: Callable[[AppState], bool] | None = None
     fn: Callable
-    mode: CalculatorMode | None = None
+    preset: KeypadPreset | None = None
 
     def _create_action(self, ctx: BaseMenuContext) -> QAction:
         action = QAction(get_icon(self.icon), self.text, ctx.window)

@@ -11,7 +11,7 @@ import calc_native
 import pytest
 from PySide6.QtCore import Qt
 
-from tcalc.app_state import CalculatorMode, RenderMode, get_app_state
+from tcalc.app_state import RenderMode, get_app_state
 from tcalc.core.parser import tokenize
 from tcalc.ui.config import history_style as style
 from tcalc.ui.widgets.history.history import History, HistoryItem
@@ -22,14 +22,14 @@ from tcalc.ui.widgets.history.utils import wrap_expression
 @pytest.fixture
 def history(qapp, monkeypatch):
     """Fresh History widget with storage disabled."""
-    monkeypatch.setattr("tcalc.ui.widgets.history.history.load_history", lambda _mode: [])
-    monkeypatch.setattr("tcalc.ui.widgets.history.history.save_history", lambda _items, _mode: None)
-    monkeypatch.setattr("tcalc.ui.widgets.history.history.clear_history_file", lambda _mode: None)
+    monkeypatch.setattr("tcalc.ui.widgets.history.history.load_history", lambda: [])
+    monkeypatch.setattr("tcalc.ui.widgets.history.history.save_history", lambda _items: None)
+    monkeypatch.setattr("tcalc.ui.widgets.history.history.clear_history_file", lambda: None)
 
     state = get_app_state()
     state._history_mode = RenderMode.FLAT
 
-    widget = History(mode=CalculatorMode.SIMPLE)
+    widget = History()
     widget.resize(400, 600)
     widget.show()
     qapp.processEvents()

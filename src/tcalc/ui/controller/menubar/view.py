@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-from tcalc.app_state import CalculatorMode, DockKind, get_app_state
+from tcalc.app_state import DockKind, KeypadPreset, get_app_state
 
 
-class SettingsOperations:
+class ViewOperations:
     def __init__(self, window) -> None:
         self._window = window
         self._app_state = get_app_state()
 
-    def set_mode(self, mode: CalculatorMode) -> None:
-        self._app_state.mode = mode
+    def set_preset(self, preset: KeypadPreset) -> None:
+        self._app_state.keypad_preset = preset
         self._app_state.history_index = -1
-        self._window.history.reload_from_storage(mode)
         self._window.update_layout()
 
     def toggle_history(self, checked: bool) -> None:

@@ -14,7 +14,7 @@ import shiboken6
 from PySide6.QtCore import QEventLoop
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
-from tcalc.app_state import CalculatorMode, RenderMode, get_app_state
+from tcalc.app_state import RenderMode, get_app_state
 from tcalc.core.engine import Calculator
 from tcalc.core.parser import evaluate_tokens, tokenize, tokenize_string
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
@@ -324,7 +324,7 @@ def make_history_init_func(qapp, math_mode: bool = False, first_paint_only: bool
         if math_mode:
             app_state._history_mode = RenderMode.MATH
         try:
-            h = History(mode=CalculatorMode.SCIENCE)
+            h = History()
             h.show()
             if first_paint_only:
                 qapp.sendPostedEvents()
