@@ -87,7 +87,22 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
                 fn=lambda ops: ops.set_preset(KeypadPreset.STATISTIC),
                 preset=KeypadPreset.STATISTIC,
             ),
+            MenuSeparatorItem(),
+            MenuActionItem(
+                text="Add Custom...",
+                icon="./assets/custom_pad.svg",
+                item_type=MenuActionType.OPS,
+                fn=ViewOperations.add_custom_preset,
+            ),
         ),
+    ),
+    MenuActionItem(
+        text="Angle Buttons",
+        icon="object-rotate-right",
+        checkable=True,
+        item_type=MenuActionType.TOGGLE,
+        checked_getter=lambda s: s.angle_visible,
+        fn=ViewOperations.toggle_angle,
     ),
     MenuSeparatorItem(),
     SubmenuItem(
