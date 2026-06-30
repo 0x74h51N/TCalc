@@ -318,3 +318,13 @@ selected_text = "selection_text"
 selected_border = "border_focus"
 disabled_text = "text_secondary"
 separator_color = "border_light"
+
+[manubar.preset]
+# Custom layout-preset row + its floating action bar
+row_icon = "./assets/custom_pad.svg"
+rename_icon = "insert-text"
+update_icon = "document-save"
+delete_icon = "edit-delete"
+action_btn_size = 24
+action_spacing = 0
+bar_offset = 4

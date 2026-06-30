@@ -176,3 +176,39 @@ class KSSpinBox(QSpinBox):
         self.setToolTip(tooltip)
         if width is not None:
             self.setFixedWidth(width)
+
+
+class CustomPresetActions(QWidget):
+    """Floating rename/update/delete bar overlaid on the active custom-preset row.
+
+    `config` supplies the icon names, button size and spacing so the widget stays
+    free of any menubar-specific config import."""
+
+    rename_requested = Signal()
+    update_requested = Signal()
+    delete_requested = Signal()
+
+    def __init__(self, config: Mapping, parent: QWidget | None = None):
+        super().__init__(parent)
+        size = int(config["action_btn_size"])
+
+        row = QHBoxLayout(self)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(int(config["action_spacing"]))
+
+        self.rename_btn = IconButton(config["rename_icon"], "Rename preset", size=size, parent=self)
+        self.update_btn = IconButton(
+            config["update_icon"], "Save current layout to this preset", size=size, parent=self
+        )
+        self.delete_btn = IconButton(config["delete_icon"], "Delete preset", size=size, parent=self)
+
+        for btn, sig in (
+            (self.rename_btn, self.rename_requested),
+            (self.update_btn, self.update_requested),
+            (self.delete_btn, self.delete_requested),
+        ):
+            btn.clicked.connect(lambda _=False, s=sig: s.emit())
+            row.addWidget(btn)
+
+    def set_update_enabled(self, enabled: bool) -> None:
+        self.update_btn.setEnabled(enabled)

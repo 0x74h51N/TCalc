@@ -38,6 +38,7 @@ calc_config = _config["calc"]
 
 # Menu bar
 manubar_style = _config["manubar"]["style"]
+preset_config = _config["manubar"]["preset"]
 
 
 def get_history_width_from_total(total_width: int) -> int:

@@ -29,6 +29,7 @@ from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
 from tcalc.app_state import DockKind, KeypadPreset, get_app_state
 from tcalc.ui.controller.menubar import ViewOperations
 from tcalc.ui.keyboard import KeyboardHandler
+from tcalc.ui.layout_presets import LayoutPreset, LayoutPresetStore
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad
 
 from ..core import Calculator
@@ -141,6 +142,7 @@ class MainWindow(QMainWindow):
         # Dynamic custom pads (restored after controller is ready)
         self._custom_pads: dict[int, tuple[CustomPad, QDockWidget]] = {}
         self._settings = QSettings("TCalc", "TCalc")
+        self._layout_presets = LayoutPresetStore()
 
     def _setup_history_dock(self) -> None:
         self.memory_bar = MemoryBar()
@@ -232,10 +234,17 @@ class MainWindow(QMainWindow):
         elif not dock.isHidden():
             dock.close()
 
+    def _active_angle_visible(self, app_state) -> bool:
+        cid = app_state.active_custom_id
+        if cid is not None:
+            rec = self._layout_presets.get(cid)
+            if rec is not None:
+                return rec.angle_visible
+        return app_state.keypad_preset == KeypadPreset.SCIENCE
+
     def _sync_mode_widgets(self, app_state) -> None:
         topbar = self.calc_widget.topbar
-
-        topbar.set_angle_visible(app_state.keypad_preset == KeypadPreset.SCIENCE)
+        topbar.set_angle_visible(self._active_angle_visible(app_state))
         topbar.set_angle(app_state.angle_unit)
 
     def _sync_memory_state(self, app_state) -> None:
@@ -276,7 +285,7 @@ class MainWindow(QMainWindow):
             restored = self.restoreState(state, self.WINDOW_STATE_VERSION)
 
         if not restored:
-            self._default_dock_layout()
+            self.restore_default_layout()
 
         app_state = get_app_state()
         for kind, dock in self._docks.items():
@@ -303,10 +312,60 @@ class MainWindow(QMainWindow):
         self.setCorner(Qt.Corner.BottomRightCorner, Qt.DockWidgetArea.RightDockWidgetArea)
         self.setCorner(Qt.Corner.BottomLeftCorner, Qt.DockWidgetArea.LeftDockWidgetArea)
 
-    def apply_def_dock_layout(self) -> None:
-        self._default_dock_layout()
-        self.sync_all_docks()
-        self.update_layout()
+    def apply_preset_layout(self, preset: KeypadPreset) -> None:
+        from tcalc.app_state import PRESET_LAYOUTS
+
+        layout = PRESET_LAYOUTS[preset]
+        visible = layout.visible_keypads
+        keep = {self._docks[k] for k in visible}
+
+        builtin = (d for k, d in self._docks.items() if k is not DockKind.HISTORY)
+        custom = (d for _, d in self._custom_pads.values())
+        for dock in (*builtin, *custom):
+            if dock not in keep:
+                self._apply_dock_state(dock, False)
+
+        prev: QDockWidget | None = None
+        for kind in visible:
+            dock = self._docks[kind]
+            if prev is None:
+                self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock)
+            else:
+                self.splitDockWidget(prev, dock, Qt.Orientation.Horizontal)
+            self._apply_dock_state(dock, True)
+            prev = dock
+
+        hist = self._docks[DockKind.HISTORY]
+        was_hidden = hist.isHidden()
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, hist)
+        self.resizeDocks([hist], [int(window["history_min_width"])], Qt.Orientation.Horizontal)
+        hist.setVisible(not was_hidden)
+
+        app_state = get_app_state()
+        self.calc_widget.topbar.set_angle_visible(layout.angle_visible)
+        self.calc_widget.topbar.set_angle(app_state.angle_unit)
+
+    def capture_layout(self) -> tuple[QByteArray, bool]:
+        return (
+            self.saveState(self.WINDOW_STATE_VERSION),
+            self.calc_widget.topbar.is_angle_visible(),
+        )
+
+    def apply_custom_layout(self, record: LayoutPreset) -> None:
+        self.restoreState(record.state, self.WINDOW_STATE_VERSION)
+        self.calc_widget.topbar.set_angle_visible(record.angle_visible)
+        app_state = get_app_state()
+        for kind, dock in self._docks.items():
+            app_state.set_dock_open(kind, not dock.isHidden())
+
+    def restore_default_layout(self) -> None:
+        app_state = get_app_state()
+        cid = app_state.active_custom_id
+        rec = self._layout_presets.get(cid) if cid is not None else None
+        if rec is not None:
+            self.apply_custom_layout(rec)
+        else:
+            self.apply_preset_layout(app_state.keypad_preset)
         QTimer.singleShot(0, lambda: self.history.update_fonts(force_layout=True))
 
     # ------------------------------------------------------------------

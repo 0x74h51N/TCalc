@@ -6,14 +6,30 @@ QMenu {
     font-size: ${menu_font_size}px;
 }
 
-QMenu::item {
+/* Native items and the custom-preset row (a QWidgetAction QPushButton that
+   can't inherit QMenu::item) share one look. */
+QMenu::item,
+QPushButton[presetRow="true"] {
     padding: ${item_padding_vertical}px ${item_padding_horizontal}px;
     border-radius: ${item_border_radius}px;
+    border: 1px solid transparent;
+}
+
+QMenu::item {
     margin: ${item_margin}px 0;
     min-width: ${item_min_width}px;
 }
 
-QMenu::item:selected {
+QPushButton[presetRow="true"] {
+    background: transparent;
+    color: $menu_text;
+    text-align: left;
+}
+
+QMenu::item:selected,
+QMenu::item:checked,
+QPushButton[presetRow="true"]:hover,
+QPushButton[presetRow="true"][active="true"] {
     background: $selected_background;
     color: $selected_text;
     border: 1px solid $selected_border;
@@ -21,12 +37,6 @@ QMenu::item:selected {
 
 QMenu::item:disabled {
     color: $disabled_text;
-}
-
-QMenu::item:checked {
-    background: $selected_background;
-    color: $selected_text;
-    border: 1px solid $selected_border;
 }
 
 QMenu::icon {

@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
 
 import calc_native
@@ -30,6 +31,20 @@ class DockKind(Enum):
     NUMPAD = "numpad"
     FUNCPAD = "funcpad"
     TRIGPAD = "trigpad"
+
+
+@dataclass(frozen=True)
+class PresetLayout:
+    visible_keypads: tuple[DockKind, ...]
+    angle_visible: bool
+
+
+PRESET_LAYOUTS: dict[KeypadPreset, PresetLayout] = {
+    KeypadPreset.SIMPLE: PresetLayout((DockKind.NUMPAD,), angle_visible=False),
+    KeypadPreset.SCIENCE: PresetLayout(
+        (DockKind.TRIGPAD, DockKind.NUMPAD, DockKind.FUNCPAD), angle_visible=True
+    ),
+}
 
 
 class RenderMode(Enum):
@@ -61,6 +76,11 @@ class AppState:
             self._keypad_preset: KeypadPreset = KeypadPreset(stored_preset)
         except ValueError:
             self._keypad_preset = KeypadPreset.SIMPLE
+
+        stored_custom = self._settings.value("active_custom_id", None)
+        self._active_custom_id: int | None = (
+            int(str(stored_custom)) if stored_custom not in (None, "") else None
+        )
 
         self._history_mode: RenderMode = RenderMode(
             self._settings.value("history_mode", RenderMode.FLAT.value)
@@ -98,6 +118,18 @@ class AppState:
     def keypad_preset(self, value: KeypadPreset) -> None:
         self._keypad_preset = value
         self._settings.setValue("keypad_preset", value.value)
+
+    @property
+    def active_custom_id(self) -> int | None:
+        return self._active_custom_id
+
+    @active_custom_id.setter
+    def active_custom_id(self, value: int | None) -> None:
+        self._active_custom_id = value
+        if value is None:
+            self._settings.remove("active_custom_id")
+        else:
+            self._settings.setValue("active_custom_id", value)
 
     @property
     def history_mode(self) -> RenderMode:
