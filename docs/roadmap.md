@@ -231,9 +231,8 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [ ] Local persistence last selected mod state
 
 - [ ] View menu
-  - [ ] Add this menu
+  - [x] Add this menu
   - [x] Dock window toggle buttons
-    <!-- TODO: buttons work but still live under the Settings menu in code; move them to this View menu -->
     - [x] Keypad Presets (basic, scientific, statistic)
     - [x] Keypads
       - [x] All keypads
@@ -282,9 +281,10 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
       - [x] Add option to remove or change key operation
 - [ ] Keypad layout presets (preset dock/keypad layouts; keypads are dock-composable)
   - [x] Layout state, layout update, binding and side effects
-  - [ ] Basic preset: simpler-operations keypad dock layout
-  - [ ] Scientific preset: sci-fi / advanced-operations keypad dock layout
-  - [ ] Statistic preset: data-store + statistic-operations keypad dock layout
+  - [x] Basic preset: simpler-operations keypad dock layout
+  - [x] Scientific preset: sci-fi / advanced-operations keypad dock layout
+  - [ ] Statistic preset: data-store + statistic-operations keypad dock layout (depends on statistic calculus and subscripted constants)
+  - [x] Custom layout presets: Add Custom, apply / rename / update / delete
 - [ ] Add mathematical expression GUI nodes (math render)
   - [x] Add ExpressionNode and ExpressionSlot class
     - [x] Make separate QLineEdits in math widgets (e.g., numerator/denominator, base/exponent)
