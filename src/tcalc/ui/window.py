@@ -337,6 +337,7 @@ class MainWindow(QMainWindow):
         app_state.angle_visible = layout.angle_visible
         self.calc_widget.topbar.set_angle_visible(layout.angle_visible)
         self.calc_widget.topbar.set_angle(app_state.angle_unit)
+        self._save_window_state()  # keep window/state in sync with the active preset
 
     def capture_layout(self) -> tuple[QByteArray, bool]:
         return (
@@ -351,6 +352,7 @@ class MainWindow(QMainWindow):
         self.calc_widget.topbar.set_angle_visible(record.angle_visible)
         for kind, dock in self._docks.items():
             app_state.set_dock_open(kind, not dock.isHidden())
+        self._save_window_state()  # keep window/state in sync with the active preset
 
     def restore_default_layout(self) -> None:
         app_state = get_app_state()

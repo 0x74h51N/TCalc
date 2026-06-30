@@ -358,3 +358,33 @@ def test_update_button_enabled_only_when_layout_differs(window, qapp):
     view_menu._populate_custom_presets()
     view_menu._on_preset_hover(view_menu._custom_preset_actions[rec.id])
     assert view_menu._preset_bar.update_btn.isEnabled()
+
+
+def test_active_preset_survives_unclean_close(window, qapp):
+    from tcalc.ui.window import MainWindow
+
+    ops = window.menubar.view_menu.ops
+    ops.set_preset(KeypadPreset.SCIENCE)
+    qapp.processEvents()
+    rec = ops.save_custom_preset("sci")  # captures science (funcpad visible)
+
+    ops.set_preset(KeypadPreset.SIMPLE)
+    qapp.processEvents()
+    window._save_window_state()  # a previous clean close left window/state at SIMPLE
+
+    ops.apply_custom_preset(rec.id)  # then user switches to sci...
+    qapp.processEvents()
+    # ...and the app dies before another clean close (no closeEvent here).
+
+    app_state_mod._app_state = None
+    win2 = MainWindow()
+    win2.show()
+    qapp.processEvents()
+    try:
+        assert get_app_state().active_custom_id == rec.id
+        # layout must match the active preset (sci), not the stale SIMPLE state
+        assert not win2._docks[DockKind.FUNCPAD].isHidden()
+    finally:
+        win2.close()
+        win2.deleteLater()
+        qapp.processEvents()

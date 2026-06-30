@@ -47,6 +47,7 @@ class ViewOperations:
         state, angle = self._window.capture_layout()
         rec = self._window._layout_presets.add(name, state, angle)
         self._app_state.active_custom_id = rec.id
+        self._window._save_window_state()  # pair window/state with the new active preset
         return rec
 
     def add_custom_preset(self) -> None:
