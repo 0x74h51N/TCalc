@@ -96,6 +96,14 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             ),
         ),
     ),
+    MenuActionItem(
+        text="Angle Buttons",
+        icon="object-rotate-right",
+        checkable=True,
+        item_type=MenuActionType.TOGGLE,
+        checked_getter=lambda s: s.angle_visible,
+        fn=ViewOperations.toggle_angle,
+    ),
     MenuSeparatorItem(),
     SubmenuItem(
         text="Keypads",

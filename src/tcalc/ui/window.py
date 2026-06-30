@@ -234,17 +234,9 @@ class MainWindow(QMainWindow):
         elif not dock.isHidden():
             dock.close()
 
-    def _active_angle_visible(self, app_state) -> bool:
-        cid = app_state.active_custom_id
-        if cid is not None:
-            rec = self._layout_presets.get(cid)
-            if rec is not None:
-                return rec.angle_visible
-        return app_state.keypad_preset == KeypadPreset.SCIENCE
-
     def _sync_mode_widgets(self, app_state) -> None:
         topbar = self.calc_widget.topbar
-        topbar.set_angle_visible(self._active_angle_visible(app_state))
+        topbar.set_angle_visible(app_state.angle_visible)
         topbar.set_angle(app_state.angle_unit)
 
     def _sync_memory_state(self, app_state) -> None:
@@ -342,19 +334,21 @@ class MainWindow(QMainWindow):
         hist.setVisible(not was_hidden)
 
         app_state = get_app_state()
+        app_state.angle_visible = layout.angle_visible
         self.calc_widget.topbar.set_angle_visible(layout.angle_visible)
         self.calc_widget.topbar.set_angle(app_state.angle_unit)
 
     def capture_layout(self) -> tuple[QByteArray, bool]:
         return (
             self.saveState(self.WINDOW_STATE_VERSION),
-            self.calc_widget.topbar.is_angle_visible(),
+            get_app_state().angle_visible,
         )
 
     def apply_custom_layout(self, record: LayoutPreset) -> None:
         self.restoreState(record.state, self.WINDOW_STATE_VERSION)
-        self.calc_widget.topbar.set_angle_visible(record.angle_visible)
         app_state = get_app_state()
+        app_state.angle_visible = record.angle_visible
+        self.calc_widget.topbar.set_angle_visible(record.angle_visible)
         for kind, dock in self._docks.items():
             app_state.set_dock_open(kind, not dock.isHidden())
 

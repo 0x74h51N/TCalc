@@ -24,6 +24,10 @@ class ViewOperations:
         self._app_state.show_constant_buttons = checked
         self._window.update_layout()
 
+    def toggle_angle(self, checked: bool) -> None:
+        self._app_state.angle_visible = checked
+        self._window.update_layout()
+
     def toggle_numpad(self, checked: bool) -> None:
         self._window.sync_dock(DockKind.NUMPAD, checked)
 

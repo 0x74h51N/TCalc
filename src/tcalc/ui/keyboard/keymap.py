@@ -59,6 +59,7 @@ DEFAULT_ACTION_SHORTCUTS: dict[ShortcutId, str] = {
     ViewOperations.toggle_numpad: "Ctrl+N",
     ViewOperations.toggle_funcpad: "Ctrl+F",
     ViewOperations.toggle_trigpad: "Ctrl+T",
+    ViewOperations.toggle_angle: "Ctrl+O",
     ViewOperations.restore_default_layout: "CTRL+.",
 }
 

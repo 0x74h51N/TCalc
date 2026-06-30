@@ -53,6 +53,8 @@ class ViewMenu:
                     self._toggle_actions[defn.fn] = action
 
         self._update_preset_selection()
+        # The angle toggle is driven by presets (no signal), so re-sync its check on open.
+        self._view_menu.aboutToShow.connect(self._sync_angle_toggle)
 
         self._keypads_action = self._find_action_with_menu(self._view_menu, "Keypads")
         if self._keypads_action is not None:
@@ -224,6 +226,13 @@ class ViewMenu:
         active_custom = self.app_state.active_custom_id
         for preset, action in self._preset_actions.items():
             action.setChecked(active_custom is None and preset == self.app_state.keypad_preset)
+
+    def _sync_angle_toggle(self) -> None:
+        action = self._toggle_actions.get(ViewOperations.toggle_angle)
+        if action is not None:
+            action.blockSignals(True)
+            action.setChecked(self.app_state.angle_visible)
+            action.blockSignals(False)
 
     def sync_toggle(self, toggle_fn: Callable, value: bool) -> None:
         action = self._toggle_actions.get(toggle_fn)

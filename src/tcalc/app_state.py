@@ -94,6 +94,8 @@ class AppState:
         self._show_constant_buttons: bool = bool(
             self._settings.value("show_constant_buttons", False, type=bool)
         )
+
+        self._angle_visible: bool = bool(self._settings.value("angle_visible", False, type=bool))
         # Undo/redo state (not persisted)
         self.history_index: int = -1
         self.redo_cached_exprs: str = ""
@@ -118,6 +120,15 @@ class AppState:
     def keypad_preset(self, value: KeypadPreset) -> None:
         self._keypad_preset = value
         self._settings.setValue("keypad_preset", value.value)
+
+    @property
+    def angle_visible(self) -> bool:
+        return self._angle_visible
+
+    @angle_visible.setter
+    def angle_visible(self, value: bool) -> None:
+        self._angle_visible = value
+        self._settings.setValue("angle_visible", value)
 
     @property
     def active_custom_id(self) -> int | None:

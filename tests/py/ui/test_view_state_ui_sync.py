@@ -307,6 +307,24 @@ def test_active_custom_clears_builtin_checkmarks(window, qapp):
     assert view_menu._custom_preset_actions[rec.id].isChecked()
 
 
+def test_angle_buttons_toggle_and_preset_reset(window, qapp):
+    ops = window.menubar.view_menu.ops
+    state = get_app_state()
+    ops.set_preset(KeypadPreset.SIMPLE)
+    qapp.processEvents()
+    assert state.angle_visible is False
+
+    ops.toggle_angle(True)  # manual show, independent of preset
+    qapp.processEvents()
+    assert state.angle_visible is True
+    assert window.calc_widget.topbar.is_angle_visible()
+
+    ops.set_preset(KeypadPreset.SIMPLE)  # switch re-applies canonical -> off
+    qapp.processEvents()
+    assert state.angle_visible is False
+    assert not window.calc_widget.topbar.is_angle_visible()
+
+
 def test_update_custom_preset_overwrites_layout(window, qapp):
     ops = window.menubar.view_menu.ops
     ops.set_preset(KeypadPreset.SCIENCE)
