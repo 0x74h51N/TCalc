@@ -18,7 +18,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QT_LOGGING_RULES", "*.warning=false")
 
 FIXTURES_DIR = Path(__file__).resolve().parent / ".fixtures"
-HISTORY_DAT = FIXTURES_DIR / "history_science.dat"
+HISTORY_DAT = FIXTURES_DIR / "history.dat"
 
 HISTORY_SCENARIO_COUNTS: dict[str, int] = {
     "render_exprs": 5,
@@ -46,7 +46,7 @@ def history_seed(request, tmp_path):
     count = HISTORY_SCENARIO_COUNTS[name]
     with open(HISTORY_DAT, "rb") as f:
         entries = pickle.load(f)
-    with open(tmp_path / "history_science.dat", "wb") as f:
+    with open(tmp_path / "history.dat", "wb") as f:
         pickle.dump(entries[:count], f, protocol=pickle.HIGHEST_PROTOCOL)
 
     from tcalc.ui.widgets.history import storage

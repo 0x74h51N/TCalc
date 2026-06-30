@@ -11,7 +11,6 @@ from pathlib import Path
 
 import calc_native
 
-from tcalc.app_state import CalculatorMode
 from tcalc.core.engine import Calculator
 from tcalc.core.parser import evaluate_tokens, tokenize
 from tcalc.ui.controller.utils import format_result
@@ -20,7 +19,7 @@ from tests.benchmark.expressions import PAREN_EXPRESSIONS, RENDER_EXPRESSIONS
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURES_DIR = REPO_ROOT / "tests" / "benchmark" / ".fixtures"
-DAT_NAME = f"history_{CalculatorMode.SCIENCE.value}.dat"
+DAT_NAME = "history.dat"
 DAT_PATH = FIXTURES_DIR / DAT_NAME
 ITEM_COUNT = 150
 

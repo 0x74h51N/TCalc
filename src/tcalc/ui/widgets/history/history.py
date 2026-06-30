@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from tcalc.app_state import CalculatorMode, RenderMode, get_app_state
+from tcalc.app_state import RenderMode, get_app_state
 from tcalc.ui.config import history_math
 from tcalc.ui.config import history_style as style
 from tcalc.ui.widgets.common.button import OptionGroup
@@ -48,9 +48,7 @@ class History(QWidget):
     items_changed = Signal()
     display_mode_changed = Signal(object)
 
-    def __init__(
-        self, parent: Optional[QWidget] = None, mode: CalculatorMode = CalculatorMode.SIMPLE
-    ):
+    def __init__(self, parent: Optional[QWidget] = None):
         super().__init__(parent)
         self.setObjectName("historyWidget")
         self._history_items: list[HistoryEntry] = []
@@ -58,7 +56,6 @@ class History(QWidget):
         self._is_batch_rendering = False
         self._updating_fonts = False
 
-        self._calc_mode = mode
         self._app_state = get_app_state()
         self._pending_entries: list[HistoryEntry] = []
         self._pending_timer: Optional[QTimer] = None
@@ -109,7 +106,7 @@ class History(QWidget):
 
         layout.addLayout(btn_container)
 
-        self.reload_from_storage(self._calc_mode)
+        self.reload_from_storage()
 
     def set_mode(self, mode: RenderMode):
         self._history_modes.set_current(mode)
@@ -120,13 +117,12 @@ class History(QWidget):
         finally:
             self._end_batch_render()
 
-    def reload_from_storage(self, mode: CalculatorMode) -> None:
+    def reload_from_storage(self) -> None:
         self._cancel_pending_load()
-        self._calc_mode = mode
         self.list.clear()
         self._item_widgets.clear()
         self._history_items = []
-        self._pending_entries = load_history(mode)
+        self._pending_entries = load_history()
         self._load_next_batch()
 
     def _schedule_next_batch(self) -> None:
@@ -241,7 +237,7 @@ class History(QWidget):
         self._history_items.pop(row)
         self._item_widgets.pop(row)
 
-        save_history(self._history_items, self._calc_mode)
+        save_history(self._history_items)
         self.items_changed.emit()
 
     def highlight_item(self, index: int) -> None:
@@ -266,7 +262,7 @@ class History(QWidget):
         new_widget.refresh_layout()
         self.list.scrollToBottom()
         self.items_changed.emit()
-        save_history(self._history_items, self._calc_mode)
+        save_history(self._history_items)
 
     def get_history_item(self, index: int) -> str:
         return self._history_items[index].expression
@@ -277,7 +273,7 @@ class History(QWidget):
         self.list.clear()
         self._history_items.clear()
         self._item_widgets.clear()
-        clear_history_file(self._calc_mode)
+        clear_history_file()
 
     def update_fonts(self, force_layout: bool = False) -> None:
         """Update fonts for all history items."""

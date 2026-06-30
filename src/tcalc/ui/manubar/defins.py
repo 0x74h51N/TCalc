@@ -4,8 +4,8 @@ from typing import Tuple
 
 from PySide6.QtWidgets import QMessageBox
 
-from tcalc.app_state import CalculatorMode, DockKind
-from tcalc.ui.controller.menubar import EditOperations, FileOperations, SettingsOperations
+from tcalc.app_state import DockKind, KeypadPreset
+from tcalc.ui.controller.menubar import EditOperations, FileOperations, ViewOperations
 
 from .menu_builder import MenuActionItem, MenuActionType, MenuSeparatorItem, SubmenuItem
 
@@ -57,31 +57,37 @@ EDIT_MENU_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
     ),
 )
 
-SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
-    MenuActionItem(
-        text="Simple Mode",
-        icon="accessories-calculator",
-        checkable=True,
-        item_type=MenuActionType.OPS,
-        fn=lambda ops: ops.set_mode(CalculatorMode.SIMPLE),
-        mode=CalculatorMode.SIMPLE,
-    ),
-    MenuActionItem(
-        text="Science Mode",
-        icon="applications-science",
-        checkable=True,
-        item_type=MenuActionType.OPS,
-        fn=lambda ops: ops.set_mode(CalculatorMode.SCIENCE),
-        mode=CalculatorMode.SCIENCE,
-    ),
-    MenuActionItem(
-        text="Statistic Mode (Coming Soon)",
-        icon="office-chart-bar",
-        checkable=True,
-        enabled=False,
-        item_type=MenuActionType.OPS,
-        fn=lambda ops: ops.set_mode(CalculatorMode.STATISTIC),
-        mode=CalculatorMode.STATISTIC,
+VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
+    SubmenuItem(
+        text="Keypad Preset",
+        icon="applications-system",
+        items=(
+            MenuActionItem(
+                text="Simple",
+                icon="accessories-calculator",
+                checkable=True,
+                item_type=MenuActionType.OPS,
+                fn=lambda ops: ops.set_preset(KeypadPreset.SIMPLE),
+                preset=KeypadPreset.SIMPLE,
+            ),
+            MenuActionItem(
+                text="Science",
+                icon="applications-science",
+                checkable=True,
+                item_type=MenuActionType.OPS,
+                fn=lambda ops: ops.set_preset(KeypadPreset.SCIENCE),
+                preset=KeypadPreset.SCIENCE,
+            ),
+            MenuActionItem(
+                text="Statistic (Coming Soon)",
+                icon="office-chart-bar",
+                checkable=True,
+                enabled=False,
+                item_type=MenuActionType.OPS,
+                fn=lambda ops: ops.set_preset(KeypadPreset.STATISTIC),
+                preset=KeypadPreset.STATISTIC,
+            ),
+        ),
     ),
     MenuSeparatorItem(),
     SubmenuItem(
@@ -94,7 +100,7 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
                 checked_getter=lambda s: s.is_dock_open(DockKind.NUMPAD),
-                fn=SettingsOperations.toggle_numpad,
+                fn=ViewOperations.toggle_numpad,
             ),
             MenuActionItem(
                 text="Functions Pad",
@@ -102,7 +108,7 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
                 checked_getter=lambda s: s.is_dock_open(DockKind.FUNCPAD),
-                fn=SettingsOperations.toggle_funcpad,
+                fn=ViewOperations.toggle_funcpad,
             ),
             MenuActionItem(
                 text="Trig / Power Pad",
@@ -110,7 +116,7 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
                 checked_getter=lambda s: s.is_dock_open(DockKind.TRIGPAD),
-                fn=SettingsOperations.toggle_trigpad,
+                fn=ViewOperations.toggle_trigpad,
             ),
             MenuActionItem(
                 text="Constant Pad (Coming Soon)",
@@ -119,14 +125,14 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
                 enabled=False,
                 item_type=MenuActionType.TOGGLE,
                 checked_getter=lambda s: s.show_constant_buttons,
-                fn=SettingsOperations.toggle_constants,
+                fn=ViewOperations.toggle_constants,
             ),
             MenuSeparatorItem(),
             MenuActionItem(
                 text="Add Custom Pad",
                 icon="./assets/custom_pad.svg",
                 item_type=MenuActionType.OPS,
-                fn=SettingsOperations.add_custom_pad,
+                fn=ViewOperations.add_custom_pad,
             ),
         ),
     ),
@@ -136,15 +142,17 @@ SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] =
         checkable=True,
         item_type=MenuActionType.TOGGLE,
         checked_getter=lambda s: s.is_dock_open(DockKind.HISTORY),
-        fn=SettingsOperations.toggle_history,
+        fn=ViewOperations.toggle_history,
     ),
     MenuActionItem(
         text="Restore Default Layout",
         icon="view-restore",
         item_type=MenuActionType.OPS,
-        fn=SettingsOperations.restore_default_layout,
+        fn=ViewOperations.restore_default_layout,
     ),
-    MenuSeparatorItem(),
+)
+
+SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     MenuActionItem(
         text="Configure Keyboard Shortcuts...",
         icon="input-keyboard",

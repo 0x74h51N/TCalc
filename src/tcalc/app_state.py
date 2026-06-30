@@ -15,8 +15,8 @@ from PySide6.QtCore import QSettings
 from tcalc.core.utils import CalcValue
 
 
-class CalculatorMode(Enum):
-    """Calculator operation modes."""
+class KeypadPreset(Enum):
+    """Keypad layout presets (which keypads/docks are shown)."""
 
     SIMPLE = "simple"
     SCIENCE = "science"
@@ -56,9 +56,11 @@ class AppState:
     def __init__(self):
         self._settings = QSettings("TCalc", "TCalc")
 
-        self._mode: CalculatorMode = CalculatorMode(
-            self._settings.value("mode", CalculatorMode.SIMPLE.value)
-        )
+        stored_preset = self._settings.value("keypad_preset", KeypadPreset.SIMPLE.value)
+        try:
+            self._keypad_preset: KeypadPreset = KeypadPreset(stored_preset)
+        except ValueError:
+            self._keypad_preset = KeypadPreset.SIMPLE
 
         self._history_mode: RenderMode = RenderMode(
             self._settings.value("history_mode", RenderMode.FLAT.value)
@@ -89,13 +91,13 @@ class AppState:
         self.shifted = False
 
     @property
-    def mode(self) -> CalculatorMode:
-        return self._mode
+    def keypad_preset(self) -> KeypadPreset:
+        return self._keypad_preset
 
-    @mode.setter
-    def mode(self, value: CalculatorMode) -> None:
-        self._mode = value
-        self._settings.setValue("mode", value.value)
+    @keypad_preset.setter
+    def keypad_preset(self, value: KeypadPreset) -> None:
+        self._keypad_preset = value
+        self._settings.setValue("keypad_preset", value.value)
 
     @property
     def history_mode(self) -> RenderMode:

@@ -26,8 +26,8 @@ from PySide6.QtCore import QByteArray, QSettings, QSize, QTimer
 from PySide6.QtGui import Qt
 from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
 
-from tcalc.app_state import CalculatorMode, DockKind, get_app_state
-from tcalc.ui.controller.menubar import SettingsOperations
+from tcalc.app_state import DockKind, KeypadPreset, get_app_state
+from tcalc.ui.controller.menubar import ViewOperations
 from tcalc.ui.keyboard import KeyboardHandler
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad
 
@@ -81,10 +81,10 @@ class MainWindow(QMainWindow):
     )
 
     _DOCK_MENU_TOGGLES: dict[DockKind, Callable] = {
-        DockKind.NUMPAD: SettingsOperations.toggle_numpad,
-        DockKind.FUNCPAD: SettingsOperations.toggle_funcpad,
-        DockKind.TRIGPAD: SettingsOperations.toggle_trigpad,
-        DockKind.HISTORY: SettingsOperations.toggle_history,
+        DockKind.NUMPAD: ViewOperations.toggle_numpad,
+        DockKind.FUNCPAD: ViewOperations.toggle_funcpad,
+        DockKind.TRIGPAD: ViewOperations.toggle_trigpad,
+        DockKind.HISTORY: ViewOperations.toggle_history,
     }
 
     def _register_dock(
@@ -108,7 +108,7 @@ class MainWindow(QMainWindow):
         def _on_vis_changed(_: bool, d: QDockWidget = dock, k: DockKind = kind) -> None:
             opened = not d.isHidden()
             app_state.set_dock_open(k, opened)
-            self.menubar.settings_menu.sync_toggle(toggle_fn, opened)
+            self.menubar.view_menu.sync_toggle(toggle_fn, opened)
 
         dock.visibilityChanged.connect(_on_vis_changed)
         self._docks[kind] = dock
@@ -143,10 +143,8 @@ class MainWindow(QMainWindow):
         self._settings = QSettings("TCalc", "TCalc")
 
     def _setup_history_dock(self) -> None:
-        app_state = get_app_state()
-
         self.memory_bar = MemoryBar()
-        self.history = History(mode=app_state.mode)
+        self.history = History()
 
         self.side_panel = SidePanel(parent=self)
         self.side_panel.add_widget(self.memory_bar)
@@ -237,7 +235,7 @@ class MainWindow(QMainWindow):
     def _sync_mode_widgets(self, app_state) -> None:
         topbar = self.calc_widget.topbar
 
-        topbar.set_angle_visible(app_state.mode == CalculatorMode.SCIENCE)
+        topbar.set_angle_visible(app_state.keypad_preset == KeypadPreset.SCIENCE)
         topbar.set_angle(app_state.angle_unit)
 
     def _sync_memory_state(self, app_state) -> None:
