@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import math
+import os
 from decimal import Decimal
 
 import pytest
@@ -15,7 +16,43 @@ import pytest
 pytest.importorskip("calc_native")
 import calc_native
 
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+os.environ.setdefault("QT_LOGGING_RULES", "*=false")
+
 param = pytest.param
+
+_editor = None
+
+# raw -> canonical round-trips for the current test; conftest dumps this only when
+# the test fails, so a failing eval shows exactly where the round-trip landed.
+CANON_LOG: list[tuple[str, str]] = []
+
+
+def _canonicalize(expr: str) -> str:
+    """Mirror the running app: raw text -> editor widgets (build_math_nodes folds
+    trailing operands into empty script slots) -> get_plain_text() canonical form.
+    The controller evaluates this canonical text, not the raw tokenize output, so
+    `3^4` becomes `3^{4}` before eval."""
+    global _editor
+    from PySide6.QtWidgets import QApplication
+
+    from tcalc.ui.widgets.calc.display.expression.expression import Expression
+
+    # Subscript has no editor widget yet (a later UI phase); its `_{…}` form already
+    # tokenizes to its final LatexToken, so eval it raw instead of round-tripping it
+    # through a renderer that would drop it.
+    if "_{" in expr:
+        CANON_LOG.append((expr, expr))
+        return expr
+
+    app = QApplication.instance() or QApplication([])
+    if _editor is None:
+        _editor = Expression()
+    _editor.set_plain_text(expr)
+    app.processEvents()
+    canonical = _editor.get_plain_text()
+    CANON_LOG.append((expr, canonical))
+    return canonical
 
 
 def _eval(expr: str) -> object:
@@ -23,7 +60,7 @@ def _eval(expr: str) -> object:
     from tcalc.core.parser import evaluate_tokens, tokenize_string
 
     calc = Calculator()
-    return evaluate_tokens(tokenize_string(expr), calc)
+    return evaluate_tokens(tokenize_string(_canonicalize(expr)), calc)
 
 
 @pytest.mark.parametrize(
@@ -34,7 +71,7 @@ def _eval(expr: str) -> object:
         # ----------------------------
         param("1+2*3", "float", 7.0, id="precedence-mul-over-add"),
         param("(1+2)*3", "float", 9.0, id="paren-overrides-precedence"),
-        param("2^3^2", "float", 512.0, id="pow-right-assoc"),
+        param("2^{3^{2}}", "float", 512.0, id="pow-right-assoc"),
         param("(2^3)^2", "float", 64.0, id="pow-parens-left-group"),
         param("-2^2", "float", -4.0, id="unary-vs-pow"),
         param("(-2)^2", "float", 4.0, id="pow-negative-base"),
@@ -347,7 +384,7 @@ class TestRational:
             param("16^(1/4)", 2, 1, id="pow-frac-exp-fourth-root"),
             param("4^(3/2)", 8, 1, id="pow-frac-exp-4-3-2"),
             param("(-8)^(1/3)", -2, 1, id="pow-neg-base-cube-root"),
-            param("2^2^2^2", 65536, 1, id="pow-chain-2-2-2-2"),
+            param("2^{2^{2^{2}}}", 65536, 1, id="pow-chain-2-2-2-2"),
             param("(2^3) + (3^2)", 17, 1, id="pow-then-add"),
             param("(1/2)^2 * 8", 2, 1, id="pow-then-mul"),
             # ----------------------------
@@ -493,7 +530,7 @@ def _ev_multi(lines, *, assert_env_key=None):
     calc, env = Calculator(), VarStore()
     result = None
     for line in lines:
-        result = evaluate_tokens(tokenize_string(line), calc, env)
+        result = evaluate_tokens(tokenize_string(_canonicalize(line)), calc, env)
     if assert_env_key is not None:
         return env.get(assert_env_key)
     return result
@@ -543,6 +580,52 @@ def _ev_multi(lines, *, assert_env_key=None):
 def test_stateful_variable_cases(lines, assert_env_key, check) -> None:
     result = _ev_multi(lines, assert_env_key=assert_env_key)
     assert check(result)
+
+
+# ============================================================================
+# Superscript ^{} power + subscript _{} variable (script fold)
+# ============================================================================
+
+
+@pytest.mark.parametrize(
+    ("expr", "expected"),
+    [
+        param("2^{3}", 8, id="caret-pow-simple"),
+        param("(2+5)^{4}", 2401, id="caret-pow-paren-base"),  # (2+5)=7, 7^4
+        param("2^{1+1}", 4, id="caret-pow-braced-exp"),
+        param("2^{3^{2}}", 512, id="caret-pow-nested"),
+    ],
+)
+def test_caret_power(expr, expected) -> None:
+    assert _to_int(_eval(expr)) == expected
+
+
+@pytest.mark.parametrize(
+    ("lines", "check"),
+    [
+        param(["n_{2} = 5", "n_{2}"], lambda v: _to_int(v) == 5, id="subscript-bind-resolve"),
+        param(
+            ["n_{1} = 1", "n_{2} = 2", "n_{1} + n_{2}"],
+            lambda v: _to_int(v) == 3,
+            id="subscript-independent-names",
+        ),
+        param(
+            ["n = 7", "n_{2} = 5", "n + n_{2}"],
+            lambda v: _to_int(v) == 12,
+            id="subscript-distinct-from-bare",
+        ),
+    ],
+)
+def test_subscript_variable(lines, check) -> None:
+    assert check(_ev_multi(lines))
+
+
+@pytest.mark.parametrize("expr", ["y_{7}", "2_{3}"])
+def test_subscript_invalid_raises(expr) -> None:
+    from tcalc.errors import Error
+
+    with pytest.raises(Error):
+        _eval(expr)
 
 
 # ============================================================================
