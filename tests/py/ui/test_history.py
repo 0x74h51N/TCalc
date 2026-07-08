@@ -77,7 +77,7 @@ class TestModeSwitch:
         "expr, result",
         [
             ("1+2", "3"),
-            ("\\frac{3}{4}+\\pow{2}{3}", "8.75"),
+            ("\\frac{3}{4}+2^{3}", "8.75"),
         ],
         ids=["simple", "mixed-latex"],
     )
@@ -93,7 +93,7 @@ class TestModeSwitch:
         "expr, result",
         [
             ("1+2", "3"),
-            ("\\frac{3}{4}+\\pow{2}{3}", "8.75"),
+            ("\\frac{3}{4}+2^{3}", "8.75"),
         ],
         ids=["simple", "mixed-latex"],
     )
@@ -107,7 +107,7 @@ class TestModeSwitch:
         assert "\\" not in text
 
     def test_flat_matches_native_flat_text(self, history, qapp):
-        expr = "\\frac{3}{4}+\\pow{2}{3}"
+        expr = "\\frac{3}{4}+2^{3}"
         _add(history, expr, "8.75", qapp)
 
         history.set_mode(RenderMode.FLAT)
@@ -119,7 +119,7 @@ class TestModeSwitch:
 
     def test_mode_round_trip_preserves_items(self, history, qapp):
         _add(history, "1+2", "3", qapp)
-        _add(history, "\\frac{3}{4}+\\pow{2}{3}", "8.75", qapp)
+        _add(history, "\\frac{3}{4}+2^{3}", "8.75", qapp)
 
         history.set_mode(RenderMode.RAW)
         qapp.processEvents()
