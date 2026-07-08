@@ -98,7 +98,7 @@ enum class LatexKind : std::uint8_t {
     /// \frac{numerator}{denominator}
     Frac,
     /// Power:
-    /// \pow{base}{exponent}
+    /// base^{exponent}
     Pow,
     /// Root:
     /// \root{radicand}{degree}
@@ -106,6 +106,9 @@ enum class LatexKind : std::uint8_t {
     /// Logarithm:
     /// \log{base}{value}
     Log,
+    /// Subscript (variable index):
+    /// base_{index}
+    Subscript,
 };
 
 /// LaTeX expression mapping: symbol -> LatexKind
@@ -117,7 +120,7 @@ struct LatexEntry {
 
 constexpr std::array kLatexExprs = {
     LatexEntry{"\\frac", LatexKind::Frac, tcalc::ops::OpId::Div},
-    LatexEntry{"\\pow", LatexKind::Pow, tcalc::ops::OpId::Pow},
+    LatexEntry{"^", LatexKind::Pow, tcalc::ops::OpId::Pow},
     LatexEntry{"\\root", LatexKind::Root, tcalc::ops::OpId::Root},
     LatexEntry{"\\log", LatexKind::Log, tcalc::ops::OpId::Log}};
 
@@ -371,7 +374,7 @@ std::vector<Token> shunting_yard(const std::vector<Token> &tokens);
 
 /// Compile-time lookup table: LatexKind -> LaTeX symbol.
 consteval auto build_latex_symbols() {
-    constexpr auto count = static_cast<std::size_t>(LatexKind::Log) + 1;
+    constexpr auto count = static_cast<std::size_t>(LatexKind::Subscript) + 1;
     std::array<std::string_view, count> table{};
     for (const auto &entry : kLatexExprs) {
         table[static_cast<std::size_t>(entry.kind)] = entry.symbol;

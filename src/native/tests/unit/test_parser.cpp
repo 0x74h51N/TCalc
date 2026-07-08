@@ -241,7 +241,7 @@ inline Token Frac(
     return Lx(
         p::LatexKind::Frac, OpId::Div, std::move(numerator), std::move(denominator), start, end);
 }
-/// Token factory shorthand: \pow LatexToken (base, exponent).
+/// Token factory shorthand: \pow / `^{}` LatexToken (base, exponent).
 inline Token
 Pow(std::vector<Token> base,
     std::vector<Token> exponent,
@@ -256,6 +256,11 @@ inline Token Root(
     std::size_t start = 0,
     std::size_t end = 0) {
     return Lx(p::LatexKind::Root, OpId::Root, std::move(degree), std::move(radicand), start, end);
+}
+/// Token factory shorthand: `_{}` LatexToken (base, subscript).
+inline Token
+Sub(std::vector<Token> base, std::vector<Token> sub, std::size_t start = 0, std::size_t end = 0) {
+    return Lx(p::LatexKind::Subscript, OpId::Count, std::move(base), std::move(sub), start, end);
 }
 
 /// Shorthand for tcalc::parser::ParenKind.
@@ -381,11 +386,43 @@ void unit_parser(TestContext &ctx) {
          .input = "\\frac{2}{3}",
          .expected = {Frac({N("2")}, {N("3")}, 0, 11)}},
 
-        {.id = "pow simple", .input = "\\pow{5}{2}", .expected = {Pow({N("5")}, {N("2")}, 0, 10)}},
+        {.id = "pow simple", .input = "5^{2}", .expected = {Pow({N("5")}, {N("2")}, 0, 10)}},
 
         {.id = "root simple",
          .input = "\\root{8}{3}",
          .expected = {Root({N("8")}, {N("3")}, 0, 11)}},
+
+        {.id = "pow caret simple", .input = "2^{3}", .expected = {Pow({N("2")}, {N("3")}, 0, 5)}},
+        {.id = "pow caret paren base",
+         .input = "(2+5)^{4}",
+         .expected = {Pow({Pp({EV({N("2"), Op_(OpId::Add), N("5")})})}, {N("4")})}},
+        {.id = "pow caret prefix",
+         .input = "1+2^{3}",
+         .expected = {N("1"), Op_(OpId::Add), Pow({N("2")}, {N("3")})}},
+        {.id = "pow caret nested",
+         .input = "2^{3^{2}}",
+         .expected = {Pow({N("2")}, {Pow({N("3")}, {N("2")})})}},
+        {.id = "pow caret flat chain",
+         .input = "2^{3}^{2}",
+         .expected = {Pow({Pow({N("2")}, {N("3")})}, {N("2")})}},
+        {.id = "pow caret bare no base", .input = "^3", .expected = {Pow({}, {}), N("3")}},
+        // No preceding operand: `^{}` still folds, with an empty base (an empty
+        // PowWidget placeholder), not a bare Op(Pow) + brace group.
+        {.id = "pow caret empty base", .input = "^{3}", .expected = {Pow({}, {N("3")})}},
+        {.id = "pow caret empty base and exp", .input = "^{}", .expected = {Pow({}, {})}},
+
+        // Note: base uses 'y', not 'x' — 'x' is a reserved multiplication-symbol
+        // operator (see ops.hpp), so "x_{2}" tokenizes as Op(Mul) + free text,
+        // not as a Char('x') operand for the fold. 'y' has no such collision.
+        {.id = "subscript var", .input = "y_{2}", .expected = {Sub({Ch('y')}, {N("2")}, 0, 5)}},
+        {.id = "subscript then letter",
+         .input = "a_{2}b",
+         .expected = {Sub({Ch('a')}, {N("2")}), Ch('b')}},
+        {.id = "subscript on number folds",
+         .input = "2_{3}",
+         .expected = {Sub({N("2")}, {N("3")})}},
+        {.id = "bare underscore no fold", .input = "a_b", .expected = {Ch('a'), N("_"), Ch('b')}},
+        {.id = "subscript empty base", .input = "_{2}", .expected = {Sub({}, {N("2")})}},
 
         {.id = "frac with inner expr",
          .input = "\\frac{2+3}{4}",
@@ -396,7 +433,7 @@ void unit_parser(TestContext &ctx) {
          .expected = {Frac({Frac({N("1")}, {N("2")})}, {N("3")}, 0, 21)}},
 
         {.id = "frac with pow inside",
-         .input = "\\frac{\\pow{4}{2}}{3}",
+         .input = "\\frac{4^{2}}{3}",
          .expected = {Frac({Pow({N("4")}, {N("2")})}, {N("3")}, 0, 20)}},
 
         // == Mixed: plain tokens + LatexToken ==========================
@@ -445,7 +482,7 @@ void unit_parser(TestContext &ctx) {
                  13,
                  14)}},
         {.id = "complex nested: frac with user brace and inner pow",
-         .input = "\\frac{{\\pow{4}{2}}}{3}",
+         .input = "\\frac{{4^{2}}}{3}",
          .expected = {Frac({Bc({Pow({N("4")}, {N("2")})})}, {N("3")}, 0, 22)}},
 
         {.id = "curly brace then number plain",
@@ -919,11 +956,11 @@ void unit_parser(TestContext &ctx) {
                   .positions = {{0, 0, 1}, {1, 2, 3}, {2, 4, 15}, {3, 16, 17}, {4, 18, 19}}}},
 
             {.id = "multiple expr",
-             .input = "\\frac{1}{2} + \\pow{3}{4}",
+             .input = "\\frac{1}{2} + 3^{4}",
              .expected =
                  {.token_count = 3,
                   .latex_indices = {0, 2},
-                  .positions = {{0, 0, 11}, {2, 14, 24}}}},
+                  .positions = {{0, 0, 11}, {2, 14, 19}}}},
         };
 
         for (const auto &tc : position_cases) {
@@ -2040,6 +2077,18 @@ void unit_parser(TestContext &ctx) {
              .input = branch({Root({N("1"), Op_(OpId::Add), Pow({N("2")}, {N("3")})}, {N("4")})}),
              .expected = {Rtn({T_("1 + "), Pwn({T_("2")}, {T_("3")})}, {T_("4")})}},
 
+            // -- Caret fold end-to-end: tokenize(^{}) → Pow LatexNode --
+
+            // "2^{3}" folds to LatexToken(Pow) at tokenize, then renders as a Pow node.
+            {.id = "pow-caret-node",
+             .input = branch(p::tokenize("2^{3}").tokens),
+             .expected = {Pwn({T_("2")}, {T_("3")})}},
+
+            // "\frac{2^{3}}{4}" — caret fold nested inside a frac numerator.
+            {.id = "pow-caret-in-frac",
+             .input = branch(p::tokenize("\\frac{2^{3}}{4}").tokens),
+             .expected = {Frn({Pwn({T_("2")}, {T_("3")})}, {T_("4")})}},
+
             // -- Paren cases (unified ParenToken model) --
 
             // "(1)+\frac{2}{3}"  — Paren has no latex descendant, stays as text prefix.
@@ -2412,5 +2461,27 @@ void unit_parser(TestContext &ctx) {
     test_detail::with_case(ctx, "const :: token_text(Const Pi) == \"π\"", [&] {
         p::Token t{p::TokenKind::Const, p::ConstToken{tcalc::consts::ConstId::Pi}, 0, 1};
         EXPECT_TRUE(ctx, p::token_text(t) == "π");
+    });
+
+    // =========================================================================
+    // token_flat_text :: Pow/Subscript flat display strips the script braces
+    // =========================================================================
+    // Flat text is history's FLAT-mode display string (never re-tokenized), so
+    // the 2D {} are dropped: 2^{3} shows as 2^3, 2_{3} as 2_3.
+    test_detail::with_case(ctx, "flat_text :: Pow strips braces to base^exp", [&] {
+        auto branch = p::tokenize("2^{3}");
+        EXPECT_EQ(ctx, p::tokens_to_flat_text(branch.tokens), std::string("2^3"));
+    });
+
+    test_detail::with_case(ctx, "flat_text :: Subscript strips braces to base_sub", [&] {
+        auto branch = p::tokenize("2_{3}");
+        EXPECT_EQ(ctx, p::tokens_to_flat_text(branch.tokens), std::string("2_3"));
+    });
+
+    // A Pow base that is itself a Pow is still grouped by wrap_side, so the flat
+    // display keeps the (2^3)^2 grouping: "2^{3}^{2}" -> "{2^3}^2".
+    test_detail::with_case(ctx, "flat_text :: Pow chain groups the Pow base", [&] {
+        auto branch = p::tokenize("2^{3}^{2}");
+        EXPECT_EQ(ctx, p::tokens_to_flat_text(branch.tokens), std::string("{2^3}^2"));
     });
 }
