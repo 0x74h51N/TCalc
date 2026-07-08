@@ -58,6 +58,15 @@ def _resolve_name(name: str, env: VarStore) -> CalcValue:
     raise_error(ErrorKind.INVALID, Msg.undefined_variable(name))
 
 
+def _subscript_name(latex) -> str | None:
+    """LatexToken(Subscript) -> variable name 'base_sub', or None if the base
+    is not a single letter (a non-identifier base is not a variable name)."""
+    left = latex.left
+    if len(left) != 1 or left[0].kind != calc_native.TokenKind.Char:
+        return None
+    return f"{left[0].as_char().value}_{calc_native.tokens_to_flat_text(latex.right)}"
+
+
 def _coerce_token(tok: str | int | float) -> CalcValue:
     if isinstance(tok, str):
         try:
@@ -226,8 +235,18 @@ def evaluate_rpn(
             continue
 
         if tok.kind == calc_native.TokenKind.Latex:
+            latex_tok = tok.as_latex()
+            if latex_tok.kind == calc_native.LatexKind.Subscript:
+                name = _subscript_name(latex_tok)
+                if name is None:
+                    name = (
+                        calc_native.tokens_to_flat_text(latex_tok.left)
+                        + "_"
+                        + calc_native.tokens_to_flat_text(latex_tok.right)
+                    )
+                operand_stack.append(_resolve_name(name, env))
+                continue
             try:
-                latex_tok = tok.as_latex()
                 left_rpn = shunting_yard(latex_tok.left)
                 right_rpn = shunting_yard(latex_tok.right)
                 left_val = (
@@ -336,25 +355,35 @@ def evaluate_tokens(
         and tokens[1].kind == calc_native.TokenKind.Op
         and tokens[1].as_op().op_id == calc_native.OpId.Assign
     ):
-        if tokens[0].kind != calc_native.TokenKind.Char:
-            if tokens[0].kind == calc_native.TokenKind.Op:
-                spec = OP_BY_ID.get(tokens[0].as_op().op_id)
+        first = tokens[0]
+        if first.kind == calc_native.TokenKind.Char:
+            name = first.as_char().value
+        elif (
+            first.kind == calc_native.TokenKind.Latex
+            and first.as_latex().kind == calc_native.LatexKind.Subscript
+        ):
+            sub_name = _subscript_name(first.as_latex())
+            if sub_name is None:
+                raise_error(ErrorKind.INVALID, Msg.INVALID_ASSIGNMENT_TARGET)
+            name = sub_name
+        else:
+            if first.kind == calc_native.TokenKind.Op:
+                spec = OP_BY_ID.get(first.as_op().op_id)
                 raise_error(
                     ErrorKind.INVALID,
                     Msg.assignment_target_is_operator(
-                        spec.symbol if spec else str(tokens[0].as_op().op_id)
+                        spec.symbol if spec else str(first.as_op().op_id)
                     ),
                 )
-            if tokens[0].kind == calc_native.TokenKind.Const:
-                cspec = CONST_BY_ID.get(tokens[0].as_const().id)
+            if first.kind == calc_native.TokenKind.Const:
+                cspec = CONST_BY_ID.get(first.as_const().id)
                 raise_error(
                     ErrorKind.INVALID,
                     Msg.assignment_target_is_constant(
-                        cspec.symbol if cspec else str(tokens[0].as_const().id)
+                        cspec.symbol if cspec else str(first.as_const().id)
                     ),
                 )
             raise_error(ErrorKind.INVALID, Msg.INVALID_ASSIGNMENT_TARGET)
-        name = tokens[0].as_char().value
         rhs = list(tokens[2:])
         if not rhs:
             raise_error(ErrorKind.INVALID, Msg.EMPTY_ASSIGNMENT)

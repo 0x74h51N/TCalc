@@ -135,14 +135,14 @@ EXPRESSION_NODE_CASES = [
     ),
     pytest.param(
         expression_node_case(
-            expression="\\pow",
+            expression="^",
             expected_widget_cls_idx=[(0, PowWidget)],
             idx_slot_count=[(0, 2)],
             idx_segment_count=[(0, 2)],
             total_slot_count=2,
             total_segment_count=5,
             total_edit_count=4,
-            expected_plain_text="\\pow{}{}",
+            expected_plain_text="^{}",
         ),
         id="powNode-0",
     ),
@@ -174,14 +174,14 @@ EXPRESSION_NODE_CASES = [
     ),
     pytest.param(
         expression_node_case(
-            expression="\\pow{2}{3}",
+            expression="2^{3}",
             expected_widget_cls_idx=[(0, PowWidget)],
             idx_slot_count=[(0, 2)],
             idx_segment_count=[(0, 2)],
             total_slot_count=2,
             total_segment_count=5,
             total_edit_count=4,
-            expected_plain_text="\\pow{2}{3}",
+            expected_plain_text="2^{3}",
         ),
         id="powNode-1",
     ),
@@ -226,14 +226,14 @@ EXPRESSION_NODE_CASES = [
     ),
     pytest.param(
         expression_node_case(
-            expression="1+\\pow{2}{3}",
+            expression="1+2^{3}",
             expected_widget_cls_idx=[(0, PowWidget)],
             idx_slot_count=[(0, 2)],
             idx_segment_count=[(0, 2)],
             total_slot_count=2,
             total_segment_count=5,
             total_edit_count=4,
-            expected_plain_text="1 + \\pow{2}{3}",
+            expected_plain_text="1 + 2^{3}",
         ),
         id="pow-plus",
     ),
@@ -295,27 +295,27 @@ EXPRESSION_NODE_CASES = [
     ),
     pytest.param(
         expression_node_case(
-            expression="\\pow{2}{\\pow{3}{4}}",
+            expression="2^{3^{4}}",
             expected_widget_cls_idx=[(0, PowWidget), (1, PowWidget)],
             idx_slot_count=[(0, 2), (1, 2)],
             idx_segment_count=[(0, 4), (1, 2)],
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
-            expected_plain_text="\\pow{2}{\\pow{3}{4}}",
+            expected_plain_text="2^{3^{4}}",
         ),
         id="pow-nested-exp",
     ),
     pytest.param(
         expression_node_case(
-            expression="\\pow{\\pow{2}{3}}{4}",
+            expression="2^{3}^{4}",
             expected_widget_cls_idx=[(0, PowWidget), (1, PowWidget)],
             idx_slot_count=[(0, 2), (1, 2)],
             idx_segment_count=[(0, 4), (1, 2)],
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
-            expected_plain_text="\\pow{\\pow{2}{3}}{4}",
+            expected_plain_text="2^{3}^{4}",
         ),
         id="pow-nested-base",
     ),
@@ -347,7 +347,7 @@ EXPRESSION_NODE_CASES = [
     ),
     pytest.param(
         expression_node_case(
-            expression="\\frac{\\pow{2}{3}}{\\pow{4}{5}}",
+            expression="\\frac{2^{3}}{4^{5}}",
             expected_widget_cls_idx=[
                 (0, FractionWidget),
                 (1, PowWidget),
@@ -358,13 +358,13 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=6,
             total_segment_count=13,
             total_edit_count=10,
-            expected_plain_text="\\frac{\\pow{2}{3}}{\\pow{4}{5}}",
+            expected_plain_text="\\frac{2^{3}}{4^{5}}",
         ),
         id="frac-with-two-pows",
     ),
     pytest.param(
         expression_node_case(
-            expression="\\frac{\\pow{2}{3}}{\\root{4}{5}}",
+            expression="\\frac{2^{3}}{\\root{4}{5}}",
             expected_widget_cls_idx=[
                 (0, FractionWidget),
                 (1, PowWidget),
@@ -375,13 +375,13 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=6,
             total_segment_count=13,
             total_edit_count=10,
-            expected_plain_text="\\frac{\\pow{2}{3}}{\\root{4}{5}}",
+            expected_plain_text="\\frac{2^{3}}{\\root{4}{5}}",
         ),
         id="frac-with-pow-root",
     ),
     pytest.param(
         expression_node_case(
-            expression="\\pow{\\frac{1}{2}}{\\root{2}{3}}",
+            expression="\\frac{1}{2}^{\\root{2}{3}}",
             expected_widget_cls_idx=[
                 (0, PowWidget),
                 (1, FractionWidget),
@@ -392,13 +392,13 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=6,
             total_segment_count=13,
             total_edit_count=10,
-            expected_plain_text="\\pow{\\frac{1}{2}}{\\root{2}{3}}",
+            expected_plain_text="\\frac{1}{2}^{\\root{2}{3}}",
         ),
         id="pow-with-frac-root",
     ),
     pytest.param(
         expression_node_case(
-            expression="\\root{2}{\\frac{\\pow{3}{4}}{5}}",
+            expression="\\root{2}{\\frac{3^{4}}{5}}",
             expected_widget_cls_idx=[
                 (0, RootWidget),
                 (1, FractionWidget),
@@ -409,46 +409,50 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=6,
             total_segment_count=13,
             total_edit_count=10,
-            expected_plain_text="\\root{2}{\\frac{\\pow{3}{4}}{5}}",
+            expected_plain_text="\\root{2}{\\frac{3^{4}}{5}}",
         ),
         id="root-with-frac-pow",
     ),
     pytest.param(
         expression_node_case(
-            expression="\\frac{1+\\pow{2}{3}}{4}",
+            expression="\\frac{1+2^{3}}{4}",
             expected_widget_cls_idx=[(0, FractionWidget), (1, PowWidget)],
             idx_slot_count=[(0, 2), (1, 2)],
             idx_segment_count=[(0, 4), (1, 2)],
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
-            expected_plain_text="\\frac{1 + \\pow{2}{3}}{4}",
+            expected_plain_text="\\frac{1 + 2^{3}}{4}",
         ),
         id="frac-nested-with-text",
     ),
     pytest.param(
         expression_node_case(
-            expression="\\pow{1+\\frac{2}{3}}{4}",
-            expected_widget_cls_idx=[(0, PowWidget), (1, FractionWidget)],
-            idx_slot_count=[(0, 2), (1, 2)],
-            idx_segment_count=[(0, 4), (1, 2)],
-            total_slot_count=4,
-            total_segment_count=9,
-            total_edit_count=7,
-            expected_plain_text="\\pow{1 + \\frac{2}{3}}{4}",
+            expression="(1+\\frac{2}{3})^{4}",
+            expected_widget_cls_idx=[
+                (0, PowWidget),
+                (1, RoundParenWidget),
+                (2, FractionWidget),
+            ],
+            idx_slot_count=[(0, 2), (1, 1), (2, 2)],
+            idx_segment_count=[(0, 4), (1, 5), (2, 2)],
+            total_slot_count=5,
+            total_segment_count=14,
+            total_edit_count=9,
+            expected_plain_text="(1 + \\frac{2}{3})^{4}",
         ),
         id="pow-nested-with-text",
     ),
     pytest.param(
         expression_node_case(
-            expression="\\root{1+\\pow{2}{3}}{4}",
+            expression="\\root{1+2^{3}}{4}",
             expected_widget_cls_idx=[(0, RootWidget), (1, PowWidget)],
             idx_slot_count=[(0, 2), (1, 2)],
             idx_segment_count=[(0, 4), (1, 2)],
             total_slot_count=4,
             total_segment_count=9,
             total_edit_count=7,
-            expected_plain_text="\\root{1 + \\pow{2}{3}}{4}",
+            expected_plain_text="\\root{1 + 2^{3}}{4}",
         ),
         id="root-nested-with-text",
     ),
@@ -574,7 +578,7 @@ EXPRESSION_NODE_CASES = [
     ),
     pytest.param(
         expression_node_case(
-            expression="(1)+{2+[\\pow{2}{3}]+4}",
+            expression="(1)+{2+[2^{3}]+4}",
             expected_widget_cls_idx=[
                 (0, BraceWidget),
                 (1, BracketWidget),
@@ -585,13 +589,13 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=4,
             total_segment_count=15,
             total_edit_count=8,
-            expected_plain_text="(1) + {2 + [\\pow{2}{3}] + 4}",
+            expected_plain_text="(1) + {2 + [2^{3}] + 4}",
         ),
         id="outer-first-nested-parens",
     ),
     pytest.param(
         expression_node_case(
-            expression="(1)+{2+[\\frac{2}{3}+4+(\\pow{2}{3})]}",
+            expression="(1)+{2+[\\frac{2}{3}+4+(2^{3})]}",
             expected_widget_cls_idx=[
                 (0, BraceWidget),
                 (1, BracketWidget),
@@ -604,13 +608,13 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=7,
             total_segment_count=24,
             total_edit_count=13,
-            expected_plain_text="(1) + {2 + [\\frac{2}{3} + 4 + (\\pow{2}{3})]}",
+            expected_plain_text="(1) + {2 + [\\frac{2}{3} + 4 + (2^{3})]}",
         ),
         id="nested-brace-bracket-paren",
     ),
     pytest.param(
         expression_node_case(
-            expression="(1)+{2+[\\frac{2}{3}+4+(\\pow{2}{3}",
+            expression="(1)+{2+[\\frac{2}{3}+4+(2^{3}",
             expected_widget_cls_idx=[
                 (0, BraceWidget),
                 (1, BracketWidget),
@@ -623,7 +627,7 @@ EXPRESSION_NODE_CASES = [
             total_slot_count=7,
             total_segment_count=18,
             total_edit_count=10,
-            expected_plain_text="(1) + {2 + [\\frac{2}{3} + 4 + (\\pow{2}{3}",
+            expected_plain_text="(1) + {2 + [\\frac{2}{3} + 4 + (2^{3}",
         ),
         id="nested-brace-bracket-paren-open-only",
     ),
@@ -1036,7 +1040,7 @@ class TestPlainTextSignal:
 
     @pytest.mark.parametrize(
         "text",
-        ["\\frac{1}{2}", "\\pow{2}{3}", "5", "1+2"],
+        ["\\frac{1}{2}", "2^{3}", "5", "1+2"],
     )
     def test_signal_on_set_plain_text(self, expression_widget, qapp, text):
         """Signal should fire when setting plain text."""
@@ -1085,13 +1089,13 @@ NODE_INSERT_CASES = [
             init_expr="",
             target_path=("root", 0),
             cursor_pos=0,
-            insert_str="\\pow",
+            insert_str="^",
             expected_widget_cls_idx=[(0, PowWidget)],
             expected_inner_segments_idx=[(0, 2)],
             total_node_count=1,
             total_segment_count=5,
             total_edit_count=4,
-            expected_plain_text="\\pow{}{}",
+            expected_plain_text="^{}",
             expected_focus_cursor=(("node", 0, "_left_slot", 0), 0),
         ),
         id="insert-pow",
@@ -1133,13 +1137,13 @@ NODE_INSERT_CASES = [
             init_expr="1",
             target_path=("root", 0),
             cursor_pos=1,
-            insert_str="\\pow",
+            insert_str="^",
             expected_widget_cls_idx=[(0, PowWidget)],
             expected_inner_segments_idx=[(0, 2)],
             total_node_count=1,
             total_segment_count=5,
             total_edit_count=4,
-            expected_plain_text="\\pow{1}{}",
+            expected_plain_text="1^{}",
             expected_focus_cursor=(("node", 0, "_right_slot", 0), 0),
         ),
         id="insert-pow-after-number",
@@ -1181,20 +1185,20 @@ NODE_INSERT_CASES = [
             init_expr="\\frac{1}{2}",
             target_path=("root", 2),
             cursor_pos=0,
-            insert_str="\\pow",
+            insert_str="^",
             expected_widget_cls_idx=[(0, FractionWidget), (1, PowWidget)],
             expected_inner_segments_idx=[(0, 2), (1, 2)],
             total_node_count=2,
             total_segment_count=9,
             total_edit_count=7,
-            expected_plain_text="\\frac{1}{2}\\pow{}{}",
+            expected_plain_text="\\frac{1}{2}^{}",
             expected_focus_cursor=(("node", 1, "_left_slot", 0), 0),
         ),
         id="insert-pow-after-frac",
     ),
     pytest.param(
         node_insert_case(
-            init_expr="\\pow{2}{3}",
+            init_expr="2^{3}",
             target_path=("node", 0, "exponent", 0),
             cursor_pos=1,
             insert_str="\\frac",
@@ -1203,7 +1207,7 @@ NODE_INSERT_CASES = [
             total_node_count=2,
             total_segment_count=9,
             total_edit_count=7,
-            expected_plain_text="\\pow{2}{\\frac{3}{}}",
+            expected_plain_text="2^{\\frac{3}{}}",
             expected_focus_cursor=(("node", 1, "_right_slot", 0), 0),
         ),
         id="insert-frac-into-exponent",
@@ -1229,13 +1233,13 @@ NODE_INSERT_CASES = [
             init_expr="12+\\frac{3}{4}",
             target_path=("root", 0),
             cursor_pos=1,
-            insert_str="\\pow",
+            insert_str="^",
             expected_widget_cls_idx=[(0, PowWidget), (1, FractionWidget)],
             expected_inner_segments_idx=[(0, 2), (1, 2)],
             total_node_count=2,
             total_segment_count=9,
             total_edit_count=7,
-            expected_plain_text="\\pow{1}{2} + \\frac{3}{4}",
+            expected_plain_text="1^{2} + \\frac{3}{4}",
             expected_focus_cursor=(("node", 0, "_right_slot", 0), 1),
         ),
         id="add-node-between-numbers",
@@ -1510,13 +1514,13 @@ NODE_INSERT_CASES = [
             init_expr="(\\frac{1}{2}",
             target_path=("node", 0, "_left_slot", 0),
             cursor_pos=0,
-            insert_str="3+\\pow+",
+            insert_str="3+^+",
             expected_widget_cls_idx=[(0, RoundParenWidget), (1, PowWidget), (2, FractionWidget)],
             expected_inner_segments_idx=[(0, 6), (1, 2), (2, 2)],
             total_node_count=3,
             total_segment_count=12,
             total_edit_count=8,
-            expected_plain_text="(3 + \\pow{}{} + \\frac{1}{2}",
+            expected_plain_text="(3 + ^{} + \\frac{1}{2}",
             expected_focus_cursor=(("node", 1, "_left_slot", 0), 0),
         ),
         id="insert-node-inside-open-paren",
@@ -1526,13 +1530,13 @@ NODE_INSERT_CASES = [
             init_expr="(2 + ",
             target_path=("root", 0),
             cursor_pos=5,
-            insert_str="3+\\pow",
+            insert_str="3+^",
             expected_widget_cls_idx=[(0, RoundParenWidget), (1, PowWidget)],
             expected_inner_segments_idx=[(0, 4), (1, 2)],
             total_node_count=2,
             total_segment_count=8,
             total_edit_count=5,
-            expected_plain_text="(2 + 3 + \\pow{}{}",
+            expected_plain_text="(2 + 3 + ^{}",
             expected_focus_cursor=(("node", 1, "_left_slot", 0), 0),
         ),
         id="insert-node-into-flat-open-paren",
@@ -1542,13 +1546,13 @@ NODE_INSERT_CASES = [
             init_expr="(2 + ",
             target_path=("root", 0),
             cursor_pos=5,
-            insert_str="3+\\pow{4}{5}+6)",
+            insert_str="3+4^{5}+6)",
             expected_widget_cls_idx=[(0, RoundParenWidget), (1, PowWidget)],
             expected_inner_segments_idx=[(0, 5), (1, 2)],
             total_node_count=2,
             total_segment_count=10,
             total_edit_count=6,
-            expected_plain_text="(2 + 3 + \\pow{4}{5} + 6)",
+            expected_plain_text="(2 + 3 + 4^{5} + 6)",
             expected_focus_cursor=(
                 ("node", 1, "_right_slot", 0),
                 1,
@@ -1559,9 +1563,9 @@ NODE_INSERT_CASES = [
     pytest.param(
         node_insert_case(
             init_expr="(\\frac{1}{2}+3)",
-            target_path=("node", 0, "_left_slot", -1),
+            target_path=("node", 0, "_inner_slot", -1),
             cursor_pos=1,
-            insert_str="\\pow",
+            insert_str="^",
             expected_widget_cls_idx=[
                 (0, RoundParenWidget),
                 (1, FractionWidget),
@@ -1571,7 +1575,7 @@ NODE_INSERT_CASES = [
             total_node_count=3,
             total_segment_count=14,
             total_edit_count=9,
-            expected_plain_text="(\\frac{1}{2}\\pow{}{} + 3)",
+            expected_plain_text="(\\frac{1}{2}^{} + 3)",
             expected_focus_cursor=(("node", 2, "_left_slot", 0), 0),
         ),
         id="insert-node-after-node-in-closed-paren",
@@ -1990,23 +1994,23 @@ class TestHandleNegate:
         ),
         pytest.param(
             expr_negate_case(
-                expression="1 + \\pow{2}{3}",
+                expression="1 + 2^{3}",
                 target_path=("root", -1),
                 cursor_pos=0,
                 negate_times=1,
-                expected_plain_text="1 + -\\pow{2}{3}",
+                expected_plain_text="1 + -2^{3}",
                 expected_plain_text_first=None,
             ),
             id="negate-after-pow",
         ),
         pytest.param(
             expr_negate_case(
-                expression="1 + \\pow{2}{3}",
+                expression="1 + 2^{3}",
                 target_path=("root", -1),
                 cursor_pos=0,
                 negate_times=2,
-                expected_plain_text="1 + \\pow{2}{3}",
-                expected_plain_text_first="1 + -\\pow{2}{3}",
+                expected_plain_text="1 + 2^{3}",
+                expected_plain_text_first="1 + -2^{3}",
             ),
             id="negate-after-pow-toggle",
         ),
@@ -2089,12 +2093,12 @@ class TestHandleNegate:
         ),
         pytest.param(
             expr_negate_case(
-                expression="1 + \\pow{2}{3}",
+                expression="1 + 2^{3}",
                 target_path=("root", -1),
                 cursor_pos=0,
                 negate_times=2,
-                expected_plain_text="1 + \\pow{2}{3}",
-                expected_plain_text_first="1 + -\\pow{2}{3}",
+                expected_plain_text="1 + 2^{3}",
+                expected_plain_text_first="1 + -2^{3}",
             ),
             id="negate-after-pow-toggle",
         ),
@@ -2230,7 +2234,7 @@ NODE_BACKSPACE_CASES = [
     ),
     pytest.param(
         node_backspace_case(
-            init_expr="\\pow{2}{}",
+            init_expr="2^{}",
             target_path=("node", 0, "exponent", 0),
             cursor_pos=0,
             expected_widget_cls_idx=None,
@@ -2275,7 +2279,7 @@ NODE_BACKSPACE_CASES = [
     ),
     pytest.param(
         node_backspace_case(
-            init_expr="1 + \\pow{2}{} + 3",
+            init_expr="1 + 2^{} + 3",
             target_path=("node", 0, "exponent", 0),
             cursor_pos=0,
             expected_widget_cls_idx=None,
@@ -2579,7 +2583,7 @@ NODE_BACKSPACE_CASES = [
     # ── PowWidget ──
     pytest.param(
         node_backspace_case(
-            init_expr="\\pow{3}{4}",
+            init_expr="3^{4}",
             target_path=("root", 2),
             cursor_pos=0,
             times=1,
@@ -2588,14 +2592,14 @@ NODE_BACKSPACE_CASES = [
             total_node_count=1,
             total_segment_count=5,
             total_edit_count=4,
-            expected_plain_text="\\pow{3}{4}",
+            expected_plain_text="3^{4}",
             expected_focus_cursor=(("node", 0, "exponent", 0), 1),
         ),
         id="pow-suffix-bs1-navigate-into-exp",
     ),
     pytest.param(
         node_backspace_case(
-            init_expr="\\pow{3}{4}",
+            init_expr="3^{4}",
             target_path=("root", 2),
             cursor_pos=0,
             times=2,
@@ -2604,14 +2608,14 @@ NODE_BACKSPACE_CASES = [
             total_node_count=1,
             total_segment_count=5,
             total_edit_count=4,
-            expected_plain_text="\\pow{3}{}",
+            expected_plain_text="3^{}",
             expected_focus_cursor=(("node", 0, "exponent", 0), 0),
         ),
         id="pow-suffix-bs2-delete-char-in-exp",
     ),
     pytest.param(
         node_backspace_case(
-            init_expr="\\pow{3}{4}",
+            init_expr="3^{4}",
             target_path=("root", 2),
             cursor_pos=0,
             times=3,
@@ -2958,7 +2962,7 @@ MARGIN_ALIGN_CASES = [
         id="nested-frac-denominator",
     ),
     pytest.param(
-        margin_align_case(expression="1 + \\pow{2}{3} + 4"),
+        margin_align_case(expression="1 + 2^{3} + 4"),
         id="pow-with-siblings",
     ),
     pytest.param(
@@ -2966,11 +2970,11 @@ MARGIN_ALIGN_CASES = [
         id="root-with-siblings",
     ),
     pytest.param(
-        margin_align_case(expression="\\frac{\\frac{1}{2}}{3} + \\pow{4}{5}"),
+        margin_align_case(expression="\\frac{\\frac{1}{2}}{3} + 4^{5}"),
         id="nested-nodes-siblings",
     ),
     pytest.param(
-        margin_align_case(expression="2 + \\frac{5}{6 + 5} + \\pow{5}{\\frac{4}{6}}"),
+        margin_align_case(expression="2 + \\frac{5}{6 + 5} + 5^{\\frac{4}{6}}"),
         id="nested-pow-nodes-siblings",
     ),
     pytest.param(
@@ -3008,7 +3012,7 @@ MARGIN_ALIGN_CASES = [
         id="frac-and-root-siblings",
     ),
     pytest.param(
-        margin_align_case(expression="1 + \\root{2 + 3 + \\pow{4}{5}}{6} + 7"),
+        margin_align_case(expression="1 + \\root{2 + 3 + 4^{5}}{6} + 7"),
         id="root-radicand-with-nested-pow",
     ),
     pytest.param(
@@ -3023,18 +3027,16 @@ MARGIN_ALIGN_CASES = [
     ),
     pytest.param(
         margin_align_case(
-            expression="\\pow{3}{\\frac{4}{\\frac{6}{\\frac{6}{\\frac{6}{\\frac{5}{\\frac{6}{\\frac{6}{6}}}}}}}} + \\frac{43}{3} + \\root{3}{3}"
+            expression="3^{\\frac{4}{\\frac{6}{\\frac{6}{\\frac{6}{\\frac{5}{\\frac{6}{\\frac{6}{6}}}}}}}} + \\frac{43}{3} + \\root{3}{3}"
         ),
         id="pow-deep-exponent-with-frac-and-root",
     ),
     pytest.param(
-        margin_align_case(expression="2 + (\\frac{5}{7} + \\root{6}{3} + 5) + 5 + \\pow{3}{3}"),
+        margin_align_case(expression="2 + (\\frac{5}{7} + \\root{6}{3} + 5) + 5 + 3^{3}"),
         id="paren-with-frac-root-and-pow-siblings",
     ),
     pytest.param(
-        margin_align_case(
-            expression="2 + \\pow{(\\frac{5}{7} + \\root{2}{3} + 4) + 5}{5} + \\pow{3}{3}"
-        ),
+        margin_align_case(expression="2 + (\\frac{5}{7} + \\root{2}{3} + 4) + 5}{5} + 3^{3}"),
         id="pow-base-with-paren-frac-root",
     ),
 ]
@@ -3220,7 +3222,7 @@ NAV_CASES = [
     ),
     pytest.param(
         nav_case(
-            expression="\\pow{3}{4}",
+            expression="3^{4}",
             target_focus_cursor=(("root", 2), 0),
             key="left",
             key_count=1,
@@ -3230,7 +3232,7 @@ NAV_CASES = [
     ),
     pytest.param(
         nav_case(
-            expression="\\pow{3}{4}",
+            expression="3^{4}",
             target_focus_cursor=(("node", 0, "base", 0), 0),
             key="left",
             key_count=1,
@@ -3240,7 +3242,7 @@ NAV_CASES = [
     ),
     pytest.param(
         nav_case(
-            expression="\\pow{3}{4}",
+            expression="3^{4}",
             target_focus_cursor=(("root", 0), 0),
             key="right",
             key_count=1,
@@ -3250,7 +3252,7 @@ NAV_CASES = [
     ),
     pytest.param(
         nav_case(
-            expression="\\pow{3}{4}",
+            expression="3^{4}",
             target_focus_cursor=(("node", 0, "base", 0), 1),
             key="right",
             key_count=1,
@@ -3260,7 +3262,7 @@ NAV_CASES = [
     ),
     pytest.param(
         nav_case(
-            expression="\\pow{3}{4}",
+            expression="3^{4}",
             target_focus_cursor=(("node", 0, "base", 0), 1),
             key="up",
             key_count=1,
@@ -3270,7 +3272,7 @@ NAV_CASES = [
     ),
     pytest.param(
         nav_case(
-            expression="\\pow{3}{4}",
+            expression="3^{4}",
             target_focus_cursor=(("node", 0, "exponent", 0), 1),
             key="down",
             key_count=1,
@@ -3451,7 +3453,7 @@ NAV_CASES = [
     ),
     pytest.param(
         nav_case(
-            expression="\\pow{3}{4}",
+            expression="3^{4}",
             target_focus_cursor=(("root", 2), 0),
             key="up",
             key_count=1,

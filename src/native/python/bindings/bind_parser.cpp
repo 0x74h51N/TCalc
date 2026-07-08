@@ -79,7 +79,8 @@ void bind_parser(py::module_ &m) {
         .value("Frac", LatexKind::Frac)
         .value("Pow", LatexKind::Pow)
         .value("Root", LatexKind::Root)
-        .value("Log", LatexKind::Log);
+        .value("Log", LatexKind::Log)
+        .value("Subscript", LatexKind::Subscript);
 
     py::enum_<ParenKind>(m, "ParenKind")
         .value("Paren", ParenKind::Paren)

@@ -392,6 +392,16 @@ extract_brace_content(std::string_view s, std::size_t start, std::size_t &out_en
     return s.substr(content_start, i - content_start - 1);
 }
 
+inline std::string_view
+extract_script_content(std::string_view s, std::size_t sigil_pos, std::size_t &out_end) {
+    if (sigil_pos + 1 >= s.size() || s[sigil_pos + 1] != '{') {
+        // Bare sigil (no `{`): an empty script group, consume just the sigil.
+        out_end = sigil_pos + 1;
+        return {};
+    }
+    return extract_brace_content(s, sigil_pos + 1, out_end);
+}
+
 struct MatchLatexArgs {
     std::string_view s;
     std::size_t i;
@@ -451,6 +461,105 @@ inline Token make_stray_close(ParenKind kind, std::size_t pos) {
     };
 }
 
+// A free-text run ends at the next char that begins a construct: any bracket
+// (via the header's paren_role_of); '\'; '^' always (bare or '^{' — both fold to
+// Pow); '_' only when it starts a '_{' fold — a bare '_' is inert free text.
+inline bool starts_construct(std::string_view s, std::size_t i) {
+    const char c = s[i];
+    return paren_role_of(c) != ParenRole::None || c == '\\' || c == '^' ||
+           (c == '_' && i + 1 < s.size() && s[i + 1] == '{');
+}
+
+bool scan_latex_macro(
+    std::string_view s, std::size_t i, TokensBranch &result, std::size_t &out_end) {
+    LatexKind out_kind = LatexKind::Frac;
+    OpId op_id = OpId::Div;
+    std::string_view out_left{}, out_right{};
+
+    if (!match_latex_expr({s, i, &out_kind, &op_id, &out_left, &out_right, &out_end}))
+        return false;
+    result.latex_indices.push_back(static_cast<TokenIndex>(result.tokens.size()));
+    auto left = tokenize(out_left);
+    auto right = tokenize(out_right);
+
+    if (left.has_latex_descendant || right.has_latex_descendant)
+        result.has_latex_descendant = true;
+
+    result.tokens.push_back(
+        Token{
+            TokenKind::Latex,
+            LatexToken{out_kind, op_id, std::move(left.tokens), std::move(right.tokens)},
+            i,
+            out_end});
+    return true;
+}
+
+// Fold `<sigil>{…}` or a bare `<sigil>` into a LatexToken(kind): the preceding
+// operand is the base — or an empty base if none, i.e. a placeholder widget — and
+// the brace group (empty when the sigil is bare) is the script. Returns the position
+// past the group (the closing `}`, or just past a bare sigil).
+std::size_t fold_script(
+    LatexKind kind,
+    OpId op,
+    std::string_view s,
+    std::size_t i,
+    TokensBranch &result,
+    bool &expect_operand) {
+    std::size_t out_end = 0;
+    const std::string_view content = extract_script_content(s, i, out_end);
+    std::vector<Token> base;
+    std::size_t start = i;
+    if (!expect_operand) {
+        start = result.tokens.back().start_pos;
+        base.push_back(std::move(result.tokens.back()));
+        result.tokens.pop_back();
+    }
+    auto script = tokenize(content);
+    result.latex_indices.push_back(static_cast<TokenIndex>(result.tokens.size()));
+    result.tokens.push_back(
+        Token{
+            TokenKind::Latex,
+            LatexToken{kind, op, std::move(base), std::move(script.tokens)},
+            start,
+            out_end});
+    if (script.has_latex_descendant)
+        result.has_latex_descendant = true;
+    expect_operand = false;
+    return out_end;
+}
+
+// '(' / '[' / '{' → a CallToken (when it directly follows a call-function Op) or a
+// ParenToken. Returns the position past the group (closed or unclosed).
+std::size_t
+scan_open_paren(std::string_view s, std::size_t i, TokensBranch &result, bool &expect_operand) {
+    const ParenKind kind = paren_kind_of(s[i]);
+    const auto ext = detail::scan_paren_extent(s, i);
+    expect_operand = false;
+
+    if (kind == ParenKind::Paren && !result.tokens.empty() &&
+        result.tokens.back().kind == TokenKind::Op) {
+        const auto &prev_op = std::get<OpToken>(result.tokens.back().data);
+        if (const ops::OpSpec *sp = ops::op_spec(prev_op.op_id); sp && ops::is_call_function(*sp)) {
+            const std::size_t func_start = result.tokens.back().start_pos;
+            const ops::OpId fop = prev_op.op_id;
+            result.tokens.pop_back();
+            auto call = detail::build_call_token(s, i, ext, fop, func_start);
+            if (std::get<CallToken>(call.data).has_latex_descendant)
+                result.has_latex_descendant = true;
+            result.tokens.push_back(std::move(call));
+            result.has_call = true;
+            return ext.closed ? ext.end_pos + 1 : ext.end_pos;
+        }
+    }
+
+    result.paren_indices.push_back(static_cast<TokenIndex>(result.tokens.size()));
+    auto tok = detail::build_paren_token(s, i, ext, kind);
+    if (!result.has_latex_descendant && std::get<ParenToken>(tok.data).has_latex_descendant)
+        result.has_latex_descendant = true;
+    result.tokens.push_back(std::move(tok));
+    return ext.closed ? ext.end_pos + 1 : ext.end_pos;
+}
+
 } // namespace
 
 TokensBranch tokenize(std::string_view s) {
@@ -463,103 +572,58 @@ TokensBranch tokenize(std::string_view s) {
 
     while (i < n) {
         const char c = s[i];
-        const ParenRole role = paren_role_of(c);
 
-        // 1) Paren open → build_paren_token
-        if (role == ParenRole::Open) {
-            const ParenKind kind = paren_kind_of(c);
-            const auto ext = detail::scan_paren_extent(s, i);
-
-            if (kind == ParenKind::Paren && !result.tokens.empty() &&
-                result.tokens.back().kind == TokenKind::Op) {
-                const auto &prev_op = std::get<OpToken>(result.tokens.back().data);
-                if (const ops::OpSpec *sp = ops::op_spec(prev_op.op_id);
-                    sp && ops::is_call_function(*sp)) {
-                    const std::size_t func_start = result.tokens.back().start_pos;
-                    const ops::OpId fop = prev_op.op_id;
-                    result.tokens.pop_back();
-                    auto call = detail::build_call_token(s, i, ext, fop, func_start);
-                    if (std::get<CallToken>(call.data).has_latex_descendant)
-                        result.has_latex_descendant = true;
-                    result.tokens.push_back(std::move(call));
-                    result.has_call = true;
-                    i = ext.closed ? ext.end_pos + 1 : ext.end_pos;
-                    expect_operand = false;
-                    continue;
-                }
-            }
-
-            const auto tok_idx = static_cast<TokenIndex>(result.tokens.size());
-            result.paren_indices.push_back(tok_idx);
-            auto tok = detail::build_paren_token(s, i, ext, kind);
-            if (!result.has_latex_descendant &&
-                std::get<ParenToken>(tok.data).has_latex_descendant) {
-                result.has_latex_descendant = true;
-            }
-            result.tokens.push_back(std::move(tok));
-            i = ext.closed ? ext.end_pos + 1 : ext.end_pos;
-            expect_operand = false;
+        switch (paren_role_of(c)) {
+        case ParenRole::Open:
+            i = scan_open_paren(s, i, result, expect_operand);
             continue;
+        case ParenRole::Close:
+            result.paren_indices.push_back(static_cast<TokenIndex>(result.tokens.size()));
+            result.tokens.push_back(make_stray_close(paren_kind_of(c), i));
+            // A close acts as an operand for the next op (binary '+' / '-', not unary).
+            expect_operand = false;
+            ++i;
+            continue;
+        case ParenRole::None:
+            break;
         }
 
-        // 2) Latex: '\'
-        if (c == '\\') {
-            LatexKind out_kind = LatexKind::Frac;
-            OpId op_id = OpId::Div;
-            std::string_view out_left{};
-            std::string_view out_right{};
+        switch (c) {
+        case '\\': {
             std::size_t out_end = 0;
-
-            if (match_latex_expr({s, i, &out_kind, &op_id, &out_left, &out_right, &out_end})) {
-                const auto expr_idx = static_cast<TokenIndex>(result.tokens.size());
-                result.latex_indices.push_back(expr_idx);
-                auto left_branch = tokenize(out_left);
-                auto right_branch = tokenize(out_right);
-
-                LatexToken latex{
-                    .kind = out_kind,
-                    .op_id = op_id,
-                    .left = std::move(left_branch.tokens),
-                    .right = std::move(right_branch.tokens)};
-
-                result.tokens.push_back(
-                    Token{
-                        .kind = TokenKind::Latex,
-                        .data = std::move(latex),
-                        .start_pos = i,
-                        .end_pos = out_end,
-                    });
-
+            if (scan_latex_macro(s, i, result, out_end)) {
                 i = out_end;
                 expect_operand = false;
+            } else {
+                ++i;
+            }
+            continue;
+        }
+
+        case '^':
+            // '^' and '^{…}' both fold to a Pow LatexToken (bare '^' → empty exponent).
+            i = fold_script(LatexKind::Pow, OpId::Pow, s, i, result, expect_operand);
+            continue;
+
+        case '_':
+            if (i + 1 < n && s[i + 1] == '{') {
+                i = fold_script(LatexKind::Subscript, OpId::Count, s, i, result, expect_operand);
                 continue;
             }
+            [[fallthrough]]; // bare '_' is inert free text — handled by default
 
+        default: {
+            // The one free-text scan: consume the current char, then run up to the
+            // next construct start.
+            const std::size_t start = i;
             ++i;
-            continue;
+            while (i < n && !starts_construct(s, i)) {
+                ++i;
+            }
+            expect_operand =
+                detail::tokenize_core(s.substr(start, i - start), result, start, expect_operand);
         }
-
-        // 3) Stray close
-        if (role == ParenRole::Close) {
-            const ParenKind kind = paren_kind_of(c);
-            result.paren_indices.push_back(static_cast<TokenIndex>(result.tokens.size()));
-            result.tokens.push_back(make_stray_close(kind, i));
-            ++i;
-            // A close-paren-style token acts as an operand for the next op:
-            // the following '+' / '-' should be binary, not unary.
-            expect_operand = false;
-            continue;
         }
-
-        // 4) Fallback: tokenize_core (ops, numbers, free text)
-        const std::size_t start = i;
-        while (i < s.size() && s[i] != '\\' && s[i] != '(' && s[i] != '[' && s[i] != '{' &&
-               s[i] != ')' && s[i] != ']' && s[i] != '}') {
-            ++i;
-        }
-
-        expect_operand =
-            detail::tokenize_core(s.substr(start, i - start), result, start, expect_operand);
     }
 
     return result;
@@ -1024,9 +1088,20 @@ inline bool is_unary_as_binary(ops::OpId op_id) {
 std::string format_expr_str(LatexKind kind, std::string_view left, std::string_view right) {
     constexpr char open = paren_symbol(true, ParenKind::Brace);
     constexpr char close = paren_symbol(false, ParenKind::Brace);
-    const auto sym = kLatexSymbols[static_cast<std::size_t>(kind)];
 
     std::string out;
+    // Script shape: base<sigil>{script} — Pow: 2^{3}, Subscript: x_{2}. Base bare.
+    if (kind == LatexKind::Pow || kind == LatexKind::Subscript) {
+        out.reserve(left.size() + right.size() + 3);
+        out.append(left);
+        out.push_back(kind == LatexKind::Pow ? '^' : '_');
+        out.push_back(open);
+        out.append(right);
+        out.push_back(close);
+        return out;
+    }
+    // Macro shape: sym{left}{right} — frac/root/log.
+    const auto sym = kLatexSymbols[static_cast<std::size_t>(kind)];
     out.reserve(sym.size() + left.size() + right.size() + 4);
     out.append(sym);
     out.push_back(open);
@@ -1173,6 +1248,18 @@ std::string token_flat_text(const Token &tok) {
             }
             return text;
         };
+
+        // Flat is a display-only form (history's FLAT mode) — never re-tokenized, so
+        // it strips the script braces for readability: 2^{3} -> 2^3, 2_{3} -> 2_3.
+        // Base stays bare-or-braced via wrap_side; the exponent/subscript follows the
+        // sigil directly. (This also sidesteps the generic infix path below, which
+        // would deref a null op_spec for Subscript's OpId::Count sentinel.)
+        if (latex.kind == LatexKind::Pow || latex.kind == LatexKind::Subscript) {
+            std::string out = wrap_side(latex.left);
+            out.push_back(latex.kind == LatexKind::Pow ? '^' : '_');
+            out.append(tokens_to_flat_text(latex.right));
+            return out;
+        }
 
         std::string out;
         out.append(wrap_side(latex.left));

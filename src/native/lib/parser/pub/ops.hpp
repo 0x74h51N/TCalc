@@ -194,7 +194,7 @@ inline constexpr std::array kOps{
     },
     OpSpec{
         .id = OpId::Mul,
-        .symbol = "x",
+        .symbol = "·",
         .precedence = 2,
         .associativity = Assoc::Left,
         .arity = Arity::Binary,
