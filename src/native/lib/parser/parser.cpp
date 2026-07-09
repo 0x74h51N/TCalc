@@ -384,11 +384,12 @@ extract_brace_content(std::string_view s, std::size_t start, std::size_t &out_en
         ++i;
     }
 
-    if (depth != 0) {
-        return {};
-    }
-
     out_end = i;
+    if (depth != 0) {
+        // Unclosed brace (hot-tokenization): consume to end as partial content and
+        // still report out_end so callers advance, never leave out_end unset.
+        return s.substr(content_start, i - content_start);
+    }
     return s.substr(content_start, i - content_start - 1);
 }
 
@@ -462,12 +463,10 @@ inline Token make_stray_close(ParenKind kind, std::size_t pos) {
 }
 
 // A free-text run ends at the next char that begins a construct: any bracket
-// (via the header's paren_role_of); '\'; '^' always (bare or '^{' — both fold to
-// Pow); '_' only when it starts a '_{' fold — a bare '_' is inert free text.
+// (via the header's paren_role_of); '\'; '^' and '_' always
 inline bool starts_construct(std::string_view s, std::size_t i) {
     const char c = s[i];
-    return paren_role_of(c) != ParenRole::None || c == '\\' || c == '^' ||
-           (c == '_' && i + 1 < s.size() && s[i + 1] == '{');
+    return paren_role_of(c) != ParenRole::None || c == '\\' || c == '^' || c == '_';
 }
 
 bool scan_latex_macro(
@@ -606,11 +605,9 @@ TokensBranch tokenize(std::string_view s) {
             continue;
 
         case '_':
-            if (i + 1 < n && s[i + 1] == '{') {
-                i = fold_script(LatexKind::Subscript, OpId::Count, s, i, result, expect_operand);
-                continue;
-            }
-            [[fallthrough]]; // bare '_' is inert free text — handled by default
+            // '_' and '_{…}' both fold to a Subscript LatexToken (bare '_' → empty script).
+            i = fold_script(LatexKind::Subscript, OpId::Count, s, i, result, expect_operand);
+            continue;
 
         default: {
             // The one free-text scan: consume the current char, then run up to the

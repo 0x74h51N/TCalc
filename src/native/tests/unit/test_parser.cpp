@@ -410,6 +410,13 @@ void unit_parser(TestContext &ctx) {
         // PowWidget placeholder), not a bare Op(Pow) + brace group.
         {.id = "pow caret empty base", .input = "^{3}", .expected = {Pow({}, {N("3")})}},
         {.id = "pow caret empty base and exp", .input = "^{}", .expected = {Pow({}, {})}},
+        // Live typing: an unclosed '{' must NOT hang the tokenizer (regression —
+        // extract_brace_content once left out_end unset → tokenize looped forever).
+        // The unclosed brace is swallowed: content runs to end, end_pos = input len.
+        {.id = "pow caret unclosed empty", .input = "a^{", .expected = {Pow({Ch('a')}, {}, 0, 3)}},
+        {.id = "pow caret unclosed exp",
+         .input = "2^{3",
+         .expected = {Pow({N("2")}, {N("3")}, 0, 4)}},
 
         // Note: base uses 'y', not 'x' — 'x' is a reserved multiplication-symbol
         // operator (see ops.hpp), so "x_{2}" tokenizes as Op(Mul) + free text,
@@ -421,8 +428,17 @@ void unit_parser(TestContext &ctx) {
         {.id = "subscript on number folds",
          .input = "2_{3}",
          .expected = {Sub({N("2")}, {N("3")})}},
-        {.id = "bare underscore no fold", .input = "a_b", .expected = {Ch('a'), N("_"), Ch('b')}},
+        // Bare '_' folds like bare '^': an empty-script Subscript on the preceding
+        // operand (an empty placeholder the UI fills in), not inert free text.
+        {.id = "bare underscore folds empty",
+         .input = "a_b",
+         .expected = {Sub({Ch('a')}, {}), Ch('b')}},
         {.id = "subscript empty base", .input = "_{2}", .expected = {Sub({}, {N("2")})}},
+        // Live typing: unclosed '_{' must not hang either; brace swallowed to end.
+        {.id = "subscript unclosed empty", .input = "a_{", .expected = {Sub({Ch('a')}, {}, 0, 3)}},
+        {.id = "subscript unclosed content",
+         .input = "y_{2",
+         .expected = {Sub({Ch('y')}, {N("2")}, 0, 4)}},
 
         {.id = "frac with inner expr",
          .input = "\\frac{2+3}{4}",
