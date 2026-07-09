@@ -121,6 +121,7 @@ struct LatexEntry {
 constexpr std::array kLatexExprs = {
     LatexEntry{"\\frac", LatexKind::Frac, tcalc::ops::OpId::Div},
     LatexEntry{"^", LatexKind::Pow, tcalc::ops::OpId::Pow},
+    LatexEntry{"_", LatexKind::Subscript, tcalc::ops::OpId::Count},
     LatexEntry{"\\root", LatexKind::Root, tcalc::ops::OpId::Root},
     LatexEntry{"\\log", LatexKind::Log, tcalc::ops::OpId::Log}};
 

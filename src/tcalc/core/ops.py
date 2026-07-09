@@ -208,6 +208,7 @@ class LatexExpr:
     Pow: LatexExprSpec
     Root: LatexExprSpec
     Log: LatexExprSpec
+    Subscript: LatexExprSpec
 
     @classmethod
     def get(cls, kind: calc_native.LatexKind) -> LatexExprSpec:

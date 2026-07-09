@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPainter, QPainterPath, QPen, QTransform
 from PySide6.QtWidgets import QSizePolicy, QWidget
@@ -17,6 +19,20 @@ ROUND_PAREN_WIDTH = 8
 SQUARE_BRACKET_WIDTH = 8
 CURLY_BRACE_WIDTH = 12
 PEN_WIDTH = 2
+
+
+@dataclass(frozen=True)
+class ScriptNudge:
+    """Pixel fine-tuning of a script's position relative to its base corner
+    (x: + right, y: + down). Shared by the paint and widget renderers so both
+    sit the same."""
+
+    x: int = 0
+    y: int = 0
+
+
+POW_SCRIPT_NUDGE = ScriptNudge(x=1, y=7)  # exponent nudged down toward the base
+SUB_SCRIPT_NUDGE = ScriptNudge(x=1, y=-4)  # subscript nudged up toward the base
 
 
 def sqrt_path(w: float, h: float) -> QPainterPath:
