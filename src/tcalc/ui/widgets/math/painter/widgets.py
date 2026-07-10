@@ -15,8 +15,10 @@ from PySide6.QtGui import QPainter, QPainterPath
 
 from ..math_primitives import (
     PEN_WIDTH,
+    POW_SCRIPT_NUDGE,
     SQRT_LEFT_RATIO,
     SQRT_WIDTH,
+    SUB_SCRIPT_NUDGE,
     curly_brace_path,
     round_paren_path,
     sqrt_path,
@@ -94,9 +96,34 @@ class PowPaint(PaintNode):
             return
         base_y = y + self.above - self.left.above
         self.left.place(x, base_y)
-        exp_x = x + self.left.w
-        exp_y = y + self.above - self.left.above - self.right.below
+        exp_x = x + self.left.w + POW_SCRIPT_NUDGE.x
+        exp_y = y + self.above - self.left.above - self.right.below + POW_SCRIPT_NUDGE.y
         self.right.place(exp_x, exp_y)
+
+
+class SubPaint(PaintNode):
+    LATEX_KIND = calc_native.LatexKind.Subscript
+
+    def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
+        if self.right is None:
+            return
+        self.left.measure(fm_cache, scale)
+        self.right.measure(fm_cache, scale * SCRIPT_SCALE)
+        drop_amt = self.left.below * (1.0 - POW_OVERLAP) + self.right.h * POW_OVERLAP
+        self.w = self.left.w + self.right.w
+        self.above = self.left.above
+        self.below = self.left.below + max(0.0, self.right.h - drop_amt + self.right.above)
+        self.h = self.above + self.below
+
+    def place(self, x: float, y: float) -> None:
+        super().place(x, y)
+        if self.right is None:
+            return
+        base_y = y + self.above - self.left.above
+        self.left.place(x, base_y)
+        sub_x = x + self.left.w + SUB_SCRIPT_NUDGE.x
+        sub_y = base_y + self.left.h - self.right.below + SUB_SCRIPT_NUDGE.y
+        self.right.place(sub_x, sub_y)
 
 
 class RootPaint(PaintNode):
@@ -209,6 +236,7 @@ LATEX_KIND_MAP.update(
     {
         calc_native.LatexKind.Frac: FractionPaint,
         calc_native.LatexKind.Pow: PowPaint,
+        calc_native.LatexKind.Subscript: SubPaint,
         calc_native.LatexKind.Root: RootPaint,
     }
 )

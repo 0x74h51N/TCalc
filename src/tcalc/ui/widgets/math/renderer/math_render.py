@@ -30,6 +30,7 @@ from .widgets import (
     PowWidget,
     RootWidget,
     RoundParenWidget,
+    SubWidget,
 )
 
 if TYPE_CHECKING:
@@ -44,6 +45,7 @@ class MathRender(QWidget):
         FractionWidget.LATEX_KIND: FractionWidget,
         PowWidget.LATEX_KIND: PowWidget,
         RootWidget.LATEX_KIND: RootWidget,
+        SubWidget.LATEX_KIND: SubWidget,
     }
 
     PAREN_KIND_MAP: dict[calc_native.ParenKind, type[ParenWidget]] = {

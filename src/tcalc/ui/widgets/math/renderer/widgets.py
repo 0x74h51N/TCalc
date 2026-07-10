@@ -7,12 +7,15 @@
 
 from __future__ import annotations
 
+from typing import ClassVar
+
 import calc_native
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QSize, Qt
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
     QHBoxLayout,
+    QLineEdit,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -22,9 +25,12 @@ from tcalc.core.ops import LatexExpr
 from tcalc.ui.widgets.utils import InputAlign
 
 from ..math_primitives import (
+    POW_SCRIPT_NUDGE,
+    SUB_SCRIPT_NUDGE,
     CurlyBrace,
     ParenGlyph,
     RoundParen,
+    ScriptNudge,
     SqrtSymbol,
     SquareBracket,
 )
@@ -96,55 +102,122 @@ class FractionWidget(ExpressionNode):
             self.denominator.default_input().setFocus()
 
 
-class PowWidget(ExpressionNode):
-    """UI node for power/exponent with base and exponent slots."""
+class ScriptNode(ExpressionNode):
+    """A base slot with a super/subscript hung off its right corner by geometry,
+    so the script's offset stays constant at any base height.
 
-    OP_ID = calc_native.OpId.Pow
-    LATEX_KIND = calc_native.LatexKind.Pow
-    SYMBOL = LatexExpr.Pow.symbol
+    SCRIPT_ANCHOR: script's vertical center on the base (0.0 top, 1.0 bottom).
+    SCRIPT_NUDGE: pixel fine-tune (+x right, +y down).
+    """
 
-    def __init__(
-        self,
-    ) -> None:
+    SCRIPT_ANCHOR: ClassVar[float]
+    SCRIPT_KEY: ClassVar[str]
+    SCRIPT_NUDGE: ClassVar[ScriptNudge] = ScriptNudge()
+
+    def __init__(self) -> None:
         super().__init__()
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
-
-        grid = QGridLayout(self)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(0)
-        grid.setVerticalSpacing(0)
-        grid.setHorizontalSpacing(0)
-
-        self.base = ExpressionSlot(
-            kind=InputKind.AUX,
-            key="base",
-            align=InputAlign.LEFT,
+        self.base = ExpressionSlot(kind=InputKind.AUX, key="base", align=InputAlign.LEFT)
+        self.script = ExpressionSlot(
+            kind=InputKind.SCRIPT, key=self.SCRIPT_KEY, align=InputAlign.RIGHTT
         )
-
-        grid.addWidget(self.base, 3, 0, 3, 2, InputAlign.RIGHT.value)
-
-        self.exponent = ExpressionSlot(
-            kind=InputKind.SCRIPT,
-            key="exponent",
-            align=InputAlign.RIGHTB,
-        )
-
-        grid.addWidget(self.exponent, 1, 1, 3, 2, InputAlign.RIGHT.value)
-
+        setattr(self, self.SCRIPT_KEY, self.script)  # e.g. self.exponent / self.subscript
+        above = self.SCRIPT_ANCHOR < 0.5  # superscript sits above the base, subscript below
         self._left_slot = self.base
-        self._right_slot = self.exponent
-        self._top_slot = self.exponent
-        self._bottom_slot = self.base
-
-    def anchor_y(self) -> int:
-        return self.base.y() - self.contentsMargins().top() + self.base.anchor_y()
+        self._right_slot = self.script
+        self._top_slot = self.script if above else self.base
+        self._bottom_slot = self.base if above else self.script
+        for slot in (self.base, self.script):
+            slot.setParent(self)
+            slot.installEventFilter(self)
 
     def focus_default(self) -> None:
         base_input = self.base.default_input()
         if not base_input.text():
             base_input.setFocus()
         else:
-            self.exponent.default_input().setFocus()
+            self.script.default_input().setFocus()
+
+    def _base_glyph(self, bs: QSize) -> tuple[int, int, int]:
+        """Base content right edge and vertical glyph box, stripped of QLineEdit
+        chrome (autowidth pad, centering, trailing cursor slot) so the script
+        hugs the glyph, not the padding."""
+        base = self.base
+        if not base._child_nodes:
+            le = base.default_input()
+            fm = le.fontMetrics()
+            gh = int(fm.height())
+            return int(fm.horizontalAdvance(le.text())), gh, max(0, (bs.height() - gh) // 2)
+        tail = base._segments[-1]
+        trim = tail.width() if isinstance(tail, QLineEdit) and not tail.text() else 0
+        return bs.width() - trim, bs.height(), 0
+
+    def _geometry(self) -> tuple[QSize, QSize, int, int, int, int]:
+        """(base box, script box, base right edge, script-center-y, over_top,
+        over_bottom) the vertical padding needed above/below the base box."""
+        bs = self.base.sizeHint()
+        ss = self.script.sizeHint()
+        gw, gh, top_inset = self._base_glyph(bs)
+        anchor = top_inset + round(gh * self.SCRIPT_ANCHOR) + self.SCRIPT_NUDGE.y
+        over_top = max(0, ss.height() // 2 - anchor)
+        over_bottom = max(0, anchor + ss.height() // 2 - bs.height())
+        return bs, ss, gw, anchor, over_top, over_bottom
+
+    def _place_script(self) -> None:
+        bs, ss, gw, anchor, over_top, _ = self._geometry()
+        m = self.contentsMargins()
+        self.base.setGeometry(m.left(), m.top() + over_top, bs.width(), bs.height())
+        self.script.setGeometry(
+            m.left() + gw + self.SCRIPT_NUDGE.x,
+            m.top() + over_top + anchor - ss.height() // 2,
+            ss.width(),
+            ss.height(),
+        )
+
+    def sizeHint(self) -> QSize:
+        bs, ss, gw, _, over_top, over_bottom = self._geometry()
+        m = self.contentsMargins()
+        content_w = max(bs.width(), gw + self.SCRIPT_NUDGE.x + ss.width())
+        return QSize(
+            m.left() + content_w + m.right(),
+            m.top() + over_top + bs.height() + over_bottom + m.bottom(),
+        )
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._place_script()
+
+    def eventFilter(self, obj, event) -> bool:
+        if event.type() == QEvent.Type.LayoutRequest:
+            self.updateGeometry()
+            self._place_script()
+        return False
+
+    def anchor_y(self) -> int:
+        # Intrinsic baseline (over_top offsets the base by the script overhang).
+        _, _, _, _, over_top, _ = self._geometry()
+        return over_top + self.base.anchor_y()
+
+
+class PowWidget(ScriptNode):
+    """UI node for power/exponent with base and exponent slots."""
+
+    OP_ID = calc_native.OpId.Pow
+    LATEX_KIND = calc_native.LatexKind.Pow
+    SYMBOL = LatexExpr.Pow.symbol
+    SCRIPT_ANCHOR = 0.0  # exponent hangs off the base's top-right corner
+    SCRIPT_KEY = "exponent"
+    SCRIPT_NUDGE = POW_SCRIPT_NUDGE
+
+
+class SubWidget(ScriptNode):
+    """UI node for a subscript with base and subscript slots."""
+
+    LATEX_KIND = calc_native.LatexKind.Subscript
+    SYMBOL = LatexExpr.Subscript.symbol
+    SCRIPT_ANCHOR = 1.0  # subscript hangs off the base's bottom-right corner
+    SCRIPT_KEY = "subscript"
+    SCRIPT_NUDGE = SUB_SCRIPT_NUDGE
 
 
 class RootWidget(ExpressionNode):
