@@ -290,7 +290,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [x] Make separate QLineEdits in math widgets (e.g., numerator/denominator, base/exponent)
   - [ ] Add fraction, pow, root, log, summation, product widgets
   - [ ] Add absolute value `|x|` and floor/ceil `⌊x⌋` `⌈x⌉` widgets
-  - [ ] Add variable indexing (variable node w/subscript e.g. x\_{0} -> x₀)
+  - [x] Add variable indexing (variable node w/subscript e.g. x\_{0} -> x₀)
   - [x] Add ParenNode to cover math expression
     - [x] Add draw object for each parentheses kind
   - [ ] Make toggleable for mathematical expressions (rawStr <-> rendered)

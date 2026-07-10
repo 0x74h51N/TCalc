@@ -58,15 +58,18 @@ re-tokenizes its elements, a call re-tokenizes its args.
 An open bracket is sorted into the paren family by a few checks. By default `(`, `[`,
 `{` each open a **`ParenToken`** carrying its `kind` (`Paren`, `Bracket`, `Brace`), its
 comma-split `elements`, and `has_open` / `has_close`; this is the data / grouping paren
-(Point, List, brace group). Two checks divert from that default:
+(Point, List, brace group). A few checks divert from that default:
 
 - a `(` **immediately after a call-function op** opens a **`CallToken`** instead (the
   call arm; the look-back behind it is explained below).
 - the `{ }` of a LaTeX construct are not paren tokens at all: when the scanner hits `\`
-  and it matches `\frac` / `\pow` / `\root` / `\log`, the whole construct _and its
+  and it matches `\frac` / `\root` / `\log`, the whole construct _and its
   braces_ are consumed into one **`LatexToken`** (via `extract_brace_content`). A `{`
   becomes a `Brace` `ParenToken` only when it stands alone, outside a LaTeX construct;
   a `\` that matches no construct is skipped.
+- `^` and `_` are **direct entry chars** (no backslash): `fold_script` folds `^{…}`
+  into a `Pow` `LatexToken` and `_{…}` into a `Subscript` one, taking the preceding
+  operand as the base (see [script folding](#script-folding--and-_) below).
 
 A close `)` `]` `}` with no matching open becomes a stray-close `ParenToken`
 (`has_open: false`), kept rather than dropped so the editor stays stable mid-typing.
@@ -77,7 +80,7 @@ flowchart TD
     IN --> SCAN{"tokenize scan [C++]<br/>per char, track expect_operand"}
     SCAN -->|"'(' and previous token is a call-function op"| CALL["CallToken(op_id, args)<br/>set has_call = true"]
     SCAN -->|"'(' '[' '{' open"| PAREN["ParenToken(kind, elements, has_close)<br/>push paren_indices"]
-    SCAN -->|"'\\' matches \frac \pow \root \log"| LATEX["LatexToken(kind, op_id, left, right)<br/>push latex_indices"]
+    SCAN -->|"'\\' matches \frac \root \log, or a '^' '_' script"| LATEX["LatexToken(kind, op_id, left, right)<br/>push latex_indices"]
     SCAN -->|"')' ']' '}' with no open"| STRAY["stray-close ParenToken(has_open: false)<br/>push paren_indices"]
     SCAN -->|"digits / operator / free text"| CORE["tokenize_core<br/>NumberToken / OpToken"]
     CALL -.->|"recurse: tokenize each arg<br/>(latex inside &rarr; has_latex_descendant)"| SCAN
@@ -130,6 +133,37 @@ Two consequences worth stating:
   `mod(...)`" (`needs_call_form`), rather than silently becoming an argument-less call.
 - `[ ]` is never a call: `mean[1,2,3]` is `Op(Mean) + ParenToken(Bracket)` (a collection
   operand). Only a `(` directly after a call-function op is a call.
+
+### Script folding: `^` and `_`
+
+`^` and `_` are LaTeX construct entry chars in their own right, not `\`-macros: the
+scanner hits one and `fold_script` builds a `LatexToken`, `^` -> `Pow`, `_` ->
+`Subscript`. The **base** comes from a look-back, exactly like the call `(`:
+`fold_script` pops the preceding operand token and stores it as the token's `left`. At
+an operand position (start of the expression, or right after an operator) there is no
+preceding operand, so the base is empty. The **script** is the `{ }` content
+re-tokenized, or empty when the sigil is bare.
+
+Two consequences follow from that, both mirroring rules already stated above:
+
+- **Bare sigils fold too.** `^` and `_` are entry chars rather than `^{`-only triggers,
+  so a caret typed between operands, or a pasted `3^4`, still builds a `Pow` with an
+  empty script instead of a dead infix operator that never renders. The widget appears
+  the moment the key is pressed.
+- **The trailing operand is not grabbed.** Just as `2+4` tokenizes to `[N(2), Op(+),
+  N(4)]` without the scanner grouping operands around the `+`, `3^4` tokenizes to
+  `[Pow(base: 3, script: {}), N(4)]`, the `4` left as a sibling. Looking back for the
+  base is cheap and unambiguous (a finished token sits there); looking forward into raw,
+  unscanned exponent text would need delimiters or precedence rules the scanner does not
+  carry. `build_math_nodes` folds that trailing operand into the empty script on the
+  editor round-trip (`3^4` -> `3^{4}`), the same layer that groups operands around any
+  operator.
+
+`Pow` carries the real `Pow` `OpId`; `Subscript` carries the `OpId::Count` sentinel and
+has no arithmetic kernel, so eval never derefs its `OpSpec` and instead reads a
+subscripted token as a variable name / index (`n_{2}`). Both serialize as
+`base<sigil>{script}` (`2^{3}`, `x_{2}`); flat text strips the braces for readability
+(`x_{2}` -> `x_2`).
 
 ## shunting_yard (to RPN)
 
