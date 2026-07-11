@@ -212,6 +212,12 @@ def _eval(expr: str) -> object:
         param("R", "float", 8.314462618, id="const-gas"),
         param("Nₐ", "float", 6.02214076e23, id="const-avogadro"),
         param("F", "float", 96485.33212, id="const-faraday"),
+        param("σ_{SB}", "float", 5.670374419e-8, id="const-stefan-boltzmann"),
+        param("b_{W}", "float", 2.897771955e-3, id="const-wien"),
+        param("R_{K}", "float", 25812.80745, id="const-von-klitzing"),
+        param("K_{J}", "float", 483597.8484e9, id="const-josephson"),
+        param("μ_{B}", "float", 9.2740100657e-24, id="const-bohr-magneton"),
+        param("μ_{N}", "float", 5.0507837393e-27, id="const-nuclear-magneton"),
         # ----------------------------
         # Collection arity-1 demote (scalar canonicalization)
         # ----------------------------
@@ -662,6 +668,10 @@ def test_assign_to_constant_rejected() -> None:
         evaluate_tokens(tokenize_string("pi = 3"), Calculator())
     assert "constant" in str(e.value)
 
+    with pytest.raises(CalculatorError) as e:
+        evaluate_tokens(tokenize_string("b_{W} = 5"), Calculator())
+    assert "constant" in str(e.value)
+
 
 @pytest.mark.parametrize(
     ("const_id", "symbol", "category", "value"),
@@ -696,7 +706,7 @@ def test_assign_to_constant_rejected() -> None:
         ),
         param(
             calc_native.ConstId.Rydberg,
-            "R∞",
+            "R_{∞}",
             calc_native.CategoryId.AtomicNuclear,
             10973731.568157,
             id="rydberg",
@@ -739,5 +749,9 @@ def test_every_constant_symbol_and_alias_tokenizes() -> None:
             branch = calc_native.tokenize_string(s)
             assert len(branch.tokens) == 1, f"{s!r} -> {len(branch.tokens)} tokens"
             tok = branch.tokens[0]
+            if "_{" in s:
+                assert tok.kind == calc_native.TokenKind.Latex, f"{s!r} -> {tok.kind}"
+                assert tok.as_latex().kind == calc_native.LatexKind.Subscript
+                continue
             assert tok.kind == calc_native.TokenKind.Const, f"{s!r} -> {tok.kind}"
             assert tok.as_const().id == spec.id, f"{s!r} -> {tok.as_const().id}, want {spec.id}"
