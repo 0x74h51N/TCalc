@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Mapping, Sequence
 
 from PySide6.QtCore import QSize, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QButtonGroup,
     QGridLayout,
@@ -21,7 +22,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from tcalc.theme import get_theme
 from tcalc.ui.utils import get_icon
+from tcalc.ui.widgets.math.painter.symbol_icon import ICON_BOX, needs_math_render, render_symbol
 
 from .types import KeyDef
 
@@ -30,7 +33,13 @@ class KeyButton(QPushButton):
     """Push button created from a ``KeyDef`` with grid placement support."""
 
     def __init__(self, key_def: KeyDef, role: str, parent: QWidget | None = None) -> None:
-        super().__init__(key_def.label, parent)
+        if needs_math_render(key_def.label):
+            super().__init__("", parent)
+            color = QColor(get_theme().colors["secondary_text"])
+            self.setIcon(render_symbol(key_def.label, color, ICON_BOX))
+            self.setIconSize(ICON_BOX)
+        else:
+            super().__init__(key_def.label, parent)
 
         if key_def.tooltip:
             self.setToolTip(key_def.tooltip.capitalize())

@@ -508,6 +508,22 @@ std::size_t fold_script(
     const std::string_view content = extract_script_content(s, i, out_end);
     std::vector<Token> base;
     std::size_t start = i;
+    // A subscript may claim a unicode-symbol op (σ) as its label: convert it to a plain
+    // letter token so the existing operand-base branch takes it. ASCII ops (+) are left.
+    if (expect_operand && kind == LatexKind::Subscript && !result.tokens.empty() &&
+        result.tokens.back().kind == TokenKind::Op) {
+        Token &prev = result.tokens.back();
+        const auto *sp = ops::op_spec(std::get<OpToken>(prev.data).op_id);
+        if (sp != nullptr && !sp->symbol.empty() &&
+            static_cast<unsigned char>(sp->symbol[0]) >= detail::kAsciiLimit) {
+            prev = Token{
+                TokenKind::Number,
+                NumberToken{std::string(sp->symbol)},
+                prev.start_pos,
+                prev.end_pos};
+            expect_operand = false;
+        }
+    }
     if (!expect_operand) {
         start = result.tokens.back().start_pos;
         base.push_back(std::move(result.tokens.back()));

@@ -167,7 +167,13 @@ void bind_parser(py::module_ &m) {
         .value("Boltzmann", ConstId::Boltzmann)
         .value("Avogadro", ConstId::Avogadro)
         .value("Faraday", ConstId::Faraday)
-        .value("AtomicMass", ConstId::AtomicMass);
+        .value("AtomicMass", ConstId::AtomicMass)
+        .value("StefanBoltzmann", ConstId::StefanBoltzmann)
+        .value("WienDisplacement", ConstId::WienDisplacement)
+        .value("VonKlitzing", ConstId::VonKlitzing)
+        .value("Josephson", ConstId::Josephson)
+        .value("BohrMagneton", ConstId::BohrMagneton)
+        .value("NuclearMagneton", ConstId::NuclearMagneton);
 
     py::enum_<CategoryId>(m, "CategoryId", "Constant category for GUI menu grouping.")
         .value("Mathematics", CategoryId::Mathematics)

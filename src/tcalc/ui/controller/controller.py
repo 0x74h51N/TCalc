@@ -12,6 +12,7 @@ from typing import Callable, Dict, List, Optional, Sequence, cast
 import calc_native
 
 from tcalc.app_state import AngleUnit, CalcValue, get_app_state
+from tcalc.core.constants import CONST_NAMES, SUBSCRIPT_CONST_NAMES, strip_subscript
 from tcalc.core.ops import Operation
 from tcalc.core.utils import is_number_token
 from tcalc.errors import CalculatorError, ErrorKind, Msg
@@ -50,6 +51,16 @@ def _compute_status(tokens) -> tuple[str, str]:
     if len(tokens) != 1:
         return "", ""
     tok = tokens[0]
+    const_name = None
+    if tok.kind == calc_native.TokenKind.Const:
+        const_name = CONST_NAMES[tok.as_const().id]
+    elif (
+        tok.kind == calc_native.TokenKind.Latex
+        and tok.as_latex().kind == calc_native.LatexKind.Subscript
+    ):
+        const_name = SUBSCRIPT_CONST_NAMES.get(strip_subscript(calc_native.token_text(tok)))
+    if const_name is not None:
+        return f"{const_name} Constant", "info"
     if tok.kind != calc_native.TokenKind.Paren:
         return "", ""
     par = tok.as_paren()
@@ -323,6 +334,10 @@ class CalculatorController:
         # seeing the last good preview while mid-typing instead of flashing.
         # Empty expression clears explicitly.
         result_text = "" if not self.tokens else self._display.result.result_label.text()
+        from tcalc.debug import debug_tokens
+
+        _log.debug(debug_tokens(self.tokens))
+
         if self._force_error_display or _can_preview:
             self._result = self._evaluate_tokens(self.tokens, self._calculator)
 

@@ -21,7 +21,7 @@
 
 from tcalc.errors import CalculatorError
 
-from .constants import CONST_BY_ID, CONST_VALUES
+from .constants import CONST_BY_ID, CONST_VALUES, SUBSCRIPT_CONST_VALUES
 from .engine import Calculator
 from .ops import (
     Operation,
@@ -40,5 +40,6 @@ __all__ = [
     "tokenize_string",
     "CONST_VALUES",
     "CONST_BY_ID",
+    "SUBSCRIPT_CONST_VALUES",
     "VarStore",
 ]

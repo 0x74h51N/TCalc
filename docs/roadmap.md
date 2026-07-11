@@ -98,7 +98,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [x] Atomic & Nuclear: α, a₀, R∞, mₑ, mₚ, mₙ
     - [x] Thermodynamics: R, k
     - [x] Chemistry: Nₐ, F, mᵤ
-    - [ ] Deferred: σ_SB, b_W, R_K, K_J, μ_B, μ_N (depends on variable index rendering, e.g. b\_{W})
+    - [x] σ_SB, b_W, R_K, K_J, μ_B, μ_N
 - [ ] Add user-defined (custom) functions
   - [ ] Parse function definitions (`f(x) = expr`)
   - [ ] Bind named user functions in the session store; call them like built-ins
@@ -199,8 +199,9 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 
 - [x] File menu
 - [x] Edit menu (undo, redo, cut, copy, paste), binding/apply
-- [x] Constant menu
+- [ ] Constant menu
   - [x] Add constants grouped by category
+  - [ ] Add custom constant button
 - [ ] Help menu
   - [ ] Find Action
   - [ ] User manual
@@ -272,7 +273,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [ ] Add custom pad
     - [x] Allow creating multiple custom pads
     - [x] Operation key assignment
-    - [ ] Constant key assignment
+    - [x] Constant key assignment
     - [x] Custom grid layout
     - [x] Add edit mode and persist changes on exit
     - [x] Add context menu
