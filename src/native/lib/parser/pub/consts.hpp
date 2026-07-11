@@ -53,6 +53,12 @@ enum class ConstId : std::uint8_t {
     Avogadro,
     Faraday,
     AtomicMass,
+    StefanBoltzmann,
+    WienDisplacement,
+    VonKlitzing,
+    Josephson,
+    BohrMagneton,
+    NuclearMagneton,
     Count
 };
 
@@ -84,7 +90,7 @@ inline constexpr std::array kConstants{
         .id = ConstId::Imaginary,
         .category = CategoryId::Mathematics,
         .symbol = "i",
-        .aliases = {"I", "j", "J"},
+        .aliases = {"I", "j"},
         .value = Complex(0.0, 1.0)},
     ConstSpec{
         .id = ConstId::GoldenRatio,
@@ -161,7 +167,7 @@ inline constexpr std::array kConstants{
     ConstSpec{
         .id = ConstId::Rydberg,
         .category = CategoryId::AtomicNuclear,
-        .symbol = "R∞",
+        .symbol = "R_{∞}",
         .aliases = {"rydberg"},
         .value = 10973731.568157},
     ConstSpec{
@@ -212,6 +218,42 @@ inline constexpr std::array kConstants{
         .symbol = "mᵤ",
         .aliases = {"atomicmass"},
         .value = 1.66053906892e-27},
+    ConstSpec{
+        .id = ConstId::StefanBoltzmann,
+        .category = CategoryId::Thermodynamics,
+        .symbol = "σ_{SB}",
+        .aliases = {},
+        .value = 5.670374419e-8},
+    ConstSpec{
+        .id = ConstId::WienDisplacement,
+        .category = CategoryId::Thermodynamics,
+        .symbol = "b_{W}",
+        .aliases = {},
+        .value = 2.897771955e-3},
+    ConstSpec{
+        .id = ConstId::VonKlitzing,
+        .category = CategoryId::Electromagnetism,
+        .symbol = "R_{K}",
+        .aliases = {},
+        .value = 25812.80745},
+    ConstSpec{
+        .id = ConstId::Josephson,
+        .category = CategoryId::Electromagnetism,
+        .symbol = "K_{J}",
+        .aliases = {},
+        .value = 483597.8484e9},
+    ConstSpec{
+        .id = ConstId::BohrMagneton,
+        .category = CategoryId::AtomicNuclear,
+        .symbol = "μ_{B}",
+        .aliases = {},
+        .value = 9.2740100657e-24},
+    ConstSpec{
+        .id = ConstId::NuclearMagneton,
+        .category = CategoryId::AtomicNuclear,
+        .symbol = "μ_{N}",
+        .aliases = {},
+        .value = 5.0507837393e-27},
 };
 
 inline constexpr auto kConstsById =
