@@ -95,6 +95,33 @@ def test_compute_status_multi_token_returns_blank():
     assert _compute_status(_tokens("1+[2,3")) == ("", "")
 
 
+def test_compute_status_single_constant_shows_name():
+    from tcalc.ui.controller.controller import _compute_status
+
+    assert _compute_status(_tokens("c")) == ("Speed Of Light Constant", "info")
+    assert _compute_status(_tokens("π")) == ("Pi Constant", "info")
+
+
+def test_compute_status_subscript_constant_shows_name():
+    from tcalc.ui.controller.controller import _compute_status
+
+    assert _compute_status(_tokens("σ_{SB}")) == ("Stefan Boltzmann Constant", "info")
+
+
+def test_compute_status_constant_with_more_tokens_blank():
+    from tcalc.ui.controller.controller import _compute_status
+
+    # Only a bare constant shows the name; anything else typed suppresses it.
+    assert _compute_status(_tokens("c+2")) == ("", "")
+
+
+def test_compute_status_subscript_variable_not_constant_blank():
+    from tcalc.ui.controller.controller import _compute_status
+
+    # x_{2} is a subscripted variable, not a constant -> no name.
+    assert _compute_status(_tokens("x_{2}")) == ("", "")
+
+
 def _make_stub_ctrl(expression: str, force: bool = False):
     from tcalc.app_state import get_app_state
     from tcalc.core.engine import Calculator
