@@ -22,25 +22,23 @@ from tcalc.ui.widgets.math import (
 _log = logging.getLogger("tcalc.debug")
 
 
-def debug_tokens(tokens: list[calc_native.Token]) -> None:
-    """Log token list in readable format."""
+def debug_tokens(tokens: list[calc_native.Token]) -> str:
+    """Readable one-line dump of a flat token list; a Latex token shows its inner form."""
     out = []
     for t in tokens:
         kind = t.kind.name
-        if isinstance(t.data, calc_native.ParenToken):
-            val = calc_native.token_text(t)
-        elif isinstance(t.data, calc_native.NumberToken):
+        if isinstance(t.data, calc_native.NumberToken):
             val = t.data.value
         elif isinstance(t.data, calc_native.OpToken):
             val = t.symbol
         elif isinstance(t.data, calc_native.LatexToken):
-            val = f"Latex({t.data.kind.name})"
-        elif isinstance(t.data, calc_native.CallToken):
+            val = f"Latex({t.data.kind.name}) {calc_native.token_text(t)}"
+        elif isinstance(t.data, (calc_native.ParenToken, calc_native.CallToken)):
             val = calc_native.token_text(t)
         else:
             val = str(t)
         out.append(f"{kind}: {val}")
-    _log.debug("TOKENS -> %s", out)
+    return "TOKENS -> " + str(out)
 
 
 def fmt_math_nodes(nodes: list[tuple], indent: int = 0) -> list[str]:
