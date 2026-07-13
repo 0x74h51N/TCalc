@@ -32,7 +32,7 @@ from tcalc.ui.keyboard import KeyboardHandler
 from tcalc.ui.layout_presets import LayoutPreset, LayoutPresetStore
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad
 
-from ..core import Calculator
+from ..core.native_engine import Calculator
 from .config import history_style, memory_style, window
 from .controller import CalculatorController, EditOperations
 from .controller.utils import format_result

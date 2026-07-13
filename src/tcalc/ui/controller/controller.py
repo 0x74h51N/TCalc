@@ -21,7 +21,9 @@ from tcalc.ui.widgets import History, MemoryBar
 from tcalc.ui.widgets.calc import Display, TopBar
 from tcalc.ui.widgets.history.storage import HistoryEntry
 
-from ...core import Calculator, evaluate_tokens
+from ...core import evaluate_tokens
+from ...core.engine import Calculator as EngineCalculator
+from ...core.native_engine import Calculator
 from ...core.parser import tokenize
 from ..widgets.calc.topbar.defins import MEMORY_KEYS, MemoryKey
 from .utils import apply_hyp_variant, format_result
@@ -280,7 +282,9 @@ class CalculatorController:
         self, tokens: Sequence[calc_native.Token], calculator: Calculator
     ) -> CalcValue | None:
         try:
-            return evaluate_tokens(tokens, calculator)
+            # core/parser.py is frozen while it serves as the reference evaluator, so its
+            # annotation still names the old Calculator. Same surface, so cast.
+            return evaluate_tokens(tokens, cast(EngineCalculator, calculator))
         except CalculatorError as exc:
             # Drop the embedded detail (kept in the exception for logging);
             # surface only the short ErrorKind.value to the user.

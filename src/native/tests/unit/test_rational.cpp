@@ -124,6 +124,42 @@ void unit_rational(TestContext &ctx) {
     });
 
     // -----------------------------------------------------------------------
+    // Calculator::sqrt/cbrt/root(Rational)
+    // -----------------------------------------------------------------------
+
+    TEST_CASE(ctx, "sqrt :: exact when both numerator and denominator are perfect squares", {
+        auto r = c.sqrt(Rational(4, 9));
+        EXPECT_EQ(ctx, r.numerator(), 2LL);
+        EXPECT_EQ(ctx, r.denominator(), 3LL);
+    });
+
+    TEST_CASE(ctx, "cbrt :: odd degree of a negative base is fine", {
+        auto r = c.cbrt(Rational(-8, 27));
+        EXPECT_EQ(ctx, r.numerator(), -2LL);
+        EXPECT_EQ(ctx, r.denominator(), 3LL);
+    });
+
+    TEST_CASE(ctx, "root :: 8^(1/3) = 2", {
+        auto r = c.root(Rational(8), Rational(3));
+        EXPECT_EQ(ctx, r.numerator(), 2LL);
+        EXPECT_EQ(ctx, r.denominator(), 1LL);
+    });
+
+    TEST_CASE(ctx, "sqrt :: irrational throws", { EXPECT_THROWS(ctx, c.sqrt(Rational(2))); });
+
+    TEST_CASE(ctx, "sqrt :: numerator has an exact root, denominator does not throws", {
+        EXPECT_THROWS(ctx, c.sqrt(Rational(4, 5)));
+    });
+
+    TEST_CASE(ctx, "sqrt :: even degree of a negative has no real root throws", {
+        EXPECT_THROWS(ctx, c.sqrt(Rational(-1)));
+    });
+
+    TEST_CASE(ctx, "root :: zero degree throws", {
+        EXPECT_THROWS(ctx, c.root(Rational(4), Rational(0)));
+    });
+
+    // -----------------------------------------------------------------------
     // calc_detail::rational_pow_overflows (binding-layer guard)
     // -----------------------------------------------------------------------
 

@@ -25,4 +25,8 @@ inline std::string not_for_point(std::string_view fn) {
     return std::string(fn) + " is not defined for a point";
 }
 
+inline std::string unsupported_operand(std::string_view fn) {
+    return "unsupported operand type for " + std::string(fn);
+}
+
 } // namespace tcalc::errmsg

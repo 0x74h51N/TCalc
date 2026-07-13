@@ -85,6 +85,9 @@ class Calculator {
     Rational mul(const Rational &a, const Rational &b) const;
     Rational div(const Rational &a, const Rational &b) const;
     Rational pow(const Rational &base, const Rational &exp) const;
+    Rational sqrt(const Rational &a) const;
+    Rational cbrt(const Rational &a) const;
+    Rational root(const Rational &a, const Rational &b) const;
 
     // BigComplex ops
     BigComplex add(const BigComplex &a, const BigComplex &b) const { return a + b; }

@@ -263,6 +263,11 @@ inline constexpr const ConstSpec *const_spec(ConstId id) {
     return kConstsById[static_cast<std::size_t>(id)];
 }
 
+/// Euler's number, read from the constants table rather than duplicated as a literal.
+inline constexpr double euler_number() {
+    return std::get<double>(const_spec(ConstId::EulerNumber)->value);
+}
+
 // First-byte filter: kConstCanStart[b] is true iff some constant symbol or alias
 // starts with byte b. Lets match_const skip the scan at non-constant positions.
 consteval parser::FirstByteTable build_const_can_start() {

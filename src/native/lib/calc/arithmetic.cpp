@@ -150,6 +150,13 @@ Rational Calculator::pow(const Rational &base, const Rational &exp) const {
     if (e == 0)
         return Rational(1);
 
+    // Repeated squaring below multiplies boost::rational<int64_t>'s own numerator and
+    // denominator; with no overflow guard those overflow silently (UB) rather than
+    // raising, unlike every sibling that shares this exponentiation (root already
+    // guards through try_rational_pow). Same estimator, same threshold.
+    if (calc_detail::rational_pow_overflows(base, e))
+        calc_detail::math_error();
+
     bool neg_exp = e < 0;
     if (neg_exp) {
         calc_detail::require_nonzero(base.frac);
@@ -173,6 +180,23 @@ Rational Calculator::pow(const Rational &base, const Rational &exp) const {
     }
 
     return Rational(result);
+}
+
+Rational Calculator::root(const Rational &a, const Rational &b) const {
+    calc_detail::require_nonzero(b.frac);
+    const Rational inv(b.denominator(), b.numerator());
+    if (auto r = calc_detail::try_rational_pow(*this, a, inv)) {
+        return *r;
+    }
+    calc_detail::math_error();
+}
+
+Rational Calculator::sqrt(const Rational &a) const {
+    return root(a, Rational(2));
+}
+
+Rational Calculator::cbrt(const Rational &a) const {
+    return root(a, Rational(3));
 }
 
 // -----------------

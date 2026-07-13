@@ -26,4 +26,8 @@ PYBIND11_MODULE(calc_native, m) {
     bind_collection(m);
     bind_calculator(m);
     bind_parser(m);
+    // apply() dispatches through OpId onto Calculator/AngleUnit/OpSpec, all bound
+    // above; its exception translator also takes over CalculatorError (registered
+    // at the top of this function), so it must come last.
+    bind_eval(m);
 }
