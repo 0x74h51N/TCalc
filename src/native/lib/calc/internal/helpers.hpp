@@ -8,7 +8,10 @@
 
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <optional>
+
+#include <boost/multiprecision/cpp_int.hpp>
 
 #include "calc/pub/calculator.hpp"
 
@@ -154,6 +157,30 @@ try_rational_pow(const Calculator &calc, const Rational &base, const Rational &e
     if (!nr || !dr)
         return std::nullopt;
     return Rational(*nr, *dr);
+}
+
+/// Wide rational for overflow-safe add/sub/mul/div: int64 arithmetic on
+/// boost::rational wraps silently on overflow instead of reporting it, so the
+/// four basic ops compute here, then narrow back and reject what does not fit.
+using WideRational = boost::rational<boost::multiprecision::int256_t>;
+
+inline WideRational widen(const Rational &r) {
+    using boost::multiprecision::int256_t;
+    return WideRational(int256_t(r.numerator()), int256_t(r.denominator()));
+}
+
+/// Reduced by boost::rational's own arithmetic; nullopt when either side of the
+/// reduced fraction does not fit back into int64.
+inline std::optional<Rational> narrow(const WideRational &w) {
+    using boost::multiprecision::int256_t;
+    constexpr auto kMax = std::numeric_limits<std::int64_t>::max();
+    constexpr auto kMin = std::numeric_limits<std::int64_t>::min();
+    const int256_t &num = w.numerator();
+    const int256_t &den = w.denominator();
+    if (num < int256_t(kMin) || num > int256_t(kMax) || den < int256_t(kMin) ||
+        den > int256_t(kMax))
+        return std::nullopt;
+    return Rational(static_cast<std::int64_t>(num), static_cast<std::int64_t>(den));
 }
 
 } // namespace calc_detail

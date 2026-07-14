@@ -331,4 +331,17 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, arm_of(r), Arm::Double);
         EXPECT_EQ(ctx, std::get<double>(r), 0.0);
     });
+
+    // The Rational kernel throws on overflow (denominator past int64); apply retries
+    // in double and the caller gets a value, not an exception.
+    TEST_CASE(ctx, "apply :: mul of two small rationals overflows the kernel, recovers as double", {
+        const Calculator c;
+        const Value r = apply(
+            c,
+            OpId::Mul,
+            {Value{Rational(1, 4000000000)}, Value{Rational(1, 4000000000)}},
+            Calculator::AngleUnit::RAD);
+        EXPECT_EQ(ctx, arm_of(r), Arm::Double);
+        EXPECT_EQ(ctx, std::get<double>(r), 6.25e-20);
+    });
 }

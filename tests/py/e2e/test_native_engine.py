@@ -18,6 +18,7 @@ import pytest
 
 from tcalc.core.engine import Calculator as PyCalculator
 from tcalc.core.native_engine import Calculator as NativeCalculator
+from tcalc.core.parser import evaluate_tokens, tokenize_string
 
 R = calc_native.Rational
 
@@ -119,3 +120,19 @@ def test_pow_subnormal_band_promotes():
 
     new = getattr(NativeCalculator(), "pow")(2.0, -1030.0)
     assert isinstance(new, calc_native.BigReal)
+
+
+def test_rational_overflow_recovers_as_float_through_full_pipeline():
+    """0.0000000001 * 0.0000000001 parses into Rational operands whose exact product
+    overflows int64 (denominator 1e20). Both engines must recover to the float 1e-20,
+    not a wrapped Rational.
+    """
+    tokens = tokenize_string("0.0000000001 * 0.0000000001")
+
+    old = evaluate_tokens(tokens, PyCalculator())
+    new = evaluate_tokens(tokens, NativeCalculator())
+
+    assert isinstance(old, float)
+    assert isinstance(new, float)
+    assert _exact(old) == _exact(new)
+    assert old == pytest.approx(1e-20)

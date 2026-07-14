@@ -125,20 +125,28 @@ BigReal Calculator::ceil(const BigReal &a) const {
 // -----------------
 
 Rational Calculator::add(const Rational &a, const Rational &b) const {
-    return Rational(a.frac + b.frac);
+    if (auto r = calc_detail::narrow(calc_detail::widen(a) + calc_detail::widen(b)))
+        return *r;
+    calc_detail::math_error();
 }
 
 Rational Calculator::sub(const Rational &a, const Rational &b) const {
-    return Rational(a.frac - b.frac);
+    if (auto r = calc_detail::narrow(calc_detail::widen(a) - calc_detail::widen(b)))
+        return *r;
+    calc_detail::math_error();
 }
 
 Rational Calculator::mul(const Rational &a, const Rational &b) const {
-    return Rational(a.frac * b.frac);
+    if (auto r = calc_detail::narrow(calc_detail::widen(a) * calc_detail::widen(b)))
+        return *r;
+    calc_detail::math_error();
 }
 
 Rational Calculator::div(const Rational &a, const Rational &b) const {
     calc_detail::require_nonzero(b.frac);
-    return Rational(a.frac / b.frac);
+    if (auto r = calc_detail::narrow(calc_detail::widen(a) / calc_detail::widen(b)))
+        return *r;
+    calc_detail::math_error();
 }
 
 Rational Calculator::pow(const Rational &base, const Rational &exp) const {
