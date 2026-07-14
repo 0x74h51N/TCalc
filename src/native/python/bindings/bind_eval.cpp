@@ -4,18 +4,25 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-// Transitional: Python still walks the RPN and calls one operation at a time. Once the
-// RPN walk is native too, this binding and the per-op surface above it both go away.
+// The evaluation surface Python calls. `evaluate` takes a whole row and returns its value,
+// so an expression crosses the boundary once. `apply` runs a single operation, for the
+// memory keys, which have a value but no row. `clear_vars` empties the native session
+// store, which owns every variable an assignment binds.
 
 #include <pybind11/complex.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <utility>
+#include <vector>
+
 #include "bindings.hpp"
 #include "calc/pub/calculator.hpp"
 #include "calc/pub/errors.hpp"
 #include "eval/pub/eval.hpp"
+#include "eval/pub/varstore.hpp"
 #include "parser/pub/ops.hpp"
+#include "parser/pub/parser.hpp"
 #include "value.hpp"
 
 namespace py = pybind11;
@@ -56,4 +63,21 @@ void bind_eval(py::module_ &m) {
         py::arg("op_id"),
         py::arg("args"),
         py::arg("unit"));
+
+    m.def(
+        "evaluate",
+        [m](const tcalc::parser::TokensBranch &branch,
+            const Calculator &calc,
+            Calculator::AngleUnit unit) -> tcalc::Value {
+            try {
+                return tcalc::eval::evaluate(branch, calc, unit);
+            } catch (const CalculatorError &e) {
+                raise_with_kind(m, e);
+            }
+        },
+        py::arg("branch"),
+        py::arg("calculator"),
+        py::arg("unit"));
+
+    m.def("clear_vars", [] { tcalc::eval::session_vars().clear(); });
 }

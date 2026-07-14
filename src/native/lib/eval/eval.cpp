@@ -1,24 +1,47 @@
 #include "eval/pub/eval.hpp"
 
+#include <bit>
 #include <cmath>
+#include <memory>
+#include <span>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 #include "calc/pub/error_messages.hpp"
+#include "eval/pub/literal.hpp"
+#include "eval/pub/varstore.hpp"
+#include "parser/pub/consts.hpp"
 
 namespace tcalc::eval {
 
 using ops::OpId;
+using parser::LatexKind;
+using parser::Token;
+using parser::TokenKind;
 
 namespace {
 
+/// The op's method name, which is what the error messages call it. An op with no kernel
+/// has no method either, so it falls back to the symbol the user typed.
 std::string_view op_name(OpId id) {
     const ops::OpSpec *spec = ops::op_spec(id);
-    return spec != nullptr ? spec->method : std::string_view{"?"};
+    if (spec == nullptr)
+        return "?";
+    return spec->method.empty() ? spec->symbol : spec->method;
 }
 
-/// A value's real part as a double, for arms already known to be Int64 or Double.
+/// A real arm as a double. Only the three real arms reach this; a BigReal is never read
+/// through a double, since one that is out of double's range would come back as 0 or inf
+/// and answer a range or domain question with a lie.
 double as_double(const Value &v) {
     if (const auto *i = std::get_if<std::int64_t>(&v))
         return to_double(*i);
+    if (const auto *r = std::get_if<Rational>(&v))
+        return to_double(*r);
     return std::get<double>(v);
 }
 
@@ -137,21 +160,21 @@ Value promote_range(
 
 } // namespace
 
-void promote_complex(OpId id, std::vector<Value> &args) {
+bool promote_complex(OpId id, std::vector<Value> &args) {
     if (args.empty())
-        return;
+        return false;
     const Arm a0 = arm_of(args[0]);
     if (a0 != Arm::Int64 && a0 != Arm::Double)
-        return;
+        return false;
     for (const auto &a : args)
         if (arm_of(a) == Arm::Big)
-            return;
+            return false;
 
     // The rule lives in the op's own row, beside its kernel and its arms. Most ops have
     // no domain boundary, and for them this is a null read.
     const ops::DomainRule rule = ops::domain_of(id);
     if (rule == nullptr)
-        return;
+        return false;
 
     const double x = as_double(args[0]);
 
@@ -161,13 +184,31 @@ void promote_complex(OpId id, std::vector<Value> &args) {
     if (args.size() > 1) {
         const Arm a1 = arm_of(args[1]);
         if (a1 != Arm::Int64 && a1 != Arm::Double)
-            return;
+            return false;
         y = as_double(args[1]);
     }
 
     if (!rule(x, y))
-        return;
+        return false;
     args[0] = Value{Complex(x, 0.0)};
+    return true;
+}
+
+bool promote_big(OpId id, std::vector<Value> &args) {
+    const ops::RangeRule rule = ops::range_of(id);
+    if (rule == nullptr || args.size() < 2)
+        return false;
+    // A BigReal operand is already there, and a complex one has a magnitude the rule
+    // cannot read off a single real.
+    const ArmMask present = arms_present(args);
+    if ((present & ~(arm_bit(Arm::Int64) | arm_bit(Arm::Double) | arm_bit(Arm::Rat))) != 0)
+        return false;
+
+    if (!rule(as_double(args[0]), as_double(args[1])))
+        return false;
+    for (auto &a : args)
+        a = lift_to_big(a);
+    return true;
 }
 
 std::vector<Value> coerce(OpId id, std::vector<Value> args) {
@@ -215,6 +256,7 @@ std::vector<Value> coerce(OpId id, std::vector<Value> args) {
     }
 
     // Only the real arms remain here.
+    // TODO: Fix Calculator (int, int) returning Rational(n, 1) instead of int.
     if (has_arm(arms, Arm::Rat)) {
         std::vector<Value> lifted;
         lifted.reserve(args.size());
@@ -235,19 +277,16 @@ std::vector<Value> coerce(OpId id, std::vector<Value> args) {
         for (auto &a : args)
             a = rational_downcast(a);
 
-        // Dispatch reads one arm and expects every argument to share it, so a mixed
-        // pair like (2, 3.5) has to be widened here. A lone argument is already
-        // homogeneous and must not be forced to double.
-        if (args.size() > 1) {
-            const Arm a0 = arm_of(args[0]);
-            bool all_same = true;
-            for (const auto &a : args)
-                if (arm_of(a) != a0)
-                    all_same = false;
-            if (!all_same)
-                for (auto &a : args)
-                    a = Value{as_double(a)};
-        }
+        // Dispatch reads one arm and expects every argument to share it, and that arm has
+        // to be one the op actually has. Two things break the rule and both widen here: a
+        // mixed pair like (2, 3.5), and an integer reaching an op with no integer arm,
+        // which is how exp gets a double rather than an arm it cannot dispatch on.
+        const ArmMask now = arms_present(args);
+        const bool homogeneous = std::popcount(now) == 1;
+        const bool dispatchable = (now & ~arms) == 0;
+        if (!homogeneous || !dispatchable)
+            for (auto &a : args)
+                a = Value{as_double(a)};
         return args;
     }
 
@@ -267,8 +306,24 @@ std::vector<Value> coerce(OpId id, std::vector<Value> args) {
 }
 
 Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::AngleUnit unit) {
-    promote_complex(id, args);
+    // An OpId the syntax table knows but the kernel table has no row for (`==`). The RPN
+    // walk hands over whatever op a token stream names, so this is reachable input, not a
+    // lattice bug: it takes no operands at all.
+    if (ops::kernel_of(id) == nullptr)
+        throw_math(errmsg::unsupported_operand(op_name(id)));
+
+    // A power whose result cannot fit a double is widened before it runs, not after: the
+    // rounding is not reversible once the kernel has returned.
+    promote_big(id, args);
+
+    // The domain rule reads a real operand, so it runs on the arguments as they will be
+    // dispatched, not as they arrived: coerce is what downcasts a Rational for an op with
+    // no exact arm, and that downcast is the moment the rule can first see the value. An
+    // op that does have an exact arm keeps its Rational here and gets first refusal on it,
+    // which is what leaves `\root{-8}{3}` an exact -2 instead of a complex root.
     std::vector<Value> dispatch_args = coerce(id, args);
+    if (promote_complex(id, dispatch_args))
+        dispatch_args = coerce(id, dispatch_args);
 
     Value result;
     try {
@@ -289,10 +344,356 @@ Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::A
         if (dispatch_args.size() > 1)
             for (auto &a : dispatch_args)
                 a = Value{as_double(a)};
+        // The domain rule reads a real operand, so a Rational never met it. The downcast
+        // has produced one: sqrt of a negative rational leaves the real domain here, and
+        // the promotion has to run before the retry rather than after it. coerce only
+        // follows when the promotion fired, since it would otherwise lift the operands
+        // straight back into the exact arm the retry just left.
+        promote_complex(id, dispatch_args);
+        if (has_arm(arms_present(dispatch_args), Arm::Cx))
+            dispatch_args = coerce(id, dispatch_args);
         result = ops::kernel_of(id)(id, c, dispatch_args, unit); // a second throw propagates
     }
 
     return promote_range(id, c, dispatch_args, result, unit);
+}
+
+namespace {
+
+[[noreturn]] void throw_invalid(const std::string &message) {
+    throw CalculatorError(message, ErrorKind::Invalid);
+}
+
+[[noreturn]] void throw_malformed(std::string_view message) {
+    throw CalculatorError(std::string(message), ErrorKind::Malformed);
+}
+
+Value pop_operand(std::vector<Value> &stack) {
+    if (stack.empty())
+        throw_malformed(errmsg::kPopOperand);
+    Value v = std::move(stack.back());
+    stack.pop_back();
+    return v;
+}
+
+/// A constant's value, which is a double for all but the imaginary unit.
+Value const_value(const consts::ConstSpec &spec) {
+    return std::visit([](const auto &x) -> Value { return Value{x}; }, spec.value);
+}
+
+/// The name a subscript denotes: the text without its braces, so the token `x_{0}` and
+/// the constant table's symbol `σ_{SB}` give the keys `x_0` and `σ_SB`.
+std::string strip_braces(std::string_view text) {
+    std::string name;
+    name.reserve(text.size());
+    for (const char ch : text)
+        if (ch != '{' && ch != '}')
+            name.push_back(ch);
+    return name;
+}
+
+/// The subscripted constant a name denotes, or nullptr when it names none.
+const consts::ConstSpec *subscript_const(std::string_view name) {
+    for (const auto &spec : consts::kConstants)
+        if (strip_braces(spec.symbol) == name)
+            return &spec;
+    return nullptr;
+}
+
+/// A name resolves against the store; an unset one is an error, never a zero.
+Value resolve_name(const std::string &name) {
+    const Value *v = session_vars().get(name);
+    if (v == nullptr)
+        throw_invalid(errmsg::undefined_variable(name));
+    return *v;
+}
+
+/// A subscripted name is a constant first, a variable second.
+Value eval_subscript(const Token &tok) {
+    const std::string name = strip_braces(parser::token_text(tok));
+    if (const consts::ConstSpec *spec = subscript_const(name))
+        return const_value(*spec);
+    return resolve_name(name);
+}
+
+/// A Frac / Pow / Root / Log token: each side is a row of its own. An absent side is
+/// zero, except a Root's degree, where it means the square root.
+Value eval_latex(const parser::LatexToken &latex, const Calculator &c, Calculator::AngleUnit unit) {
+    Value left = latex.left.empty() ? Value{Rational(0)} : eval_row(latex.left, c, unit);
+    Value right = Value{Rational(latex.kind == LatexKind::Root ? 2 : 0)};
+    if (!latex.right.empty())
+        right = eval_row(latex.right, c, unit);
+    return apply(c, latex.op_id, {std::move(left), std::move(right)}, unit);
+}
+
+/// A value as a collection item. Rational has no item arm, so an exact fraction leaves
+/// the exact domain here: integral to an integer, fractional to a double. A nested
+/// collection is shared rather than copied.
+CollectionItem collection_item(const Value &v) {
+    return std::visit(
+        [](const auto &x) -> CollectionItem {
+            using T = std::decay_t<decltype(x)>;
+            if constexpr (std::is_same_v<T, Rational>) {
+                if (x.denominator() == 1)
+                    return CollectionItem{x.numerator()};
+                return CollectionItem{x.to_double()};
+            } else if constexpr (std::is_same_v<T, Collection>) {
+                return CollectionItem{std::make_shared<const Collection>(x)};
+            } else {
+                return CollectionItem{x};
+            }
+        },
+        v);
+}
+
+/// Build a collection, reporting the constructor's own validation (point arity, uniform
+/// point arity in a list) as an input error.
+Value make_collection(CollectionKind kind, std::vector<CollectionItem> items) {
+    try {
+        return Value{Collection(kind, std::move(items))};
+    } catch (const std::invalid_argument &e) {
+        throw_invalid(e.what());
+    }
+}
+
+/// One element of a paren group or one call argument: a single token stands on its own,
+/// a token run is a row.
+Value eval_element(
+    const parser::ParenElement &element, const Calculator &c, Calculator::AngleUnit unit) {
+    if (const auto *tok = std::get_if<Token>(&element))
+        return eval_rpn(std::span<const Token>(tok, 1), c, unit);
+
+    const auto &row = std::get<std::vector<Token>>(element);
+    if (row.empty())
+        throw_invalid(std::string(errmsg::kEmptyElement));
+    return eval_row(row, c, unit);
+}
+
+/// The two classes a collection may hold. A list is uniform in one of them.
+enum class ItemClass : std::uint8_t { None, Scalar, Point };
+
+/// The comma-split elements of a paren group, and of a call's argument list when it folds
+/// into a bracket. A Bracket is a List, a Paren is a Point, and arity 1 is grouping for
+/// every kind: `(x)` is `x`, which is what makes `mean([1,2,3])` read like `mean[1,2,3]`.
+Value eval_elements(
+    std::span<const parser::ParenElement> elements,
+    parser::ParenKind kind,
+    const Calculator &c,
+    Calculator::AngleUnit unit) {
+    if (elements.size() == 1) {
+        Value v = eval_element(elements[0], c, unit);
+        // A Bracket is the one kind that groups nothing: `[X]` is a real one-element List
+        // once X is a point, and a list inside it has no meaning.
+        const auto *inner = std::get_if<Collection>(&v);
+        if (inner == nullptr || kind != parser::ParenKind::Bracket)
+            return v;
+        if (inner->kind == CollectionKind::List)
+            throw_invalid(std::string(errmsg::kListOfList));
+        return make_collection(CollectionKind::List, {collection_item(v)});
+    }
+
+    if (kind == parser::ParenKind::Brace)
+        throw_invalid(std::string(errmsg::kBraceUnsupported));
+
+    if (elements.empty()) {
+        if (kind == parser::ParenKind::Paren)
+            throw_invalid(std::string(errmsg::kEmptyPoint));
+        return make_collection(CollectionKind::List, {});
+    }
+
+    const bool is_point = kind == parser::ParenKind::Paren;
+    std::vector<CollectionItem> items;
+    items.reserve(elements.size());
+    ItemClass expected = ItemClass::None;
+
+    for (const auto &element : elements) {
+        const Value v = eval_element(element, c, unit);
+        const auto *coll = std::get_if<Collection>(&v);
+        const ItemClass got = coll != nullptr ? ItemClass::Point : ItemClass::Scalar;
+
+        if (coll != nullptr) {
+            if (is_point)
+                throw_invalid(std::string(errmsg::kPointItemCollection));
+            if (coll->kind == CollectionKind::List)
+                throw_invalid(std::string(errmsg::kListOfList));
+        }
+        if (expected == ItemClass::None)
+            expected = got;
+        else if (expected != got)
+            throw_invalid(std::string(errmsg::kListMix));
+
+        items.push_back(collection_item(v));
+    }
+
+    return make_collection(is_point ? CollectionKind::Point : CollectionKind::List, items);
+}
+
+/// A variadic call's arguments as one List dataset: a lone collection is the dataset
+/// itself, a lone scalar wraps, and N arguments follow the bracket rule.
+Value call_dataset(
+    std::span<const parser::ParenElement> args, const Calculator &c, Calculator::AngleUnit unit) {
+    if (args.size() != 1)
+        return eval_elements(args, parser::ParenKind::Bracket, c, unit);
+
+    Value v = eval_element(args[0], c, unit);
+    if (std::holds_alternative<Collection>(v))
+        return v;
+    return make_collection(CollectionKind::List, {collection_item(v)});
+}
+
+/// A call token: a variadic op reduces one dataset, a fixed-arity op takes exactly the
+/// arguments its spec names, and no collection among them.
+Value eval_call(const parser::CallToken &call, const Calculator &c, Calculator::AngleUnit unit) {
+    const ops::OpSpec &spec = *ops::op_spec(call.op_id);
+
+    if (ops::is_variadic(spec))
+        return apply(c, call.op_id, {call_dataset(call.args, c, unit)}, unit);
+
+    if (call.args.size() != spec.call_arity)
+        throw_invalid(errmsg::takes_arguments(spec.symbol, spec.call_arity));
+
+    std::vector<Value> args;
+    args.reserve(call.args.size());
+    for (const auto &arg : call.args) {
+        Value v = eval_element(arg, c, unit);
+        if (std::holds_alternative<Collection>(v))
+            throw_invalid(errmsg::not_for_list_or_point(spec.symbol));
+        args.push_back(std::move(v));
+    }
+    return apply(c, call.op_id, std::move(args), unit);
+}
+
+/// An op token: take its operands off the stack and hand them to apply.
+Value eval_op(OpId id, std::vector<Value> &stack, const Calculator &c, Calculator::AngleUnit unit) {
+    if (id == OpId::Assign)
+        throw_invalid(std::string(errmsg::kInvalidAssignment));
+
+    const ops::OpSpec &spec = *ops::op_spec(id);
+    // A fixed-arity call function has no infix form. Typed bare it arrives here with too
+    // few operands, so it is reported rather than left to underflow. A variadic one does
+    // apply to a following collection (`min[1,2,3]`) and is not rejected.
+    if (!ops::is_variadic(spec) && spec.call_arity != 1)
+        throw_invalid(errmsg::needs_call_form(spec.symbol));
+
+    if (spec.arity != ops::Arity::Binary)
+        return apply(c, id, {pop_operand(stack)}, unit);
+
+    Value right = pop_operand(stack);
+    Value left = pop_operand(stack);
+    return apply(c, id, {std::move(left), std::move(right)}, unit);
+}
+
+} // namespace
+
+Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::AngleUnit unit) {
+    std::vector<Value> stack;
+    stack.reserve(rpn.size());
+
+    for (const Token &tok : rpn) {
+        switch (tok.kind) {
+        case TokenKind::Number:
+            stack.push_back(literal_value(std::get<parser::NumberToken>(tok.data).value));
+            break;
+        case TokenKind::Char:
+            stack.push_back(
+                resolve_name(std::string(1, std::get<parser::CharToken>(tok.data).value)));
+            break;
+        case TokenKind::Const:
+            stack.push_back(
+                const_value(*consts::const_spec(std::get<parser::ConstToken>(tok.data).id)));
+            break;
+        case TokenKind::Latex: {
+            const auto &latex = std::get<parser::LatexToken>(tok.data);
+            stack.push_back(
+                latex.kind == LatexKind::Subscript ? eval_subscript(tok)
+                                                   : eval_latex(latex, c, unit));
+            break;
+        }
+        case TokenKind::Paren: {
+            const auto &paren = std::get<parser::ParenToken>(tok.data);
+            // A stray close has no content to contribute. An unclosed open still does:
+            // the row is evaluated as the user types it.
+            if (!paren.has_open)
+                break;
+            stack.push_back(eval_elements(paren.elements, paren.kind, c, unit));
+            break;
+        }
+        case TokenKind::Call:
+            stack.push_back(eval_call(std::get<parser::CallToken>(tok.data), c, unit));
+            break;
+        case TokenKind::Op:
+            stack.push_back(eval_op(std::get<parser::OpToken>(tok.data).op_id, stack, c, unit));
+            break;
+        }
+    }
+
+    if (stack.empty())
+        throw_malformed(errmsg::kOperandStackEmpty);
+    return stack.front();
+}
+
+Value eval_row(std::span<const Token> tokens, const Calculator &c, Calculator::AngleUnit unit) {
+    return eval_rpn(
+        parser::shunting_yard(std::vector<Token>(tokens.begin(), tokens.end())), c, unit);
+}
+
+namespace {
+
+/// True for the `=` that heads an assignment.
+bool is_assign(const Token &tok) {
+    return tok.kind == TokenKind::Op && std::get<parser::OpToken>(tok.data).op_id == OpId::Assign;
+}
+
+/// The name an assignment binds. Two token kinds may be bound: a letter, and a subscript
+/// over a letter. An operator or a constant is named in the error rather than lumped in
+/// with the rest, because the user has to be told which letter is already taken.
+std::string assign_target(const Token &tok) {
+    switch (tok.kind) {
+    case TokenKind::Char:
+        return std::string(1, std::get<parser::CharToken>(tok.data).value);
+    case TokenKind::Op:
+        throw_invalid(
+            errmsg::assignment_target_is_operator(
+                ops::op_spec(std::get<parser::OpToken>(tok.data).op_id)->symbol));
+    case TokenKind::Const:
+        throw_invalid(
+            errmsg::assignment_target_is_constant(
+                consts::const_spec(std::get<parser::ConstToken>(tok.data).id)->symbol));
+    case TokenKind::Latex: {
+        const auto &latex = std::get<parser::LatexToken>(tok.data);
+        if (latex.kind != LatexKind::Subscript)
+            break;
+        std::string name = strip_braces(parser::token_text(tok));
+        // A subscripted constant is a constant, and it is reported as one: its base is not
+        // a letter either, so the check has to come first to reach the right message.
+        if (subscript_const(name) != nullptr)
+            throw_invalid(errmsg::assignment_target_is_constant(name));
+        if (latex.left.size() != 1 || latex.left[0].kind != TokenKind::Char)
+            throw_invalid(std::string(errmsg::kInvalidAssignmentTarget));
+        return name;
+    }
+    default:
+        break;
+    }
+    throw_invalid(std::string(errmsg::kInvalidAssignmentTarget));
+}
+
+} // namespace
+
+Value evaluate(
+    const parser::TokensBranch &branch, const Calculator &c, Calculator::AngleUnit unit) {
+    const std::span<const Token> tokens(branch.tokens);
+    if (tokens.size() < 2 || !is_assign(tokens[1]))
+        return eval_row(tokens, c, unit);
+
+    const std::string name = assign_target(tokens[0]);
+    const std::span<const Token> rhs = tokens.subspan(2);
+    if (rhs.empty())
+        throw_invalid(std::string(errmsg::kEmptyAssignment));
+
+    Value value = eval_row(rhs, c, unit);
+    session_vars().set(name, value);
+    return value;
 }
 
 } // namespace tcalc::eval

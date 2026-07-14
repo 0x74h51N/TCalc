@@ -1,9 +1,12 @@
 #include "eval/pub/eval.hpp"
+#include "eval/pub/literal.hpp"
+#include "eval/pub/varstore.hpp"
 #include "internal/test_helpers.hpp"
 #include "value.hpp"
 
 using tcalc::Arm;
 using tcalc::arm_of;
+using tcalc::CollectionKind;
 using tcalc::is_num_or_big;
 using tcalc::rational_downcast;
 using tcalc::to_big;
@@ -14,8 +17,49 @@ using tcalc::to_rational;
 using tcalc::Value;
 using tcalc::eval::apply;
 using tcalc::eval::coerce;
+using tcalc::eval::eval_row;
+using tcalc::eval::evaluate;
+using tcalc::eval::literal_value;
 using tcalc::eval::promote_complex;
+using tcalc::eval::session_vars;
+using tcalc::eval::VarStore;
 using tcalc::ops::OpId;
+
+namespace {
+
+/// Generic test-row template: id label, input value, expected value. Mirrors
+/// test_parser.cpp's local Case so literal_value gets a row table instead of a
+/// wall of TEST_CASE blocks.
+template <typename InputT, typename ExpectedT> struct Case {
+    const char *id;
+    InputT input;
+    ExpectedT expected;
+};
+
+/// Case row for literal_value: literal text -> the value it denotes.
+using LitCase = Case<const char *, Value>;
+/// Case row for literal_value where only the resulting arm is asserted.
+using ArmCase = Case<const char *, Arm>;
+/// Case row for the evaluator: source text -> the value it evaluates to.
+using EvalCase = Case<const char *, Value>;
+/// Case row for a rejected expression: source text -> nothing, it must throw.
+using RejectCase = Case<const char *, std::monostate>;
+/// Case row for a rejected expression whose message text is part of the contract.
+using MsgCase = Case<const char *, const char *>;
+
+constexpr auto kRad = Calculator::AngleUnit::RAD;
+
+/// Evaluate a source string the way the application does: tokenize, then eval_row.
+Value eval_text(const Calculator &c, const char *src, Calculator::AngleUnit u = kRad) {
+    return eval_row(tcalc::parser::tokenize(src).tokens, c, u);
+}
+
+/// A whole row, assignment peel included: tokenize, then evaluate.
+Value eval_source(const Calculator &c, const char *src, Calculator::AngleUnit u = kRad) {
+    return evaluate(tcalc::parser::tokenize(src), c, u);
+}
+
+} // namespace
 
 void unit_eval(TestContext &ctx) {
     TEST_CASE(ctx, "arm_of :: matches variant order", {
@@ -129,9 +173,12 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, arm_of(out[1]), Arm::Big);
     });
 
-    TEST_CASE(ctx, "coerce :: an op with no Rational arm downcasts (fact of a rational)", {
+    // An op with no Rational arm downcasts, and then has to land on an arm the op really
+    // has. Fact's only real arm is Double, so the integer goes on to double rather than
+    // reaching a kernel with no integer overload to take it.
+    TEST_CASE(ctx, "coerce :: fact of a rational lands on the Double arm", {
         const auto out = coerce(OpId::Fact, {Value{Rational(5)}});
-        EXPECT_EQ(ctx, arm_of(out[0]), Arm::Int64); // 5/1 -> int64 -> double arm at dispatch
+        EXPECT_EQ(ctx, arm_of(out[0]), Arm::Double);
     });
 
     TEST_CASE(ctx, "coerce :: permute keeps int64; non-integers are an error", {
@@ -211,6 +258,18 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, std::get<Rational>(r), Rational(2, 3));
     });
 
+    TEST_CASE(ctx, "apply :: sqrt(-1/1) leaves the exact arm, then the real domain", {
+        const Calculator c;
+        const Value r = apply(c, OpId::Sqrt, {Value{Rational(-1)}}, Calculator::AngleUnit::RAD);
+        EXPECT_EQ(ctx, std::get<Complex>(r), Complex(0.0, 1.0));
+    });
+
+    TEST_CASE(ctx, "apply :: sqrt(-1/4) promotes the downcast double", {
+        const Calculator c;
+        const Value r = apply(c, OpId::Sqrt, {Value{Rational(-1, 4)}}, Calculator::AngleUnit::RAD);
+        EXPECT_EQ(ctx, std::get<Complex>(r), Complex(0.0, 0.5));
+    });
+
     TEST_CASE(ctx, "apply :: sqrt(2) is not exact, so it falls back to double", {
         const Calculator c;
         const Value r = apply(c, OpId::Sqrt, {Value{Rational(2)}}, Calculator::AngleUnit::RAD);
@@ -272,13 +331,6 @@ void unit_eval(TestContext &ctx) {
         const Value r =
             apply(c, OpId::Mul, {Value{std::int64_t{2}}, Value{0.5}}, Calculator::AngleUnit::RAD);
         EXPECT_EQ(ctx, std::get<double>(r), 1.0);
-    });
-
-    // Do not break the case Task 4 already pinned: a single argument is trivially
-    // homogeneous, so a lone rational-downcast-to-int64 must not be forced to double.
-    TEST_CASE(ctx, "coerce :: fact of a rational still lands on Int64, not forced to double", {
-        const auto out = coerce(OpId::Fact, {Value{Rational(5)}});
-        EXPECT_EQ(ctx, arm_of(out[0]), Arm::Int64);
     });
 
     // Range promotion: one rule, after dispatch, for every op. IEEE-754 makes inf, a
@@ -343,5 +395,273 @@ void unit_eval(TestContext &ctx) {
             Calculator::AngleUnit::RAD);
         EXPECT_EQ(ctx, arm_of(r), Arm::Double);
         EXPECT_EQ(ctx, std::get<double>(r), 6.25e-20);
+    });
+
+    const std::vector<LitCase> literal_cases = {
+        {.id = "integer", .input = "123", .expected = Value{std::int64_t{123}}},
+        {.id = "decimal is exact", .input = "3.14", .expected = Value{Rational(157, 50)}},
+        {.id = "one tenth is exact", .input = "0.1", .expected = Value{Rational(1, 10)}},
+        {.id = "scientific is a double", .input = "10e+1", .expected = Value{100.0}},
+        {.id = "imaginary unit", .input = "i", .expected = Value{Complex(0.0, 1.0)}},
+        {.id = "imaginary suffix", .input = "3i", .expected = Value{Complex(0.0, 3.0)}},
+        {.id = "imaginary prefix", .input = "i3", .expected = Value{Complex(0.0, 3.0)}},
+        {.id = "negative imaginary", .input = "-2i", .expected = Value{Complex(0.0, -2.0)}},
+    };
+
+    for (const auto &tc : literal_cases) {
+        test_detail::with_case(ctx, std::string("literal_value :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, literal_value(tc.input), tc.expected);
+        });
+    }
+
+    // The BigReal cases assert the arm, not the value: the point is that the literal
+    // did not collapse into a double.
+    const std::vector<ArmCase> literal_arm_cases = {
+        {.id = "an exponent past double", .input = "1e309", .expected = Arm::Big},
+        {.id = "an underflowing exponent", .input = "1e-400", .expected = Arm::Big},
+        {.id = "a huge exponent does not hang", .input = "1e1000000000", .expected = Arm::Big},
+    };
+
+    for (const auto &tc : literal_arm_cases) {
+        test_detail::with_case(ctx, std::string("literal_value :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, arm_of(literal_value(tc.input)), tc.expected);
+        });
+    }
+
+    test_detail::with_case(ctx, "literal_value :: text that is not a number is rejected", [&] {
+        EXPECT_THROWS(ctx, literal_value("si"));
+    });
+
+    test_detail::with_case(ctx, "VarStore :: set, get, overwrite, unset, clear", [&] {
+        VarStore env;
+        EXPECT_EQ(ctx, env.get("A") == nullptr, true);
+        env.set("A", Value{std::int64_t{5}});
+        EXPECT_EQ(ctx, std::get<std::int64_t>(*env.get("A")), 5LL);
+        env.set("A", Value{std::int64_t{7}});
+        EXPECT_EQ(ctx, std::get<std::int64_t>(*env.get("A")), 7LL);
+        env.unset("A");
+        EXPECT_EQ(ctx, env.get("A") == nullptr, true);
+        env.set("A", Value{std::int64_t{7}});
+        env.clear();
+        EXPECT_EQ(ctx, env.get("A") == nullptr, true);
+    });
+
+    const std::vector<EvalCase> rpn_cases = {
+        {.id = "a number", .input = "42", .expected = Value{std::int64_t{42}}},
+        {.id = "precedence", .input = "2+3*4", .expected = Value{Rational(14)}},
+        {.id = "a fraction", .input = "\\frac{1}{3}", .expected = Value{Rational(1, 3)}},
+        {.id = "a root with no degree is square",
+         .input = "\\root{9}{}",
+         .expected = Value{Rational(3)}},
+        {.id = "a power", .input = "2^{10}", .expected = Value{Rational(1024)}},
+        {.id = "a postfix factorial", .input = "5!", .expected = Value{120.0}},
+        // The stack pops right operand first, so a non-commutative op is the only thing
+        // that can tell the two apart.
+        {.id = "the operands of a subtraction keep their order",
+         .input = "41-69",
+         .expected = Value{Rational(-28)}},
+        {.id = "the operands of a division keep their order",
+         .input = "6/2",
+         .expected = Value{Rational(3)}},
+        {.id = "a postfix feeds a unary", .input = "-50%", .expected = Value{Rational(-1, 2)}},
+        {.id = "a chain of unaries", .input = "--5", .expected = Value{Rational(5)}},
+        {.id = "a chain of postfixes", .input = "50%%", .expected = Value{Rational(1, 200)}},
+        // A fractional exponent is an exact root when the root is rational, and only then.
+        {.id = "a rational power that is an exact root",
+         .input = "4^{\\frac{1}{2}}",
+         .expected = Value{Rational(2)}},
+        {.id = "a rational power that is not",
+         .input = "2^{\\frac{1}{2}}",
+         .expected = Value{1.4142135623730951}},
+        // exp builds e in the argument's own type, so it has no integer arm; the integer
+        // has to arrive as a double.
+        {.id = "exp of an integer", .input = "exp(0)", .expected = Value{1.0}},
+        // 1e308 is finite and normal, so nothing about the result betrays what the
+        // rounding dropped. The range rule reads the operands instead.
+        {.id = "a power at the edge of double's range",
+         .input = "10^{308}",
+         .expected = Value{BigReal("1e+308")}},
+    };
+
+    for (const auto &tc : rpn_cases) {
+        test_detail::with_case(ctx, std::string("eval :: ") + tc.id, [&] {
+            const Calculator c;
+            EXPECT_EQ(ctx, eval_text(c, tc.input), tc.expected);
+        });
+    }
+
+    const std::vector<RejectCase> rpn_reject_cases = {
+        {.id = "an undefined variable", .input = "Z+1", .expected = {}},
+        {.id = "a call function typed bare", .input = "mod 5", .expected = {}},
+        {.id = "an operator with no kernel", .input = "1==2", .expected = {}},
+        // Stack discipline: an op that cannot find its operands.
+        {.id = "a binary op missing its second operand", .input = "69+", .expected = {}},
+        {.id = "a postfix op with no operand", .input = "%", .expected = {}},
+        {.id = "an empty row", .input = "", .expected = {}},
+    };
+
+    for (const auto &tc : rpn_reject_cases) {
+        test_detail::with_case(ctx, std::string("eval rejects :: ") + tc.id, [&] {
+            const Calculator c;
+            EXPECT_THROWS(ctx, eval_text(c, tc.input));
+        });
+    }
+
+    // The env-reading cases need state, so they stand on their own.
+    test_detail::with_case(ctx, "eval :: a variable resolves from the store", [&] {
+        const Calculator c;
+        session_vars().clear();
+        session_vars().set("A", Value{std::int64_t{10}});
+        EXPECT_EQ(ctx, eval_text(c, "A+5"), Value{Rational(15)});
+    });
+
+    // A defined A leaves the misplaced = as the only thing left to reject.
+    test_detail::with_case(ctx, "eval rejects :: an assignment inside an expression", [&] {
+        const Calculator c;
+        session_vars().clear();
+        session_vars().set("A", Value{std::int64_t{1}});
+        EXPECT_THROWS(ctx, eval_text(c, "1+A=2"));
+    });
+
+    test_detail::with_case(ctx, "eval :: a constant", [&] {
+        const Calculator c;
+        EXPECT_EQ(ctx, arm_of(eval_text(c, "pi")), Arm::Double);
+    });
+
+    test_detail::with_case(ctx, "eval :: a subscripted constant", [&] {
+        const Calculator c;
+        EXPECT_EQ(ctx, arm_of(eval_text(c, "σ_{SB}")), Arm::Double);
+    });
+
+    const std::vector<EvalCase> collection_cases = {
+        {.id = "arity one is grouping, not a point",
+         .input = "(2+3)",
+         .expected = Value{Rational(5)}},
+        {.id = "implicit multiplication", .input = "2(3)", .expected = Value{Rational(6)}},
+        // A bracket wraps only a collection. Around a scalar it groups, so `[5]` is 5, not
+        // a one-element list.
+        {.id = "a bracket around a scalar groups it",
+         .input = "[5]",
+         .expected = Value{std::int64_t{5}}},
+        {.id = "a variadic reducer over a bracket", .input = "mean[1,2,3]", .expected = Value{2.0}},
+        {.id = "a variadic reducer over its args", .input = "mean(1,2,3)", .expected = Value{2.0}},
+        {.id = "a reducer over a single value",
+         .input = "mean(5)",
+         .expected = Value{std::int64_t{5}}},
+        {.id = "a fixed-arity call", .input = "gcd(12,8)", .expected = Value{std::int64_t{4}}},
+    };
+
+    for (const auto &tc : collection_cases) {
+        test_detail::with_case(ctx, std::string("eval :: ") + tc.id, [&] {
+            const Calculator c;
+            EXPECT_EQ(ctx, eval_text(c, tc.input), tc.expected);
+        });
+    }
+
+    const std::vector<RejectCase> collection_reject_cases = {
+        {.id = "a list of lists", .input = "[[1,2]]", .expected = {}},
+        {.id = "a list mixing scalars and points", .input = "[1,(2,3)]", .expected = {}},
+        {.id = "an empty point", .input = "()", .expected = {}},
+        {.id = "a fixed-arity call with too few args", .input = "mod(5)", .expected = {}},
+        {.id = "a fixed-arity call given a collection", .input = "mod([1,2],3)", .expected = {}},
+        {.id = "a brace group of arity two", .input = "{1,2}", .expected = {}},
+    };
+
+    for (const auto &tc : collection_reject_cases) {
+        test_detail::with_case(ctx, std::string("eval rejects :: ") + tc.id, [&] {
+            const Calculator c;
+            EXPECT_THROWS(ctx, eval_text(c, tc.input));
+        });
+    }
+
+    // Shape assertions do not fit the value table.
+    test_detail::with_case(ctx, "eval :: a list", [&] {
+        const Calculator c;
+        const Value v = eval_text(c, "[1,2,3]");
+        EXPECT_EQ(ctx, arm_of(v), Arm::Coll);
+        EXPECT_EQ(ctx, std::get<Collection>(v).items.size(), 3U);
+    });
+
+    test_detail::with_case(ctx, "eval :: a point", [&] {
+        const Calculator c;
+        const Value v = eval_text(c, "(1,2)");
+        EXPECT_EQ(ctx, std::get<Collection>(v).kind, CollectionKind::Point);
+    });
+
+    test_detail::with_case(ctx, "eval :: an angle-taking call gets the unit", [&] {
+        const Calculator c;
+        EXPECT_EQ(ctx, eval_text(c, "sin(90)", Calculator::AngleUnit::DEG), Value{1.0});
+    });
+
+    // evaluate() carries state, so its cases run in sequence rather than from one table.
+    test_detail::with_case(ctx, "evaluate :: an assignment stores and returns", [&] {
+        const Calculator c;
+        session_vars().clear();
+        EXPECT_EQ(ctx, eval_source(c, "A=2+3"), Value{Rational(5)});
+        EXPECT_EQ(ctx, *session_vars().get("A"), Value{Rational(5)});
+    });
+
+    test_detail::with_case(ctx, "evaluate :: a stored variable is readable on the next row", [&] {
+        const Calculator c;
+        session_vars().clear();
+        eval_source(c, "A=10");
+        EXPECT_EQ(ctx, eval_source(c, "A*2"), Value{Rational(20)});
+    });
+
+    test_detail::with_case(ctx, "evaluate :: a subscripted variable", [&] {
+        const Calculator c;
+        session_vars().clear();
+        eval_source(c, "x_{1}=7");
+        EXPECT_EQ(ctx, eval_source(c, "x_{1}+1"), Value{Rational(8)});
+    });
+
+    test_detail::with_case(ctx, "evaluate :: a row with no assignment is just evaluated", [&] {
+        const Calculator c;
+        session_vars().clear();
+        EXPECT_EQ(ctx, eval_source(c, "2+3*4"), Value{Rational(14)});
+    });
+
+    // The message is the contract: it is what the user reads, and it is asserted verbatim.
+    const std::vector<MsgCase> assignment_reject_cases = {
+        {.id = "an operator as the target",
+         .input = "%=2",
+         .expected = "% is an operator, use another letter"},
+        {.id = "a call function as the target",
+         .input = "sin=2",
+         .expected = "sin is an operator, use another letter"},
+        {.id = "a constant as the target",
+         .input = "π=2",
+         .expected = "π is defined as a constant, use another letter"},
+        {.id = "a one-letter constant as the target",
+         .input = "e=2",
+         .expected = "e is defined as a constant, use another letter"},
+        {.id = "a subscripted constant as the target",
+         .input = "σ_{SB}=1",
+         .expected = "σ_SB is defined as a constant, use another letter"},
+        {.id = "a subscript over a non-letter",
+         .input = "2_{3}=4",
+         .expected = "left of = must be a single letter (A-Za-z)"},
+        {.id = "an empty right-hand side", .input = "A=", .expected = "assignment has no value"},
+    };
+
+    for (const auto &tc : assignment_reject_cases) {
+        test_detail::with_case(ctx, std::string("evaluate rejects :: ") + tc.id, [&] {
+            const Calculator c;
+            session_vars().clear();
+            EXPECT_THROWS(ctx, eval_source(c, tc.input));
+            try {
+                eval_source(c, tc.input);
+            } catch (const CalculatorError &e) {
+                EXPECT_EQ(ctx, std::string(e.what()), std::string(tc.expected));
+                EXPECT_EQ(ctx, e.kind(), ErrorKind::Invalid);
+            }
+        });
+    }
+
+    // An `=` anywhere but second position is not an assignment, so it reaches the walk.
+    test_detail::with_case(ctx, "evaluate rejects :: a leading =", [&] {
+        const Calculator c;
+        session_vars().clear();
+        EXPECT_THROWS(ctx, eval_source(c, "=5"));
     });
 }

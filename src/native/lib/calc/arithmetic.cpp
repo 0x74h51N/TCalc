@@ -150,7 +150,14 @@ Rational Calculator::div(const Rational &a, const Rational &b) const {
 }
 
 Rational Calculator::pow(const Rational &base, const Rational &exp) const {
-    calc_detail::require(exp.denominator() == 1);
+    // A fractional exponent is a root, and a root is exact only when it comes out
+    // rational: 4^(1/2) is 2, while 2^(1/2) is not a rational at all and is left to the
+    // float retry above.
+    if (exp.denominator() != 1) {
+        if (auto r = calc_detail::try_rational_pow(*this, base, exp))
+            return *r;
+        calc_detail::math_error();
+    }
 
     long long e = exp.numerator();
     calc_detail::require(e >= 0 || base.frac != 0);

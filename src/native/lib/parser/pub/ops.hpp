@@ -899,6 +899,10 @@ Value dispatch(OpId id, const Calculator &c, std::span<const Value> args, AngleU
                 if constexpr (requires { F{}(c, x, u); })
                     return tcalc::to_value(F{}(c, x, u));
             } else {
+                // The evaluator pops by arity, so a short argument list can only come from
+                // a caller of the binding. Reading args[1] anyway would be out of bounds.
+                if (args.size() < 2)
+                    throw_unsupported_arm(id);
                 const T *y = std::get_if<T>(&args[1]);
                 if (y == nullptr)
                     throw_unsupported_arm(id);
@@ -917,20 +921,36 @@ Value dispatch(OpId id, const Calculator &c, std::span<const Value> args, AngleU
 namespace detail {
 /// Tolerance for reading a double degree as a whole number.
 inline constexpr double kDomainEpsilon = 1e-12;
+
+/// The decades a double can still carry. Past these a power is computed in BigReal.
+inline constexpr double kPowToBigUp = 308.0;
+inline constexpr double kPowToBigLow = -324.0;
+inline constexpr double kBaseTen = 10.0;
 } // namespace detail
 
 using DomainRule = bool (*)(double x, double y);
+
+/// True when the operands predict a result double cannot carry, so the op runs in BigReal
+/// instead. Unlike the range check above the kernel, which reads an already-rounded
+/// result, this one reads the operands: 10^308 is finite and normal, and no amount of
+/// looking at the double it produced can recover the digits the rounding dropped.
+using RangeRule = bool (*)(double x, double y);
 
 struct OpRow {
     OpId id{};
     Kernel fn{};
     ArmMask arms{};
     DomainRule domain{}; // most ops have no domain boundary
+    RangeRule range{};   // and only powers can predict their own range
 };
 
 /// Attach the domain rule to an op's own row, next to its kernel and its arms.
 constexpr OpRow with_domain(OpRow r, DomainRule d) {
-    return OpRow{r.id, r.fn, r.arms, d};
+    return OpRow{r.id, r.fn, r.arms, d, r.range};
+}
+
+constexpr OpRow with_range(OpRow r, RangeRule g) {
+    return OpRow{r.id, r.fn, r.arms, r.domain, g};
 }
 
 template <class F> constexpr OpRow unary(OpId id, F) {
@@ -969,21 +989,43 @@ constexpr OpRow without_rational(OpRow r) {
         return c.m(std::decay_t<decltype(a)>(n), a);                                               \
     }
 
+namespace detail {
+
+/// A power leaves double behind when its result no longer fits, and the estimate has to be
+/// made on the operands: base^exp has log10 magnitude exp*log10(|base|). Base ten with a
+/// whole exponent is called out on its own because 10^308 is the one power that lands
+/// inside double's range yet cannot be held exactly by it.
+inline bool power_needs_big(double base, double exp) {
+    const double base_mag = std::fabs(base);
+    const bool exp_is_int = std::abs(exp - std::round(exp)) <= kDomainEpsilon;
+    if (base_mag == kBaseTen && exp_is_int && std::fabs(exp) >= kPowToBigUp)
+        return true;
+    const double log10_mag = exp * std::log10(base_mag);
+    return log10_mag > kPowToBigUp || log10_mag < kPowToBigLow;
+}
+
+} // namespace detail
+
 inline constexpr std::array kOpRows = {
     // arithmetic
     binary(OpId::Add, TCALC_CALL(add)),
     binary(OpId::Sub, TCALC_CALL(sub)),
     binary(OpId::Mul, TCALC_CALL(mul)),
     binary(OpId::Div, TCALC_CALL(div)),
-    binary(OpId::Pow, TCALC_CALL(pow)),
-    with_domain(
-        binary(OpId::Root, TCALC_CALL(root)),
-        [](double x, double y) {
-            // a negative radicand is real only for an odd integer degree
-            const bool y_is_int = std::abs(y - std::round(y)) <= detail::kDomainEpsilon;
-            const bool y_is_even = std::llround(y) % 2 == 0;
-            return x < 0.0 && (!y_is_int || y_is_even);
-        }),
+    with_range(
+        binary(OpId::Pow, TCALC_CALL(pow)),
+        [](double x, double y) { return detail::power_needs_big(x, y); }),
+    with_range(
+        with_domain(
+            binary(OpId::Root, TCALC_CALL(root)),
+            [](double x, double y) {
+                // a negative radicand is real only for an odd integer degree
+                const bool y_is_int = std::abs(y - std::round(y)) <= detail::kDomainEpsilon;
+                const bool y_is_even = std::llround(y) % 2 == 0;
+                return x < 0.0 && (!y_is_int || y_is_even);
+            }),
+        // the degree is an inverse exponent: root(x, y) is x^(1/y)
+        [](double x, double y) { return y != 0.0 && detail::power_needs_big(x, 1.0 / y); }),
     binary(OpId::Mod, TCALC_CALL(mod)),
     binary(OpId::IntDiv, TCALC_CALL(intdiv)),
 
@@ -1088,6 +1130,19 @@ inline constexpr auto kDomains = build_domains();
 /// The op's complex-domain rule, or nullptr when it has no domain boundary.
 constexpr DomainRule domain_of(OpId id) {
     return kDomains[static_cast<std::size_t>(id)];
+}
+
+constexpr std::array<RangeRule, kOpCount> build_ranges() {
+    std::array<RangeRule, kOpCount> t{};
+    for (const auto &row : kOpRows)
+        t[static_cast<std::size_t>(row.id)] = row.range;
+    return t;
+}
+inline constexpr auto kRanges = build_ranges();
+
+/// The op's range rule, or nullptr when its result cannot be predicted from its operands.
+constexpr RangeRule range_of(OpId id) {
+    return kRanges[static_cast<std::size_t>(id)];
 }
 
 inline Kernel kernel_of(OpId id) {

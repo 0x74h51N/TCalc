@@ -34,6 +34,7 @@ add_library(calc_core STATIC
   lib/calc/statistic.cpp
   lib/collection/collection.cpp
   lib/eval/eval.cpp
+  lib/eval/literal.cpp
   lib/parser/parser.cpp
 )
 target_include_directories(calc_core PUBLIC
