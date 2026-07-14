@@ -15,8 +15,8 @@ from PySide6.QtCore import QEventLoop
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from tcalc.app_state import RenderMode, get_app_state
-from tcalc.core.engine import Calculator
-from tcalc.core.parser import evaluate_tokens, tokenize, tokenize_string
+from tcalc.core.native_eval import evaluate_branch
+from tcalc.core.parser import tokenize, tokenize_string
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
 from tcalc.ui.widgets.history.history import History
 from tcalc.ui.widgets.math.painter.math_painter import MathPainter, PaintCanvas
@@ -204,11 +204,12 @@ MULTI_EDIT_THRESHOLDS_MS = {
 
 
 def make_pipeline_func(expr: str):
-    calc = Calculator()
+    calc = calc_native.Calculator()
+    unit = calc_native.AngleUnit.RAD
 
     def evaluate():
-        tokens = tokenize_string(expr)
-        return evaluate_tokens(tokens, calc)
+        branch = tokenize(expr)
+        return evaluate_branch(branch, calc, unit)
 
     return evaluate
 

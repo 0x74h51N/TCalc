@@ -105,24 +105,18 @@ AGG_OPS = ("mean", "median", "max")
 @pytest.mark.parametrize("op", AGG_OPS)
 @pytest.mark.parametrize("name", AGG_TIERS)
 def test_collection_aggregation_scalar(benchmark, name: str, op: str):
-    from tcalc.core.engine import Calculator
-    from tcalc.core.parser import (
-        ValueOperand,
-        evaluate_rpn,
-        shunting_yard,
-        tokenize_string,
-    )
+    import calc_native
 
-    calc = Calculator()
-    # Pre-built runtime Collection (built once, directly, no tokenize).
-    collection = make_scalar_collection_value(COLLECTION_AGG_SIZES[name])
-    # The op's native OpToken, taken from a normal tokenized reduction.
-    op_tok = shunting_yard(tokenize_string(f"{op}[1,2,3]"))[1]
-    rpn = [ValueOperand(collection), op_tok]
+    calc = calc_native.Calculator()
+    unit = calc_native.AngleUnit.RAD
+    # Pre-built runtime Collection (built once, directly, no tokenize). Reducing one is
+    # what `apply` is, so the reduction is timed on its own, with no row around it.
+    args = [make_scalar_collection_value(COLLECTION_AGG_SIZES[name])]
+    op_id = getattr(calc_native.OpId, op.capitalize())
 
     run_benchmark(
         benchmark,
-        lambda: evaluate_rpn(rpn, calc),
+        lambda: calc_native.apply(calc, op_id, args, unit),
         group="Collection Aggregation",
         name=f"{op}-{name}",
     )

@@ -56,11 +56,13 @@ def _canonicalize(expr: str) -> str:
 
 
 def _eval(expr: str) -> object:
-    from tcalc.core.engine import Calculator
-    from tcalc.core.parser import evaluate_tokens, tokenize_string
+    from tcalc.core.native_eval import evaluate_branch
+    from tcalc.core.parser import tokenize
 
-    calc = Calculator()
-    return evaluate_tokens(tokenize_string(_canonicalize(expr)), calc)
+    calc_native.clear_vars()
+    return evaluate_branch(
+        tokenize(_canonicalize(expr)), calc_native.Calculator(), calc_native.AngleUnit.RAD
+    )
 
 
 @pytest.mark.parametrize(
@@ -432,6 +434,14 @@ class TestRational:
             param("2^62", 2.0**62, id="pow-i64-boundary-overflows"),
             param("(1/2)^(-62)", 2.0**62, id="pow-neg-exp-i64-boundary-overflows"),
             param("(3/2)^100", (3 / 2) ** 100, id="pow-frac-overflow"),
+            # Both operands parse to exact Rationals whose product needs a denominator of
+            # 1e20, well past int64. The exact kernel has to report that rather than wrap,
+            # and the row recovers as a float.
+            param(
+                "0.0000000001 * 0.0000000001",
+                1e-20,
+                id="rational-denominator-overflows-i64",
+            ),
         ],
     )
     def test_downcasts_to_float(self, expr: str, expected_approx: float | None) -> None:
@@ -529,16 +539,17 @@ def _to_int(v) -> int:
 
 
 def _ev_multi(lines, *, assert_env_key=None):
-    from tcalc.core.engine import Calculator
-    from tcalc.core.parser import evaluate_tokens, tokenize_string
-    from tcalc.core.varstore import VarStore
+    from tcalc.core.native_eval import evaluate_branch
+    from tcalc.core.parser import tokenize
 
-    calc, env = Calculator(), VarStore()
+    calc_native.clear_vars()
+    calc = calc_native.Calculator()
     result = None
     for line in lines:
-        result = evaluate_tokens(tokenize_string(_canonicalize(line)), calc, env)
+        result = evaluate_branch(tokenize(_canonicalize(line)), calc, calc_native.AngleUnit.RAD)
     if assert_env_key is not None:
-        return env.get(assert_env_key)
+        # The store is native, so the binding is read back by evaluating the name.
+        return evaluate_branch(tokenize(assert_env_key), calc, calc_native.AngleUnit.RAD)
     return result
 
 
@@ -660,16 +671,14 @@ def test_constants_module_derived_from_table() -> None:
 
 
 def test_assign_to_constant_rejected() -> None:
-    from tcalc.core.engine import Calculator
-    from tcalc.core.parser import evaluate_tokens, tokenize_string
     from tcalc.errors import CalculatorError
 
     with pytest.raises(CalculatorError) as e:
-        evaluate_tokens(tokenize_string("pi = 3"), Calculator())
+        _eval("pi = 3")
     assert "constant" in str(e.value)
 
     with pytest.raises(CalculatorError) as e:
-        evaluate_tokens(tokenize_string("b_{W} = 5"), Calculator())
+        _eval("b_{W} = 5")
     assert "constant" in str(e.value)
 
 

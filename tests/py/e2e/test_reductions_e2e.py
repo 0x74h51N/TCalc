@@ -16,11 +16,11 @@ param = pytest.param
 
 
 def _eval(expr: str) -> object:
-    from tcalc.core.engine import Calculator
-    from tcalc.core.parser import evaluate_tokens, tokenize_string
+    from tcalc.core.native_eval import evaluate_branch
+    from tcalc.core.parser import tokenize
 
-    calc = Calculator()
-    return evaluate_tokens(tokenize_string(expr), calc)
+    calc_native.clear_vars()
+    return evaluate_branch(tokenize(expr), calc_native.Calculator(), calc_native.AngleUnit.RAD)
 
 
 @pytest.mark.parametrize(

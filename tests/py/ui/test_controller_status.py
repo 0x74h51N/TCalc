@@ -123,12 +123,13 @@ def test_compute_status_subscript_variable_not_constant_blank():
 
 
 def _make_stub_ctrl(expression: str, force: bool = False):
+    import calc_native
+
     from tcalc.app_state import get_app_state
-    from tcalc.core.engine import Calculator
     from tcalc.ui.controller.controller import CalculatorController
 
     ctrl = CalculatorController.__new__(CalculatorController)
-    ctrl._calculator = Calculator()
+    ctrl._calculator = calc_native.Calculator()
     ctrl._app_state = get_app_state()
     ctrl._expression = expression
     ctrl._error_text = None
@@ -330,12 +331,13 @@ def test_memory_store_accepts_scalar():
 
 def _eval_error(expr: str):
     """Run _evaluate_tokens on a bare controller stub; return (kind, detail)."""
-    from tcalc.core.engine import Calculator
-    from tcalc.core.parser import tokenize_string
+    import calc_native
+
+    from tcalc.core.parser import tokenize
     from tcalc.ui.controller.controller import CalculatorController
 
     ctrl = CalculatorController.__new__(CalculatorController)
-    ctrl._evaluate_tokens(tokenize_string(expr), Calculator())
+    ctrl._evaluate_tokens(tokenize(expr), calc_native.Calculator(), calc_native.AngleUnit.DEG)
     return ctrl._error_text, ctrl._error_detail
 
 

@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, List, Optional, Sequence, cast
+from typing import Callable, Dict, List, Optional
 
 import calc_native
+from calc_native import Calculator
 
 from tcalc.app_state import AngleUnit, CalcValue, get_app_state
 from tcalc.core.constants import CONST_NAMES, SUBSCRIPT_CONST_NAMES, strip_subscript
@@ -21,9 +22,7 @@ from tcalc.ui.widgets import History, MemoryBar
 from tcalc.ui.widgets.calc import Display, TopBar
 from tcalc.ui.widgets.history.storage import HistoryEntry
 
-from ...core import evaluate_tokens
-from ...core.engine import Calculator as EngineCalculator
-from ...core.native_engine import Calculator
+from ...core.native_eval import evaluate_branch
 from ...core.parser import tokenize
 from ..widgets.calc.topbar.defins import MEMORY_KEYS, MemoryKey
 from .utils import apply_hyp_variant, format_result
@@ -188,7 +187,15 @@ class CalculatorController:
             if mem is None:
                 self._app_state.memory = value
                 return
-            self._app_state.memory = cast(CalcValue, self._calculator.add(mem, value))
+            # A memory sum is one operation with no row behind it, so it goes straight to
+            # the operation the evaluator would have reached: adding a BigReal to a
+            # Rational is a promotion the bound types cannot make on their own.
+            self._app_state.memory = calc_native.apply(
+                self._calculator,
+                calc_native.OpId.Add,
+                [mem, value],
+                self._app_state.angle_unit,
+            )
 
         def with_value(fn: Callable[[CalcValue], None]) -> None:
             value = self._result
@@ -279,12 +286,10 @@ class CalculatorController:
     # -- Helpers ----------------------------------------------------------
 
     def _evaluate_tokens(
-        self, tokens: Sequence[calc_native.Token], calculator: Calculator
+        self, branch: calc_native.TokensBranch, calculator: Calculator, unit: AngleUnit
     ) -> CalcValue | None:
         try:
-            # core/parser.py is frozen while it serves as the reference evaluator, so its
-            # annotation still names the old Calculator. Same surface, so cast.
-            return evaluate_tokens(tokens, cast(EngineCalculator, calculator))
+            return evaluate_branch(branch, calculator, unit)
         except CalculatorError as exc:
             # Drop the embedded detail (kept in the exception for logging);
             # surface only the short ErrorKind.value to the user.
@@ -343,7 +348,9 @@ class CalculatorController:
         _log.debug(debug_tokens(self.tokens))
 
         if self._force_error_display or _can_preview:
-            self._result = self._evaluate_tokens(self.tokens, self._calculator)
+            self._result = self._evaluate_tokens(
+                self._tokenized, self._calculator, self._app_state.angle_unit
+            )
 
         if self._result is None:
             if self._force_error_display and self._error_text:
