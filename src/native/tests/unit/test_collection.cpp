@@ -19,23 +19,23 @@ void unit_collection(TestContext &ctx) {
     test_detail::with_case(ctx, "collection :: list of scalars constructs", [&] {
         tcalc::Collection c{K::List, {1.0, 2.0}};
         EXPECT_EQ(ctx, c.kind, K::List);
-        EXPECT_EQ(ctx, c.items.size(), 2u);
+        EXPECT_EQ(ctx, c.items().size(), 2u);
     });
 
     test_detail::with_case(ctx, "collection :: empty list constructs", [&] {
         tcalc::Collection c{K::List, {}};
-        EXPECT_EQ(ctx, c.items.size(), 0u);
+        EXPECT_EQ(ctx, c.items().size(), 0u);
     });
 
     test_detail::with_case(ctx, "collection :: point arity 2 constructs", [&] {
         tcalc::Collection c{K::Point, {1.0, 2.0}};
         EXPECT_EQ(ctx, c.kind, K::Point);
-        EXPECT_EQ(ctx, c.items.size(), 2u);
+        EXPECT_EQ(ctx, c.items().size(), 2u);
     });
 
     test_detail::with_case(ctx, "collection :: point arity 3 constructs", [&] {
         tcalc::Collection c{K::Point, {1.0, 2.0, 3.0}};
-        EXPECT_EQ(ctx, c.items.size(), 3u);
+        EXPECT_EQ(ctx, c.items().size(), 3u);
     });
 
     test_detail::with_case(ctx, "collection :: empty point throws", [&] {
@@ -105,7 +105,7 @@ void unit_collection(TestContext &ctx) {
         auto p2 = std::make_shared<tcalc::Collection>(
             K::Point, std::vector<tcalc::CollectionItem>{3.0, 4.0});
         tcalc::Collection outer{K::List, std::vector<tcalc::CollectionItem>{p1, p2}};
-        EXPECT_EQ(ctx, outer.items.size(), 2u);
+        EXPECT_EQ(ctx, outer.items().size(), 2u);
     });
 
     test_detail::with_case(ctx, "collection :: list of points mixed arity throws", [&] {
@@ -137,19 +137,19 @@ void unit_collection(TestContext &ctx) {
 
     test_detail::with_case(ctx, "collection :: items uniform i64", [&] {
         tcalc::Collection c{K::List, {std::int64_t{1}, std::int64_t{2}}};
-        EXPECT_EQ(ctx, c.items[0].index(), 0u);
-        EXPECT_EQ(ctx, c.items[1].index(), 0u);
+        EXPECT_EQ(ctx, c.items()[0].index(), 0u);
+        EXPECT_EQ(ctx, c.items()[1].index(), 0u);
     });
 
     test_detail::with_case(ctx, "collection :: int promoted to double when mixed", [&] {
         tcalc::Collection c{K::List, {std::int64_t{1}, 2.5}};
-        EXPECT_EQ(ctx, c.items[0].index(), 1u);
-        EXPECT_EQ(ctx, c.items[1].index(), 1u);
+        EXPECT_EQ(ctx, c.items()[0].index(), 1u);
+        EXPECT_EQ(ctx, c.items()[1].index(), 1u);
     });
 
     test_detail::with_case(ctx, "collection :: int promoted to big_real when mixed", [&] {
         tcalc::Collection c{K::List, {std::int64_t{1}, BigReal("2.0")}};
-        EXPECT_EQ(ctx, c.items[0].index(), 2u);
-        EXPECT_EQ(ctx, c.items[1].index(), 2u);
+        EXPECT_EQ(ctx, c.items()[0].index(), 2u);
+        EXPECT_EQ(ctx, c.items()[1].index(), 2u);
     });
 }

@@ -11,8 +11,7 @@ from pathlib import Path
 
 import calc_native
 
-from tcalc.core.engine import Calculator
-from tcalc.core.parser import evaluate_tokens, tokenize
+from tcalc.core.parser import tokenize
 from tcalc.ui.controller.utils import format_result
 from tcalc.ui.widgets.history.storage import HistoryEntry
 from tests.benchmark.expressions import PAREN_EXPRESSIONS, RENDER_EXPRESSIONS
@@ -37,7 +36,7 @@ def _local_path() -> Path:
 def _evalator(calculator, toks):
     res = "42"
     if calculator is not None:
-        res = format_result(evaluate_tokens(toks, calculator))
+        res = format_result(calc_native.evaluate(toks, calculator, calc_native.AngleUnit.DEG))
     return res
 
 
@@ -49,7 +48,7 @@ def main() -> int:
         help="Enable local seed mode",
     )
     args = parser.parse_args()
-    calculator = Calculator() if args.local else None
+    calculator = calc_native.Calculator() if args.local else None
     exprs = list(PAREN_EXPRESSIONS.values())
     if args.local:
         exprs += list(RENDER_EXPRESSIONS.values())[:-1]
@@ -61,7 +60,7 @@ def main() -> int:
             tok = tokenize(expr)
             cache[expr] = (tok, calc_native.tokens_to_flat_text(tok.tokens))
         tok, flat = cache[expr]
-        res = _evalator(calculator, tok.tokens)
+        res = _evalator(calculator, tok)
         entries.append(HistoryEntry(expression=expr, result=res, tokenized=tok, flat_text=flat))
 
     out_path = _local_path() if args.local else DAT_PATH

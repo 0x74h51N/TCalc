@@ -11,3 +11,8 @@ Checks: >
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
 
 HeaderFilterRegex: "src/native/(lib|python)/.*"
+
+CheckOptions:
+  # An overload set is not a value, so the kernel table's rows cannot be templates.
+  - key: cppcoreguidelines-macro-usage.AllowedRegexp
+    value: "^TCALC_"

@@ -13,6 +13,7 @@
 #include <variant>
 
 #include "bindings.hpp"
+#include "eval/pub/eval.hpp"
 #include "parser/pub/consts.hpp"
 #include "parser/pub/ops.hpp"
 #include "parser/pub/parser.hpp"
@@ -498,18 +499,6 @@ void bind_parser(py::module_ &m) {
             })
         .def_property_readonly(
             "method", [](const tcalc::ops::OpSpec &op) { return std::string(op.method); })
-        .def_property_readonly(
-            "angle_unit",
-            [](const tcalc::ops::OpSpec &op) { return tcalc::ops::needs_angle_unit(op); })
-        .def_property_readonly(
-            "big_supported",
-            [](const tcalc::ops::OpSpec &op) { return tcalc::ops::big_supported(op); })
-        .def_property_readonly(
-            "big_complex_supported",
-            [](const tcalc::ops::OpSpec &op) { return tcalc::ops::big_complex_supported(op); })
-        .def_property_readonly(
-            "rational_supported",
-            [](const tcalc::ops::OpSpec &op) { return tcalc::ops::rational_supported(op); })
         .def_readonly("call_arity", &tcalc::ops::OpSpec::call_arity, "Call argument count")
         .def_property_readonly("is_variadic", [](const tcalc::ops::OpSpec &op) {
             return tcalc::ops::is_variadic(op);
@@ -557,7 +546,12 @@ void bind_parser(py::module_ &m) {
 
     m.def("tokenize_string", &tcalc::parser::tokenize, py::arg("expression"));
     m.def("classify_tokens", &tcalc::parser::classify_tokens, py::arg("tokens"));
-    m.def("shunting_yard", &tcalc::parser::shunting_yard, py::arg("tokens"));
+    m.def(
+        "shunting_yard",
+        [](const std::vector<tcalc::parser::Token> &tokens) {
+            return tcalc::eval::shunting_yard(tokens);
+        },
+        py::arg("tokens"));
 
     using p::LatexSplit;
     using p::ParenSplit;

@@ -63,10 +63,6 @@ class _UIOpSpec:
     id: calc_native.OpId | None = None
     arity: None = None
     aliases: tuple[str, ...] = ()
-    big_supported: bool = False
-    big_complex_supported: bool = False
-    rational_supported: bool = False
-    angle_unit: bool = False
     method: str = ""
 
 
@@ -134,26 +130,6 @@ class OperationBase(str, Enum):
     def aliases(self) -> list[str] | tuple[str, ...]:
         """Alternative symbols for this operation."""
         return self._spec.aliases
-
-    @property
-    def big_supported(self) -> bool:
-        """Whether BigReal is supported."""
-        return self._spec.big_supported
-
-    @property
-    def bigcomplex_supported(self) -> bool:
-        """Whether BigComplex is supported."""
-        return self._spec.big_complex_supported
-
-    @property
-    def rational_supported(self) -> bool:
-        """Whether Rational type is supported."""
-        return self._spec.rational_supported
-
-    @property
-    def angle_unit(self) -> bool:
-        """Whether operation needs angle unit setting."""
-        return self._spec.angle_unit
 
     @property
     def cx(self) -> Callable[..., bool] | None:

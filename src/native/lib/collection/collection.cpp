@@ -175,30 +175,29 @@ void promote_item(CollectionItem &it, ScalarArm target) {
 }
 
 Collection::Collection(CollectionKind k, std::vector<CollectionItem> its)
-    : kind(k)
-    , items(std::move(its)) {
+    : kind(k) {
+    // Validate and promote the local vector, then share it as immutable.
+    bool promote_scalars = false;
     if (kind == CollectionKind::Point) {
-        if (items.empty()) {
+        if (its.empty()) {
             throw std::invalid_argument("empty Point not supported");
         }
-        if (items.size() >= 4) {
+        if (its.size() >= 4) {
             throw std::invalid_argument("Point arity > 3 not supported");
         }
-        for (const auto &it : items) {
+        for (const auto &it : its) {
             if (is_collection_item(it)) {
                 throw std::invalid_argument("Point cannot contain Collection items");
             }
         }
-    } else {
-        if (items.empty())
-            return;
-
+        promote_scalars = true;
+    } else if (!its.empty()) {
         const bool has_collection_item = std::any_of(
-            items.begin(), items.end(), [](const auto &it) { return is_collection_item(it); });
+            its.begin(), its.end(), [](const auto &it) { return is_collection_item(it); });
 
         if (has_collection_item) {
             const bool all_collection_items = std::all_of(
-                items.begin(), items.end(), [](const auto &it) { return is_collection_item(it); });
+                its.begin(), its.end(), [](const auto &it) { return is_collection_item(it); });
 
             if (!all_collection_items) {
                 throw std::invalid_argument("List elements must all be scalars OR all be Points");
@@ -206,29 +205,37 @@ Collection::Collection(CollectionKind k, std::vector<CollectionItem> its)
 
             std::size_t first_arity = 0;
             bool first = true;
-            for (const auto &it : items) {
+            for (const auto &it : its) {
                 const auto &inner = as_collection(it);
                 if (inner.kind != CollectionKind::Point) {
                     throw std::invalid_argument("nested List not allowed");
                 }
                 if (first) {
-                    first_arity = inner.items.size();
+                    first_arity = inner.items().size();
                     first = false;
-                } else if (inner.items.size() != first_arity) {
+                } else if (inner.items().size() != first_arity) {
                     throw std::invalid_argument("list-of-points must have uniform arity");
                 }
             }
-            return; // list-of-points: nested Collections already promoted
+            // list-of-points: nested Collections already promoted, no scalar promotion
+        } else {
+            promote_scalars = true;
         }
     }
 
     // Promote scalar items to a uniform variant arm.
-    if (!items.empty()) {
-        const ScalarArm target = compute_target_arm(items);
-        for (auto &it : items) {
+    if (promote_scalars && !its.empty()) {
+        const ScalarArm target = compute_target_arm(its);
+        for (auto &it : its) {
             promote_item(it, target);
         }
     }
+
+    items_ = std::make_shared<const std::vector<CollectionItem>>(std::move(its));
+}
+
+bool Collection::operator==(const Collection &other) const {
+    return kind == other.kind && *items_ == *other.items_;
 }
 
 } // namespace tcalc

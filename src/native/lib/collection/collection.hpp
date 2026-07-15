@@ -28,11 +28,16 @@ enum class CollectionKind : std::uint8_t { List, Point };
 
 struct Collection {
     CollectionKind kind;
-    std::vector<CollectionItem> items;
+    // Shared and immutable, so copying a Collection (and a Value that holds one) is a
+    // refcount bump, not a deep copy of every item. Nothing mutates a collection after
+    // construction, so the sharing is invisible.
+    std::shared_ptr<const std::vector<CollectionItem>> items_;
 
     Collection(CollectionKind k, std::vector<CollectionItem> its);
 
-    bool operator==(const Collection &) const = default;
+    [[nodiscard]] const std::vector<CollectionItem> &items() const { return *items_; }
+
+    bool operator==(const Collection &other) const;
 };
 
 enum class ScalarArm : std::uint8_t {

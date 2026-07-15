@@ -23,7 +23,6 @@ from tests.benchmark.expressions import (
     make_calc_collection_expr,
     make_pipeline_func,
     make_scalar_collection_expr,
-    make_scalar_collection_value,
     make_tokenize_func,
 )
 
@@ -31,7 +30,12 @@ from .conftest import run_benchmark
 
 SCALAR_TIERS = list(COLLECTION_SCALAR_SIZES)
 CALC_TIERS = list(COLLECTION_CALC_SIZES)
-AGG_TIERS = list(COLLECTION_AGG_SIZES)
+# HOT reduces an inline `op[...]` (build + reduce every call); the small tiers keep the
+# per-call build affordable. ASSIGN builds the collection once into a variable and reduces
+# `op(A)` each call: a zero-copy reduce of a native, shared collection, so the big tiers
+# isolate the reducer. complex sits in both to compare build+reduce against reduce-only.
+AGG_HOT_TIERS = ("simple", "medium", "complex")
+AGG_ASSIGN_TIERS = ("complex", "heavy", "sick")
 
 
 @pytest.mark.benchmark
@@ -103,26 +107,54 @@ AGG_OPS = ("mean", "median", "max")
 
 @pytest.mark.benchmark
 @pytest.mark.parametrize("op", AGG_OPS)
-@pytest.mark.parametrize("name", AGG_TIERS)
-def test_collection_aggregation_scalar(benchmark, name: str, op: str):
-    from tcalc.core.engine import Calculator
-    from tcalc.core.parser import (
-        ValueOperand,
-        evaluate_rpn,
-        shunting_yard,
-        tokenize_string,
-    )
+@pytest.mark.parametrize("name", AGG_HOT_TIERS)
+def test_collection_aggregation_hot(benchmark, name: str, op: str):
+    import calc_native
 
-    calc = Calculator()
-    # Pre-built runtime Collection (built once, directly, no tokenize).
-    collection = make_scalar_collection_value(COLLECTION_AGG_SIZES[name])
-    # The op's native OpToken, taken from a normal tokenized reduction.
-    op_tok = shunting_yard(tokenize_string(f"{op}[1,2,3]"))[1]
-    rpn = [ValueOperand(collection), op_tok]
+    from tcalc.core.native_eval import evaluate_branch
+    from tcalc.core.parser import tokenize
+
+    calc = calc_native.Calculator()
+    unit = calc_native.AngleUnit.RAD
+    # Inline: evaluate rebuilds the collection from tokens and reduces it each call.
+    branch = tokenize(f"{op}{make_scalar_collection_expr(COLLECTION_AGG_SIZES[name])}")
+    rounds, warmup = COLLECTION_ROUNDS[name]
 
     run_benchmark(
         benchmark,
-        lambda: evaluate_rpn(rpn, calc),
-        group="Collection Aggregation",
+        lambda: evaluate_branch(branch, calc, unit),
+        group="Collection Aggregation HOT",
         name=f"{op}-{name}",
+        rounds=rounds,
+        warmup_rounds=warmup,
+    )
+
+
+@pytest.mark.benchmark
+@pytest.mark.parametrize("op", AGG_OPS)
+@pytest.mark.parametrize("name", AGG_ASSIGN_TIERS)
+def test_collection_aggregation_assign(benchmark, name: str, op: str):
+    import calc_native
+
+    from tcalc.core.native_eval import evaluate_branch
+    from tcalc.core.parser import tokenize
+
+    calc = calc_native.Calculator()
+    unit = calc_native.AngleUnit.RAD
+    # Build the collection once into a variable (setup, outside the timed loop); the loop
+    # reduces `op(A)`, which resolves the shared collection with no copy.
+    calc_native.clear_vars()
+    evaluate_branch(
+        tokenize(f"A={make_scalar_collection_expr(COLLECTION_AGG_SIZES[name])}"), calc, unit
+    )
+    branch = tokenize(f"{op}(A)")
+    rounds, warmup = COLLECTION_ROUNDS[name]
+
+    run_benchmark(
+        benchmark,
+        lambda: evaluate_branch(branch, calc, unit),
+        group="Collection Aggregation Assign Variable",
+        name=f"{op}-{name}",
+        rounds=rounds,
+        warmup_rounds=warmup,
     )

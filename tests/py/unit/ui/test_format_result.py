@@ -6,16 +6,26 @@ from __future__ import annotations
 
 import calc_native
 
+from tcalc.core.native_eval import evaluate_branch
 from tcalc.core.parser import tokenize
 from tcalc.ui.controller.utils import format_result
 
 
+def _eval(expr: str):
+    return evaluate_branch(tokenize(expr), calc_native.Calculator(), calc_native.AngleUnit.RAD)
+
+
+def _frag(x) -> str:
+    # A Collection's repr is valid expression syntax ("(1, 2)" / "[1, 2]").
+    return repr(x) if isinstance(x, calc_native.Collection) else str(x)
+
+
 def _list(items):
-    return calc_native.Collection(calc_native.Collection.Kind.List, items)
+    return _eval("[" + ",".join(_frag(x) for x in items) + "]")
 
 
 def _point(items):
-    return calc_native.Collection(calc_native.Collection.Kind.Point, items)
+    return _eval("(" + ",".join(_frag(x) for x in items) + ")")
 
 
 def test_format_result_list_of_ints():

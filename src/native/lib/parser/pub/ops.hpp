@@ -7,10 +7,15 @@
 #pragma once
 
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <string_view>
 
+#include "calc/pub/calculator.hpp"
+#include "calc/pub/error_messages.hpp"
 #include "parser/internal/helpers.hpp"
+#include "parser/pub/consts.hpp"
+#include "value.hpp"
 
 namespace tcalc::ops {
 
@@ -101,19 +106,13 @@ struct OpSpec {
     Arity arity;
     std::array<std::string_view, 2> aliases{};
     std::string_view method;
-    /// Bitflags describing extra operator capabilities.
+    /// Bitflags describing extra operator capabilities. Type support (BigReal, Rational,
+    /// the angle unit) is no longer a flag: the evaluator derives it from Calculator's own
+    /// signatures. What remains is syntax the tokenizer cannot read off the signature.
     enum class OpFlags : std::uint8_t {
         None = 0,
-        /// Trig uses the angle unit setting.
-        NeedsAngleUnit = 1 << 0,
-        /// BigReal supported.
-        BigSupported = 1 << 1,
-        /// BigComplex supported.
-        BigComplexSupported = 1 << 2,
-        /// Rational (exact fraction) supported.
-        RationalSupported = 1 << 3,
         /// Op is invoked via call syntax: `f(arg0, arg1, …)`.
-        CallFunction = 1 << 4,
+        CallFunction = 1 << 0,
     };
 
     /// Extra operator capabilities.
@@ -132,26 +131,6 @@ constexpr OpSpec::OpFlags operator|(OpSpec::OpFlags lhs, OpSpec::OpFlags rhs) {
 /// Check whether a flag is present.
 constexpr bool has_flag(OpSpec::OpFlags flags, OpSpec::OpFlags flag) {
     return (static_cast<std::uint8_t>(flags) & static_cast<std::uint8_t>(flag)) != 0;
-}
-
-/// True when the op depends on the angle unit setting.
-constexpr bool needs_angle_unit(const OpSpec &op) {
-    return has_flag(op.flags, OpSpec::OpFlags::NeedsAngleUnit);
-}
-
-/// True when BigReal is supported for the op.
-constexpr bool big_supported(const OpSpec &op) {
-    return has_flag(op.flags, OpSpec::OpFlags::BigSupported);
-}
-
-/// True when BigComplex is supported for the op.
-constexpr bool big_complex_supported(const OpSpec &op) {
-    return has_flag(op.flags, OpSpec::OpFlags::BigComplexSupported);
-}
-
-/// True when Rational is supported for the op.
-constexpr bool rational_supported(const OpSpec &op) {
-    return has_flag(op.flags, OpSpec::OpFlags::RationalSupported);
 }
 
 /// Sentinel for OpSpec::call_arity: function folds its args into a dataset.
@@ -180,7 +159,6 @@ inline constexpr std::array kOps{
         .arity = Arity::Binary,
         .aliases = {"add"},
         .method = "add",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Sub,
@@ -190,7 +168,6 @@ inline constexpr std::array kOps{
         .arity = Arity::Binary,
         .aliases = {"sub"},
         .method = "sub",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Mul,
@@ -200,7 +177,6 @@ inline constexpr std::array kOps{
         .arity = Arity::Binary,
         .aliases = {"*", "mul"},
         .method = "mul",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Div,
@@ -210,7 +186,6 @@ inline constexpr std::array kOps{
         .arity = Arity::Binary,
         .aliases = {"/", "div"},
         .method = "div",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Pow,
@@ -220,7 +195,6 @@ inline constexpr std::array kOps{
         .arity = Arity::Binary,
         .aliases = {"pow"},
         .method = "pow",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Percent,
@@ -230,7 +204,6 @@ inline constexpr std::array kOps{
         .arity = Arity::Postfix,
         .aliases = {"percent"},
         .method = "percent",
-        .flags = Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::Negate,
@@ -240,7 +213,6 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {"negate"},
         .method = "negate",
-        .flags = Flags::RationalSupported,
     },
     OpSpec{
         .id = OpId::UnaryPlus,
@@ -250,7 +222,6 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {"plus"},
         .method = "unaryplus",
-        .flags = Flags::RationalSupported,
     },
 
     OpSpec{
@@ -261,8 +232,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {},
         .method = "sin",
-        .flags = Flags::NeedsAngleUnit | Flags::BigSupported | Flags::BigComplexSupported |
-                 Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Cos,
@@ -272,8 +242,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {},
         .method = "cos",
-        .flags = Flags::NeedsAngleUnit | Flags::BigSupported | Flags::BigComplexSupported |
-                 Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Tan,
@@ -283,8 +252,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {},
         .method = "tan",
-        .flags = Flags::NeedsAngleUnit | Flags::BigSupported | Flags::BigComplexSupported |
-                 Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Sinh,
@@ -324,7 +292,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {},
         .method = "asin",
-        .flags = Flags::NeedsAngleUnit | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Acos,
@@ -334,7 +302,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {},
         .method = "acos",
-        .flags = Flags::NeedsAngleUnit | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Atan,
@@ -344,7 +312,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {},
         .method = "atan",
-        .flags = Flags::NeedsAngleUnit | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Asinh,
@@ -384,7 +352,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {"polar", ""},
         .method = "polar",
-        .flags = Flags::NeedsAngleUnit | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
 
     OpSpec{
@@ -395,7 +363,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {"log10", ""},
         .method = "log",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Ln,
@@ -405,7 +373,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {},
         .method = "ln",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
 
     OpSpec{
@@ -416,7 +384,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Postfix,
         .aliases = {},
         .method = "recip",
-        .flags = Flags::RationalSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Fact,
@@ -426,7 +394,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Postfix,
         .aliases = {"factorial", "fact"},
         .method = "fact",
-        .flags = Flags::BigSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
 
     OpSpec{
@@ -437,7 +405,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {},
         .method = "mod",
-        .flags = Flags::BigSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
         .call_arity = 2,
     },
     OpSpec{
@@ -448,7 +416,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {},
         .method = "intdiv",
-        .flags = Flags::BigSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
         .call_arity = 2,
     },
 
@@ -482,7 +450,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {"gamma", ""},
         .method = "gamma",
-        .flags = Flags::BigSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Cbrt,
@@ -492,7 +460,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {"cbrt"},
         .method = "cbrt",
-        .flags = Flags::RationalSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
 
     OpSpec{
@@ -503,7 +471,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Postfix,
         .aliases = {"sqr"},
         .method = "sqr",
-        .flags = Flags::RationalSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Cube,
@@ -513,7 +481,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Postfix,
         .aliases = {"cube"},
         .method = "cube",
-        .flags = Flags::RationalSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
 
     },
     OpSpec{
@@ -524,8 +492,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {"sqrt", ""},
         .method = "sqrt",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::RationalSupported |
-                 Flags::CallFunction,
+        .flags = Flags::CallFunction,
 
     },
     OpSpec{
@@ -536,7 +503,6 @@ inline constexpr std::array kOps{
         .arity = Arity::Binary,
         .aliases = {"root"},
         .method = "root",
-        .flags = Flags::BigSupported | Flags::BigComplexSupported | Flags::RationalSupported,
     },
 
     OpSpec{
@@ -547,7 +513,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {},
         .method = "exp",
-        .flags = Flags::BigSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Pow10,
@@ -557,7 +523,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {},
         .method = "pow10",
-        .flags = Flags::RationalSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Trunc,
@@ -567,7 +533,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {"int"},
         .method = "trunc",
-        .flags = Flags::BigSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Floor,
@@ -577,7 +543,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {"floor"},
         .method = "floor",
-        .flags = Flags::BigSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Ceil,
@@ -587,7 +553,7 @@ inline constexpr std::array kOps{
         .arity = Arity::Unary,
         .aliases = {"ceil"},
         .method = "ceil",
-        .flags = Flags::BigSupported | Flags::CallFunction,
+        .flags = Flags::CallFunction,
     },
     OpSpec{
         .id = OpId::Gcd,
@@ -790,5 +756,393 @@ inline constexpr const OpSpec *find_op(std::string_view token) {
     }
     return nullptr;
 }
+
+// ============================================================================
+//
+// Operations table: OpId -> kernel.
+//
+// The syntax table above (kOps) is read by tokenize / normalize / shunting_yard.
+// This one is read only by eval. They share OpId as their key and duplicate no
+// data: eval never needs precedence or associativity, because the shunting yard
+// has already fixed the order by the time an RPN reaches it.
+//
+// A row is just the call. The trailing return type is load-bearing: without it a
+// failing body sits outside the immediate context and `requires` hard-errors
+// instead of reporting false.
+//
+// ============================================================================
+
+using tcalc::Arm;
+using tcalc::ArmMask;
+using tcalc::Value;
+using AngleUnit = Calculator::AngleUnit;
+
+/// The OpId is passed through so a kernel can name the op in its error message.
+using Kernel = Value (*)(OpId, const Calculator &, std::span<const Value>, AngleUnit);
+
+/// A row is the Calculator call itself, wrapped in a lambda: `TCALC_CALL(sqrt)` is
+/// `c.sqrt(a)`, `TCALC_CALL(add)` is `c.add(a, b)`, `TCALC_CALL(sin)` is `c.sin(a, unit)`.
+/// One macro covers all three because the row builder (unary / binary / unary_angle)
+/// already says how many operands there are.
+///
+/// It is a macro, not a template, because `m` is an overloaded member *name*, which is
+/// not something a template can take as an argument. And the call has to appear twice:
+/// once in the body and once in the trailing return type. That second one is what lets
+/// the arm probe ask "does Calculator have this overload?" and get an answer instead of
+/// a compile error. The macro writes it once.
+
+#define TCALC_CALL(m)                                                                              \
+    [](const Calculator &c, auto &&...args) -> decltype(c.m(args...)) { return c.m(args...); }
+
+/// How a kernel is called. Not an operand count: Unary and UnaryAngle both pop one
+/// operand; they differ in whether the angle unit is passed through.
+enum class Shape : std::uint8_t { Unary, UnaryAngle, Binary };
+
+/// Does kernel F accept arm T when called in shape S? The three call shapes are the
+/// only difference between the probes, so they collapse into this one predicate, keyed
+/// by the same Shape the dispatcher uses.
+template <class F, Shape S, class T> constexpr bool arm_ok() {
+    if constexpr (S == Shape::Unary)
+        return requires(const Calculator &c, const T &a) { F{}(c, a); };
+    else if constexpr (S == Shape::UnaryAngle)
+        return requires(const Calculator &c, const T &a, AngleUnit u) { F{}(c, a, u); };
+    else
+        return requires(const Calculator &c, const T &a, const T &b) { F{}(c, a, b); };
+}
+
+/// The class arms a kernel accepts, read off Calculator's own signatures.
+///
+/// Int64 is NEVER probed: int64 -> double is a standard conversion, so a probe cannot
+/// tell a real overload from an implicit one: `add(int64)` probes true although no such
+/// overload exists, and `permute(double)` probes true although it would truncate 1.2 to
+/// 1. Int64 is set only by int_binary.
+///
+/// One probe list serves every shape: Collection probes false for anything that is not
+/// a reducer, and reduce() states its arm outright.
+template <class F, Shape S> constexpr ArmMask kernel_arms() {
+    ArmMask m = 0;
+    if constexpr (arm_ok<F, S, double>())
+        m |= arm_bit(Arm::Double);
+    if constexpr (arm_ok<F, S, Rational>())
+        m |= arm_bit(Arm::Rat);
+    if constexpr (arm_ok<F, S, BigReal>())
+        m |= arm_bit(Arm::Big);
+    if constexpr (arm_ok<F, S, Complex>())
+        m |= arm_bit(Arm::Cx);
+    if constexpr (arm_ok<F, S, BigComplex>())
+        m |= arm_bit(Arm::BigCx);
+    if constexpr (arm_ok<F, S, Collection>())
+        m |= arm_bit(Arm::Coll);
+    return m;
+}
+
+/// Defensive: after coerce the arguments are homogeneous and the op is known to have
+/// that arm, so this cannot fire in practice. It exists so a lattice bug surfaces as an
+/// error instead of a wrong answer.
+[[noreturn]] inline void throw_unsupported_arm(OpId id) {
+    const OpSpec *sp = op_spec(id);
+    throw CalculatorError(
+        errmsg::unsupported_operand(sp != nullptr ? sp->symbol : "?"), ErrorKind::MathErr);
+}
+
+/// Dispatch on the (already homogeneous) first argument: one instantiation per arm,
+/// not a 7x7 grid. to_value wraps the result, since the reducers return CollectionItem
+/// rather than a Value arm.
+template <class F, Shape S>
+Value dispatch(OpId id, const Calculator &c, std::span<const Value> args, AngleUnit u) {
+    return std::visit(
+        [&](const auto &x) -> Value {
+            using T = std::decay_t<decltype(x)>;
+            if constexpr (S == Shape::Unary) {
+                if constexpr (requires { F{}(c, x); })
+                    return tcalc::to_value(F{}(c, x));
+            } else if constexpr (S == Shape::UnaryAngle) {
+                if constexpr (requires { F{}(c, x, u); })
+                    return tcalc::to_value(F{}(c, x, u));
+            } else {
+                // The evaluator pops by arity, so a short argument list can only come from
+                // a caller of the binding. Reading args[1] anyway would be out of bounds.
+                if (args.size() < 2)
+                    throw_unsupported_arm(id);
+                const T *y = std::get_if<T>(&args[1]);
+                if (y == nullptr)
+                    throw_unsupported_arm(id);
+                if constexpr (requires { F{}(c, x, *y); })
+                    return tcalc::to_value(F{}(c, x, *y));
+            }
+            throw_unsupported_arm(id);
+        },
+        args[0]);
+}
+
+/// When a real argument leaves an op's real domain, the result is complex and the
+/// operand has to be widened before dispatch (sqrt of a negative, log of a
+/// non-positive, …). `x` is the first operand; `y` is the second for the ops that need
+/// it (Root's degree) and 0 otherwise.
+namespace detail {
+/// Tolerance for reading a double degree as a whole number.
+inline constexpr double kDomainEpsilon = 1e-12;
+
+/// The decades a double can still carry. Past these a power is computed in BigReal.
+inline constexpr double kPowToBigUp = 308.0;
+inline constexpr double kPowToBigLow = -324.0;
+inline constexpr double kBaseTen = 10.0;
+} // namespace detail
+
+using DomainRule = bool (*)(double x, double y);
+
+/// True when the operands predict a result double cannot carry, so the op runs in BigReal
+/// instead. Unlike the range check above the kernel, which reads an already-rounded
+/// result, this one reads the operands: 10^308 is finite and normal, and no amount of
+/// looking at the double it produced can recover the digits the rounding dropped.
+using RangeRule = bool (*)(double x, double y);
+
+struct OpRow {
+    OpId id{};
+    Kernel fn{};
+    ArmMask arms{};
+    DomainRule domain{}; // most ops have no domain boundary
+    RangeRule range{};   // and only powers can predict their own range
+};
+
+/// Attach the domain rule to an op's own row, next to its kernel and its arms.
+constexpr OpRow with_domain(OpRow r, DomainRule d) {
+    return OpRow{r.id, r.fn, r.arms, d, r.range};
+}
+
+constexpr OpRow with_range(OpRow r, RangeRule g) {
+    return OpRow{r.id, r.fn, r.arms, r.domain, g};
+}
+
+template <class F> constexpr OpRow unary(OpId id, F) {
+    return OpRow{id, &dispatch<F, Shape::Unary>, kernel_arms<F, Shape::Unary>()};
+}
+template <class F> constexpr OpRow unary_angle(OpId id, F) {
+    return OpRow{id, &dispatch<F, Shape::UnaryAngle>, kernel_arms<F, Shape::UnaryAngle>()};
+}
+template <class F> constexpr OpRow binary(OpId id, F) {
+    return OpRow{id, &dispatch<F, Shape::Binary>, kernel_arms<F, Shape::Binary>()};
+}
+/// permute / choose take `long long`. A probe reports a double arm (double -> long long
+/// is a standard conversion) and would silently truncate permute(1.2, 4.4) to (1, 4).
+/// So these declare Int64 and are never probed.
+template <class F> constexpr OpRow int_binary(OpId id, F) {
+    return OpRow{id, &dispatch<F, Shape::Binary>, arm_bit(Arm::Int64)};
+}
+template <class F> constexpr OpRow reduce(OpId id, F) {
+    return OpRow{id, &dispatch<F, Shape::Unary>, arm_bit(Arm::Coll)};
+}
+/// Exp is pow(e, a) and `e` is irrational, so it can have no exact Rational arm.
+constexpr OpRow without_rational(OpRow r) {
+    return OpRow{r.id, r.fn, static_cast<ArmMask>(r.arms & ~arm_bit(Arm::Rat))};
+}
+
+/// The ops defined through another one: Sqr is `c.pow(a, 2)`, Pow10 is `c.pow(10, a)`.
+/// TCALC_CALL_WITH puts the literal on the right, TCALC_CALL_ONTO on the left. The
+/// literal is built in the operand's own type (Rational(2), BigReal(2), ...), which is
+/// what keeps sqr of a fraction exact.
+#define TCALC_CALL_WITH(m, n)                                                                      \
+    [](const Calculator &c, auto &&a) -> decltype(c.m(a, std::decay_t<decltype(a)>(n))) {          \
+        return c.m(a, std::decay_t<decltype(a)>(n));                                               \
+    }
+#define TCALC_CALL_ONTO(m, n)                                                                      \
+    [](const Calculator &c, auto &&a) -> decltype(c.m(std::decay_t<decltype(a)>(n), a)) {          \
+        return c.m(std::decay_t<decltype(a)>(n), a);                                               \
+    }
+
+namespace detail {
+
+/// A power leaves double behind when its result no longer fits, and the estimate has to be
+/// made on the operands: base^exp has log10 magnitude exp*log10(|base|). Base ten with a
+/// whole exponent is called out on its own because 10^308 is the one power that lands
+/// inside double's range yet cannot be held exactly by it.
+inline bool power_needs_big(double base, double exp) {
+    const double base_mag = std::fabs(base);
+    const bool exp_is_int = std::abs(exp - std::round(exp)) <= kDomainEpsilon;
+    if (base_mag == kBaseTen && exp_is_int && std::fabs(exp) >= kPowToBigUp)
+        return true;
+    const double log10_mag = exp * std::log10(base_mag);
+    return log10_mag > kPowToBigUp || log10_mag < kPowToBigLow;
+}
+
+} // namespace detail
+
+inline constexpr std::array kOpRows = {
+    // arithmetic
+    binary(OpId::Add, TCALC_CALL(add)),
+    binary(OpId::Sub, TCALC_CALL(sub)),
+    binary(OpId::Mul, TCALC_CALL(mul)),
+    binary(OpId::Div, TCALC_CALL(div)),
+    with_range(
+        binary(OpId::Pow, TCALC_CALL(pow)),
+        [](double x, double y) { return detail::power_needs_big(x, y); }),
+    with_range(
+        with_domain(
+            binary(OpId::Root, TCALC_CALL(root)),
+            [](double x, double y) {
+                // a negative radicand is real only for an odd integer degree
+                const bool y_is_int = std::abs(y - std::round(y)) <= detail::kDomainEpsilon;
+                const bool y_is_even = std::llround(y) % 2 == 0;
+                return x < 0.0 && (!y_is_int || y_is_even);
+            }),
+        // the degree is an inverse exponent: root(x, y) is x^(1/y)
+        [](double x, double y) { return y != 0.0 && detail::power_needs_big(x, 1.0 / y); }),
+    binary(OpId::Mod, TCALC_CALL(mod)),
+    binary(OpId::IntDiv, TCALC_CALL(intdiv)),
+
+    // trig, angle-taking
+    unary_angle(OpId::Sin, TCALC_CALL(sin)),
+    unary_angle(OpId::Cos, TCALC_CALL(cos)),
+    unary_angle(OpId::Tan, TCALC_CALL(tan)),
+    with_domain(
+        unary_angle(OpId::Asin, TCALC_CALL(asin)),
+        [](double x, double) { return std::abs(x) > 1.0; }),
+    with_domain(
+        unary_angle(OpId::Acos, TCALC_CALL(acos)),
+        [](double x, double) { return std::abs(x) > 1.0; }),
+    unary_angle(OpId::Atan, TCALC_CALL(atan)),
+    unary_angle(OpId::Polar, TCALC_CALL(polar)),
+
+    // hyperbolic / transcendental
+    unary(OpId::Sinh, TCALC_CALL(sinh)),
+    unary(OpId::Cosh, TCALC_CALL(cosh)),
+    unary(OpId::Tanh, TCALC_CALL(tanh)),
+    unary(OpId::Asinh, TCALC_CALL(asinh)),
+    with_domain(unary(OpId::Acosh, TCALC_CALL(acosh)), [](double x, double) { return x < 1.0; }),
+    with_domain(
+        unary(OpId::Atanh, TCALC_CALL(atanh)), [](double x, double) { return std::abs(x) >= 1.0; }),
+    with_domain(unary(OpId::Sqrt, TCALC_CALL(sqrt)), [](double x, double) { return x < 0.0; }),
+    unary(OpId::Cbrt, TCALC_CALL(cbrt)),
+    with_domain(unary(OpId::Log, TCALC_CALL(log)), [](double x, double) { return x <= 0.0; }),
+    with_domain(unary(OpId::Ln, TCALC_CALL(ln)), [](double x, double) { return x <= 0.0; }),
+    unary(OpId::Fact, TCALC_CALL(fact)),
+    unary(OpId::Gamma, TCALC_CALL(gamma)),
+    unary(OpId::Trunc, TCALC_CALL(trunc)),
+    unary(OpId::Floor, TCALC_CALL(floor)),
+    unary(OpId::Ceil, TCALC_CALL(ceil)),
+
+    // integer-only (Calculator takes long long)
+    int_binary(OpId::Choose, TCALC_CALL(choose)),
+    int_binary(OpId::Permute, TCALC_CALL(permute)),
+
+    // derived: expressed through a real Calculator call, so each inherits that call's
+    // arms. That is what keeps sqr of a fraction exact.
+    unary(
+        OpId::Negate,
+        [](const Calculator &c, auto &&a) -> decltype(c.sub(std::decay_t<decltype(a)>{}, a)) {
+            return c.sub(std::decay_t<decltype(a)>{}, a); // zero of the arm's own type
+        }),
+    unary(
+        OpId::UnaryPlus,
+        [](const Calculator &c, auto &&a) -> std::decay_t<decltype(a)> { return a; }),
+    unary(OpId::Percent, TCALC_CALL_WITH(div, 100)),
+    unary(OpId::Sqr, TCALC_CALL_WITH(pow, 2)),
+    unary(OpId::Cube, TCALC_CALL_WITH(pow, 3)),
+    unary(OpId::Recip, TCALC_CALL_WITH(pow, -1)),
+    unary(OpId::Pow10, TCALC_CALL_ONTO(pow, 10)),
+    without_rational(unary(
+        OpId::Exp,
+        [](const Calculator &c, auto &&a) -> decltype(c.pow(std::decay_t<decltype(a)>{}, a)) {
+            using T = std::decay_t<decltype(a)>;
+            return c.pow(T(consts::euler_number()), a);
+        })),
+
+    // collection reducers (calculator.hpp). Note the OpId and the method name differ
+    // for the last four; read the mapping off OpSpec.method.
+    reduce(OpId::Gcd, TCALC_CALL(gcd)),
+    reduce(OpId::Lcm, TCALC_CALL(lcm)),
+    reduce(OpId::Mean, TCALC_CALL(mean)),
+    reduce(OpId::Median, TCALC_CALL(median)),
+    reduce(OpId::Min, TCALC_CALL(min)),
+    reduce(OpId::Max, TCALC_CALL(max)),
+    reduce(OpId::Sum, TCALC_CALL(sum)),
+    reduce(OpId::Var, TCALC_CALL(variance)),
+    reduce(OpId::VarP, TCALC_CALL(variance_pop)),
+    reduce(OpId::Std, TCALC_CALL(stddev)),
+    reduce(OpId::StdP, TCALC_CALL(stddev_pop)),
+};
+
+inline constexpr std::size_t kOpCount = static_cast<std::size_t>(OpId::Count);
+
+constexpr std::array<Kernel, kOpCount> build_kernels() {
+    std::array<Kernel, kOpCount> t{};
+    for (const auto &row : kOpRows)
+        t[static_cast<std::size_t>(row.id)] = row.fn;
+    return t;
+}
+constexpr std::array<ArmMask, kOpCount> build_arms() {
+    std::array<ArmMask, kOpCount> t{};
+    for (const auto &row : kOpRows)
+        t[static_cast<std::size_t>(row.id)] = row.arms;
+    return t;
+}
+
+inline constexpr auto kKernels = build_kernels();
+inline constexpr auto kArms = build_arms();
+
+constexpr std::array<DomainRule, kOpCount> build_domains() {
+    std::array<DomainRule, kOpCount> t{};
+    for (const auto &row : kOpRows)
+        t[static_cast<std::size_t>(row.id)] = row.domain;
+    return t;
+}
+inline constexpr auto kDomains = build_domains();
+
+/// The op's complex-domain rule, or nullptr when it has no domain boundary.
+constexpr DomainRule domain_of(OpId id) {
+    return kDomains[static_cast<std::size_t>(id)];
+}
+
+constexpr std::array<RangeRule, kOpCount> build_ranges() {
+    std::array<RangeRule, kOpCount> t{};
+    for (const auto &row : kOpRows)
+        t[static_cast<std::size_t>(row.id)] = row.range;
+    return t;
+}
+inline constexpr auto kRanges = build_ranges();
+
+/// The op's range rule, or nullptr when its result cannot be predicted from its operands.
+constexpr RangeRule range_of(OpId id) {
+    return kRanges[static_cast<std::size_t>(id)];
+}
+
+inline Kernel kernel_of(OpId id) {
+    return kKernels[static_cast<std::size_t>(id)];
+}
+
+constexpr ArmMask arms_of(OpId id) {
+    return kArms[static_cast<std::size_t>(id)];
+}
+
+/// Drift guard: an op that OpSpec says is evaluated by a call (non-empty .method)
+/// must have a kernel row. Adding an OpId without one fails the build. Compile-time
+/// only; the kernel table reads no OpSpec field at run time.
+constexpr bool every_evaluable_op_has_a_kernel() {
+    for (const auto &spec : kOps) {
+        if (spec.method.empty())
+            continue;
+        if (kKernels[static_cast<std::size_t>(spec.id)] == nullptr)
+            return false;
+    }
+    return true;
+}
+static_assert(every_evaluable_op_has_a_kernel(), "an OpId with a method has no kernel row");
+
+// The arm derivation, asserted rather than tested: it is compile-time data.
+static_assert(
+    !tcalc::has_arm(arms_of(OpId::Add), Arm::Int64),
+    "Int64 must never be derived: it probes true via the double overload");
+static_assert(tcalc::has_arm(arms_of(OpId::Add), Arm::Rat));
+static_assert(
+    tcalc::has_arm(arms_of(OpId::Sqrt), Arm::Rat),
+    "sqrt is exact on rationals: Calculator::sqrt(const Rational &) provides the arm");
+static_assert(
+    !tcalc::has_arm(arms_of(OpId::Cbrt), Arm::Big),
+    "Calculator has no cbrt(BigReal); a BigReal argument must error, not demote");
+static_assert(
+    tcalc::has_arm(arms_of(OpId::Permute), Arm::Int64) &&
+        !tcalc::has_arm(arms_of(OpId::Permute), Arm::Double),
+    "permute is integer-only; a double arm would silently truncate 1.2 to 1");
+static_assert(!tcalc::has_arm(arms_of(OpId::Exp), Arm::Rat));
 
 } // namespace tcalc::ops

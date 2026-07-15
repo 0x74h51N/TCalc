@@ -15,6 +15,7 @@ void unit_statistic(TestContext &ctx);
 void unit_number_theory(TestContext &ctx);
 void unit_helpers(TestContext &ctx);
 void unit_ops(TestContext &ctx);
+void unit_eval(TestContext &ctx);
 
 void smoke_stress(TestContext &ctx);
 
@@ -36,6 +37,7 @@ int main(int argc, char **argv) { // NOLINT(modernize-use-trailing-return-type)
     test_detail::run_suite(
         ctx, "unit test helpers", "src/native/tests/test_test_helpers.cpp", unit_helpers);
     test_detail::run_suite(ctx, "unit ops", "src/native/tests/unit/test_ops.cpp", unit_ops);
+    test_detail::run_suite(ctx, "unit eval", "src/native/tests/unit/test_eval.cpp", unit_eval);
     test_detail::run_suite(
         ctx, "unit arithmetic", "src/native/tests/unit/test_arithmetic.cpp", unit_arithmetic);
     test_detail::run_suite(

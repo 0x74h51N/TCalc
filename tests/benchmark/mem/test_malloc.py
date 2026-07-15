@@ -12,8 +12,8 @@ from __future__ import annotations
 import calc_native
 import pytest
 
-from tcalc.core.engine import Calculator
-from tcalc.core.parser import evaluate_tokens, tokenize_string
+from tcalc.core.native_eval import evaluate_branch
+from tcalc.core.parser import tokenize, tokenize_string
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
 from tcalc.ui.window import MainWindow
 from tests.benchmark.expressions import PIPELINE_EXPRESSIONS, RENDER_EXPRESSIONS
@@ -80,6 +80,6 @@ def test_native_shunting_yard_memory(name: str):
 @pytest.mark.parametrize("name", list(PIPELINE_EXPRESSIONS))
 def test_native_pipeline_memory(name: str):
     """Measure full native pipeline: tokenize -> shunting-yard -> evaluate."""
-    calc = Calculator()
-    tokens = tokenize_string(PIPELINE_EXPRESSIONS[name])
-    evaluate_tokens(tokens, calc)
+    calc = calc_native.Calculator()
+    branch = tokenize(PIPELINE_EXPRESSIONS[name])
+    evaluate_branch(branch, calc, calc_native.AngleUnit.RAD)

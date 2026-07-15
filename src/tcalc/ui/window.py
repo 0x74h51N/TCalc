@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from typing import Callable
 
+from calc_native import Calculator
 from PySide6.QtCore import QByteArray, QSettings, QSize, QTimer
 from PySide6.QtGui import Qt
 from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
@@ -32,7 +33,6 @@ from tcalc.ui.keyboard import KeyboardHandler
 from tcalc.ui.layout_presets import LayoutPreset, LayoutPresetStore
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad
 
-from ..core import Calculator
 from .config import history_style, memory_style, window
 from .controller import CalculatorController, EditOperations
 from .controller.utils import format_result

@@ -124,6 +124,42 @@ void unit_rational(TestContext &ctx) {
     });
 
     // -----------------------------------------------------------------------
+    // Calculator::sqrt/cbrt/root(Rational)
+    // -----------------------------------------------------------------------
+
+    TEST_CASE(ctx, "sqrt :: exact when both numerator and denominator are perfect squares", {
+        auto r = c.sqrt(Rational(4, 9));
+        EXPECT_EQ(ctx, r.numerator(), 2LL);
+        EXPECT_EQ(ctx, r.denominator(), 3LL);
+    });
+
+    TEST_CASE(ctx, "cbrt :: odd degree of a negative base is fine", {
+        auto r = c.cbrt(Rational(-8, 27));
+        EXPECT_EQ(ctx, r.numerator(), -2LL);
+        EXPECT_EQ(ctx, r.denominator(), 3LL);
+    });
+
+    TEST_CASE(ctx, "root :: 8^(1/3) = 2", {
+        auto r = c.root(Rational(8), Rational(3));
+        EXPECT_EQ(ctx, r.numerator(), 2LL);
+        EXPECT_EQ(ctx, r.denominator(), 1LL);
+    });
+
+    TEST_CASE(ctx, "sqrt :: irrational throws", { EXPECT_THROWS(ctx, c.sqrt(Rational(2))); });
+
+    TEST_CASE(ctx, "sqrt :: numerator has an exact root, denominator does not throws", {
+        EXPECT_THROWS(ctx, c.sqrt(Rational(4, 5)));
+    });
+
+    TEST_CASE(ctx, "sqrt :: even degree of a negative has no real root throws", {
+        EXPECT_THROWS(ctx, c.sqrt(Rational(-1)));
+    });
+
+    TEST_CASE(ctx, "root :: zero degree throws", {
+        EXPECT_THROWS(ctx, c.root(Rational(4), Rational(0)));
+    });
+
+    // -----------------------------------------------------------------------
     // calc_detail::rational_pow_overflows (binding-layer guard)
     // -----------------------------------------------------------------------
 
@@ -157,5 +193,69 @@ void unit_rational(TestContext &ctx) {
 
     TEST_CASE(ctx, "pow_overflows :: denominator fits (1/2)^61", {
         EXPECT_TRUE(ctx, !calc_detail::rational_pow_overflows(Rational(1, 2), 61));
+    });
+
+    // -----------------------------------------------------------------------
+    // add / sub / mul / div overflow
+    //
+    // A Rational holds its numerator and denominator in int64. When an exact
+    // result does not fit, the operation must say so, and the caller falls back
+    // to double. Returning a wrapped value is the one thing it must never do:
+    // 0.0000000001 * 0.0000000001 has the exact denominator 1e20, and wrapping
+    // it produces 1/7766279631452241920, a plausible-looking number that is off
+    // by an order of magnitude.
+    // -----------------------------------------------------------------------
+
+    constexpr long long kI64Max = 9223372036854775807LL;
+    constexpr long long kI64Min = -9223372036854775807LL - 1;
+
+    TEST_CASE(ctx, "mul :: denominator overflow throws", {
+        // 1/4e9 * 1/4e9 = 1/1.6e19, past int64
+        EXPECT_THROWS(ctx, c.mul(Rational(1, 4000000000), Rational(1, 4000000000)));
+    });
+
+    TEST_CASE(ctx, "mul :: numerator overflow throws", {
+        EXPECT_THROWS(ctx, c.mul(Rational(4000000000), Rational(4000000000)));
+    });
+
+    TEST_CASE(ctx, "add :: numerator overflow throws", {
+        EXPECT_THROWS(ctx, c.add(Rational(kI64Max), Rational(1)));
+    });
+
+    TEST_CASE(ctx, "add :: denominator overflow throws", {
+        // 1/4e9 + 1/(4e9 + 1): coprime denominators, so the product is the result's
+        EXPECT_THROWS(ctx, c.add(Rational(1, 4000000000), Rational(1, 4000000001)));
+    });
+
+    TEST_CASE(ctx, "sub :: numerator overflow throws", {
+        EXPECT_THROWS(ctx, c.sub(Rational(kI64Min), Rational(1)));
+    });
+
+    TEST_CASE(ctx, "div :: denominator overflow throws", {
+        // (1/4e9) / 4e9 = 1/1.6e19
+        EXPECT_THROWS(ctx, c.div(Rational(1, 4000000000), Rational(4000000000)));
+    });
+
+    // The guard must not reject a result that does fit.
+
+    TEST_CASE(ctx, "mul :: a result at the edge of int64 is exact", {
+        // 3037000499^2 = 9223372030926249001, just under int64 max
+        auto r = c.mul(Rational(3037000499), Rational(3037000499));
+        EXPECT_EQ(ctx, r.numerator(), 9223372030926249001LL);
+        EXPECT_EQ(ctx, r.denominator(), 1LL);
+    });
+
+    TEST_CASE(ctx, "mul :: intermediates may overflow while the reduced result fits", {
+        // 4e9/3 * 3/4e9 = 1: the raw products pass int64, the reduced result is 1/1
+        auto r = c.mul(Rational(4000000000, 3), Rational(3, 4000000000));
+        EXPECT_EQ(ctx, r.numerator(), 1LL);
+        EXPECT_EQ(ctx, r.denominator(), 1LL);
+    });
+
+    TEST_CASE(ctx, "add :: a shared denominator does not overflow", {
+        // 1/4e9 + 1/4e9 = 1/2e9: the denominators reduce, nothing overflows
+        auto r = c.add(Rational(1, 4000000000), Rational(1, 4000000000));
+        EXPECT_EQ(ctx, r.numerator(), 1LL);
+        EXPECT_EQ(ctx, r.denominator(), 2000000000LL);
     });
 }
