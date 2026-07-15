@@ -321,7 +321,7 @@ Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::A
     // no exact arm, and that downcast is the moment the rule can first see the value. An
     // op that does have an exact arm keeps its Rational here and gets first refusal on it,
     // which is what leaves `\root{-8}{3}` an exact -2 instead of a complex root.
-    std::vector<Value> dispatch_args = coerce(id, args);
+    std::vector<Value> dispatch_args = coerce(id, std::move(args));
     if (promote_complex(id, dispatch_args))
         dispatch_args = coerce(id, dispatch_args);
 
@@ -376,6 +376,16 @@ Value pop_operand(std::vector<Value> &stack) {
     return v;
 }
 
+/// Gather operands into an argument vector by moving. A braced-init std::vector copies,
+/// because an initializer_list hands out const references its elements cannot move from,
+/// which for a Collection operand means copying every item.
+template <class... Vs> std::vector<Value> args_of(Vs &&...vs) {
+    std::vector<Value> out;
+    out.reserve(sizeof...(vs));
+    (out.push_back(std::forward<Vs>(vs)), ...);
+    return out;
+}
+
 /// A constant's value, which is a double for all but the imaginary unit.
 Value const_value(const consts::ConstSpec &spec) {
     return std::visit([](const auto &x) -> Value { return Value{x}; }, spec.value);
@@ -423,7 +433,7 @@ Value eval_latex(const parser::LatexToken &latex, const Calculator &c, Calculato
     Value right = Value{Rational(latex.kind == LatexKind::Root ? 2 : 0)};
     if (!latex.right.empty())
         right = eval_row(latex.right, c, unit);
-    return apply(c, latex.op_id, {std::move(left), std::move(right)}, unit);
+    return apply(c, latex.op_id, args_of(std::move(left), std::move(right)), unit);
 }
 
 /// A value as a collection item. Rational has no item arm, so an exact fraction leaves
@@ -527,7 +537,8 @@ Value eval_elements(
         items.push_back(collection_item(v));
     }
 
-    return make_collection(is_point ? CollectionKind::Point : CollectionKind::List, items);
+    return make_collection(
+        is_point ? CollectionKind::Point : CollectionKind::List, std::move(items));
 }
 
 /// A variadic call's arguments as one List dataset: a lone collection is the dataset
@@ -549,7 +560,7 @@ Value eval_call(const parser::CallToken &call, const Calculator &c, Calculator::
     const ops::OpSpec &spec = *ops::op_spec(call.op_id);
 
     if (ops::is_variadic(spec))
-        return apply(c, call.op_id, {call_dataset(call.args, c, unit)}, unit);
+        return apply(c, call.op_id, args_of(call_dataset(call.args, c, unit)), unit);
 
     if (call.args.size() != spec.call_arity)
         throw_invalid(errmsg::takes_arguments(spec.symbol, spec.call_arity));
@@ -578,11 +589,11 @@ Value eval_op(OpId id, std::vector<Value> &stack, const Calculator &c, Calculato
         throw_invalid(errmsg::needs_call_form(spec.symbol));
 
     if (spec.arity != ops::Arity::Binary)
-        return apply(c, id, {pop_operand(stack)}, unit);
+        return apply(c, id, args_of(pop_operand(stack)), unit);
 
     Value right = pop_operand(stack);
     Value left = pop_operand(stack);
-    return apply(c, id, {std::move(left), std::move(right)}, unit);
+    return apply(c, id, args_of(std::move(left), std::move(right)), unit);
 }
 
 } // namespace
@@ -631,7 +642,7 @@ Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::Angl
 
     if (stack.empty())
         throw_malformed(errmsg::kOperandStackEmpty);
-    return stack.front();
+    return std::move(stack.front());
 }
 
 /// Insert implicit multiplication and collapse runs of + and - into one sign, before the
