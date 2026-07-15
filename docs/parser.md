@@ -28,7 +28,7 @@ kinds:
 
 | Kind     | Carries                                                           | Notes                                                    |
 | -------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
-| `Number` | `value` (raw text)                                                | parsed to a value later, in Python                       |
+| `Number` | `value` (raw text)                                                | parsed to a value later, by native `literal_value`       |
 | `Op`     | `op_id`                                                           | looks up its `OpSpec` (symbol, precedence, arity, flags) |
 | `Latex`  | `kind`, `op_id`, `left`, `right`                                  | `left`/`right` are token vectors (still infix)           |
 | `Paren`  | `kind` (Paren/Bracket/Brace), `elements`, `has_open`, `has_close` | grouping or collection                                   |
@@ -41,10 +41,11 @@ multi-token slot as a vector. **Arity** is just the element count: arity-1 (no
 top-level comma) is grouping, arity-N is a collection or a call's argument list.
 
 `Op` behavior comes from its `OpSpec` row in the table (`pub/ops.hpp`): `precedence`,
-`associativity`, `arity` (Binary / Unary / Postfix), capability `flags`
-(angle-unit, BigReal, BigComplex, Rational, CallFunction), and `call_arity`
-(1, a fixed N, or `kVariadicArity`). This is the single source the tokenizer,
-shunting-yard, and evaluator all read.
+`associativity`, `arity` (Binary / Unary / Postfix), the `CallFunction` flag, and
+`call_arity` (1, a fixed N, or `kVariadicArity`). This is the single source the
+tokenizer, shunting-yard, and evaluator all read. Which numeric types (BigReal,
+Complex, Rational) an op supports is not a flag; the evaluator derives it from the
+`Calculator` method signatures.
 
 ## Tokenize
 
