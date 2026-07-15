@@ -2,6 +2,7 @@
 #include "eval/pub/literal.hpp"
 #include "eval/pub/varstore.hpp"
 #include "internal/test_helpers.hpp"
+#include "internal/token_factories.hpp"
 #include "value.hpp"
 
 using tcalc::Arm;
@@ -46,6 +47,14 @@ using EvalCase = Case<const char *, Value>;
 using RejectCase = Case<const char *, std::monostate>;
 /// Case row for a rejected expression whose message text is part of the contract.
 using MsgCase = Case<const char *, const char *>;
+/// Case row for normalize: input tokens -> normalized tokens.
+using NormCase = Case<std::vector<tcalc::parser::Token>, std::vector<tcalc::parser::Token>>;
+/// Case row for shunting_yard: infix tokens -> RPN tokens.
+using ShuntCase = Case<std::vector<tcalc::parser::Token>, std::vector<tcalc::parser::Token>>;
+
+using tcalc::parser::Token;
+using tcalc::parser::TokenKind;
+using namespace tcalc::test_tokens;
 
 constexpr auto kRad = Calculator::AngleUnit::RAD;
 
@@ -664,4 +673,170 @@ void unit_eval(TestContext &ctx) {
         session_vars().clear();
         EXPECT_THROWS(ctx, eval_source(c, "=5"));
     });
+
+    // =========================================================================
+    // Normalizations
+    // =========================================================================
+    const std::vector<NormCase> norm_cases = {
+
+        {.id = "double sub to add",
+         .input = {N("1"), Op_(OpId::Sub), Op_(OpId::Sub), N("2")},
+         .expected = {N("1"), Op_(OpId::Add), N("2")}},
+
+        {.id = "add sub to sub",
+         .input = {N("1"), Op_(OpId::Add), Op_(OpId::Sub), N("2")},
+         .expected = {N("1"), Op_(OpId::Sub), N("2")}},
+
+        {.id = "mixed sign collapse",
+         .input =
+             {N("1"),
+              Op_(OpId::Add),
+              Op_(OpId::Sub),
+              Op_(OpId::Sub),
+              Op_(OpId::Sub),
+              Op_(OpId::Add),
+              Op_(OpId::Add),
+              Op_(OpId::Sub),
+              Op_(OpId::Sub),
+              Op_(OpId::Add),
+              Op_(OpId::Add),
+              N("2")},
+         .expected = {N("1"), Op_(OpId::Sub), N("2")}},
+
+        {.id = "add then negate kept",
+         .input = {N("1"), Op_(OpId::Add), Op_(OpId::Negate), N("2")},
+         .expected = {N("1"), Op_(OpId::Add), Op_(OpId::Negate), N("2")}},
+
+        // Implicit multiplications
+        {.id = "implicit mul before paren",
+         .input = {N("2"), Pp({EN("3")})},
+         .expected = {N("2"), Op_(OpId::Mul), Pp({EN("3")})}},
+
+        {.id = "implicit mul after postfix",
+         .input = {N("3"), Op_(OpId::Fact), N("2")},
+         .expected = {N("3"), Op_(OpId::Fact), Op_(OpId::Mul), N("2")}}};
+
+    for (std::size_t i = 0; i < norm_cases.size(); ++i) {
+        const auto &tc = norm_cases[i];
+        test_detail::with_case(ctx, std::string("normalize :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, tcalc::eval::normalize(tc.input), tc.expected);
+        });
+    }
+
+    // Shuntifications
+    const std::vector<ShuntCase> shunt_cases = {
+
+        {.id = "basic precedence",
+         .input =
+             {
+                 N("1"),
+                 Op_(OpId::Add),
+                 N("2"),
+                 Op_(OpId::Mul),
+                 N("3"),
+                 Op_(OpId::Pow),
+                 N("4"),
+             },
+         .expected =
+             {
+                 N("1"),
+                 N("2"),
+                 N("3"),
+                 N("4"),
+                 Op_(OpId::Pow),
+                 Op_(OpId::Mul),
+                 Op_(OpId::Add),
+             }},
+
+        {.id = "pow right assoc",
+         .input =
+             {
+                 N("2"),
+                 Op_(OpId::Pow),
+                 N("3"),
+                 Op_(OpId::Pow),
+                 N("4"),
+             },
+         .expected =
+             {
+                 N("2"),
+                 N("3"),
+                 N("4"),
+                 Op_(OpId::Pow),
+                 Op_(OpId::Pow),
+             }},
+
+        {.id = "unary before func",
+         .input =
+             {
+                 Op_(OpId::Sin),
+                 Op_(OpId::Negate),
+                 N("2"),
+             },
+         .expected =
+             {
+                 N("2"),
+                 Op_(OpId::Negate),
+                 Op_(OpId::Sin),
+             }},
+
+        {.id = "implicit mul after paren",
+         // Under unified ParenToken model, shunting_yard treats ParenToken as a
+         // single opaque operand (push to output). Implicit Mul is inserted by
+         // normalize between operand-ending N(2) and operand-starting paren.
+         .input =
+             {
+                 N("2"),
+                 Pp({EV({N("3"), Op_(OpId::Add), N("4")})}),
+             },
+         .expected =
+             {
+                 N("2"),
+                 Pp({EV({N("3"), Op_(OpId::Add), N("4")})}),
+                 Op_(OpId::Mul),
+             }},
+
+        {.id = "postfix percent precedence",
+         .input =
+             {
+                 N("2"),
+                 Op_(OpId::Pow),
+                 N("3"),
+                 Op_(OpId::Percent),
+                 Op_(OpId::Add),
+                 N("4"),
+             },
+         .expected =
+             {
+                 N("2"),
+                 N("3"),
+                 Op_(OpId::Percent),
+                 Op_(OpId::Pow),
+                 N("4"),
+                 Op_(OpId::Add),
+             }},
+
+        {.id = "2c -> implicit mul",
+         .input = {N("2"), Co(tcalc::consts::ConstId::SpeedOfLight)},
+         .expected = {N("2"), Co(tcalc::consts::ConstId::SpeedOfLight), Op_(OpId::Mul)}},
+        {.id = "implicit mul: 2 pi",
+         .input = {N("2"), Co(tcalc::consts::ConstId::Pi)},
+         .expected = {N("2"), Co(tcalc::consts::ConstId::Pi), Op_(OpId::Mul)}},
+        {.id = "implicit mul: pi e",
+         .input = {Co(tcalc::consts::ConstId::Pi), Co(tcalc::consts::ConstId::EulerNumber)},
+         .expected =
+             {Co(tcalc::consts::ConstId::Pi),
+              Co(tcalc::consts::ConstId::EulerNumber),
+              Op_(OpId::Mul)}},
+        {.id = "implicit mul: a b chars",
+         .input = {Ch('a'), Ch('b')},
+         .expected = {Ch('a'), Ch('b'), Op_(OpId::Mul)}},
+    };
+
+    for (std::size_t i = 0; i < shunt_cases.size(); ++i) {
+        const auto &tc = shunt_cases[i];
+        test_detail::with_case(ctx, std::string("shunting yard :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, tcalc::eval::shunting_yard(tc.input), tc.expected);
+        });
+    }
 }

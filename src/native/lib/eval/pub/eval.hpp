@@ -29,6 +29,13 @@ std::vector<Value> coerce(ops::OpId id, std::vector<Value> args);
 /// exact arithmetic cannot represent its result, then range promotion.
 Value apply(const Calculator &c, ops::OpId id, std::vector<Value> args, Calculator::AngleUnit unit);
 
+/// Insert implicit multiplication and fold runs of + and - into one sign. The step the
+/// shunt runs first; exposed because it is worth pinning on its own.
+std::vector<parser::Token> normalize(std::span<const parser::Token> tokens);
+
+/// Normalize a row and convert it to RPN.
+std::vector<parser::Token> shunting_yard(std::span<const parser::Token> tokens);
+
 /// Walk an RPN list.
 Value eval_rpn(std::span<const parser::Token> rpn, const Calculator &c, Calculator::AngleUnit unit);
 

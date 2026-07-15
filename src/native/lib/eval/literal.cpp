@@ -18,6 +18,11 @@ namespace {
 
 using BigInt = boost::multiprecision::cpp_int;
 
+constexpr int kDecimalBase = 10;
+/// A decimal whose adjusted exponent runs past int64's ~19 significant digits cannot fit a
+/// Rational, so the exact path bails at this magnitude.
+constexpr long long kMaxRationalExp = 18;
+
 /// True when c is the imaginary unit's symbol or one of its aliases. Read from the
 /// constants table rather than hard-coded, so "i"/"I"/"j" stay in sync with consts.hpp.
 bool is_imag_unit_char(char c) {
@@ -86,7 +91,7 @@ DecimalParts parse_decimal_parts(const std::string &s) {
 BigInt pow10(long long exp) {
     BigInt result(1);
     for (long long i = 0; i < exp; ++i)
-        result *= 10;
+        result *= kDecimalBase;
     return result;
 }
 
@@ -97,9 +102,7 @@ std::optional<Rational> exact_decimal(const std::string &s) {
     const DecimalParts parts = parse_decimal_parts(s);
     const long long digit_count = static_cast<long long>(parts.digits.size());
     const long long adjusted = parts.exponent + digit_count - 1;
-    // Past int64's ~19 digits, the fraction cannot fit a Rational anyway; bail before
-    // materialising anything.
-    if (adjusted > 18 || adjusted < -18)
+    if (adjusted > kMaxRationalExp || adjusted < -kMaxRationalExp)
         return std::nullopt;
 
     const BigInt coeff(parts.digits);
@@ -138,7 +141,7 @@ Value parse_real(const std::string &s) {
             if (pos == s.size())
                 return Value{static_cast<std::int64_t>(v)};
         } catch (const std::exception &) {
-            // falls through to the BigReal attempt below
+            return Value{BigReal(s)}; // too many digits for int64; BigReal holds it
         }
         return Value{BigReal(s)};
     }
@@ -148,22 +151,22 @@ Value parse_real(const std::string &s) {
     // raises for either case.
     char *end = nullptr;
     const double f = std::strtod(s.c_str(), &end);
-    if (end != s.c_str() + s.size())
+    // c_str is null-terminated, so a fully consumed literal leaves end on the '\0'.
+    if (*end != '\0')
         return Value{BigReal(s)};
 
-    Value result = Value{f};
     if (has_e) {
         const bool literal_is_zero = literal_digits_are_zero(s);
         const bool float_ok = std::isfinite(f) && (f != 0.0 || literal_is_zero);
         if (!float_ok) {
             try {
-                result = Value{BigReal(s)};
+                return Value{BigReal(s)};
             } catch (const std::exception &) {
-                // keep the double result; BigReal could not parse it either
+                return Value{f}; // BigReal could not parse it either; keep the double
             }
         }
     }
-    return result;
+    return Value{f};
 }
 
 } // namespace
@@ -200,7 +203,7 @@ Value literal_value(std::string_view text) {
             if (pos == s.size())
                 return Value{static_cast<std::int64_t>(v)};
         } catch (const std::exception &) {
-            // falls through to the real reader
+            return parse_real(s); // too big for int64; the real reader promotes it
         }
         return parse_real(s);
     }

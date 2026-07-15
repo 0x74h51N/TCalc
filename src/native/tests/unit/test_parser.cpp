@@ -3,8 +3,10 @@
 #include <string_view>
 #include <vector>
 
+#include "eval/pub/eval.hpp"
 #include "internal/parser_internal.hpp"
 #include "internal/test_helpers.hpp"
+#include "internal/token_factories.hpp"
 #include "parser/pub/consts.hpp"
 #include "parser/pub/ops.hpp"
 #include "parser/pub/parser.hpp"
@@ -102,103 +104,9 @@ using PositionCase = Case<const char *, PositionExpected>;
 // Token factories. start/end default to 0
 // pass them only when the test actually checks span info
 
-/// Token factory: NumberToken with the given literal value.
-inline Token N(const char *value, std::size_t start = 0, std::size_t end = 0) {
-    return Token{TokenKind::Number, NumberToken{value}, start, end};
-}
-/// Token factory: OpToken for the given op id (binary, unary, or postfix).
-inline Token Op_(OpId id, std::size_t start = 0, std::size_t end = 0) {
-    return Token{TokenKind::Op, OpToken{id}, start, end};
-}
-/// Token factory: CharToken for the given character value.
-inline Token Ch(char c, std::size_t start = 0, std::size_t end = 0) {
-    return Token{TokenKind::Char, CharToken{c}, start, end};
-}
-/// Token factory: ConstToken for the given constant id.
-inline Token Co(tcalc::consts::ConstId id, std::size_t start = 0, std::size_t end = 0) {
-    return Token{TokenKind::Const, ConstToken{id}, start, end};
-}
-
-/// EN: single-Token element (variant arm 0). Bare-number shortcut.
-inline ParenElement EN(std::string value) {
-    return ParenElement{Token{TokenKind::Number, NumberToken{std::move(value)}}};
-}
-/// EC: single-Token ConstToken element (variant arm 0).
-inline ParenElement EC(tcalc::consts::ConstId id) {
-    return ParenElement{Token{TokenKind::Const, ConstToken{id}}};
-}
-/// EV: multi-Token element (variant arm 1). Used for expressions, postfix, unary signs.
-/// Note: under canonicalization, a single-Token tokenize result lands in arm 0;
-/// using EV({SingleToken}) where tokenize would canonicalize to arm 0 mismatches.
-inline ParenElement EV(std::vector<Token> toks) {
-    return toks;
-}
-
-/// Token factory: unified ParenToken (open + elements + close, has_latex_descendant=auto).
-/// Auto-computes has_latex_descendant by scanning elements for LatexToken or nested
-/// ParenToken with has_latex_descendant=true. Matches the propagation that
-/// build_paren_token performs at tokenize time.
-inline Token
-Pr(ParenKind kind,
-   std::vector<ParenElement> elements,
-   bool has_open = true,
-   bool has_close = true,
-   std::size_t start = 0,
-   std::size_t end = 0) {
-    bool has_latex_descendant = false;
-    auto contains_latex = [](const std::vector<Token> &toks) -> bool {
-        for (const auto &t : toks) {
-            if (t.kind == TokenKind::Latex) {
-                return true;
-            }
-            if (t.kind == TokenKind::Paren) {
-                const auto &pt = std::get<ParenToken>(t.data);
-                if (pt.has_latex_descendant)
-                    return true;
-            }
-        }
-        return false;
-    };
-    for (const auto &e : elements) {
-        if (e.index() == 0) {
-            const auto &t = std::get<Token>(e);
-            if (t.kind == TokenKind::Latex) {
-                has_latex_descendant = true;
-                break;
-            }
-            if (t.kind == TokenKind::Paren) {
-                const auto &pt = std::get<ParenToken>(t.data);
-                if (pt.has_latex_descendant) {
-                    has_latex_descendant = true;
-                    break;
-                }
-            }
-        } else {
-            if (contains_latex(std::get<std::vector<Token>>(e))) {
-                has_latex_descendant = true;
-                break;
-            }
-        }
-    }
-    return Token{
-        TokenKind::Paren,
-        ParenToken{kind, std::move(elements), has_open, has_close, has_latex_descendant},
-        start,
-        end};
-}
-
-/// Shorthand: round Paren wrapper, closed.
-inline Token Pp(std::vector<ParenElement> elements, bool has_close = true) {
-    return Pr(ParenKind::Paren, std::move(elements), true, has_close);
-}
-/// Shorthand: square Bracket wrapper, closed.
-inline Token Br(std::vector<ParenElement> elements, bool has_close = true) {
-    return Pr(ParenKind::Bracket, std::move(elements), true, has_close);
-}
-/// Shorthand: curly Brace wrapper, closed.
-inline Token Bc(std::vector<ParenElement> elements, bool has_close = true) {
-    return Pr(ParenKind::Brace, std::move(elements), true, has_close);
-}
+// Token builders N / Op_ / Ch / Co / EN / EC / EV / Pr / Pp / Br / Bc are shared with
+// the evaluator suite.
+using namespace tcalc::test_tokens;
 /// Token factory: CallToken (function call `f(arg0, arg1, ...)`).
 inline Token
 Cl(OpId op_id,
@@ -746,212 +654,6 @@ void unit_parser(TestContext &ctx) {
     });
 
     // =========================================================================
-    // Normalizations
-    // =========================================================================
-    const std::vector<NormCase> norm_cases = {
-
-        {.id = "double sub to add",
-         .input = {N("1"), Op_(OpId::Sub), Op_(OpId::Sub), N("2")},
-         .expected = {N("1"), Op_(OpId::Add), N("2")}},
-
-        {.id = "add sub to sub",
-         .input = {N("1"), Op_(OpId::Add), Op_(OpId::Sub), N("2")},
-         .expected = {N("1"), Op_(OpId::Sub), N("2")}},
-
-        {.id = "mixed sign collapse",
-         .input =
-             {N("1"),
-              Op_(OpId::Add),
-              Op_(OpId::Sub),
-              Op_(OpId::Sub),
-              Op_(OpId::Sub),
-              Op_(OpId::Add),
-              Op_(OpId::Add),
-              Op_(OpId::Sub),
-              Op_(OpId::Sub),
-              Op_(OpId::Add),
-              Op_(OpId::Add),
-              N("2")},
-         .expected = {N("1"), Op_(OpId::Sub), N("2")}},
-
-        {.id = "add then negate kept",
-         .input = {N("1"), Op_(OpId::Add), Op_(OpId::Negate), N("2")},
-         .expected = {N("1"), Op_(OpId::Add), Op_(OpId::Negate), N("2")}},
-
-        // Implicit multiplications
-        {.id = "implicit mul before paren",
-         .input = {N("2"), Pp({EN("3")})},
-         .expected = {N("2"), Op_(OpId::Mul), Pp({EN("3")})}},
-
-        {.id = "implicit mul after postfix",
-         .input = {N("3"), Op_(OpId::Fact), N("2")},
-         .expected = {N("3"), Op_(OpId::Fact), Op_(OpId::Mul), N("2")}}};
-
-    for (std::size_t i = 0; i < norm_cases.size(); ++i) {
-        const auto &tc = norm_cases[i];
-        test_detail::with_case(ctx, std::string("normalize :: ") + tc.id, [&] {
-            EXPECT_EQ(ctx, d::normalize(tc.input), tc.expected);
-        });
-    }
-
-    // =========================================================================
-    // Scanifications
-    // =========================================================================
-    const std::vector<ScanCase> scan_cases = {
-        {.id = "integer",
-         .input = {.text = "123", .start = 0},
-         .expected = {.view = "123", .next = 3}},
-        {.id = "decimal",
-         .input = {.text = "12.34", .start = 0},
-         .expected = {.view = "12.34", .next = 5}},
-        {.id = "leading dot",
-         .input = {.text = ".5", .start = 0},
-         .expected = {.view = ".5", .next = 2}},
-        {.id = "trailing dot",
-         .input = {.text = "5.", .start = 0},
-         .expected = {.view = "5.", .next = 2}},
-        {.id = "sci basic",
-         .input = {.text = "1e10", .start = 0},
-         .expected = {.view = "1e10", .next = 4}},
-        {.id = "sci negative exp",
-         .input = {.text = "1e-3", .start = 0},
-         .expected = {.view = "1e-3", .next = 4}},
-        {.id = "sci positive exp",
-         .input = {.text = "1e+0", .start = 0},
-         .expected = {.view = "1e+0", .next = 4}},
-        {.id = "sci incomplete",
-         .input = {.text = "1e+", .start = 0},
-         .expected = {.view = "1", .next = 1}},
-        {.id = "sci imag prefix",
-         .input = {.text = "1e-3i", .start = 0},
-         .expected = {.view = "1e-3", .next = 4}},
-        {.id = "scan mid string",
-         .input = {.text = "xx12.3", .start = 2},
-         .expected = {.view = "12.3", .next = 6}},
-        {.id = "no number",
-         .input = {.text = "abc", .start = 0},
-         .expected = {.view = "", .next = 0}},
-        {.id = "dot only", .input = {.text = ".", .start = 0}, .expected = {.view = "", .next = 0}},
-    };
-
-    // Shuntifications
-    const std::vector<ShuntCase> shunt_cases = {
-
-        {.id = "basic precedence",
-         .input =
-             {
-                 N("1"),
-                 Op_(OpId::Add),
-                 N("2"),
-                 Op_(OpId::Mul),
-                 N("3"),
-                 Op_(OpId::Pow),
-                 N("4"),
-             },
-         .expected =
-             {
-                 N("1"),
-                 N("2"),
-                 N("3"),
-                 N("4"),
-                 Op_(OpId::Pow),
-                 Op_(OpId::Mul),
-                 Op_(OpId::Add),
-             }},
-
-        {.id = "pow right assoc",
-         .input =
-             {
-                 N("2"),
-                 Op_(OpId::Pow),
-                 N("3"),
-                 Op_(OpId::Pow),
-                 N("4"),
-             },
-         .expected =
-             {
-                 N("2"),
-                 N("3"),
-                 N("4"),
-                 Op_(OpId::Pow),
-                 Op_(OpId::Pow),
-             }},
-
-        {.id = "unary before func",
-         .input =
-             {
-                 Op_(OpId::Sin),
-                 Op_(OpId::Negate),
-                 N("2"),
-             },
-         .expected =
-             {
-                 N("2"),
-                 Op_(OpId::Negate),
-                 Op_(OpId::Sin),
-             }},
-
-        {.id = "implicit mul after paren",
-         // Under unified ParenToken model, shunting_yard treats ParenToken as a
-         // single opaque operand (push to output). Implicit Mul is inserted by
-         // normalize between operand-ending N(2) and operand-starting paren.
-         .input =
-             {
-                 N("2"),
-                 Pp({EV({N("3"), Op_(OpId::Add), N("4")})}),
-             },
-         .expected =
-             {
-                 N("2"),
-                 Pp({EV({N("3"), Op_(OpId::Add), N("4")})}),
-                 Op_(OpId::Mul),
-             }},
-
-        {.id = "postfix percent precedence",
-         .input =
-             {
-                 N("2"),
-                 Op_(OpId::Pow),
-                 N("3"),
-                 Op_(OpId::Percent),
-                 Op_(OpId::Add),
-                 N("4"),
-             },
-         .expected =
-             {
-                 N("2"),
-                 N("3"),
-                 Op_(OpId::Percent),
-                 Op_(OpId::Pow),
-                 N("4"),
-                 Op_(OpId::Add),
-             }},
-
-        {.id = "2c -> implicit mul",
-         .input = {N("2"), Co(tcalc::consts::ConstId::SpeedOfLight)},
-         .expected = {N("2"), Co(tcalc::consts::ConstId::SpeedOfLight), Op_(OpId::Mul)}},
-        {.id = "implicit mul: 2 pi",
-         .input = {N("2"), Co(tcalc::consts::ConstId::Pi)},
-         .expected = {N("2"), Co(tcalc::consts::ConstId::Pi), Op_(OpId::Mul)}},
-        {.id = "implicit mul: pi e",
-         .input = {Co(tcalc::consts::ConstId::Pi), Co(tcalc::consts::ConstId::EulerNumber)},
-         .expected =
-             {Co(tcalc::consts::ConstId::Pi),
-              Co(tcalc::consts::ConstId::EulerNumber),
-              Op_(OpId::Mul)}},
-        {.id = "implicit mul: a b chars",
-         .input = {Ch('a'), Ch('b')},
-         .expected = {Ch('a'), Ch('b'), Op_(OpId::Mul)}},
-    };
-
-    for (std::size_t i = 0; i < shunt_cases.size(); ++i) {
-        const auto &tc = shunt_cases[i];
-        test_detail::with_case(ctx, std::string("shunting yard :: ") + tc.id, [&] {
-            EXPECT_EQ(ctx, p::shunting_yard(tc.input), tc.expected);
-        });
-    }
-
-    // =========================================================================
     // tokenize position tests
     // =========================================================================
     {
@@ -993,6 +695,46 @@ void unit_parser(TestContext &ctx) {
             });
         }
     }
+
+    // =========================================================================
+    // Scanifications
+    // =========================================================================
+    const std::vector<ScanCase> scan_cases = {
+        {.id = "integer",
+         .input = {.text = "123", .start = 0},
+         .expected = {.view = "123", .next = 3}},
+        {.id = "decimal",
+         .input = {.text = "12.34", .start = 0},
+         .expected = {.view = "12.34", .next = 5}},
+        {.id = "leading dot",
+         .input = {.text = ".5", .start = 0},
+         .expected = {.view = ".5", .next = 2}},
+        {.id = "trailing dot",
+         .input = {.text = "5.", .start = 0},
+         .expected = {.view = "5.", .next = 2}},
+        {.id = "sci basic",
+         .input = {.text = "1e10", .start = 0},
+         .expected = {.view = "1e10", .next = 4}},
+        {.id = "sci negative exp",
+         .input = {.text = "1e-3", .start = 0},
+         .expected = {.view = "1e-3", .next = 4}},
+        {.id = "sci positive exp",
+         .input = {.text = "1e+0", .start = 0},
+         .expected = {.view = "1e+0", .next = 4}},
+        {.id = "sci incomplete",
+         .input = {.text = "1e+", .start = 0},
+         .expected = {.view = "1", .next = 1}},
+        {.id = "sci imag prefix",
+         .input = {.text = "1e-3i", .start = 0},
+         .expected = {.view = "1e-3", .next = 4}},
+        {.id = "scan mid string",
+         .input = {.text = "xx12.3", .start = 2},
+         .expected = {.view = "12.3", .next = 6}},
+        {.id = "no number",
+         .input = {.text = "abc", .start = 0},
+         .expected = {.view = "", .next = 0}},
+        {.id = "dot only", .input = {.text = ".", .start = 0}, .expected = {.view = "", .next = 0}},
+    };
 
     for (std::size_t i = 0; i < scan_cases.size(); ++i) {
         const auto &tc = scan_cases[i];
@@ -2465,7 +2207,7 @@ void unit_parser(TestContext &ctx) {
     // CharToken as operand + flat-text render arms (Task 4)
     // =========================================================================
     test_detail::with_case(ctx, "char operand :: lone 'A' shunts to single Char", [&] {
-        auto rpn1 = p::shunting_yard(p::tokenize("A").tokens);
+        auto rpn1 = tcalc::eval::shunting_yard(p::tokenize("A").tokens);
         EXPECT_TRUE(ctx, rpn1.size() == 1 && rpn1[0].kind == TokenKind::Char);
     });
 

@@ -461,9 +461,10 @@ Value make_collection(CollectionKind kind, std::vector<CollectionItem> items) {
 Value eval_element(
     const parser::ParenElement &element, const Calculator &c, Calculator::AngleUnit unit) {
     if (const auto *tok = std::get_if<Token>(&element))
-        return eval_rpn(std::span<const Token>(tok, 1), c, unit);
+        return eval_rpn(
+            std::span<const Token>(tok, 1), c, unit); /// Element has one token, pass shunting_yard
 
-    const auto &row = std::get<std::vector<Token>>(element);
+    const auto &row = std::get<std::vector<Token>>(element); /// Element has many tokens
     if (row.empty())
         throw_invalid(std::string(errmsg::kEmptyElement));
     return eval_row(row, c, unit);
@@ -472,18 +473,17 @@ Value eval_element(
 /// The two classes a collection may hold. A list is uniform in one of them.
 enum class ItemClass : std::uint8_t { None, Scalar, Point };
 
-/// The comma-split elements of a paren group, and of a call's argument list when it folds
-/// into a bracket. A Bracket is a List, a Paren is a Point, and arity 1 is grouping for
-/// every kind: `(x)` is `x`, which is what makes `mean([1,2,3])` read like `mean[1,2,3]`.
+/// Turn the comma-split groups into a value. A Bracket makes them a List, a Paren a Point.
+/// Branches on the group count: one is grouping, zero is empty, more is a collection.
 Value eval_elements(
     std::span<const parser::ParenElement> elements,
     parser::ParenKind kind,
     const Calculator &c,
     Calculator::AngleUnit unit) {
+    // One group, no comma: grouping, `(x)` is `x`, which is why mean([1,2,3]) reads like
+    // mean[1,2,3]. A bracket wraps only a collection: `[5]` is 5, `[[1,2]]` is rejected.
     if (elements.size() == 1) {
         Value v = eval_element(elements[0], c, unit);
-        // A Bracket is the one kind that groups nothing: `[X]` is a real one-element List
-        // once X is a point, and a list inside it has no meaning.
         const auto *inner = std::get_if<Collection>(&v);
         if (inner == nullptr || kind != parser::ParenKind::Bracket)
             return v;
@@ -495,12 +495,14 @@ Value eval_elements(
     if (kind == parser::ParenKind::Brace)
         throw_invalid(std::string(errmsg::kBraceUnsupported));
 
+    // No group: an empty pair. `()` has no coordinate, `[]` is the empty List.
     if (elements.empty()) {
         if (kind == parser::ParenKind::Paren)
             throw_invalid(std::string(errmsg::kEmptyPoint));
         return make_collection(CollectionKind::List, {});
     }
 
+    // More than one group: a collection, one item per group.
     const bool is_point = kind == parser::ParenKind::Paren;
     std::vector<CollectionItem> items;
     items.reserve(elements.size());
@@ -632,9 +634,128 @@ Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::Angl
     return stack.front();
 }
 
+/// Insert implicit multiplication and collapse runs of + and - into one sign, before the
+/// shunt. Reads the row without owning it and builds the normalized copy fresh.
+std::vector<Token> normalize(std::span<const Token> raw) {
+    std::vector<Token> normalized;
+    normalized.reserve(raw.size());
+
+    const auto is_plus_minus = [](const Token &t) -> bool {
+        if (t.kind != TokenKind::Op)
+            return false;
+        const auto &op_token = std::get<parser::OpToken>(t.data);
+        return op_token.op_id == OpId::Add || op_token.op_id == OpId::Sub;
+    };
+
+    const auto ends_operand = [](const Token &t) -> bool {
+        if (t.kind == TokenKind::Number || t.kind == TokenKind::Latex ||
+            t.kind == TokenKind::Char || t.kind == TokenKind::Const) {
+            return true;
+        }
+        if (t.kind == TokenKind::Paren)
+            return std::get<parser::ParenToken>(t.data).has_close;
+        if (t.kind == TokenKind::Call)
+            return std::get<parser::CallToken>(t.data).has_close;
+        if (t.kind == TokenKind::Op)
+            return ops::op_spec(std::get<parser::OpToken>(t.data).op_id)->arity ==
+                   ops::Arity::Postfix;
+        return false;
+    };
+
+    const auto starts_operand = [](const Token &t) -> bool {
+        if (t.kind == TokenKind::Number || t.kind == TokenKind::Latex ||
+            t.kind == TokenKind::Char || t.kind == TokenKind::Const) {
+            return true;
+        }
+        if (t.kind == TokenKind::Paren)
+            return std::get<parser::ParenToken>(t.data).has_open;
+        if (t.kind == TokenKind::Call)
+            return true;
+        if (t.kind == TokenKind::Op)
+            return ops::op_spec(std::get<parser::OpToken>(t.data).op_id)->arity ==
+                   ops::Arity::Unary;
+        return false;
+    };
+
+    for (const Token &tok : raw) {
+        if (!normalized.empty()) {
+            const Token &last = normalized.back();
+
+            if (is_plus_minus(tok) && is_plus_minus(last)) {
+                auto &last_op = std::get<parser::OpToken>(normalized.back().data);
+                const auto &curr_op = std::get<parser::OpToken>(tok.data);
+
+                if (last_op.op_id == OpId::Sub) {
+                    if (curr_op.op_id == OpId::Sub)
+                        last_op.op_id = OpId::Add;
+                    continue;
+                }
+                last_op = curr_op; // + followed by +/- keeps the later sign
+                continue;
+            }
+
+            if (ends_operand(last) && starts_operand(tok))
+                normalized.push_back(
+                    Token{
+                        .kind = TokenKind::Op,
+                        .data = parser::TokenData{parser::OpToken{OpId::Mul}}});
+        }
+        normalized.push_back(tok);
+    }
+
+    return normalized;
+}
+
+std::vector<Token> shunting_yard(std::span<const Token> tokens) {
+    std::vector<Token> normalized = normalize(tokens);
+
+    std::vector<Token> output;
+    output.reserve(normalized.size());
+    std::vector<Token> operator_stack;
+
+    for (Token &tok : normalized) {
+        // Everything that is not an operator is an operand, and an operand goes straight
+        // to the output.
+        if (tok.kind != TokenKind::Op) {
+            output.push_back(std::move(tok));
+            continue;
+        }
+
+        const ops::OpSpec *op = ops::op_spec(std::get<parser::OpToken>(tok.data).op_id);
+
+        while (!operator_stack.empty() && operator_stack.back().kind == TokenKind::Op) {
+            const parser::OpToken &top_tok = std::get<parser::OpToken>(operator_stack.back().data);
+            const ops::OpSpec *top = ops::op_spec(top_tok.op_id);
+
+            if (op->id == OpId::Negate && top->arity == ops::Arity::Unary &&
+                top->id != OpId::Negate) {
+                break;
+            }
+
+            const bool pop_left =
+                (op->associativity == ops::Assoc::Left) && (op->precedence <= top->precedence);
+            const bool pop_right =
+                (op->associativity == ops::Assoc::Right) && (op->precedence < top->precedence);
+            if (!(pop_left || pop_right))
+                break;
+
+            output.push_back(operator_stack.back());
+            operator_stack.pop_back();
+        }
+
+        operator_stack.push_back(tok);
+    }
+
+    while (!operator_stack.empty()) {
+        output.push_back(operator_stack.back());
+        operator_stack.pop_back();
+    }
+
+    return output;
+}
+
 Value eval_row(std::span<const Token> tokens, const Calculator &c, Calculator::AngleUnit unit) {
-    return eval_rpn(
-        parser::shunting_yard(std::vector<Token>(tokens.begin(), tokens.end())), c, unit);
+    return eval_rpn(shunting_yard(tokens), c, unit);
 }
 
 namespace {

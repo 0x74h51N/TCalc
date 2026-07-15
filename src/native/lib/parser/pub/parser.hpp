@@ -370,9 +370,6 @@ TokensBranch tokenize(std::string_view expression);
 /// plus has_latex_descendant aggregate.
 TokensBranch classify_tokens(std::vector<Token> tokens);
 
-// Convert tokens to RPN using precedence/associativity rules.
-std::vector<Token> shunting_yard(const std::vector<Token> &tokens);
-
 /// Compile-time lookup table: LatexKind -> LaTeX symbol.
 consteval auto build_latex_symbols() {
     constexpr auto count = static_cast<std::size_t>(LatexKind::Subscript) + 1;
