@@ -279,10 +279,13 @@ def test_handle_equals_history_keeps_display_format():
     assert entry.result == "1,234,567"
 
 
-def _collection(items):
+def _collection(expr: str):
     import calc_native
 
-    return calc_native.Collection(calc_native.Collection.Kind.List, items)
+    from tcalc.core.native_eval import evaluate_branch
+    from tcalc.core.parser import tokenize
+
+    return evaluate_branch(tokenize(expr), calc_native.Calculator(), calc_native.AngleUnit.RAD)
 
 
 def test_memory_store_rejects_collection():
@@ -291,7 +294,7 @@ def test_memory_store_rejects_collection():
 
     ctrl = _make_stub_ctrl("[3,4,5]")
     ctrl._app_state.memory = None
-    ctrl._result = _collection([3, 4, 5])
+    ctrl._result = _collection("[3,4,5]")
 
     ctrl._handle_memory(MemoryKey.MS.value)
 
@@ -307,7 +310,7 @@ def test_memory_add_rejects_collection_without_raising():
 
     ctrl = _make_stub_ctrl("[3,4,5,6]")
     ctrl._app_state.memory = None
-    ctrl._result = _collection([3, 4, 5, 6])
+    ctrl._result = _collection("[3,4,5,6]")
 
     ctrl._handle_memory(MemoryKey.M_PLUS.value)  # must not raise
 

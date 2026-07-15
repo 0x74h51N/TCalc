@@ -29,11 +29,11 @@ std::int64_t to_integer(const CollectionItem &it, const char *name) {
 template <typename F> CollectionItem fold_integers(const Collection &a, const char *name, F op) {
     if (a.kind == CollectionKind::Point)
         throw CalculatorError(tcalc::errmsg::not_for_point(name).c_str());
-    if (a.items.empty())
+    if (a.items().empty())
         throw CalculatorError(tcalc::errmsg::empty_collection(name).c_str());
-    std::int64_t acc = to_integer(a.items[0], name);
-    for (std::size_t i = 1; i < a.items.size(); ++i)
-        acc = op(acc, to_integer(a.items[i], name));
+    std::int64_t acc = to_integer(a.items()[0], name);
+    for (std::size_t i = 1; i < a.items().size(); ++i)
+        acc = op(acc, to_integer(a.items()[i], name));
     return CollectionItem{acc};
 }
 

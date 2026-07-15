@@ -74,9 +74,9 @@ void unit_statistic(TestContext &ctx) {
         EXPECT_EQ(ctx, r.index(), 5u);
         const auto &p = *std::get<std::shared_ptr<const Collection>>(r);
         EXPECT_EQ(ctx, p.kind, K::Point);
-        EXPECT_EQ(ctx, p.items.size(), 2u);
-        EXPECT_TRUE(ctx, approx(std::get<double>(p.items[0]), 1.0));
-        EXPECT_TRUE(ctx, approx(std::get<double>(p.items[1]), 2.0));
+        EXPECT_EQ(ctx, p.items().size(), 2u);
+        EXPECT_TRUE(ctx, approx(std::get<double>(p.items()[0]), 1.0));
+        EXPECT_TRUE(ctx, approx(std::get<double>(p.items()[1]), 2.0));
     });
 
     test_detail::with_case(ctx, "mean :: int64 sum overflow guard", [&] {
@@ -141,8 +141,8 @@ void unit_statistic(TestContext &ctx) {
              point({std::int64_t{3}, std::int64_t{4}})}));
         EXPECT_EQ(ctx, r.index(), 5u);
         const auto &p = *std::get<std::shared_ptr<const Collection>>(r);
-        EXPECT_EQ(ctx, std::get<std::int64_t>(p.items[0]), std::int64_t{4});
-        EXPECT_EQ(ctx, std::get<std::int64_t>(p.items[1]), std::int64_t{6});
+        EXPECT_EQ(ctx, std::get<std::int64_t>(p.items()[0]), std::int64_t{4});
+        EXPECT_EQ(ctx, std::get<std::int64_t>(p.items()[1]), std::int64_t{6});
     });
 
     // ---- variance / stddev --------------------------------------------
@@ -186,8 +186,8 @@ void unit_statistic(TestContext &ctx) {
              point({std::int64_t{2}, std::int64_t{0}})})); // col0 mean1 ss2 /2=1; col1 all0=0
         EXPECT_EQ(ctx, r.index(), 5u);
         const auto &p = *std::get<std::shared_ptr<const Collection>>(r);
-        EXPECT_TRUE(ctx, approx(std::get<double>(p.items[0]), 1.0, 1e-9));
-        EXPECT_TRUE(ctx, approx(std::get<double>(p.items[1]), 0.0, 1e-12));
+        EXPECT_TRUE(ctx, approx(std::get<double>(p.items()[0]), 1.0, 1e-9));
+        EXPECT_TRUE(ctx, approx(std::get<double>(p.items()[1]), 0.0, 1e-12));
     });
 
     // ---- min / max -----------------------------------------------------
@@ -227,10 +227,10 @@ void unit_statistic(TestContext &ctx) {
              point({std::int64_t{3}, std::int64_t{2}})}));
         const auto &plo = *std::get<std::shared_ptr<const Collection>>(lo);
         const auto &phi = *std::get<std::shared_ptr<const Collection>>(hi);
-        EXPECT_EQ(ctx, std::get<std::int64_t>(plo.items[0]), std::int64_t{1});
-        EXPECT_EQ(ctx, std::get<std::int64_t>(plo.items[1]), std::int64_t{2});
-        EXPECT_EQ(ctx, std::get<std::int64_t>(phi.items[0]), std::int64_t{3});
-        EXPECT_EQ(ctx, std::get<std::int64_t>(phi.items[1]), std::int64_t{4});
+        EXPECT_EQ(ctx, std::get<std::int64_t>(plo.items()[0]), std::int64_t{1});
+        EXPECT_EQ(ctx, std::get<std::int64_t>(plo.items()[1]), std::int64_t{2});
+        EXPECT_EQ(ctx, std::get<std::int64_t>(phi.items()[0]), std::int64_t{3});
+        EXPECT_EQ(ctx, std::get<std::int64_t>(phi.items()[1]), std::int64_t{4});
     });
 
     test_detail::with_case(ctx, "min/max :: complex throws", [&] {

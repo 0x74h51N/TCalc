@@ -588,7 +588,7 @@ void unit_eval(TestContext &ctx) {
         const Calculator c;
         const Value v = eval_text(c, "[1,2,3]");
         EXPECT_EQ(ctx, arm_of(v), Arm::Coll);
-        EXPECT_EQ(ctx, std::get<Collection>(v).items.size(), 3U);
+        EXPECT_EQ(ctx, std::get<Collection>(v).items().size(), 3U);
     });
 
     test_detail::with_case(ctx, "eval :: a point", [&] {

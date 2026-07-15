@@ -89,7 +89,7 @@ template <typename T> CollectionItem mean_pair(const T &a, const T &b) {
 template <typename Reducer>
 CollectionItem reduce_points(std::span<const CollectionItem> pts, const Reducer &reducer) {
     const auto &p0 = *std::get<std::shared_ptr<const Collection>>(pts[0]);
-    const std::size_t k = p0.items.size();
+    const std::size_t k = p0.items().size();
 
     std::vector<CollectionItem> out;
     out.reserve(k);
@@ -97,7 +97,7 @@ CollectionItem reduce_points(std::span<const CollectionItem> pts, const Reducer 
         std::vector<CollectionItem> column;
         column.reserve(pts.size());
         for (const auto &p : pts)
-            column.push_back(std::get<std::shared_ptr<const Collection>>(p)->items[j]);
+            column.push_back(std::get<std::shared_ptr<const Collection>>(p)->items()[j]);
 
         const ScalarArm arm = compute_target_arm(column);
         for (auto &c : column)
@@ -113,7 +113,7 @@ CollectionItem reduce_points(std::span<const CollectionItem> pts, const Reducer 
 template <typename ArmReducer>
 CollectionItem reduce_collection(
     const Collection &a, const char *name, ArmReducer arm, bool singleton_shortcut = true) {
-    const auto &items = a.items;
+    const auto &items = a.items();
     if (items.empty())
         throw CalculatorError((std::string(name) + " of an empty collection").c_str());
     if (a.kind == CollectionKind::Point)

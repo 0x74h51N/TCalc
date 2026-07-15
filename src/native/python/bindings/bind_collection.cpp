@@ -22,25 +22,26 @@ void bind_collection(py::module_ &m) {
 
     py::enum_<K>(coll, "Kind").value("List", K::List).value("Point", K::Point);
 
-    coll.def(py::init<K, std::vector<tcalc::CollectionItem>>(), py::arg("kind"), py::arg("items"))
-        .def_readonly("kind", &tcalc::Collection::kind)
-        .def("__len__", [](const tcalc::Collection &c) { return c.items.size(); })
+    // No Python constructor: collections are produced by the evaluator, never built from
+    // Python. Unpickling rebuilds through the C++ constructor in the __setstate__ below.
+    coll.def_readonly("kind", &tcalc::Collection::kind)
+        .def("__len__", [](const tcalc::Collection &c) { return c.items().size(); })
         .def(
             "__getitem__",
             [](const tcalc::Collection &c, std::ptrdiff_t i) -> py::object {
-                const auto n = static_cast<std::ptrdiff_t>(c.items.size());
+                const auto n = static_cast<std::ptrdiff_t>(c.items().size());
                 if (i < 0)
                     i += n;
                 if (i < 0 || i >= n)
                     throw py::index_error();
                 return std::visit(
                     [](const auto &v) -> py::object { return py::cast(v); },
-                    c.items[static_cast<std::size_t>(i)]);
+                    c.items()[static_cast<std::size_t>(i)]);
             })
         .def(
             "__iter__",
             [](const tcalc::Collection &c) {
-                return py::make_iterator(c.items.begin(), c.items.end());
+                return py::make_iterator(c.items().begin(), c.items().end());
             },
             py::keep_alive<0, 1>())
         .def(
@@ -70,24 +71,24 @@ void bind_collection(py::module_ &m) {
 
                 std::string out;
                 out.push_back(open);
-                const std::size_t n = c.items.size();
+                const std::size_t n = c.items().size();
                 if (n <= kReprThreshold) {
                     for (std::size_t i = 0; i < n; ++i) {
                         if (i > 0)
                             out += ", ";
-                        out += fmt(c.items[i]);
+                        out += fmt(c.items()[i]);
                     }
                 } else {
                     for (std::size_t i = 0; i < kHead; ++i) {
                         if (i > 0)
                             out += ", ";
-                        out += fmt(c.items[i]);
+                        out += fmt(c.items()[i]);
                     }
                     out += ", ..., ";
                     for (std::size_t i = n - kTail; i < n; ++i) {
                         if (i > n - kTail)
                             out += ", ";
-                        out += fmt(c.items[i]);
+                        out += fmt(c.items()[i]);
                     }
                 }
                 out.push_back(close);
@@ -95,7 +96,7 @@ void bind_collection(py::module_ &m) {
             })
         .def(
             py::pickle(
-                [](const tcalc::Collection &c) { return py::make_tuple(c.kind, c.items); },
+                [](const tcalc::Collection &c) { return py::make_tuple(c.kind, c.items()); },
                 [](const py::tuple &t) {
                     if (t.size() != 2) {
                         throw std::runtime_error("Invalid Collection state");
