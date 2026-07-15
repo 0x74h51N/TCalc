@@ -22,7 +22,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [x] Add structural indices for LaTeX expressions and parentheses
     - [x] Add normalize function for implicit multiplications or plus to minus
   - [x] Add Shunting-yard
-  - [x] Add RPN evaluation in Python (for minimal boilerplate)
+  - [x] Add RPN evaluation
   - [x] Unary/prefix/postfix handling + mode-based domain behavior (sqrt(-4): real MathError, complex 2i)
 - [x] Add collection
   - [x] Parser

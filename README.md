@@ -1,14 +1,14 @@
 # TCalc
 
 A desktop calculator application built around a high-performance native C++ computation core.
-The graphical interface is implemented with PySide6, while all mathematical operations are executed in a dedicated C++ engine exposed to Python via pybind11.
+The graphical interface is implemented with PySide6; tokenizing, parsing, and evaluating an expression all happen in a dedicated C++ engine exposed to Python via pybind11. An expression crosses into Python only to be displayed.
 
 Originally started as a minimal calculator, TCalc is designed with a modular architecture that supports advanced expression parsing and is intended to evolve toward full scientific and programmable calculation capabilities.
 
 ## Features
 
-- **Native C++ core**: all math runs in a high-performance C++ engine exposed to Python via pybind11
-- **Expression parsing**: infix → RPN (Dijkstra's shunting-yard) over a faithful token model (numbers, ops, parens, LaTeX, calls)
+- **Native C++ core**: tokenize, parse, and evaluate all run in a high-performance C++ engine exposed to Python via pybind11; an expression crosses the boundary once
+- **Expression parsing**: infix → RPN (Dijkstra's shunting-yard) over a faithful token model (numbers, ops, parens, LaTeX, calls), all native
 - **Structural math rendering**: live LaTeX-style nodes (fractions, powers, parentheses) instead of flat text
 - **Collections**: lists `[ … ]` and points `( … )` as first-class values
 - **Multi-argument & variadic functions**: one unified call syntax (`mean(2,3,5)`, `gcd(12,8)`, `nCr(5,2)`, `sin(45)`), with arity checks and dataset-folding evaluation
