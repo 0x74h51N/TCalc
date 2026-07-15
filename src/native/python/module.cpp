@@ -24,7 +24,6 @@ PYBIND11_MODULE(calc_native, m) {
     // (mean/min/max/median) take/return Collection, so its py type must exist
     // when those signatures are bound (else stubgen emits raw C++ types).
     bind_collection(m);
-    bind_calculator(m);
     bind_parser(m);
     // apply() dispatches through OpId onto Calculator/AngleUnit/OpSpec, all bound
     // above; its exception translator also takes over CalculatorError (registered

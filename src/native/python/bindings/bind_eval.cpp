@@ -42,6 +42,10 @@ namespace {
 } // namespace
 
 void bind_eval(py::module_ &m) {
+    // The calculator is an opaque handle now: it carries no state Python reads and the
+    // evaluator does the arithmetic. apply and evaluate take one, the app constructs one.
+    py::class_<Calculator>(m, "Calculator").def(py::init<>());
+
     py::enum_<ErrorKind>(m, "ErrorKind")
         .value("Invalid", ErrorKind::Invalid)
         .value("Malformed", ErrorKind::Malformed)

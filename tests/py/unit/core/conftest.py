@@ -10,10 +10,8 @@ import math
 import sys
 from dataclasses import dataclass
 from enum import Enum
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
 from typing import Callable, List, Optional
-
-import pytest
 
 
 @dataclass(frozen=True)
@@ -440,92 +438,6 @@ def _install_fake_calc_native() -> ModuleType:
 
 # Ensure core modules can be imported without the real native extension.
 sys.modules["calc_native"] = _install_fake_calc_native()
-
-
-@pytest.fixture
-def dummy_calc() -> DummyCalc:
-    return DummyCalc()
-
-
-@pytest.fixture
-def token_factory():
-    def num(value):
-        return FakeToken(FakeTokenKind.Number, value=value)
-
-    def op(op_id):
-        return FakeToken(FakeTokenKind.Op, op_id=op_id)
-
-    def char(letter):
-        return FakeToken(FakeTokenKind.Char, value=letter)
-
-    def const(cid):
-        return FakeToken(FakeTokenKind.Const, const_id=cid)
-
-    return num, op, char, const
-
-
-@pytest.fixture
-def fake_ops(monkeypatch) -> dict[Id, _OpDef]:
-    from tcalc.core import parser as parser_mod
-
-    ops = _FAKE_OP_BY_ID
-
-    monkeypatch.setattr(parser_mod, "OP_BY_ID", ops)
-    monkeypatch.setattr(
-        parser_mod, "calc_native", SimpleNamespace(TokenKind=FakeTokenKind), raising=False
-    )
-    monkeypatch.setattr(
-        parser_mod, "is_number_token", lambda tok: tok.token.kind == FakeTokenKind.Number
-    )
-    return ops
-
-
-@pytest.fixture
-def op_ids() -> type[Id]:
-    return Id
-
-
-@pytest.fixture
-def angle_unit(monkeypatch) -> str:
-    from tcalc import app_state
-
-    monkeypatch.setattr(app_state, "get_app_state", lambda: SimpleNamespace(angle_unit="DEG"))
-    return "DEG"
-
-
-@pytest.fixture
-def fake_parse_number(monkeypatch):
-    from tcalc.core import parser as parser_mod
-
-    def parse(value: str) -> int | float:
-        if "." not in value and "e" not in value.lower():
-            return int(value)
-        return float(value)
-
-    monkeypatch.setattr(parser_mod, "parse_number_token", parse)
-    monkeypatch.setattr(
-        parser_mod, "calc_native", SimpleNamespace(Rational=FakeRational), raising=False
-    )
-
-
-@pytest.fixture
-def fake_calc_native(monkeypatch):
-    from tcalc.core import utils as utils_mod
-
-    monkeypatch.setattr(
-        utils_mod,
-        "calc_native",
-        SimpleNamespace(BigReal=FakeBigReal, Rational=FakeRational),
-        raising=False,
-    )
-
-
-@pytest.fixture
-def fake_engine(monkeypatch):
-    from tcalc.core import engine as engine_mod
-
-    monkeypatch.setattr(engine_mod, "Operation", Id)
-    return engine_mod
 
 
 _CANONICAL_CONFTST = "tests.py.unit.core.conftest"

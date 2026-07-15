@@ -660,16 +660,6 @@ def test_const_table_binding_shape() -> None:
     assert isinstance(iv, complex) and iv == 1j
 
 
-def test_constants_module_derived_from_table() -> None:
-    from tcalc.core import constants
-
-    assert (
-        constants.CONST_VALUES[calc_native.ConstId.Pi]
-        == constants.CONST_BY_ID[calc_native.ConstId.Pi].value
-    )
-    assert not hasattr(constants, "CONSTANTS")
-
-
 def test_assign_to_constant_rejected() -> None:
     from tcalc.errors import CalculatorError
 

@@ -72,7 +72,6 @@ pybind11_add_module(calc_native
   python/bindings/bind_bigcomplex.cpp
   python/bindings/bind_rational.cpp
   python/bindings/bind_angle_unit.cpp
-  python/bindings/bind_calculator.cpp
   python/bindings/bind_parser.cpp
   python/bindings/bind_collection.cpp
   python/bindings/bind_eval.cpp
