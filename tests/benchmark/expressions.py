@@ -367,9 +367,7 @@ COLLECTION_SCALAR_SIZES = {
     "sick": 25_000,
 }
 
-# Aggregation feeds a pre-built Collection straight into eval (no tokenize), so it
-# stresses the reduction at 10x the scalar counts, with sick pinned to 1M elements —
-# the worst-case stress ceiling (~CSV-load scale), independent of the shrunk scalar ladder.
+# Aggregation stresses build+reduce at 10x the scalar counts, sick pinned to 1M elements.
 COLLECTION_AGG_SIZES = {tier: n * 10 for tier, n in COLLECTION_SCALAR_SIZES.items()}
 COLLECTION_AGG_SIZES["sick"] = 1_000_000
 
@@ -434,8 +432,3 @@ def make_scalar_collection_expr(n: int) -> str:
 def make_calc_collection_expr(n: int) -> str:
     """List of n single-op elements with decimal operands: '[0+1.5,1+2.5,...]'."""
     return "[" + ",".join(f"{i}+{i + 1.5}" for i in range(n)) + "]"
-
-
-def make_scalar_collection_value(n: int):
-    """Pre-built List Collection of n decimal scalars, without tokenize (aggregation input)."""
-    return calc_native.Collection(calc_native.Collection.Kind.List, [i + 0.5 for i in range(n)])
