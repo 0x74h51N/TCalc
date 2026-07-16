@@ -505,14 +505,23 @@ class ExpressionSlot(QWidget):
             return a, a
         return None
 
-    def anchor_y(self) -> int:
-        """Return the maximum anchor-above across all segments in this slot."""
+    def anchor_extent(self) -> tuple[int, int]:
+        """Return the maximum anchor-above and anchor-below across all segments in
+        this slot. One pass: _seg_anchor recurses into child nodes."""
         max_anchor = 0
+        max_below = 0
         for seg in self._segments:
             ab = self._seg_anchor(seg)
-            if ab is not None and ab[0] > max_anchor:
+            if ab is None:
+                continue
+            if ab[0] > max_anchor:
                 max_anchor = ab[0]
-        return max_anchor
+            if ab[1] > max_below:
+                max_below = ab[1]
+        return max_anchor, max_below
+
+    def anchor_y(self) -> int:
+        return self.anchor_extent()[0]
 
     def _update_segment_margins(self) -> None:
         """
@@ -529,17 +538,7 @@ class ExpressionSlot(QWidget):
         This ensures that all segments share the same visual
         reference Y position inside the horizontal layout.
         """
-        max_anchor = 0
-        max_below = 0
-
-        for seg in self._segments:
-            ab = self._seg_anchor(seg)
-            if ab is None:
-                continue
-            if ab[0] > max_anchor:
-                max_anchor = ab[0]
-            if ab[1] > max_below:
-                max_below = ab[1]
+        max_anchor, max_below = self.anchor_extent()
 
         for seg in self._segments:
             ab = self._seg_anchor(seg)

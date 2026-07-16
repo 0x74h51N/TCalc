@@ -624,6 +624,4 @@ class Expression(QWidget):
         """Update font and width of all inputs based on sample widget size."""
         base_font = int(calc_config["display"]["expression_font_size"])
         max_pt = int(calc_config["display"]["expr_max_pt"])
-        self.renderer.update_line_fonts(
-            self.expression_inputs(), sample, base_font, max_pt, calc_config["display"]
-        )
+        self.renderer.update_line_fonts(self.expression_inputs(), sample, base_font, max_pt)

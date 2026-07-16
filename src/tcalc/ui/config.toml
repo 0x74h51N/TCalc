@@ -237,11 +237,6 @@ expression_font_size = 14
 expression_height_factor = 1.8
 expression_min_height = 30
 
-# Font/height scale ratios by input kind (relative to MAIN)
-scale_main = 1.0
-scale_aux = 1.0
-scale_script = 0.5
-
 expr_max_pt = 26
 
 # Scroll animation

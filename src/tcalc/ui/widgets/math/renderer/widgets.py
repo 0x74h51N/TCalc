@@ -25,12 +25,11 @@ from tcalc.core.ops import LatexExpr
 from tcalc.ui.widgets.utils import InputAlign
 
 from ..math_primitives import (
-    POW_SCRIPT_NUDGE,
-    SUB_SCRIPT_NUDGE,
+    SCRIPT_DROP,
+    SCRIPT_GAP_X,
     CurlyBrace,
     ParenGlyph,
     RoundParen,
-    ScriptNudge,
     SqrtSymbol,
     SquareBracket,
 )
@@ -52,6 +51,12 @@ _PAREN_GLYPHS: dict[calc_native.ParenKind, tuple[str, str]] = {
 
 def paren_glyph(kind: calc_native.ParenKind) -> tuple[str, str]:
     return _PAREN_GLYPHS[kind]
+
+
+def _empty_tail_w(slot: ExpressionSlot) -> int:
+    """Width of *slot*'s trailing cursor slot while it holds no text."""
+    tail = slot._segments[-1]
+    return tail.width() if isinstance(tail, QLineEdit) and not tail.text() else 0
 
 
 class FractionWidget(ExpressionNode):
@@ -106,13 +111,11 @@ class ScriptNode(ExpressionNode):
     """A base slot with a super/subscript hung off its right corner by geometry,
     so the script's offset stays constant at any base height.
 
-    SCRIPT_ANCHOR: script's vertical center on the base (0.0 top, 1.0 bottom).
-    SCRIPT_NUDGE: pixel fine-tune (+x right, +y down).
+    SCRIPT_ABOVE: the script rides above the base's glyph center, or below it.
     """
 
-    SCRIPT_ANCHOR: ClassVar[float]
+    SCRIPT_ABOVE: ClassVar[bool]
     SCRIPT_KEY: ClassVar[str]
-    SCRIPT_NUDGE: ClassVar[ScriptNudge] = ScriptNudge()
 
     def __init__(self) -> None:
         super().__init__()
@@ -122,11 +125,10 @@ class ScriptNode(ExpressionNode):
             kind=InputKind.SCRIPT, key=self.SCRIPT_KEY, align=InputAlign.RIGHTT
         )
         setattr(self, self.SCRIPT_KEY, self.script)  # e.g. self.exponent / self.subscript
-        above = self.SCRIPT_ANCHOR < 0.5  # superscript sits above the base, subscript below
         self._left_slot = self.base
         self._right_slot = self.script
-        self._top_slot = self.script if above else self.base
-        self._bottom_slot = self.base if above else self.script
+        self._top_slot = self.script if self.SCRIPT_ABOVE else self.base
+        self._bottom_slot = self.base if self.SCRIPT_ABOVE else self.script
         for slot in (self.base, self.script):
             slot.setParent(self)
             slot.installEventFilter(self)
@@ -148,28 +150,45 @@ class ScriptNode(ExpressionNode):
             fm = le.fontMetrics()
             gh = int(fm.height())
             return int(fm.horizontalAdvance(le.text())), gh, max(0, (bs.height() - gh) // 2)
-        tail = base._segments[-1]
-        trim = tail.width() if isinstance(tail, QLineEdit) and not tail.text() else 0
-        return bs.width() - trim, bs.height(), 0
+        return bs.width() - _empty_tail_w(base), bs.height(), 0
+
+    def _script_glyph_w(self, ss: QSize) -> int:
+        """Script width without its trailing cursor slot, so a script reserves no
+        more room after its glyphs than a bare one does. The slot is still placed
+        at full width, it is empty, so only a following sibling overlaps it, and
+        typing into it drops the trim and the layout grows back."""
+        return ss.width() - _empty_tail_w(self.script)
 
     def _geometry(self) -> tuple[QSize, QSize, int, int, int, int]:
-        """(base box, script box, base right edge, script-center-y, over_top,
-        over_bottom) the vertical padding needed above/below the base box."""
+        """(base box, script box, base right edge, script top, over_top,
+        over_bottom) the vertical padding needed above/below the base box.
+        script top and over_* are relative to the base box's top."""
         bs = self.base.sizeHint()
         ss = self.script.sizeHint()
         gw, gh, top_inset = self._base_glyph(bs)
-        anchor = top_inset + round(gh * self.SCRIPT_ANCHOR) + self.SCRIPT_NUDGE.y
-        over_top = max(0, ss.height() // 2 - anchor)
-        over_bottom = max(0, anchor + ss.height() // 2 - bs.height())
-        return bs, ss, gw, anchor, over_top, over_bottom
+        s_above, s_below = self.script.anchor_extent()
+        # The script's inner edge (its bottom for a superscript, its top for a
+        # subscript) hangs off the base's corner by half the base glyph. A box base
+        # is not a glyph — halving it would sink the script toward the middle of a
+        # tall one — so there the drop is capped by SCRIPT_DROP instead.
+        drop = gh // 2
+        if self.base._child_nodes:
+            inner = s_below if self.SCRIPT_ABOVE else s_above
+            drop = min(drop, round(SCRIPT_DROP * 2 * inner))
+        script_top = (
+            top_inset + drop - s_above - s_below if self.SCRIPT_ABOVE else top_inset + gh - drop
+        )
+        over_top = max(0, -script_top)
+        over_bottom = max(0, script_top + ss.height() - bs.height())
+        return bs, ss, gw, script_top, over_top, over_bottom
 
     def _place_script(self) -> None:
-        bs, ss, gw, anchor, over_top, _ = self._geometry()
+        bs, ss, gw, script_top, over_top, _ = self._geometry()
         m = self.contentsMargins()
         self.base.setGeometry(m.left(), m.top() + over_top, bs.width(), bs.height())
         self.script.setGeometry(
-            m.left() + gw + self.SCRIPT_NUDGE.x,
-            m.top() + over_top + anchor - ss.height() // 2,
+            m.left() + gw + SCRIPT_GAP_X,
+            m.top() + over_top + script_top,
             ss.width(),
             ss.height(),
         )
@@ -177,11 +196,16 @@ class ScriptNode(ExpressionNode):
     def sizeHint(self) -> QSize:
         bs, ss, gw, _, over_top, over_bottom = self._geometry()
         m = self.contentsMargins()
-        content_w = max(bs.width(), gw + self.SCRIPT_NUDGE.x + ss.width())
+        content_w = max(bs.width(), gw + SCRIPT_GAP_X + self._script_glyph_w(ss))
         return QSize(
             m.left() + content_w + m.right(),
             m.top() + over_top + bs.height() + over_bottom + m.bottom(),
         )
+
+    def minimumSizeHint(self) -> QSize:
+        # No layout to derive a minimum from: the slots are placed by geometry,
+        # so anything narrower than sizeHint clips them instead of reflowing.
+        return self.sizeHint()
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
@@ -205,9 +229,8 @@ class PowWidget(ScriptNode):
     OP_ID = calc_native.OpId.Pow
     LATEX_KIND = calc_native.LatexKind.Pow
     SYMBOL = LatexExpr.Pow.symbol
-    SCRIPT_ANCHOR = 0.0  # exponent hangs off the base's top-right corner
+    SCRIPT_ABOVE = True  # exponent hangs off the base's top-right corner
     SCRIPT_KEY = "exponent"
-    SCRIPT_NUDGE = POW_SCRIPT_NUDGE
 
 
 class SubWidget(ScriptNode):
@@ -215,9 +238,8 @@ class SubWidget(ScriptNode):
 
     LATEX_KIND = calc_native.LatexKind.Subscript
     SYMBOL = LatexExpr.Subscript.symbol
-    SCRIPT_ANCHOR = 1.0  # subscript hangs off the base's bottom-right corner
+    SCRIPT_ABOVE = False  # subscript hangs off the base's bottom-right corner
     SCRIPT_KEY = "subscript"
-    SCRIPT_NUDGE = SUB_SCRIPT_NUDGE
 
 
 class RootWidget(ExpressionNode):

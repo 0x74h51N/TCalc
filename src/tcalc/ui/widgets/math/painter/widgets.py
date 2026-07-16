@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, ClassVar
 
 import calc_native
 from PySide6.QtCore import QPointF
@@ -15,12 +15,13 @@ from PySide6.QtGui import QPainter, QPainterPath
 
 from ..math_primitives import (
     PEN_WIDTH,
-    POW_SCRIPT_NUDGE,
+    SCRIPT_DROP,
+    SCRIPT_GAP_X,
     SQRT_LEFT_RATIO,
     SQRT_WIDTH,
-    SUB_SCRIPT_NUDGE,
     curly_brace_path,
     round_paren_path,
+    script_level,
     sqrt_path,
     square_bracket_path,
 )
@@ -32,9 +33,7 @@ from .layout import (
     PAREN_X_PAD,
     PAREN_Y_MARGIN,
     PAREN_Y_PAD,
-    POW_OVERLAP,
     ROOT_OVERLINE_PAD,
-    SCRIPT_SCALE,
     PaintNode,
 )
 
@@ -51,11 +50,11 @@ def _stroke_path(painter: QPainter, path: QPainterPath, x: float, y: float) -> N
 class FractionPaint(PaintNode):
     LATEX_KIND = calc_native.LatexKind.Frac
 
-    def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
+    def measure(self, fm_cache: FontCache, level: int = 0) -> None:
         if self.right is None:
             return
-        self.left.measure(fm_cache, scale)
-        self.right.measure(fm_cache, scale)
+        self.left.measure(fm_cache, level)
+        self.right.measure(fm_cache, level)
         inner_w = max(self.left.w, self.right.w) + FRACTION_PAD_X * 2
         self.w = inner_w
         self.h = self.left.h + PEN_WIDTH + FRACTION_PAD_Y * 2 + self.right.h
@@ -76,65 +75,73 @@ class FractionPaint(PaintNode):
         painter.drawLine(QPointF(self.x, bar_y), QPointF(self.x + self.w, bar_y))
 
 
-class PowPaint(PaintNode):
+class ScriptPaint(PaintNode):
+    """A base with a script hung off its right corner. The script's inner edge (its
+    bottom for a superscript, its top for a subscript) hangs off the base glyph's
+    corner by half the base, but never by more than its own glyph needs see SCRIPT_DROP.
+    Mirrors ScriptNode on the editor side.
+
+    SCRIPT_ABOVE: the script rides above the base, or below it.
+    """
+
+    SCRIPT_ABOVE: ClassVar[bool]
+
+    def _drop(self, right: Row) -> float:
+        """How far the script's inner edge hangs past the base's corner: half the
+        base, capped by what the script's own glyph needs (SCRIPT_DROP) so a tall
+        base does not sink it toward its middle."""
+        half = self.left.above if self.SCRIPT_ABOVE else self.left.below
+        inner = right.below if self.SCRIPT_ABOVE else right.above
+        return min(half, SCRIPT_DROP * 2 * inner)
+
+    def measure(self, fm_cache: FontCache, level: int = 0) -> None:
+        if self.right is None:
+            return
+        self.left.measure(fm_cache, level)
+        self.right.measure(fm_cache, script_level(level))
+        self.w = self.left.w + SCRIPT_GAP_X + self.right.w
+        overhang = max(0.0, self.right.h - self._drop(self.right))
+        if self.SCRIPT_ABOVE:
+            self.above = self.left.above + overhang
+            self.below = self.left.below
+        else:
+            self.above = self.left.above
+            self.below = self.left.below + overhang
+        self.h = self.above + self.below
+
+    def place(self, x: float, y: float) -> None:
+        super().place(x, y)
+        if self.right is None:
+            return
+        anchor = y + self.above
+        base_y = anchor - self.left.above
+        self.left.place(x, base_y)
+        drop = self._drop(self.right)
+        script_y = (
+            base_y + drop - self.right.h if self.SCRIPT_ABOVE else base_y + self.left.h - drop
+        )
+        self.right.place(x + self.left.w + SCRIPT_GAP_X, script_y)
+
+
+class PowPaint(ScriptPaint):
     LATEX_KIND = calc_native.LatexKind.Pow
-
-    def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
-        if self.right is None:
-            return
-        self.left.measure(fm_cache, scale)
-        self.right.measure(fm_cache, scale * SCRIPT_SCALE)
-        raise_amt = self.left.above * (1.0 - POW_OVERLAP) + self.right.h * POW_OVERLAP
-        self.w = self.left.w + self.right.w
-        self.above = self.left.above + max(0.0, self.right.h - raise_amt + self.right.below)
-        self.below = self.left.below
-        self.h = self.above + self.below
-
-    def place(self, x: float, y: float) -> None:
-        super().place(x, y)
-        if self.right is None:
-            return
-        base_y = y + self.above - self.left.above
-        self.left.place(x, base_y)
-        exp_x = x + self.left.w + POW_SCRIPT_NUDGE.x
-        exp_y = y + self.above - self.left.above - self.right.below + POW_SCRIPT_NUDGE.y
-        self.right.place(exp_x, exp_y)
+    SCRIPT_ABOVE = True
 
 
-class SubPaint(PaintNode):
+class SubPaint(ScriptPaint):
     LATEX_KIND = calc_native.LatexKind.Subscript
-
-    def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
-        if self.right is None:
-            return
-        self.left.measure(fm_cache, scale)
-        self.right.measure(fm_cache, scale * SCRIPT_SCALE)
-        drop_amt = self.left.below * (1.0 - POW_OVERLAP) + self.right.h * POW_OVERLAP
-        self.w = self.left.w + self.right.w
-        self.above = self.left.above
-        self.below = self.left.below + max(0.0, self.right.h - drop_amt + self.right.above)
-        self.h = self.above + self.below
-
-    def place(self, x: float, y: float) -> None:
-        super().place(x, y)
-        if self.right is None:
-            return
-        base_y = y + self.above - self.left.above
-        self.left.place(x, base_y)
-        sub_x = x + self.left.w + SUB_SCRIPT_NUDGE.x
-        sub_y = base_y + self.left.h - self.right.below + SUB_SCRIPT_NUDGE.y
-        self.right.place(sub_x, sub_y)
+    SCRIPT_ABOVE = False
 
 
 class RootPaint(PaintNode):
     LATEX_KIND = calc_native.LatexKind.Root
     GLYPH_W = SQRT_WIDTH
 
-    def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
-        self.left.measure(fm_cache, scale)
+    def measure(self, fm_cache: FontCache, level: int = 0) -> None:
+        self.left.measure(fm_cache, level)
 
         if self.right is not None:
-            self.right.measure(fm_cache, scale * SCRIPT_SCALE)
+            self.right.measure(fm_cache, script_level(level))
 
         radicand_h = self.left.h + PEN_WIDTH + ROOT_OVERLINE_PAD
         self.glyph_w = self.GLYPH_W
@@ -198,8 +205,8 @@ class ParenPaint(PaintNode):
         self.open_visible = open_visible
         self.close_visible = close_visible
 
-    def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
-        self.left.measure(fm_cache, scale)
+    def measure(self, fm_cache: FontCache, level: int = 0) -> None:
+        self.left.measure(fm_cache, level)
         gw = PAREN_GLYPH_W.get(self.kind, 0.0)
 
         self.glyph_w = gw

@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
-from PySide6.QtWidgets import QLineEdit
+from PySide6.QtWidgets import QLineEdit, QScrollArea
 
 from tcalc.core.ops import Operation
 from tcalc.debug import dump_expression_tree, snapshot_tree
@@ -24,6 +24,7 @@ from tcalc.ui.widgets.math import (
     RootWidget,
     RoundParenWidget,
 )
+from tcalc.ui.widgets.math.renderer.widgets import SubWidget
 
 DIV_SYM = Operation.DIV.symbol
 POW_SYM = Operation.POW.symbol
@@ -3549,3 +3550,60 @@ class TestArrowNavigation:
             get_actual=lambda _: actual_target.cursorPosition(),
             label="cursor position",
         )
+
+
+#
+#
+#
+# Scrolled Container Tests
+
+
+@pytest.fixture
+def scrolled_expression(qapp):
+    """Expression inside a horizontally scrolling QScrollArea, as Display wires it."""
+    widget = Expression()
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setWidget(widget)
+    scroll.resize(200, 120)
+    scroll.show()
+    yield widget
+    scroll.close()
+    scroll.deleteLater()
+    qapp.processEvents()
+
+
+LONG_RUN = "1" * 50
+
+SCRIPT_SQUEEZE_CASES = [
+    pytest.param(f"2^{{3}} + {LONG_RUN}", PowWidget, id="pow-before-long-run"),
+    pytest.param(f"y_{{2}} + {LONG_RUN}", SubWidget, id="sub-before-long-run"),
+    pytest.param(f"{LONG_RUN} + 2^{{3}}", PowWidget, id="pow-after-long-run"),
+    pytest.param(f"{LONG_RUN} + y_{{2}}", SubWidget, id="sub-after-long-run"),
+]
+
+
+@pytest.mark.parametrize("expression,node_cls", SCRIPT_SQUEEZE_CASES)
+class TestScriptNodeInScrolledSlot:
+    """A ScriptNode places its slots by geometry, so a layout squeeze clips them
+    away instead of reflowing. Content wider than the viewport must not squeeze it."""
+
+    def _node(self, scrolled_expression, qapp, expression, node_cls):
+        scrolled_expression.set_plain_text(expression)
+        for _ in range(5):
+            qapp.processEvents()
+        node = scrolled_expression.findChild(node_cls)
+        assert node is not None, f"{node_cls.__name__} not rendered for {expression!r}"
+        return node
+
+    def test_keeps_hinted_width(self, scrolled_expression, qapp, expression, node_cls):
+        node = self._node(scrolled_expression, qapp, expression, node_cls)
+        assert node.width() == node.sizeHint().width()
+
+    def test_slots_stay_inside(self, scrolled_expression, qapp, expression, node_cls):
+        node = self._node(scrolled_expression, qapp, expression, node_cls)
+        for slot in (node.base, node.script):
+            assert slot.geometry().right() <= node.width(), (
+                f"{slot._key} slot clipped: {slot.geometry().getRect()} "
+                f"outside node width {node.width()}"
+            )

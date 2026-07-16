@@ -20,6 +20,7 @@ from shiboken6 import isValid
 
 from tcalc.ui.widgets.utils import apply_scaled_fonts
 
+from ..math_primitives import SCRIPT_SCALES
 from ..utils import update_autowidth
 from .expression_node import ExpressionNode, ExpressionSlot, InputKind
 from .widgets import (
@@ -256,24 +257,24 @@ class MathRender(QWidget):
                 update_autowidth(le)
 
     @staticmethod
+    def _script_depth(le: QLineEdit) -> int:
+        """How many script slots *le* sits inside, floored at the last scale."""
+        depth = 0
+        parent = le.parent()
+        while parent is not None:
+            if isinstance(parent, ExpressionSlot) and parent._kind is InputKind.SCRIPT:
+                depth += 1
+            parent = parent.parent()
+        return min(depth, len(SCRIPT_SCALES) - 1)
+
+    @staticmethod
     def update_line_fonts(
         lines: list[QLineEdit],
         sample: QWidget,
         base_font: int,
         max_pt: int,
-        config: dict | None = None,
     ):
         for le in lines:
-            kind_str = le.property("LatexKind")
-            scale = float(config.get(f"scale_{kind_str}", 1.0)) if config else 1.0
-            # Propagate script kind to children
-            parent = le.parent()
-            if kind_str == InputKind.SCRIPT.value and isinstance(parent, ExpressionSlot):
-                for le in parent.line_edits():
-                    le.setProperty("LatexKind", InputKind.SCRIPT.value)
-
-            min_pt = int(base_font * scale)
-            scaled_max = int(max_pt * scale)
-
-            apply_scaled_fonts(sample, [le], min_pt, scaled_max)
+            scale = SCRIPT_SCALES[MathRender._script_depth(le)]
+            apply_scaled_fonts(sample, [le], int(base_font * scale), int(max_pt * scale))
             update_autowidth(le)
