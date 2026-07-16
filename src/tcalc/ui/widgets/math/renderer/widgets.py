@@ -183,6 +183,11 @@ class ScriptNode(ExpressionNode):
             m.top() + over_top + bs.height() + over_bottom + m.bottom(),
         )
 
+    def minimumSizeHint(self) -> QSize:
+        # No layout to derive a minimum from: the slots are placed by geometry,
+        # so anything narrower than sizeHint clips them instead of reflowing.
+        return self.sizeHint()
+
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self._place_script()
