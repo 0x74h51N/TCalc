@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPainter, QPainterPath, QPen, QTransform
 from PySide6.QtWidgets import QSizePolicy, QWidget
@@ -21,18 +19,25 @@ CURLY_BRACE_WIDTH = 12
 PEN_WIDTH = 2
 
 
-@dataclass(frozen=True)
-class ScriptNudge:
-    """Pixel fine-tuning of a script's position relative to its base corner
-    (x: + right, y: + down). Shared by the paint and widget renderers so both
-    sit the same."""
+# Horizontal gap between a base and its script. Shared by the paint and widget
+# renderers so both sit the same. The vertical offset is not a constant see SCRIPT_DROP.
+SCRIPT_GAP_X = 1
 
-    x: int = 0
-    y: int = 0
+# Font scale per script level, TeX-style: text, script, scriptscript. The last
+# entry is the floor, deeper scripts stay there instead of vanishing.
+SCRIPT_SCALES = (1.0, 0.7, 0.45)
+
+# A script's inner edge hangs off the base by half the base glyph. A box base
+# (paren, fraction) has no glyph height to halve, and halving the box instead
+# would sink the script toward its middle, so estimate the glyph back from the
+# script's own: the script is SCRIPT_SCALES[1] of its base, hence half a base
+# glyph is this fraction of the script's glyph.
+SCRIPT_DROP = 0.5 / SCRIPT_SCALES[1]
 
 
-POW_SCRIPT_NUDGE = ScriptNudge(x=1, y=7)  # exponent nudged down toward the base
-SUB_SCRIPT_NUDGE = ScriptNudge(x=1, y=-4)  # subscript nudged up toward the base
+def script_level(level: int) -> int:
+    """The level a script rides at, one step down from its base and floored."""
+    return min(level + 1, len(SCRIPT_SCALES) - 1)
 
 
 def sqrt_path(w: float, h: float) -> QPainterPath:

@@ -17,14 +17,13 @@ from PySide6.QtGui import QFont, QFontMetricsF, QPainter
 from ..math_primitives import (
     CURLY_BRACE_WIDTH,
     ROUND_PAREN_WIDTH,
+    SCRIPT_SCALES,
     SQUARE_BRACKET_WIDTH,
 )
 
-SCRIPT_SCALE = 0.5
 FRACTION_PAD_X = 2
 FRACTION_PAD_Y = 2
 ROOT_OVERLINE_PAD = 2
-POW_OVERLAP = 0.4
 PAREN_X_PAD = 6
 PAREN_Y_PAD = 2
 PAREN_Y_MARGIN = 6
@@ -70,7 +69,7 @@ class LayoutBox:
     x: float = 0.0
     y: float = 0.0
 
-    def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
+    def measure(self, fm_cache: FontCache, level: int = 0) -> None:
         pass
 
     def place(self, x: float, y: float) -> None:
@@ -86,10 +85,10 @@ class TextLeaf(LayoutBox):
     text: str = ""
     font: QFont | None = None
 
-    def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
+    def measure(self, fm_cache: FontCache, level: int = 0) -> None:
         if self.font is None:
             return
-        effective = scaled_font(self.font, scale)
+        effective = scaled_font(self.font, SCRIPT_SCALES[level])
         self.font = effective
         fm = fm_cache.metrics(effective)
         self.w = fm.horizontalAdvance(self.text) if self.text else 0.0
@@ -110,11 +109,11 @@ class TextLeaf(LayoutBox):
 class Row(LayoutBox):
     children: list[LayoutBox] = field(default_factory=list)
 
-    def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
+    def measure(self, fm_cache: FontCache, level: int = 0) -> None:
         if not self.children:
             return
         for c in self.children:
-            c.measure(fm_cache, scale)
+            c.measure(fm_cache, level)
         self.above = max(c.above for c in self.children)
         self.below = max(c.below for c in self.children)
         self.h = self.above + self.below
@@ -141,7 +140,7 @@ class PaintNode(LayoutBox):
 
     LATEX_KIND: ClassVar[calc_native.LatexKind]
 
-    def measure(self, fm_cache: FontCache, scale: float = 1.0) -> None:
+    def measure(self, fm_cache: FontCache, level: int = 0) -> None:
         pass
 
     def place(self, x: float, y: float) -> None:
