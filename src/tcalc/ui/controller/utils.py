@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Dict, Tuple
 
 import calc_native
@@ -36,6 +37,13 @@ def apply_hyp_variant(op: Operation, hyp_enabled: bool) -> Operation:
     return HYP_MAP.get(op, op)
 
 
+def _fmt_exact_int(n: int, *, group: bool) -> str:
+    """Format an exact integer off its own digits; a double rounds away past 2**53."""
+    if abs(n) >= 10**10:
+        return f"{Decimal(n):.{max(16, len(str(abs(n))) - 1)}e}"
+    return f"{n:,}" if group else str(n)
+
+
 def format_result(value, *, group: bool = False) -> str:
     """Format a numeric result (float, complex, Rational, Collection, etc.).
 
@@ -46,7 +54,12 @@ def format_result(value, *, group: bool = False) -> str:
     if isinstance(value, calc_native.Collection):
         return repr(value)
 
+    if isinstance(value, int) and not isinstance(value, bool):
+        return _fmt_exact_int(value, group=group)
+
     if isinstance(value, calc_native.Rational):
+        if value.denominator == 1:
+            return _fmt_exact_int(value.numerator, group=group)
         # Display as decimal value for now; fraction widget will use .numerator/.denominator
         return format_result(value.to_double(), group=group)
 
