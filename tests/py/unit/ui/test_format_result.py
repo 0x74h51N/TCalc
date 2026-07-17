@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import calc_native
+import pytest
 
 from tcalc.core.native_eval import evaluate_branch
 from tcalc.core.parser import tokenize
@@ -28,54 +29,56 @@ def _point(items):
     return _eval("(" + ",".join(_frag(x) for x in items) + ")")
 
 
-def test_format_result_list_of_ints():
-    assert format_result(_list([1, 2, 3])) == "[1, 2, 3]"
+# -- value -> string -------------------------------------------------------
+#
+# group=False is the tokenizer-safe default (no thousands separators) so the
+# output can be fed back into the editor; group=True is for display widgets.
+
+FORMAT_CASES = [
+    pytest.param(_list([1, 2, 3]), False, "[1, 2, 3]", id="list-of-ints"),
+    pytest.param(_point([1, 2]), False, "(1, 2)", id="point"),
+    pytest.param(
+        _list([_point([1, 2]), _point([3, 4])]), False, "[(1, 2), (3, 4)]", id="list-of-points"
+    ),
+    pytest.param(_list([]), False, "[]", id="empty-list"),
+    # Element separators are list syntax, so they survive the no-grouping default.
+    pytest.param(_list([1000000, 2, 3]), False, "[1000000, 2, 3]", id="collection-keeps-commas"),
+    pytest.param(1234567.89, False, "1234567.89", id="float-plain"),
+    pytest.param(1234567.0, False, "1234567", id="float-integral-plain"),
+    pytest.param(1234567.89, True, "1,234,567.89", id="float-grouped"),
+    pytest.param(1234567.0, True, "1,234,567", id="float-integral-grouped"),
+    pytest.param(3 + 4j, False, "3+4i", id="complex"),
+    # An exact value must not be shown through a double: float() holds neither an
+    # int64 nor an integer Rational past 2**53.
+    pytest.param(_eval("10^{16}+1"), False, "1.0000000000000001e+16", id="exact-int-past-double"),
+    pytest.param(
+        _eval("9223372036854775807"), False, "9.223372036854775807e+18", id="int64-max-literal"
+    ),
+    pytest.param(_eval("2+3"), False, "5", id="exact-int-small"),
+    pytest.param(_eval("10^{6}+1"), True, "1,000,001", id="exact-int-grouped"),
+    pytest.param(_eval("\\frac{1}{4}"), False, "0.25", id="exact-fraction-decimal"),
+]
 
 
-def test_format_result_point():
-    assert format_result(_point([1, 2])) == "(1, 2)"
+@pytest.mark.parametrize("value,group,expected", FORMAT_CASES)
+def test_format_result(value, group, expected):
+    assert format_result(value, group=group) == expected
 
 
-def test_format_result_list_of_points():
-    assert format_result(_list([_point([1, 2]), _point([3, 4])])) == "[(1, 2), (3, 4)]"
+# -- output parses back to one token ---------------------------------------
+
+ROUND_TRIP_CASES = [
+    pytest.param(1234567.89, calc_native.TokenKind.Number, id="float"),
+    pytest.param(_eval("10^{16}+1"), calc_native.TokenKind.Number, id="exact-int-past-double"),
+    pytest.param(_list([1000000, 2, 3]), calc_native.TokenKind.Paren, id="collection"),
+]
 
 
-def test_format_result_empty_list():
-    assert format_result(_list([])) == "[]"
-
-
-# -- group flag: display grouping vs tokenizer-safe default ----------------
-
-
-def _single_token(expr: str):
-    toks = list(tokenize(expr).tokens)
-    assert len(toks) == 1, f"{expr!r} -> {[t.kind for t in toks]}"
-    return toks[0]
-
-
-def test_default_omits_grouping_commas():
-    assert format_result(1234567.89) == "1234567.89"
-    assert format_result(1234567.0) == "1234567"
-
-
-def test_group_true_adds_thousands_separators():
-    assert format_result(1234567.89, group=True) == "1,234,567.89"
-    assert format_result(1234567.0, group=True) == "1,234,567"
-
-
-def test_default_scalar_round_trips_to_single_number():
-    # The grouped form "1,234,567.89" splits into 5 tokens; the default form
-    # must tokenize back to a single Number.
-    tok = _single_token(format_result(1234567.89))
-    assert tok.kind == calc_native.TokenKind.Number
-
-
-def test_collection_commas_survive_and_round_trip():
-    # Element-separator commas are valid list syntax (no grouping applied).
-    assert format_result(_list([1000000, 2, 3])) == "[1000000, 2, 3]"
-    tok = _single_token(format_result(_list([1000000, 2, 3])))
-    assert tok.kind == calc_native.TokenKind.Paren
-
-
-def test_default_complex_round_trips():
-    assert format_result(3 + 4j) == "3+4i"
+@pytest.mark.parametrize("value,expected_kind", ROUND_TRIP_CASES)
+def test_default_output_round_trips(value, expected_kind):
+    # The grouped form "1,234,567.89" would split into 5 tokens; the default form
+    # must come back as one.
+    text = format_result(value)
+    toks = list(tokenize(text).tokens)
+    assert len(toks) == 1, f"{text!r} -> {[t.kind for t in toks]}"
+    assert toks[0].kind == expected_kind
