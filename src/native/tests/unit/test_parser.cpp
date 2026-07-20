@@ -1463,6 +1463,17 @@ void unit_parser(TestContext &ctx) {
                   .right = {Pp({EV({N("2"), Op_(OpId::Add), N("3")})})},
                   .latex_kind = p::LatexKind::Frac}},
 
+            // -- Sum/Prod: empty limit is never a pickup site (unlike Frac above).
+            // \sum_{n=1} n -> mid-typing, no upper limit yet: right stays empty,
+            // the body `n` stays in suffix instead of being stolen as the upper limit.
+            {.id = "sum :: empty upper limit does not steal the body",
+             .input = branch(p::tokenize("\\sum_{n=1} n").tokens),
+             .expected =
+                 {.kind = K::Latex,
+                  .left = {Ch('n'), Op_(OpId::Assign), N("1")},
+                  .suffix = {Ch('n')},
+                  .latex_kind = p::LatexKind::Sum}},
+
             // -- ParenSplit cases (reactivated under unified ParenToken model).
 
             // (\frac{2}{3}) -> ParenSplit wraps one element [Frac].
@@ -2287,5 +2298,11 @@ void unit_parser(TestContext &ctx) {
     test_detail::with_case(ctx, "flat_text :: Pow chain groups the Pow base", [&] {
         auto branch = p::tokenize("2^{3}^{2}");
         EXPECT_EQ(ctx, p::tokens_to_flat_text(branch.tokens), std::string("{2^3}^2"));
+    });
+
+    // Sum/Prod always show braced limits (both scripts keep their {}).
+    test_detail::with_case(ctx, "flat_text :: sum -> glyph with braced limits", [&] {
+        const auto branch = p::tokenize("\\sum_{n=1}^{5}");
+        EXPECT_EQ(ctx, p::token_flat_text(branch.tokens.at(0)), std::string("Σ_{n=1}^{5}"));
     });
 }

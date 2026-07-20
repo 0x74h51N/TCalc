@@ -762,14 +762,18 @@ std::optional<StructuralSplit> structural_split(const TokensBranch &branch) {
     LatexSplit split;
     split.kind = latex_tok.kind;
 
-    if (!latex_tok.left.empty()) {
+    // Iterated limits are never implicit: an empty limit stays empty and the body stays
+    // in the suffix, never carved out like Pow/Root/Subscript operands.
+    const bool iterated = is_iterated(latex_tok.kind);
+
+    if (iterated || !latex_tok.left.empty()) {
         split.prefix = span.subspan(0, idx);
         split.left = latex_tok.left;
     } else {
         std::tie(split.prefix, split.left) = split_operand(span, 0, idx, /*lead=*/false);
     }
 
-    if (!latex_tok.right.empty()) {
+    if (iterated || !latex_tok.right.empty()) {
         split.right = latex_tok.right;
         split.suffix = span.subspan(idx + 1, n - idx - 1);
     } else {
@@ -1141,6 +1145,30 @@ std::string token_flat_text(const Token &tok) {
             }
             return text;
         };
+
+        // Sum/Prod serialise as Σ_{lower}^{upper}, glyph then both braced scripts. Own arm;
+        // the generic path below derefs a null op_spec for OpId::Count. Limits render
+        // compact (n=1) so ops go bare via token_text, not the spaced flat form.
+        if (latex.kind == LatexKind::Sum || latex.kind == LatexKind::Prod) {
+            constexpr char open = paren_symbol(true, ParenKind::Brace);
+            constexpr char close = paren_symbol(false, ParenKind::Brace);
+            const auto unspaced = [](const std::vector<Token> &side) {
+                std::string text;
+                for (const auto &t : side)
+                    text.append(t.kind == TokenKind::Op ? token_text(t) : token_flat_text(t));
+                return text;
+            };
+            std::string out = latex.kind == LatexKind::Sum ? "Σ" : "Π";
+            out.push_back('_');
+            out.push_back(open);
+            out.append(unspaced(latex.left));
+            out.push_back(close);
+            out.push_back('^');
+            out.push_back(open);
+            out.append(unspaced(latex.right));
+            out.push_back(close);
+            return out;
+        }
 
         // Flat is a display-only form (history's FLAT mode) — never re-tokenized, so
         // it strips the script braces for readability: 2^{3} -> 2^3, 2_{3} -> 2_3.
