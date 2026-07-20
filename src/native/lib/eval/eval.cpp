@@ -659,8 +659,10 @@ std::vector<Token> normalize(std::span<const Token> raw) {
     };
 
     const auto ends_operand = [](const Token &t) -> bool {
-        if (t.kind == TokenKind::Number || t.kind == TokenKind::Latex ||
-            t.kind == TokenKind::Char || t.kind == TokenKind::Const) {
+        if (t.kind == TokenKind::Latex)
+            return !parser::is_iterated(std::get<parser::LatexToken>(t.data).kind);
+        if (t.kind == TokenKind::Number || t.kind == TokenKind::Char ||
+            t.kind == TokenKind::Const) {
             return true;
         }
         if (t.kind == TokenKind::Paren)

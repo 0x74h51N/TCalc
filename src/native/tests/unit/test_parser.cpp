@@ -170,6 +170,22 @@ inline Token
 Sub(std::vector<Token> base, std::vector<Token> sub, std::size_t start = 0, std::size_t end = 0) {
     return Lx(p::LatexKind::Subscript, OpId::Count, std::move(base), std::move(sub), start, end);
 }
+/// Token factory shorthand: \sum LatexToken (lower limit, upper limit).
+inline Token
+Sum(std::vector<Token> lower,
+    std::vector<Token> upper,
+    std::size_t start = 0,
+    std::size_t end = 0) {
+    return Lx(p::LatexKind::Sum, OpId::Count, std::move(lower), std::move(upper), start, end);
+}
+/// Token factory shorthand: \prod LatexToken (lower limit, upper limit).
+inline Token Prod(
+    std::vector<Token> lower,
+    std::vector<Token> upper,
+    std::size_t start = 0,
+    std::size_t end = 0) {
+    return Lx(p::LatexKind::Prod, OpId::Count, std::move(lower), std::move(upper), start, end);
+}
 
 /// Shorthand for tcalc::parser::ParenKind.
 using PK = p::ParenKind;
@@ -347,6 +363,36 @@ void unit_parser(TestContext &ctx) {
         {.id = "subscript unclosed content",
          .input = "y_{2",
          .expected = {Sub({Ch('y')}, {N("2")}, 0, 4)}},
+
+        {.id = "sum carries only its limits",
+         .input = "\\sum_{n=1}^{5} n^{2}",
+         .expected =
+             {Sum({Ch('n'), Op_(OpId::Assign), N("1")}, {N("5")}), Pow({Ch('n')}, {N("2")})}},
+        {.id = "sum reverse script order",
+         .input = "\\sum^{5}_{n=1} n",
+         .expected = {Sum({Ch('n'), Op_(OpId::Assign), N("1")}, {N("5")}), Ch('n')}},
+        {.id = "sum body stays outside the token",
+         .input = "2 + \\sum_{n=1}^{3} 2n+5",
+         .expected =
+             {N("2"),
+              Op_(OpId::Add),
+              Sum({Ch('n'), Op_(OpId::Assign), N("1")}, {N("3")}),
+              N("2"),
+              Ch('n'),
+              Op_(OpId::Add),
+              N("5")}},
+        {.id = "sum missing upper limit leaves right empty",
+         .input = "\\sum_{n=1}^{}",
+         .expected = {Sum({Ch('n'), Op_(OpId::Assign), N("1")}, {})}},
+        {.id = "sum mid-typing (no upper script) leaves right empty",
+         .input = "\\sum_{n=1}",
+         .expected = {Sum({Ch('n'), Op_(OpId::Assign), N("1")}, {})}},
+        // Note: bound var uses 'm', not 'k' — 'k' is the reserved Boltzmann-constant
+        // symbol (see consts.hpp), so "k=1" would tokenize 'k' as a ConstToken, not a
+        // Char('k') operand. 'm' has no such collision.
+        {.id = "prod carries only its limits",
+         .input = "\\prod_{m=1}^{5} m",
+         .expected = {Prod({Ch('m'), Op_(OpId::Assign), N("1")}, {N("5")}), Ch('m')}},
 
         {.id = "frac with inner expr",
          .input = "\\frac{2+3}{4}",

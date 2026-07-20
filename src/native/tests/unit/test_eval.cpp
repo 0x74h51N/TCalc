@@ -52,6 +52,7 @@ using NormCase = Case<std::vector<tcalc::parser::Token>, std::vector<tcalc::pars
 /// Case row for shunting_yard: infix tokens -> RPN tokens.
 using ShuntCase = Case<std::vector<tcalc::parser::Token>, std::vector<tcalc::parser::Token>>;
 
+using tcalc::parser::OpToken;
 using tcalc::parser::Token;
 using tcalc::parser::TokenKind;
 using namespace tcalc::test_tokens;
@@ -722,6 +723,25 @@ void unit_eval(TestContext &ctx) {
             EXPECT_EQ(ctx, tcalc::eval::normalize(tc.input), tc.expected);
         });
     }
+
+    test_detail::with_case(ctx, "normalize :: no implicit mult between sum and its body", [&] {
+        const auto raw = tcalc::parser::tokenize("\\sum_{n=1}^{3} n").tokens;
+        const auto norm = tcalc::eval::normalize(raw);
+        const bool has_mul = std::ranges::any_of(norm, [](const Token &t) {
+            return t.kind == TokenKind::Op && std::get<OpToken>(t.data).op_id == OpId::Mul;
+        });
+        EXPECT_EQ(ctx, has_mul, false);
+    });
+
+    test_detail::with_case(ctx, "normalize :: implicit mult before a sum", [&] {
+        const auto raw = tcalc::parser::tokenize("2\\sum_{n=1}^{3} n").tokens;
+        const auto norm = tcalc::eval::normalize(raw);
+        // Expect a Mul inserted between N(2) and the Sum: 2 · Σ…
+        const bool mul_before_sum = norm.size() >= 2 && norm[1].kind == TokenKind::Op &&
+                                    std::get<OpToken>(norm[1].data).op_id == OpId::Mul &&
+                                    norm[2].kind == TokenKind::Latex;
+        EXPECT_EQ(ctx, mul_before_sum, true);
+    });
 
     // Shuntifications
     const std::vector<ShuntCase> shunt_cases = {

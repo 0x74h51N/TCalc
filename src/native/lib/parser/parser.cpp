@@ -403,6 +403,30 @@ extract_script_content(std::string_view s, std::size_t sigil_pos, std::size_t &o
     return extract_brace_content(s, sigil_pos + 1, out_end);
 }
 
+// After a Scripts-form macro (\sum / \prod): read `_{…}` (lower limit) and `^{…}`
+// (upper limit) in either order. A missing script stays empty; out_end lands past the
+// last consumed group (or at pos when neither script is present — the mid-typing state).
+inline void extract_two_scripts(
+    std::string_view s,
+    std::size_t pos,
+    std::string_view &lower,
+    std::string_view &upper,
+    std::size_t &out_end) {
+    lower = {};
+    upper = {};
+    std::size_t i = pos;
+    for (int read = 0; read < 2; ++read) {
+        if (i >= s.size() || (s[i] != '_' && s[i] != '^'))
+            break;
+        const char sigil = s[i];
+        std::size_t after = i;
+        const std::string_view content = extract_script_content(s, i, after);
+        (sigil == '_' ? lower : upper) = content;
+        i = after;
+    }
+    out_end = i;
+}
+
 struct MatchLatexArgs {
     std::string_view s;
     std::size_t i;
@@ -435,6 +459,14 @@ bool match_latex_expr(const MatchLatexArgs &args) {
     *args.out_kind = matched->kind;
     *args.out_op_id = matched->opid;
     const std::size_t pos = args.i + prefix_len;
+
+    if (is_iterated(matched->kind)) {
+        // Iterated ops are script-delimited (`_{…}^{…}`), not brace-delimited: out_left
+        // = lower script, out_right = upper script. scan_latex_macro then tokenizes each
+        // side into left/right exactly as it does for the brace forms.
+        extract_two_scripts(args.s, pos, *args.out_left, *args.out_right, *args.out_end);
+        return true;
+    }
 
     std::size_t after_left = pos;
     const std::string_view left = extract_brace_content(args.s, pos, after_left);
@@ -470,7 +502,11 @@ inline bool starts_construct(std::string_view s, std::size_t i) {
 }
 
 bool scan_latex_macro(
-    std::string_view s, std::size_t i, TokensBranch &result, std::size_t &out_end) {
+    std::string_view s,
+    std::size_t i,
+    TokensBranch &result,
+    std::size_t &out_end,
+    bool &expect_operand) {
     LatexKind out_kind = LatexKind::Frac;
     OpId op_id = OpId::Div;
     std::string_view out_left{}, out_right{};
@@ -490,6 +526,9 @@ bool scan_latex_macro(
             LatexToken{out_kind, op_id, std::move(left.tokens), std::move(right.tokens)},
             i,
             out_end});
+    // A Σ/Π is a prefix that still expects its operand; every other latex token is an
+    // operand and closes the position.
+    expect_operand = is_iterated(out_kind);
     return true;
 }
 
@@ -606,9 +645,8 @@ TokensBranch tokenize(std::string_view s) {
         switch (c) {
         case '\\': {
             std::size_t out_end = 0;
-            if (scan_latex_macro(s, i, result, out_end)) {
+            if (scan_latex_macro(s, i, result, out_end, expect_operand)) {
                 i = out_end;
-                expect_operand = false;
             } else {
                 ++i;
             }
