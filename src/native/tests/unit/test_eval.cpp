@@ -743,6 +743,88 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, mul_before_sum, true);
     });
 
+    test_detail::with_case(ctx, "normalize :: body is the term, not the first operand", [&] {
+        // \sum 2n + 5 must group `2n`, never just `2`.
+        const auto out =
+            tcalc::eval::normalize(tcalc::parser::tokenize("\\sum_{n=1}^{3} 2n + 5").tokens);
+        // [Sum, Paren(2 * n), Add, 5]
+        EXPECT_EQ(ctx, out.size(), std::size_t{4});
+        EXPECT_EQ(ctx, out[1].kind == TokenKind::Paren, true);
+        const auto &group = std::get<tcalc::parser::ParenToken>(out[1].data);
+        const auto &body = std::get<std::vector<Token>>(group.elements.at(0));
+        EXPECT_EQ(ctx, body.size(), std::size_t{3}); // 2 . n
+        EXPECT_EQ(ctx, out[2].kind == TokenKind::Op, true);
+    });
+
+    test_detail::with_case(ctx, "normalize :: unary and postfix stay inside the body", [&] {
+        // -n! is all body; only the + terminates it.
+        const auto out =
+            tcalc::eval::normalize(tcalc::parser::tokenize("\\sum_{n=1}^{3}-n!+5").tokens);
+        EXPECT_EQ(ctx, out.size(), std::size_t{4});
+        const auto &group = std::get<tcalc::parser::ParenToken>(out[1].data);
+        const auto &body = std::get<std::vector<Token>>(group.elements.at(0));
+        EXPECT_EQ(ctx, body.size(), std::size_t{3}); // Negate, n, Fact
+    });
+
+    test_detail::with_case(ctx, "normalize :: implicit mult lands before the sum, not inside", [&] {
+        const auto out =
+            tcalc::eval::normalize(tcalc::parser::tokenize("2\\sum_{n=1}^{3} n").tokens);
+        // [2, Mul, Sum, n] : the Mul is between 2 and the sum; n passes through unwrapped
+        EXPECT_EQ(ctx, out.size(), std::size_t{4});
+        EXPECT_EQ(ctx, out[1].kind == TokenKind::Op, true);
+        EXPECT_EQ(ctx, std::get<OpToken>(out[1].data).op_id == OpId::Mul, true);
+        EXPECT_EQ(ctx, out[3].kind == TokenKind::Char, true);
+    });
+
+    test_detail::with_case(ctx, "normalize :: one plus closes every open body", [&] {
+        const auto out = tcalc::eval::normalize(
+            tcalc::parser::tokenize("\\sum_{i=1}^{2} \\sum_{j=1}^{2} j + 5").tokens);
+        // [Sum_i, Paren([Sum_j, j]), Add, 5]
+        EXPECT_EQ(ctx, out.size(), std::size_t{4});
+        const auto &outer = std::get<tcalc::parser::ParenToken>(out[1].data);
+        const auto &outer_body = std::get<std::vector<Token>>(outer.elements.at(0));
+        EXPECT_EQ(ctx, outer_body.size(), std::size_t{2}); // Sum_j, j
+        // j is an alias of the imaginary-unit constant, so it tokenizes as Const, not Char;
+        // either way it passes through unwrapped, not TokenKind::Paren.
+        EXPECT_EQ(ctx, outer_body[1].kind == TokenKind::Const, true);
+    });
+
+    test_detail::with_case(
+        ctx, "normalize :: a sum with nothing after it gets an empty group", [&] {
+            const auto out =
+                tcalc::eval::normalize(tcalc::parser::tokenize("\\sum_{n=1}^{5}").tokens);
+            EXPECT_EQ(ctx, out.size(), std::size_t{2});
+            const auto &group = std::get<tcalc::parser::ParenToken>(out[1].data);
+            EXPECT_EQ(ctx, group.elements.empty(), true);
+        });
+
+    test_detail::with_case(ctx, "normalize :: a single-token body passes through unwrapped", [&] {
+        // A user paren is already one complete token: it passes straight through, not
+        // wrapped a second time.
+        const auto paren_body =
+            tcalc::eval::normalize(tcalc::parser::tokenize("\\sum_{n=1}^{5} (n^{2}+2)").tokens);
+        EXPECT_EQ(ctx, paren_body.size(), std::size_t{2});
+        EXPECT_EQ(ctx, paren_body[1].kind == TokenKind::Paren, true);
+        const auto &group = std::get<tcalc::parser::ParenToken>(paren_body[1].data);
+        EXPECT_EQ(ctx, group.elements.size(), std::size_t{1}); // the user's own group
+        const auto &row = std::get<std::vector<Token>>(group.elements.at(0));
+        EXPECT_EQ(ctx, row.size(), std::size_t{3}); // n^2, +, 2 inside the user's paren
+
+        // n^{2} tokenizes as one Pow LatexToken (the base folds in at tokenize time), so
+        // it too passes through unwrapped: no synthetic paren at all.
+        const auto pow_body =
+            tcalc::eval::normalize(tcalc::parser::tokenize("\\sum_{n=1}^{5} n^{2}").tokens);
+        EXPECT_EQ(ctx, pow_body.size(), std::size_t{2});
+        EXPECT_EQ(ctx, pow_body[1].kind == TokenKind::Latex, true);
+
+        // A trailing + still closes the body at Add precedence, but the token right after
+        // Sum stays the bare Pow, no wrapper introduced just because it once had a +.
+        const auto bare =
+            tcalc::eval::normalize(tcalc::parser::tokenize("\\sum_{n=1}^{5} n^{2}+2").tokens);
+        EXPECT_EQ(ctx, bare.size(), std::size_t{4}); // Sum, n^2, Add, 2
+        EXPECT_EQ(ctx, bare[1].kind == TokenKind::Latex, true);
+    });
+
     // Shuntifications
     const std::vector<ShuntCase> shunt_cases = {
 
@@ -859,4 +941,161 @@ void unit_eval(TestContext &ctx) {
             EXPECT_EQ(ctx, tcalc::eval::shunting_yard(tc.input), tc.expected);
         });
     }
+
+    // Iterated ops: Sum / Prod semantics. Add/Mul have no Int64 arm (see the
+    // arms_of static_asserts above), so every result here is Rational, matching every
+    // other Add/Mul-driven case in rpn_cases (e.g. "2+3*4" -> Rational(14)).
+    const Calculator c;
+
+    test_detail::with_case(ctx, "iterated :: term rule, sum of squares", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "2 + \\sum_{n=1}^{5} n^{2} - 4"), Value{Rational(53)});
+    });
+    test_detail::with_case(ctx, "iterated :: parenthesised body", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{5} (n^{2} - 4)"), Value{Rational(35)});
+    });
+    test_detail::with_case(ctx, "iterated :: a single-token user paren body", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{5} (n)"), Value{Rational(15)});
+    });
+    test_detail::with_case(ctx, "iterated :: a user paren body is not double-wrapped", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} (n^{2}+2)"), Value{Rational(20)});
+    });
+    test_detail::with_case(ctx, "iterated :: a terminator right after a paren body", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} (n^{2}+2) + 5"), Value{Rational(25)});
+    });
+    // The term rule: a bare + terminates the body and applies to the sum's result, while
+    // the same + parenthesised goes inside it and is summed per term.
+    test_detail::with_case(ctx, "iterated :: a bare + applies to the sum's result", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} 2n + 5"), Value{Rational(17)});
+    });
+    test_detail::with_case(ctx, "iterated :: the same + parenthesised goes inside the body", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} (2n+5)"), Value{Rational(27)});
+    });
+    // A tighter operator (* or !) binds past a paren body into the term, unlike +.
+    test_detail::with_case(ctx, "iterated :: * binds past a paren body into the term", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} (n+1)*n"), Value{Rational(20)});
+    });
+    test_detail::with_case(ctx, "iterated :: ! binds past a paren body into the term", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} (n+1)!"), Value{32.0});
+    });
+    test_detail::with_case(
+        ctx, "iterated :: a comma'd paren body is a point, not a pass-through", [&] {
+            EXPECT_THROWS(ctx, eval_text(c, "\\sum_{n=1}^{3} (1,2)"));
+            try {
+                eval_text(c, "\\sum_{n=1}^{3} (1,2)");
+            } catch (const CalculatorError &e) {
+                EXPECT_EQ(
+                    ctx, std::string(e.what()), std::string("unsupported operand type for add"));
+            }
+        });
+    test_detail::with_case(ctx, "iterated :: an unclosed paren body still gets wrapped", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} (n"), Value{Rational(6)});
+    });
+    test_detail::with_case(ctx, "iterated :: plain sum and product", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{4} n^{2}"), Value{Rational(30)});
+        EXPECT_EQ(ctx, eval_text(c, "\\prod_{m=1}^{4} m"), Value{Rational(24)});
+    });
+    test_detail::with_case(ctx, "iterated :: leading sign belongs to the body", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} -n"), Value{Rational(-6)});
+    });
+    test_detail::with_case(ctx, "iterated :: implicit mult before the sum", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "2\\sum_{n=1}^{3} n"), Value{Rational(12)});
+    });
+    // "i" and "j" are aliases of the imaginary-unit constant (parser/pub/consts.hpp), so
+    // they tokenize as ConstToken rather than a bindable variable; "n" and "m" stand in.
+    test_detail::with_case(ctx, "iterated :: two sums separated by + are independent", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{2} n + \\sum_{m=1}^{2} m"), Value{Rational(6)});
+    });
+    test_detail::with_case(ctx, "iterated :: adjacent sums nest", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{2} \\sum_{m=1}^{2} nm"), Value{Rational(9)});
+    });
+
+    test_detail::with_case(ctx, "iterated :: the loop variable does not leak", [&] {
+        session_vars().clear();
+        session_vars().set("n", Value{std::int64_t{9}});
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} n"), Value{Rational(6)});
+        const Value *after = session_vars().get("n");
+        EXPECT_EQ(ctx, after != nullptr && *after == Value{std::int64_t{9}}, true);
+    });
+    test_detail::with_case(ctx, "iterated :: an unbound loop variable stays unbound", [&] {
+        session_vars().unset("q");
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{q=1}^{3} q"), Value{Rational(6)});
+        EXPECT_EQ(ctx, session_vars().get("q") == nullptr, true);
+    });
+    test_detail::with_case(ctx, "iterated :: the body reads other session variables", [&] {
+        session_vars().clear();
+        session_vars().set("A", Value{std::int64_t{10}});
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} nA"), Value{Rational(60)});
+    });
+    test_detail::with_case(ctx, "iterated :: empty range yields the identity", [&] {
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=5}^{4} n"), Value{Rational(0)});
+        EXPECT_EQ(ctx, eval_text(c, "\\prod_{n=5}^{4} n"), Value{Rational(1)});
+    });
+    // The message text is the contract, and the Sum/Product parametrization used to be
+    // hardcoded to "Sum": pinning both ops on every path catches that regression class.
+    const std::vector<MsgCase> iterated_msg_cases = {
+        {.id = "sum missing body", .input = "\\sum_{n=1}^{5}", .expected = "Sum has no body."},
+        {.id = "product missing body",
+         .input = "\\prod_{m=1}^{5}",
+         .expected = "Product has no body."},
+        {.id = "sum missing upper limit",
+         .input = "\\sum_{n=1}^{} n",
+         .expected = "Sum has no upper limit."},
+        {.id = "product missing upper limit",
+         .input = "\\prod_{m=1}^{} m",
+         .expected = "Product has no upper limit."},
+        {.id = "sum bad lower limit",
+         .input = "\\sum_{5}^{4} n",
+         .expected = "Sum limit must read variable = start."},
+        {.id = "product bad lower limit",
+         .input = "\\prod_{5}^{4} m",
+         .expected = "Product limit must read variable = start."},
+        {.id = "sum non-integer bound",
+         .input = "\\sum_{n=1}^{2.5} n",
+         .expected = "Sum limits must be whole numbers."},
+        {.id = "product non-integer bound",
+         .input = "\\prod_{m=1}^{2.5} m",
+         .expected = "Product limits must be whole numbers."},
+        {.id = "sum range too large",
+         .input = "\\sum_{n=1}^{20000000} n",
+         .expected = "Sum range is too large to compute."},
+        {.id = "product range too large",
+         .input = "\\prod_{m=1}^{20000000} m",
+         .expected = "Product range is too large to compute."},
+    };
+
+    for (const auto &tc : iterated_msg_cases) {
+        test_detail::with_case(ctx, std::string("iterated rejects :: ") + tc.id, [&] {
+            EXPECT_THROWS(ctx, eval_text(c, tc.input));
+            try {
+                eval_text(c, tc.input);
+            } catch (const CalculatorError &e) {
+                EXPECT_EQ(ctx, std::string(e.what()), std::string(tc.expected));
+                EXPECT_EQ(ctx, e.kind(), ErrorKind::Invalid);
+            }
+        });
+    }
+
+    test_detail::with_case(ctx, "iterated :: an extreme-bounds range is still capped", [&] {
+        // first and last sit near the int64 extremes: last - first overflows a signed
+        // 64-bit subtraction, which must not defeat the kMaxIterations cap.
+        EXPECT_THROWS(ctx, eval_text(c, "\\sum_{n=-9223372036854775807}^{9223372036854775807} n"));
+    });
+
+    test_detail::with_case(
+        ctx, "iterated :: the loop variable is restored when the body throws", [&] {
+            session_vars().clear();
+            session_vars().set("n", Value{std::int64_t{9}});
+            EXPECT_THROWS(ctx, eval_text(c, "\\sum_{n=1}^{3} \\frac{1}{n-2}"));
+            const Value *after = session_vars().get("n");
+            EXPECT_EQ(ctx, after != nullptr && *after == Value{std::int64_t{9}}, true);
+        });
+
+    test_detail::with_case(
+        ctx, "iterated :: a nested sum reusing the caller's name leaves it untouched", [&] {
+            session_vars().clear();
+            session_vars().set("n", Value{std::int64_t{9}});
+            EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{2} \\sum_{n=1}^{2} n"), Value{Rational(6)});
+            const Value *after = session_vars().get("n");
+            EXPECT_EQ(ctx, after != nullptr && *after == Value{std::int64_t{9}}, true);
+        });
 }

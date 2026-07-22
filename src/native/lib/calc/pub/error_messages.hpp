@@ -93,4 +93,29 @@ inline std::string not_for_list_or_point(std::string_view fn) {
     return std::string(fn) + " is not defined for a list or point";
 }
 
+/// An iterated op's lower limit is not `var = start`.
+inline std::string iterated_bad_lower(std::string_view op) {
+    return std::string(op) + " limit must read variable = start.";
+}
+
+/// An iterated op with no upper limit.
+inline std::string iterated_missing_upper(std::string_view op) {
+    return std::string(op) + " has no upper limit.";
+}
+
+/// An iterated op with an empty body.
+inline std::string iterated_missing_body(std::string_view op) {
+    return std::string(op) + " has no body.";
+}
+
+/// An iterated op's bound is not a whole number.
+inline std::string iterated_non_integer_bound(std::string_view op) {
+    return std::string(op) + " limits must be whole numbers.";
+}
+
+/// An iterated op's brute-force range is at or past kMaxIterations.
+inline std::string iterated_range_too_large(std::string_view op) {
+    return std::string(op) + " range is too large to compute.";
+}
+
 } // namespace tcalc::errmsg
