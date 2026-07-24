@@ -35,6 +35,8 @@ add_library(calc_core STATIC
   lib/collection/collection.cpp
   lib/eval/eval.cpp
   lib/eval/literal.cpp
+  lib/eval/closed_forms.cpp
+  lib/eval/deadline.cpp
   lib/parser/parser.cpp
 )
 target_include_directories(calc_core PUBLIC

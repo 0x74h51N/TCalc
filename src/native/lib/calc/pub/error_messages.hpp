@@ -113,9 +113,12 @@ inline std::string iterated_non_integer_bound(std::string_view op) {
     return std::string(op) + " limits must be whole numbers.";
 }
 
-/// An iterated op's brute-force range is at or past kMaxIterations.
+/// A var-free product's count is at or past the size bound (c^count would blow up).
 inline std::string iterated_range_too_large(std::string_view op) {
     return std::string(op) + " range is too large to compute.";
 }
+
+/// An evaluation ran past its wall-clock budget and was stopped.
+inline constexpr std::string_view kEvalTimedOut = "Undefined";
 
 } // namespace tcalc::errmsg

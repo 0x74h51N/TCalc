@@ -1,3 +1,25 @@
+/*
+ *
+ *  TCalc is a native-powered scientific desktop calculator designed
+ *  for high-performance, precision, and a superior user experience.
+ *  Copyright (C) 2025 Tahsin Önemli
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include "calc/pub/error_messages.hpp"
+#include "eval/internal/closed_forms.hpp"
 #include "eval/pub/eval.hpp"
 #include "eval/pub/literal.hpp"
 #include "eval/pub/varstore.hpp"
@@ -1055,12 +1077,6 @@ void unit_eval(TestContext &ctx) {
         {.id = "product non-integer bound",
          .input = "\\prod_{m=1}^{2.5} m",
          .expected = "Product limits must be whole numbers."},
-        {.id = "sum range too large",
-         .input = "\\sum_{n=1}^{20000000} n",
-         .expected = "Sum range is too large to compute."},
-        {.id = "product range too large",
-         .input = "\\prod_{m=1}^{20000000} m",
-         .expected = "Product range is too large to compute."},
     };
 
     for (const auto &tc : iterated_msg_cases) {
@@ -1075,11 +1091,22 @@ void unit_eval(TestContext &ctx) {
         });
     }
 
-    test_detail::with_case(ctx, "iterated :: an extreme-bounds range is still capped", [&] {
-        // first and last sit near the int64 extremes: last - first overflows a signed
-        // 64-bit subtraction, which must not defeat the kMaxIterations cap.
-        EXPECT_THROWS(ctx, eval_text(c, "\\sum_{n=-9223372036854775807}^{9223372036854775807} n"));
-    });
+    test_detail::with_case(
+        ctx, "iterated :: a runaway brute loop early-exits on the time budget", [&] {
+            // A body the closed-form matcher declines (2n grows, no polynomial sum for a
+            // product) over a range under the iteration cap would run for seconds. With a tiny
+            // budget the deadline fires inside the loop and reports "Undefined" instead of
+            // freezing. The whole suite otherwise runs unlimited, so this is the only timed case.
+            tcalc::eval::set_eval_time_budget_ms(20);
+            EXPECT_THROWS(ctx, eval_text(c, "\\prod_{n=1}^{999999} 2n"));
+            try {
+                eval_text(c, "\\prod_{n=1}^{999999} 2n");
+            } catch (const CalculatorError &e) {
+                EXPECT_EQ(ctx, std::string(e.what()), std::string(tcalc::errmsg::kEvalTimedOut));
+                EXPECT_EQ(ctx, e.kind(), ErrorKind::MathErr);
+            }
+            tcalc::eval::set_eval_time_budget_ms(0); // restore the unlimited default for the rest
+        });
 
     test_detail::with_case(
         ctx, "iterated :: the loop variable is restored when the body throws", [&] {
@@ -1097,5 +1124,271 @@ void unit_eval(TestContext &ctx) {
             EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{2} \\sum_{n=1}^{2} n"), Value{Rational(6)});
             const Value *after = session_vars().get("n");
             EXPECT_EQ(ctx, after != nullptr && *after == Value{std::int64_t{9}}, true);
+        });
+
+    test_detail::with_case(ctx, "closed_forms :: value_from_big_rational lattice", [&] {
+        using tcalc::eval::CppRat;
+        using tcalc::eval::value_from_big_rational;
+        // int64-range integer -> Rational (NOT Int64)
+        EXPECT_EQ(ctx, value_from_big_rational(CppRat(15)), Value{Rational(15)});
+        // small fraction -> Rational
+        EXPECT_EQ(ctx, value_from_big_rational(CppRat(1, 2)), Value{Rational(1, 2)});
+        // past int64 -> double (the calc's overflow convention, not BigReal)
+        const Value big = value_from_big_rational(CppRat("1000000000000000000000")); // 1e21 > int64
+        EXPECT_EQ(ctx, std::holds_alternative<double>(big), true);
+    });
+
+    test_detail::with_case(ctx, "closed_forms :: faulhaber sums polynomials exactly", [&] {
+        using tcalc::eval::CppRat;
+        using tcalc::eval::faulhaber_sum;
+        // Sum n over 1..5 = 15
+        EXPECT_EQ(ctx, faulhaber_sum({CppRat(0), CppRat(1)}, 1, 5), CppRat(15));
+        // Sum n^2 over 1..4 = 30
+        EXPECT_EQ(ctx, faulhaber_sum({CppRat(0), CppRat(0), CppRat(1)}, 1, 4), CppRat(30));
+        // Sum (n^2 - 3n) over 1..5 = 10
+        EXPECT_EQ(ctx, faulhaber_sum({CppRat(0), CppRat(-3), CppRat(1)}, 1, 5), CppRat(10));
+        // constant body c0 over a..b = c0*(b-a+1)
+        EXPECT_EQ(ctx, faulhaber_sum({CppRat(7)}, 2, 5), CppRat(28));
+        // range not starting at 1: Sum n over 3..5 = 12
+        EXPECT_EQ(ctx, faulhaber_sum({CppRat(0), CppRat(1)}, 3, 5), CppRat(12));
+        // large range stays exact: Sum n^2 over 1..1000000
+        EXPECT_EQ(
+            ctx,
+            faulhaber_sum({CppRat(0), CppRat(0), CppRat(1)}, 1, 1000000),
+            CppRat("333333833333500000"));
+    });
+
+    test_detail::with_case(ctx, "closed_forms :: canonicalise polynomial bodies", [&] {
+        using tcalc::eval::canonicalise;
+        using tcalc::eval::CppRat;
+        const auto poly = [](const char *body) {
+            return canonicalise(
+                tcalc::eval::shunting_yard(tcalc::parser::tokenize(body).tokens), "n");
+        };
+        EXPECT_EQ(ctx, poly("n").value(), (std::vector<CppRat>{CppRat(0), CppRat(1)}));
+        EXPECT_EQ(
+            ctx, poly("n^{2}-3n").value(), (std::vector<CppRat>{CppRat(0), CppRat(-3), CppRat(1)}));
+        EXPECT_EQ(
+            ctx,
+            poly("(n^{2}-1)/2").value(),
+            (std::vector<CppRat>{CppRat(-1, 2), CppRat(0), CppRat(1, 2)}));
+        EXPECT_EQ(ctx, poly("2n").value(), (std::vector<CppRat>{CppRat(0), CppRat(2)}));
+        EXPECT_EQ(ctx, poly("5").value(), (std::vector<CppRat>{CppRat(5)}));
+        // trailing zero trimmed: (n+1)^2 - n^2 = 2n + 1
+        EXPECT_EQ(
+            ctx, poly("(n+1)^{2}-n^{2}").value(), (std::vector<CppRat>{CppRat(1), CppRat(2)}));
+        // degree exactly at the cap is still accepted
+        EXPECT_EQ(ctx, poly("n^{24}").has_value(), true);
+    });
+
+    test_detail::with_case(ctx, "closed_forms :: canonicalise rejects non-polynomials", [&] {
+        using tcalc::eval::canonicalise;
+        const auto poly = [](const char *body) {
+            return canonicalise(
+                tcalc::eval::shunting_yard(tcalc::parser::tokenize(body).tokens), "n");
+        };
+        EXPECT_EQ(ctx, poly("sin(n)").has_value(), false);  // a Call
+        EXPECT_EQ(ctx, poly("1/n").has_value(), false);     // division by the variable
+        EXPECT_EQ(ctx, poly("1/(n-3)").has_value(), false); // divisor depends on the var
+        EXPECT_EQ(ctx, poly("2^{n}").has_value(), false);   // variable exponent
+        EXPECT_EQ(ctx, poly("\\pi n").has_value(), false);  // irrational coefficient
+        EXPECT_EQ(ctx, poly("n^{25}").has_value(), false);  // degree exceeds Bernoulli table
+        EXPECT_EQ(ctx, poly("2^{25}").has_value(), false);  // exponent exceeds kMaxDegree
+        // a var-free zero divisor always errors, even without a bound loop: it throws the
+        // calc's normal division error instead of silently declining to brute force.
+        EXPECT_THROWS(ctx, poly("n/0"));          // literal-zero divisor, Op::Div arm
+        EXPECT_THROWS(ctx, poly("\\frac{n}{0}")); // literal-zero divisor, Frac arm
+    });
+
+    test_detail::with_case(
+        ctx, "closed form :: a double-bound session variable falls to brute", [&] {
+            // A is bound to a double, not a Rational, so canonicalise's exactness gate rejects
+            // the coefficient and the body brute-forces: 0.5 * (1 + 2 + 3) = 3.0, a double.
+            session_vars().clear();
+            session_vars().set("A", Value{0.5});
+            EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} An"), Value{3.0});
+            session_vars().clear();
+        });
+
+    // Cap-exempt: 54M is far past kMaxIterations; the closed form is instant. The result
+    // overflows int64, so it comes back a double (asserted by alternative, not value).
+    test_detail::with_case(ctx, "closed form :: is cap-exempt", [&] {
+        const Value v = eval_text(c, "\\sum_{n=1}^{54000000} (n^{2} - 3n)");
+        EXPECT_EQ(ctx, std::holds_alternative<double>(v), true);
+    });
+
+    // Bodies that STAY in closed form (sums go through Faulhaber, var-free products through
+    // c^count). The value is exact and equals brute force for these int64-range results.
+    const std::vector<EvalCase> iterated_closed_cases = {
+        {.id = "sum of squares, term rule",
+         .input = "\\sum_{n=1}^{4} n^{2}",
+         .expected = Value{Rational(30)}},
+        {.id = "term rule with surrounding terms",
+         .input = "2 + \\sum_{n=1}^{5} n^{2} - 4",
+         .expected = Value{Rational(53)}},
+        {.id = "parenthesised polynomial body",
+         .input = "\\sum_{n=1}^{5} (n^{2} - 3n)",
+         .expected = Value{Rational(10)}},
+        {.id = "power of a binomial base",
+         .input = "\\sum_{n=1}^{5} (n+2)^{3}",
+         .expected = Value{Rational(775)}},
+        {.id = "canonicalises to a lower degree",
+         .input = "\\sum_{n=1}^{5} ((n+1)^{2} - n^{2})", // = sum of 2n+1
+         .expected = Value{Rational(35)}},
+        {.id = "full multi-term polynomial",
+         .input = "\\sum_{n=1}^{4} (n^{3} + 2n^{2} - n + 5)",
+         .expected = Value{Rational(170)}},
+        {.id = "fraction with rational coefficients",
+         .input = "\\sum_{n=1}^{6} \\frac{n^{2} - 1}{2}",
+         .expected = Value{Rational(85, 2)}},
+        {.id = "product of factors convolved out",
+         .input = "\\sum_{n=1}^{5} n(n+1)(n+2)",
+         .expected = Value{Rational(420)}},
+        {.id = "degree 4 exercises B_4",
+         .input = "\\sum_{n=1}^{4} n^{4}",
+         .expected = Value{Rational(354)}},
+        {.id = "degree 5", .input = "\\sum_{n=1}^{4} n^{5}", .expected = Value{Rational(1300)}},
+        {.id = "degree 6 exercises B_6",
+         .input = "\\sum_{n=1}^{3} n^{6}",
+         .expected = Value{Rational(794)}},
+        {.id = "degree 20 stays closed (raised cap)",
+         .input = "\\sum_{n=1}^{3} (n+1)^{10}(n-1)^{10}",
+         .expected = Value{Rational(1073800873)}},
+        {.id = "degree 24 exercises B_24 at the cap",
+         .input = "\\sum_{n=1}^{3} (n+1)^{12}(n-1)^{12}",
+         .expected = Value{Rational(68720008177)}},
+        {.id = "var-free product", .input = "\\prod_{n=1}^{5} 3", .expected = Value{Rational(243)}},
+        {.id = "var-free fractional product",
+         .input = "\\prod_{n=1}^{10} (1/2)",
+         .expected = Value{Rational(1, 1024)}},
+        {.id = "var-free negative product",
+         .input = "\\prod_{n=1}^{5} (-2)",
+         .expected = Value{Rational(-32)}},
+    };
+
+    for (const auto &tc : iterated_closed_cases) {
+        test_detail::with_case(ctx, std::string("closed form :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, eval_text(c, tc.input), tc.expected);
+        });
+    }
+
+    // Bodies that FALL to brute force (not a polynomial for a sum, degree >= 1 for a product).
+    // Brute still computes the correct value; the closed-form matcher just declines.
+    const std::vector<EvalCase> iterated_brute_cases = {
+        {.id = "sum: division by the variable",
+         .input = "\\sum_{n=1}^{4} 1/n",
+         .expected = Value{Rational(25, 12)}},
+        {.id = "sum: a variable exponent (geometric)",
+         .input = "\\sum_{n=1}^{5} 2^{n}",
+         .expected = Value{Rational(62)}},
+        {.id = "sum: a postfix factorial",
+         .input = "\\sum_{n=1}^{4} n!",
+         .expected = Value{33.0}}, // factorial has no Rational arm, so this is a double
+        {.id = "sum: a nested sum",
+         .input = "\\sum_{q=1}^{2} \\sum_{m=1}^{2} qm",
+         .expected = Value{Rational(9)}},
+        {.id = "sum: a function-call mask",
+         .input = "\\sum_{n=1}^{3} n(1-mod(n,2))",
+         .expected = Value{BigReal("2")}}, // mod has no Rational kernel, promotes to BigReal
+        {.id = "sum: a divisor containing the variable",
+         .input = "\\sum_{n=1}^{3} \\frac{n^{2}}{n+1}",
+         .expected = Value{Rational(49, 12)}},
+        {.id = "product: degree-1 body",
+         .input = "\\prod_{n=1}^{4} n",
+         .expected = Value{Rational(24)}},
+        {.id = "product: a shifted linear body",
+         .input = "\\prod_{n=1}^{4} (n+1)",
+         .expected = Value{Rational(120)}},
+        {.id = "product: squares",
+         .input = "\\prod_{n=1}^{3} n^{2}",
+         .expected = Value{Rational(36)}},
+        {.id = "product: a body with a coefficient",
+         .input = "\\prod_{n=1}^{4} 2n",
+         .expected = Value{Rational(384)}},
+        {.id = "product: a non-monomial body",
+         .input = "\\prod_{n=1}^{3} (n^{2}+1)",
+         .expected = Value{Rational(100)}},
+    };
+
+    for (const auto &tc : iterated_brute_cases) {
+        test_detail::with_case(ctx, std::string("iterated brute :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, eval_text(c, tc.input), tc.expected);
+        });
+    }
+
+    test_detail::with_case(
+        ctx, "closed form :: a var-free product over a huge range is still capped", [&] {
+            // c^count blows up exponentially, unlike Faulhaber's Sum, and one big-int squaring
+            // is a single allocation the deadline cannot interrupt, so the product closed form
+            // keeps its own size bound and throws directly over it.
+            EXPECT_THROWS(ctx, eval_text(c, "\\prod_{n=1}^{2000000} 3"));
+            try {
+                eval_text(c, "\\prod_{n=1}^{2000000} 3");
+            } catch (const CalculatorError &e) {
+                EXPECT_EQ(
+                    ctx,
+                    std::string(e.what()),
+                    std::string("Product range is too large to compute."));
+            }
+        });
+
+    test_detail::with_case(
+        ctx, "closed form :: a var-free product at the int64 extremes does not overflow", [&] {
+            // first and last sit near the int64 extremes: last - first overflows a signed
+            // 64-bit subtraction. The count must be computed in uint64 (matching the
+            // Sum extreme-bounds test above), so this throws range-too-large instead of
+            // silently wrapping to a near-zero count and returning 1.
+            EXPECT_THROWS(
+                ctx, eval_text(c, "\\prod_{n=-9223372036854775807}^{9223372036854775807} 3"));
+        });
+
+    test_detail::with_case(
+        ctx,
+        "closed form :: a var-free product at the true INT64_MIN lower bound does not "
+        "silently return 1",
+        [&] {
+            // -9223372036854775807-1 evaluates to exactly INT64_MIN, the true extreme (the
+            // test above is off by one, since -9223372036854775807 alone still fits as a
+            // positive literal negated). At this span, count = last - first + 1 wraps to 0 in
+            // uint64, so a naive count-based cap check would miss it and the exponentiation
+            // loop would run 0 iterations, silently returning 1 instead of throwing.
+            EXPECT_THROWS(
+                ctx, eval_text(c, "\\prod_{n=-9223372036854775807-1}^{9223372036854775807} 3"));
+            try {
+                eval_text(c, "\\prod_{n=-9223372036854775807-1}^{9223372036854775807} 3");
+            } catch (const CalculatorError &e) {
+                EXPECT_EQ(
+                    ctx,
+                    std::string(e.what()),
+                    std::string("Product range is too large to compute."));
+            }
+        });
+
+    test_detail::with_case(
+        ctx,
+        "closed_forms :: division by a literal-zero divisor raises the div-by-zero error",
+        [&] {
+            // A var-free zero divisor is caught by the matcher itself and throws the calc's
+            // normal division error, matching what brute force would have raised anyway.
+            EXPECT_THROWS(ctx, eval_text(c, "\\sum_{n=1}^{3} n/0"));
+            try {
+                eval_text(c, "\\sum_{n=1}^{3} n/0");
+            } catch (const CalculatorError &e) {
+                EXPECT_EQ(ctx, std::string(e.what()), std::string("Math error"));
+            }
+        });
+
+    test_detail::with_case(
+        ctx,
+        "closed_forms :: a huge div-by-zero range reports the math error, not range-too-large",
+        [&] {
+            // canonicalise walks the body before any size check, so a var-free zero divisor
+            // surfaces the real div-by-zero error rather than being masked by a range limit.
+            EXPECT_THROWS(ctx, eval_text(c, "\\sum_{n=1}^{2000000} n/0"));
+            try {
+                eval_text(c, "\\sum_{n=1}^{2000000} n/0");
+            } catch (const CalculatorError &e) {
+                EXPECT_EQ(ctx, std::string(e.what()), std::string("Math error"));
+            }
         });
 }

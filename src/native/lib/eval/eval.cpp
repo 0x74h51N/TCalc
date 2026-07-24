@@ -1,3 +1,9 @@
+/*
+ * TCalc - High-performance native scientific calculator
+ * Copyright (C) 2026 Tahsin Önemli
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 #include "eval/pub/eval.hpp"
 
 #include <bit>
@@ -13,6 +19,8 @@
 #include <vector>
 
 #include "calc/pub/error_messages.hpp"
+#include "eval/internal/closed_forms.hpp"
+#include "eval/internal/deadline.hpp"
 #include "eval/pub/literal.hpp"
 #include "eval/pub/varstore.hpp"
 #include "parser/pub/consts.hpp"
@@ -359,6 +367,11 @@ Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::A
     return promote_range(id, c, dispatch_args, result, unit);
 }
 
+/// A constant's value, which is a double for all but the imaginary unit.
+Value const_value(const consts::ConstSpec &spec) {
+    return std::visit([](const auto &x) -> Value { return Value{x}; }, spec.value);
+}
+
 namespace {
 
 [[noreturn]] void throw_invalid(const std::string &message) {
@@ -385,11 +398,6 @@ template <class... Vs> std::vector<Value> args_of(Vs &&...vs) {
     out.reserve(sizeof...(vs));
     (out.push_back(std::forward<Vs>(vs)), ...);
     return out;
-}
-
-/// A constant's value, which is a double for all but the imaginary unit.
-Value const_value(const consts::ConstSpec &spec) {
-    return std::visit([](const auto &x) -> Value { return Value{x}; }, spec.value);
 }
 
 /// The name a subscript denotes: the text without its braces, so the token `x_{0}` and
@@ -675,10 +683,16 @@ std::int64_t require_integer(const Value &v, std::string_view op_name) {
     return r->numerator();
 }
 
-/// The expression is re-evaluated on every keystroke, so an unbounded brute-force loop
-/// would freeze the UI while the upper limit is still being typed. Part B's closed forms
-/// are O(1) and exempt.
-inline constexpr std::int64_t kMaxIterations = 1'000'000;
+// On in production; a benchmark turns it off to force the brute-force path. Read once per
+// iterate() call (before the loop). Function-local static so it is not a mutable namespace
+// global; visible to the public setters below since they share this translation unit.
+bool &closed_forms_flag() {
+    static bool on = true;
+    return on;
+}
+
+// Check the deadline once every this many brute iterations, so the clock read is amortized away.
+constexpr std::int64_t kDeadlineCheckStride = 1024;
 
 /// Run an iterated op's brute-force loop. Both limits are evaluated before the bound
 /// variable is bound, so a limit can never see it.
@@ -699,11 +713,16 @@ Value iterate(
     Value acc{Rational(is_sum ? 0 : 1)};
     if (first > last)
         return acc; // empty range yields the identity
-    // first <= last here, so the difference is non-negative: widen to unsigned before
-    // subtracting so a span near the int64 extremes cannot overflow past the cap check.
-    if (static_cast<std::uint64_t>(last) - static_cast<std::uint64_t>(first) >=
-        static_cast<std::uint64_t>(kMaxIterations))
-        throw_invalid(errmsg::iterated_range_too_large(op_name));
+
+    // body is always one token (a user paren, a single char, whatever normalize left in
+    // place); shunting_yard runs its own normalize + shunt over it. Hoisted out of the loop,
+    // and shared by the closed-form matcher below.
+    const std::vector<Token> rpn = shunting_yard(body);
+    // The closed-form matcher is checked once here, before the loop (not per iteration).
+    // A benchmark can force the brute path by turning it off; production leaves it on.
+    if (closed_forms_enabled())
+        if (auto closed = try_closed_form(tok.kind, rpn, var, first, last))
+            return *closed; // O(1) for a polynomial sum, exempt from any range limit
 
     // The loop variable is a transient local bind: remember the caller's binding and put
     // it back on every exit, so a sum never leaks its index.
@@ -718,12 +737,11 @@ Value iterate(
     };
 
     try {
-        // body is always one token (a user paren, a single char, whatever normalize left
-        // in place); shunting_yard runs its own normalize + shunt over it. Hoisted out of
-        // the loop.
-        const std::vector<Token> rpn = shunting_yard(body);
         const OpId op = is_sum ? OpId::Add : OpId::Mul;
+        std::int64_t steps = 0;
         for (std::int64_t m = first; m <= last; ++m) {
+            if ((++steps & (kDeadlineCheckStride - 1)) == 0)
+                check_deadline(); // early-exit a runaway loop; amortized ~free
             session_vars().set(var, Value{Rational(m)});
             acc = apply(c, op, args_of(std::move(acc), eval_rpn(rpn, c, unit)), unit);
         }
@@ -736,6 +754,13 @@ Value iterate(
 }
 
 } // namespace
+
+void set_closed_forms_enabled(bool on) {
+    closed_forms_flag() = on;
+}
+bool closed_forms_enabled() {
+    return closed_forms_flag();
+}
 
 Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::AngleUnit unit) {
     std::vector<Value> stack;
@@ -918,6 +943,9 @@ std::vector<Token> shunting_yard(std::span<const Token> tokens) {
 }
 
 Value eval_row(std::span<const Token> tokens, const Calculator &c, Calculator::AngleUnit unit) {
+    // Arms the wall-clock guard at the outermost row and reuses it for every nested row (a
+    // paren, a latex side, a call arg), so the whole evaluation shares one deadline.
+    const DeadlineScope deadline;
     return eval_rpn(shunting_yard(tokens), c, unit);
 }
 
@@ -966,7 +994,7 @@ std::string assign_target(const Token &tok) {
 
 Value evaluate(
     const parser::TokensBranch &branch, const Calculator &c, Calculator::AngleUnit unit) {
-    const std::span<const Token> tokens(branch.tokens);
+    const std::span<const Token> tokens(branch.tokens); // eval_row arms the wall-clock guard
     if (tokens.size() < 2 || !is_assign(tokens[1]))
         return eval_row(tokens, c, unit);
 
