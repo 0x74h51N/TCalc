@@ -1179,6 +1179,13 @@ void unit_eval(TestContext &ctx) {
             ctx, poly("(n+1)^{2}-n^{2}").value(), (std::vector<CppRat>{CppRat(1), CppRat(2)}));
         // degree exactly at the cap is still accepted
         EXPECT_EQ(ctx, poly("n^{24}").has_value(), true);
+        // exact polynomial division: the divisor divides the numerator evenly, so it is a
+        // polynomial (n^2 / n = n, (n^3 - 1) / (n - 1) = n^2 + n + 1).
+        EXPECT_EQ(ctx, poly("n^{2}/n").value(), (std::vector<CppRat>{CppRat(0), CppRat(1)}));
+        EXPECT_EQ(
+            ctx,
+            poly("\\frac{n^{3}-1}{n-1}").value(),
+            (std::vector<CppRat>{CppRat(1), CppRat(1), CppRat(1)}));
     });
 
     test_detail::with_case(ctx, "closed_forms :: canonicalise rejects non-polynomials", [&] {
@@ -1194,6 +1201,9 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, poly("\\pi n").has_value(), false);  // irrational coefficient
         EXPECT_EQ(ctx, poly("n^{25}").has_value(), false);  // degree exceeds Bernoulli table
         EXPECT_EQ(ctx, poly("2^{25}").has_value(), false);  // exponent exceeds kMaxDegree
+        EXPECT_EQ(
+            ctx, poly("n^{2}/(n+1)").has_value(), false); // nonzero remainder: rational function
+        EXPECT_EQ(ctx, poly("\\frac{n}{n-2}").has_value(), false); // remainder 2: not a polynomial
         // a var-free zero divisor always errors, even without a bound loop: it throws the
         // calc's normal division error instead of silently declining to brute force.
         EXPECT_THROWS(ctx, poly("n/0"));          // literal-zero divisor, Op::Div arm
@@ -1249,6 +1259,12 @@ void unit_eval(TestContext &ctx) {
         {.id = "fraction with rational coefficients",
          .input = "\\sum_{n=1}^{6} \\frac{n^{2} - 1}{2}",
          .expected = Value{Rational(85, 2)}},
+        {.id = "exact division n^2/n reduces to n",
+         .input = "\\sum_{n=1}^{4} n^{2}/n", // = sum of n = 10
+         .expected = Value{Rational(10)}},
+        {.id = "exact division fills the hole (brute would 0/0 at n=1, so a value proves closed)",
+         .input = "\\sum_{n=1}^{4} \\frac{n^{3}-1}{n-1}", // = sum of n^2+n+1 = 3+7+13+21
+         .expected = Value{Rational(44)}},
         {.id = "product of factors convolved out",
          .input = "\\sum_{n=1}^{5} n(n+1)(n+2)",
          .expected = Value{Rational(420)}},
@@ -1296,6 +1312,25 @@ void unit_eval(TestContext &ctx) {
         test_detail::with_case(ctx, std::string("closed form :: ") + tc.id, [&] {
             EXPECT_EQ(ctx, eval_text(c, tc.input), tc.expected);
         });
+    }
+
+    // Unsimplifiable rational bodies (nonzero remainder) whose divisor hits zero inside the
+    // range: they decline the closed form, brute-force, and raise the calc's math error at the
+    // zero point. The point is that the app errors gracefully, not that it crashes or loops.
+    const std::vector<const char *> brute_zero_divisor_cases = {
+        "\\sum_{n=1}^{5} 1/(n-3)",        // 1/(n-3): brute, n=3 -> 1/0
+        "\\sum_{n=1}^{5} \\frac{n}{n-2}", // n/(n-2): remainder 2, brute, n=2 -> n/0
+    };
+    for (const char *s : brute_zero_divisor_cases) {
+        test_detail::with_case(
+            ctx, std::string("iterated brute :: unsimplifiable zero divisor errors :: ") + s, [&] {
+                EXPECT_THROWS(ctx, eval_text(c, s));
+                try {
+                    eval_text(c, s);
+                } catch (const CalculatorError &e) {
+                    EXPECT_EQ(ctx, std::string(e.what()), std::string("Math error"));
+                }
+            });
     }
 
     // Bodies that FALL to brute force (not a polynomial for a sum, degree >= 1 for a product).

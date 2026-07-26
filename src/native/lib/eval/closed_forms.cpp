@@ -156,6 +156,28 @@ Poly poly_mul(const Poly &a, const Poly &b) {
     return r;
 }
 
+// Exact polynomial long division: the quotient a / b, but only when b divides a with no
+// remainder (n^2 / n = n). A nonzero remainder means a / b is a rational function, not a
+// polynomial, so it returns nullopt. b is trimmed and nonzero (degree >= 1 at the call site).
+// See: https://en.wikipedia.org/wiki/Polynomial_long_division
+std::optional<Poly> poly_div_exact(Poly a, const Poly &b) {
+    trim(a);
+    const std::size_t db = b.size() - 1; // divisor degree
+    if (a.size() <= db)                  // deg(a) < deg(b): exact only if a is the zero polynomial
+        return (a.size() == 1 && a[0] == 0) ? std::optional<Poly>(Poly{CppRat(0)}) : std::nullopt;
+    Poly q(a.size() - db, CppRat(0));
+    for (std::size_t k = q.size(); k-- > 0;) {
+        const CppRat coeff = a[k + db] / b[db]; // cancel the current leading term of a
+        q[k] = coeff;
+        for (std::size_t j = 0; j <= db; ++j) // subtract coeff * x^k * b
+            a[k + j] -= coeff * b[j];
+    }
+    trim(a); // what remains below degree db is the remainder
+    if (a.size() != 1 || a[0] != 0)
+        return std::nullopt; // nonzero remainder: not a polynomial
+    return q;
+}
+
 // A Number/Const/session-var value as an exact Rational, or nullopt (double / irrational).
 std::optional<CppRat> const_coeff(const Value &v) {
     const std::optional<Rational> r = to_rational(v);
@@ -281,8 +303,17 @@ std::optional<ClosedTerm> ct_mul(const ClosedTerm &a, const ClosedTerm &b) {
 
 // a / b. The divisor must be var-free (a Const, scaling) or geometric (Geo/Geo, Const/Geo).
 std::optional<ClosedTerm> ct_div(const ClosedTerm &a, const ClosedTerm &b) {
-    if (b.kind == ClosedTerm::Kind::Poly)
-        return std::nullopt; // dividing by a polynomial in the loop variable
+    if (b.kind == ClosedTerm::Kind::Poly) {
+        // dividing by a polynomial in the loop variable: closed only if it divides evenly
+        // (n^2 / n = n). A geometric numerator or a nonzero remainder is not a polynomial.
+        const auto pa = ct_poly_view(a);
+        if (!pa)
+            return std::nullopt;
+        auto q = poly_div_exact(*pa, b.poly);
+        if (!q)
+            return std::nullopt;
+        return ct_from_poly(std::move(*q));
+    }
     if (b.c == 0)
         calc_detail::math_error(); // var-free zero divisor always errors
     if (b.kind == ClosedTerm::Kind::Const && a.kind == ClosedTerm::Kind::Poly) {
@@ -351,20 +382,21 @@ std::optional<ClosedTerm> classify_walk(std::span<const Token> rpn, std::string_
         case TokenKind::Latex: {
             const auto &lx = std::get<parser::LatexToken>(tok.data);
             if (lx.kind == LatexKind::Pow) {
-                auto base = classify_walk(shunting_yard(lx.left), var);
-                if (!base)
+                auto base_opt = classify_walk(shunting_yard(lx.left), var);
+                if (!base_opt)
                     return std::nullopt;
+                const ClosedTerm base = std::move(*base_opt); // bind once, past the null check
                 if (const auto e = literal_int_exponent(lx.right)) {
                     // base ^ (literal non-negative int): a polynomial power by repeated
                     // convolution (n^2 = [0,1] convolved with itself), capped at kMaxDegree.
-                    if (base->kind == ClosedTerm::Kind::Geo)
+                    if (base.kind == ClosedTerm::Kind::Geo)
                         return std::nullopt;
                     const std::int64_t ex = static_cast<std::int64_t>(*e);
                     if (ex > static_cast<std::int64_t>(kMaxDegree))
                         return std::nullopt;
                     ClosedTerm acc = ct_const(CppRat(1));
                     for (std::int64_t p = 0; p < ex; ++p) {
-                        auto m = ct_mul(acc, *base);
+                        auto m = ct_mul(acc, base);
                         if (!m)
                             return std::nullopt;
                         acc = std::move(*m);
@@ -375,10 +407,10 @@ std::optional<ClosedTerm> classify_walk(std::span<const Token> rpn, std::string_
                     // be exactly the bare variable, the polynomial [0,1].
                     static const Poly kBareVar = {CppRat(0), CppRat(1)};
                     const auto exp = classify_walk(shunting_yard(lx.right), var);
-                    if (base->kind != ClosedTerm::Kind::Const || !exp ||
+                    if (base.kind != ClosedTerm::Kind::Const || !exp ||
                         exp->kind != ClosedTerm::Kind::Poly || exp->poly != kBareVar)
                         return std::nullopt;
-                    auto g = ct_geo(CppRat(1), base->c);
+                    auto g = ct_geo(CppRat(1), base.c);
                     if (!g)
                         return std::nullopt;
                     stack.push_back(std::move(*g));
