@@ -57,6 +57,46 @@ PIPELINE_EXPRESSIONS = {
 
 PIPELINE_THRESHOLDS_MS = {"simple": 1, "medium": 2, "complex": 5, "heavy": 10, "sick": 50}
 
+# //// Iterated-op expressions (sum: closed Faulhaber vs forced brute) \\\\\\\\\\\\\\\\
+# Same polynomial body, but the two paths run at DIFFERENT ranges: closed is O(1) in range
+# (flat ~us at any range), so it runs at 1M to show production scale; brute is O(range) and
+# would take ~15-90s/round at 1M, so it runs at a small, benchmarkable range. Degree drives
+# the closed cost (Faulhaber), range drives the brute cost.
+_ITERATED_BODIES = {
+    "simple": "n",
+    "medium": "n^{2}",
+    "complex": "(2n+1)^{3}",
+    "heavy": "(n+1)^{4}(n-1)^{4}",
+    "sick": "(n+1)^{10}(n-1)^{10}",
+}
+_ITERATED_CLOSED_RANGE = 1_000_000
+_ITERATED_BRUTE_RANGE = 20_000
+ITERATED_SUM_CLOSED_EXPRESSIONS = {
+    tier: f"\\sum_{{n=1}}^{{{_ITERATED_CLOSED_RANGE}}} {body}"
+    for tier, body in _ITERATED_BODIES.items()
+}
+ITERATED_SUM_BRUTE_EXPRESSIONS = {
+    tier: f"\\sum_{{n=1}}^{{{_ITERATED_BRUTE_RANGE}}} {body}"
+    for tier, body in _ITERATED_BODIES.items()
+}
+
+
+ITERATED_CLOSED_THRESHOLDS_MS = {
+    "simple": 1,
+    "medium": 2,
+    "complex": 3,
+    "heavy": 5,
+    "sick": 10,
+}
+
+ITERATED_BRUTE_ROUNDS = {
+    "simple": (60, 5),
+    "medium": (40, 5),
+    "complex": (20, 3),
+    "heavy": (10, 2),
+    "sick": (10, 2),
+}
+
 # //// Paren / LaTeX expressions \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 PAREN_EXPRESSIONS = {

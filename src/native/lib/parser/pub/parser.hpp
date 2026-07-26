@@ -109,7 +109,20 @@ enum class LatexKind : std::uint8_t {
     /// Subscript (variable index):
     /// base_{index}
     Subscript,
+    /// Summation over a bound variable and inclusive range:
+    /// \sum_{var=start}^{end}   (left = lower limit, right = upper limit; body is the
+    /// following term in the row, not captured here). op_id = OpId::Count sentinel:
+    /// an iterated op is an eval-time control structure, never a kernel operator.
+    Sum,
+    /// Product over a bound variable and inclusive range: \prod_{var=start}^{end}.
+    Prod,
 };
+
+/// True for the iterated-op kinds (Sum/Prod): script-delimited args, empty limits
+/// never stolen from neighbours, and no implicit multiplication after the token.
+inline constexpr bool is_iterated(LatexKind kind) noexcept {
+    return kind == LatexKind::Sum || kind == LatexKind::Prod;
+}
 
 /// LaTeX expression mapping: symbol -> LatexKind
 struct LatexEntry {
@@ -123,7 +136,9 @@ constexpr std::array kLatexExprs = {
     LatexEntry{"^", LatexKind::Pow, tcalc::ops::OpId::Pow},
     LatexEntry{"_", LatexKind::Subscript, tcalc::ops::OpId::Count},
     LatexEntry{"\\root", LatexKind::Root, tcalc::ops::OpId::Root},
-    LatexEntry{"\\log", LatexKind::Log, tcalc::ops::OpId::Log}};
+    LatexEntry{"\\log", LatexKind::Log, tcalc::ops::OpId::Log},
+    LatexEntry{"\\sum", LatexKind::Sum, tcalc::ops::OpId::Count},
+    LatexEntry{"\\prod", LatexKind::Prod, tcalc::ops::OpId::Count}};
 
 /// Parser token;
 /// numbers store raw text in value, ops store op_id.
@@ -372,7 +387,7 @@ TokensBranch classify_tokens(std::vector<Token> tokens);
 
 /// Compile-time lookup table: LatexKind -> LaTeX symbol.
 consteval auto build_latex_symbols() {
-    constexpr auto count = static_cast<std::size_t>(LatexKind::Subscript) + 1;
+    constexpr auto count = static_cast<std::size_t>(LatexKind::Prod) + 1;
     std::array<std::string_view, count> table{};
     for (const auto &entry : kLatexExprs) {
         table[static_cast<std::size_t>(entry.kind)] = entry.symbol;

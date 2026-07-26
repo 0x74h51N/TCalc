@@ -84,4 +84,13 @@ void bind_eval(py::module_ &m) {
         py::arg("unit"));
 
     m.def("clear_vars", [] { tcalc::eval::session_vars().clear(); });
+
+    // Iterated-op closed-form matcher; a benchmark turns it off to force the brute path.
+    m.def("set_closed_forms_enabled", &tcalc::eval::set_closed_forms_enabled, py::arg("on"));
+    m.def("closed_forms_enabled", &tcalc::eval::closed_forms_enabled);
+
+    // Wall-clock budget per evaluate(), in ms. 0 = unlimited (default, for tests/benchmarks);
+    // the app sets ~500ms so a runaway expression errors instead of freezing the UI.
+    m.def("set_eval_time_budget_ms", &tcalc::eval::set_eval_time_budget_ms, py::arg("ms"));
+    m.def("eval_time_budget_ms", &tcalc::eval::eval_time_budget_ms);
 }

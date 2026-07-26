@@ -1,3 +1,23 @@
+/*
+ *
+ *  TCalc is a native-powered scientific desktop calculator designed
+ *  for high-performance, precision, and a superior user experience.
+ *  Copyright (C) 2026 Tahsin Önemli
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #pragma once
 
 #include <span>
@@ -29,6 +49,9 @@ std::vector<Value> coerce(ops::OpId id, std::vector<Value> args);
 /// exact arithmetic cannot represent its result, then range promotion.
 Value apply(const Calculator &c, ops::OpId id, std::vector<Value> args, Calculator::AngleUnit unit);
 
+/// A constant's value, which is a double for all but the imaginary unit.
+Value const_value(const consts::ConstSpec &spec);
+
 /// Insert implicit multiplication and fold runs of + and - into one sign. The step the
 /// shunt runs first; exposed because it is worth pinning on its own.
 std::vector<parser::Token> normalize(std::span<const parser::Token> tokens);
@@ -48,5 +71,18 @@ Value eval_row(
 /// name on its left is bound in the session store to the value of everything on its right.
 /// Any other row is evaluated as it stands.
 Value evaluate(const parser::TokensBranch &branch, const Calculator &c, Calculator::AngleUnit unit);
+
+/// Toggle the iterated-op closed-form matcher (Faulhaber / var-free product). On by default;
+/// a benchmark turns it off to measure the brute-force path on the same expression. The flag is
+/// read once per iterate() call, before the loop, so it adds no per-iteration cost.
+void set_closed_forms_enabled(bool on);
+bool closed_forms_enabled();
+
+/// Wall-clock budget for one top-level evaluate(), in milliseconds. 0 (default) is unlimited,
+/// which the benchmark and the whole test suite keep so their timings stay deterministic.
+/// The app sets ~500ms so a runaway expression returns a "timed out" error instead of freezing
+/// the UI. Read once when a deadline is armed, so it costs nothing while unlimited.
+void set_eval_time_budget_ms(long ms);
+long eval_time_budget_ms();
 
 } // namespace tcalc::eval

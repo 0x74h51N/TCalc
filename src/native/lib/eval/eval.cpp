@@ -1,8 +1,15 @@
+/*
+ * TCalc - High-performance native scientific calculator
+ * Copyright (C) 2026 Tahsin Önemli
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 #include "eval/pub/eval.hpp"
 
 #include <bit>
 #include <cmath>
 #include <memory>
+#include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -12,6 +19,8 @@
 #include <vector>
 
 #include "calc/pub/error_messages.hpp"
+#include "eval/internal/closed_forms.hpp"
+#include "eval/internal/deadline.hpp"
 #include "eval/pub/literal.hpp"
 #include "eval/pub/varstore.hpp"
 #include "parser/pub/consts.hpp"
@@ -358,6 +367,11 @@ Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::A
     return promote_range(id, c, dispatch_args, result, unit);
 }
 
+/// A constant's value, which is a double for all but the imaginary unit.
+Value const_value(const consts::ConstSpec &spec) {
+    return std::visit([](const auto &x) -> Value { return Value{x}; }, spec.value);
+}
+
 namespace {
 
 [[noreturn]] void throw_invalid(const std::string &message) {
@@ -384,11 +398,6 @@ template <class... Vs> std::vector<Value> args_of(Vs &&...vs) {
     out.reserve(sizeof...(vs));
     (out.push_back(std::forward<Vs>(vs)), ...);
     return out;
-}
-
-/// A constant's value, which is a double for all but the imaginary unit.
-Value const_value(const consts::ConstSpec &spec) {
-    return std::visit([](const auto &x) -> Value { return Value{x}; }, spec.value);
 }
 
 /// The name a subscript denotes: the text without its braces, so the token `x_{0}` and
@@ -596,13 +605,169 @@ Value eval_op(OpId id, std::vector<Value> &stack, const Calculator &c, Calculato
     return apply(c, id, args_of(std::move(left), std::move(right)), unit);
 }
 
+/// A token that completes an operand: a following +/- is binary, and an implicit
+/// multiplication may be inserted after it. Shared by the implicit-mult rule and the
+/// iterated-body terminator.
+bool ends_operand(const Token &t) {
+    if (t.kind == TokenKind::Latex)
+        return !parser::is_iterated(std::get<parser::LatexToken>(t.data).kind);
+    if (t.kind == TokenKind::Number || t.kind == TokenKind::Char || t.kind == TokenKind::Const)
+        return true;
+    if (t.kind == TokenKind::Paren)
+        return std::get<parser::ParenToken>(t.data).has_close;
+    if (t.kind == TokenKind::Call)
+        return std::get<parser::CallToken>(t.data).has_close;
+    if (t.kind == TokenKind::Op)
+        return ops::op_spec(std::get<parser::OpToken>(t.data).op_id)->arity == ops::Arity::Postfix;
+    return false;
+}
+
+/// Add's precedence: an iterated body keeps everything that binds tighter than this.
+inline constexpr std::uint8_t kIteratedBodyPrecedence = ops::op_spec(OpId::Add)->precedence;
+
+/// True when tok ends the iterated body collected so far. An operator in operand position
+/// is a sign, not a terminator, so the body of `\sum_{n=1}^{3} +n` keeps its `+`.
+bool closes_iterated_body(const Token &tok, const std::vector<Token> &body) {
+    if (tok.kind != TokenKind::Op || body.empty() || !ends_operand(body.back()))
+        return false;
+    return ops::op_spec(std::get<parser::OpToken>(tok.data).op_id)->precedence <=
+           kIteratedBodyPrecedence;
+}
+
+bool opens_iterated_body(const Token &t) {
+    return t.kind == TokenKind::Latex &&
+           parser::is_iterated(std::get<parser::LatexToken>(t.data).kind);
+}
+
+/// Finish the innermost open body and append it to its parent. A single token is already
+/// a complete operand (a user paren, a Pow, a bare Char, anything) and passes through
+/// unwrapped. An empty body becomes a paren with no elements, the "no body" marker; the
+/// eval arm reads that directly, no reaching inside a paren required. Eval-only: render
+/// reads the original branch, so this never reaches the UI.
+void close_body(std::vector<std::vector<Token>> &out) {
+    std::vector<Token> body = std::move(out.back());
+    out.pop_back();
+    if (body.size() == 1) {
+        out.back().push_back(std::move(body[0]));
+        return;
+    }
+    parser::ParenToken group;
+    group.kind = parser::ParenKind::Paren;
+    if (!body.empty())
+        group.elements.emplace_back(std::move(body));
+    out.back().push_back(
+        Token{.kind = TokenKind::Paren, .data = parser::TokenData{std::move(group)}});
+}
+
+/// Display name for an iterated op's error messages.
+std::string_view iterated_op_name(LatexKind kind) {
+    return kind == LatexKind::Sum ? "Sum" : "Product";
+}
+
+/// Split an iterated lower limit `[Char(var), Op(Assign), <start tokens>]`.
+std::pair<std::string, std::span<const Token>>
+peel_lower(const std::vector<Token> &left, std::string_view op_name) {
+    if (left.size() < 3 || left[0].kind != TokenKind::Char || left[1].kind != TokenKind::Op ||
+        std::get<parser::OpToken>(left[1].data).op_id != OpId::Assign)
+        throw_invalid(errmsg::iterated_bad_lower(op_name));
+    return {
+        std::string(1, std::get<parser::CharToken>(left[0].data).value),
+        std::span<const Token>(left).subspan(2)};
+}
+
+/// A bound must be a whole number: 2.5 is an error, not a truncation.
+std::int64_t require_integer(const Value &v, std::string_view op_name) {
+    const std::optional<Rational> r = to_rational(v);
+    if (!r || r->denominator() != 1)
+        throw_invalid(errmsg::iterated_non_integer_bound(op_name));
+    return r->numerator();
+}
+
+// On in production; a benchmark turns it off to force the brute-force path. Read once per
+// iterate() call (before the loop). Function-local static so it is not a mutable namespace
+// global; visible to the public setters below since they share this translation unit.
+bool &closed_forms_flag() {
+    static bool on = true;
+    return on;
+}
+
+// Check the deadline once every this many brute iterations, so the clock read is amortized away.
+constexpr std::int64_t kDeadlineCheckStride = 1024;
+
+/// Run an iterated op's brute-force loop. Both limits are evaluated before the bound
+/// variable is bound, so a limit can never see it.
+Value iterate(
+    const parser::LatexToken &tok,
+    std::span<const Token> body,
+    const Calculator &c,
+    Calculator::AngleUnit unit) {
+    const std::string_view op_name = iterated_op_name(tok.kind);
+    if (tok.right.empty())
+        throw_invalid(errmsg::iterated_missing_upper(op_name));
+
+    const auto [var, start_tokens] = peel_lower(tok.left, op_name);
+    const std::int64_t first = require_integer(eval_row(start_tokens, c, unit), op_name);
+    const std::int64_t last = require_integer(eval_row(tok.right, c, unit), op_name);
+
+    const bool is_sum = tok.kind == LatexKind::Sum;
+    Value acc{Rational(is_sum ? 0 : 1)};
+    if (first > last)
+        return acc; // empty range yields the identity
+
+    // body is always one token (a user paren, a single char, whatever normalize left in
+    // place); shunting_yard runs its own normalize + shunt over it. Hoisted out of the loop,
+    // and shared by the closed-form matcher below.
+    const std::vector<Token> rpn = shunting_yard(body);
+    // The closed-form matcher is checked once here, before the loop (not per iteration).
+    // A benchmark can force the brute path by turning it off; production leaves it on.
+    if (closed_forms_enabled())
+        if (auto closed = try_closed_form(tok.kind, rpn, var, first, last))
+            return *closed; // O(1) for a polynomial sum, exempt from any range limit
+
+    // The loop variable is a transient local bind: remember the caller's binding and put
+    // it back on every exit, so a sum never leaks its index.
+    const Value *prior = session_vars().get(var);
+    const std::optional<Value> saved =
+        prior != nullptr ? std::optional<Value>(*prior) : std::nullopt;
+    const auto restore = [&] {
+        if (saved)
+            session_vars().set(var, *saved);
+        else
+            session_vars().unset(var);
+    };
+
+    try {
+        const OpId op = is_sum ? OpId::Add : OpId::Mul;
+        std::int64_t steps = 0;
+        for (std::int64_t m = first; m <= last; ++m) {
+            if ((++steps & (kDeadlineCheckStride - 1)) == 0)
+                check_deadline(); // early-exit a runaway loop; amortized ~free
+            session_vars().set(var, Value{Rational(m)});
+            acc = apply(c, op, args_of(std::move(acc), eval_rpn(rpn, c, unit)), unit);
+        }
+    } catch (...) {
+        restore();
+        throw;
+    }
+    restore();
+    return acc;
+}
+
 } // namespace
+
+void set_closed_forms_enabled(bool on) {
+    closed_forms_flag() = on;
+}
+bool closed_forms_enabled() {
+    return closed_forms_flag();
+}
 
 Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::AngleUnit unit) {
     std::vector<Value> stack;
     stack.reserve(rpn.size());
 
-    for (const Token &tok : rpn) {
+    for (std::size_t i = 0; i < rpn.size(); ++i) {
+        const Token &tok = rpn[i];
         switch (tok.kind) {
         case TokenKind::Number:
             stack.push_back(literal_value(std::get<parser::NumberToken>(tok.data).value));
@@ -617,6 +782,18 @@ Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::Angl
             break;
         case TokenKind::Latex: {
             const auto &latex = std::get<parser::LatexToken>(tok.data);
+            if (parser::is_iterated(latex.kind)) {
+                // normalize guarantees the body token is next; consume it too. An empty
+                // paren is the "no body" marker close_body leaves when nothing follows.
+                ++i;
+                const bool no_body =
+                    i >= rpn.size() || (rpn[i].kind == TokenKind::Paren &&
+                                        std::get<parser::ParenToken>(rpn[i].data).elements.empty());
+                if (no_body)
+                    throw_invalid(errmsg::iterated_missing_body(iterated_op_name(latex.kind)));
+                stack.push_back(iterate(latex, rpn.subspan(i, 1), c, unit));
+                break;
+            }
             stack.push_back(
                 latex.kind == LatexKind::Subscript ? eval_subscript(tok)
                                                    : eval_latex(latex, c, unit));
@@ -646,31 +823,19 @@ Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::Angl
 }
 
 /// Insert implicit multiplication and collapse runs of + and - into one sign, before the
-/// shunt. Reads the row without owning it and builds the normalized copy fresh.
+/// shunt. Also groups each iterated op's body into a synthetic paren so the shunt's flat
+/// RPN cannot lose the boundary between the body and what follows it. Reads the row
+/// without owning it and builds the normalized copy fresh.
 std::vector<Token> normalize(std::span<const Token> raw) {
-    std::vector<Token> normalized;
-    normalized.reserve(raw.size());
+    std::vector<std::vector<Token>> out;
+    out.emplace_back();
+    out.back().reserve(raw.size());
 
     const auto is_plus_minus = [](const Token &t) -> bool {
         if (t.kind != TokenKind::Op)
             return false;
         const auto &op_token = std::get<parser::OpToken>(t.data);
         return op_token.op_id == OpId::Add || op_token.op_id == OpId::Sub;
-    };
-
-    const auto ends_operand = [](const Token &t) -> bool {
-        if (t.kind == TokenKind::Number || t.kind == TokenKind::Latex ||
-            t.kind == TokenKind::Char || t.kind == TokenKind::Const) {
-            return true;
-        }
-        if (t.kind == TokenKind::Paren)
-            return std::get<parser::ParenToken>(t.data).has_close;
-        if (t.kind == TokenKind::Call)
-            return std::get<parser::CallToken>(t.data).has_close;
-        if (t.kind == TokenKind::Op)
-            return ops::op_spec(std::get<parser::OpToken>(t.data).op_id)->arity ==
-                   ops::Arity::Postfix;
-        return false;
     };
 
     const auto starts_operand = [](const Token &t) -> bool {
@@ -689,11 +854,16 @@ std::vector<Token> normalize(std::span<const Token> raw) {
     };
 
     for (const Token &tok : raw) {
-        if (!normalized.empty()) {
-            const Token &last = normalized.back();
+        // A binary operator no tighter than Add closes every body it separates.
+        while (out.size() > 1 && closes_iterated_body(tok, out.back()))
+            close_body(out);
+
+        std::vector<Token> &cur = out.back();
+        if (!cur.empty()) {
+            const Token &last = cur.back();
 
             if (is_plus_minus(tok) && is_plus_minus(last)) {
-                auto &last_op = std::get<parser::OpToken>(normalized.back().data);
+                auto &last_op = std::get<parser::OpToken>(cur.back().data);
                 const auto &curr_op = std::get<parser::OpToken>(tok.data);
 
                 if (last_op.op_id == OpId::Sub) {
@@ -706,20 +876,23 @@ std::vector<Token> normalize(std::span<const Token> raw) {
             }
 
             if (ends_operand(last) && starts_operand(tok))
-                normalized.push_back(
+                cur.push_back(
                     Token{
                         .kind = TokenKind::Op,
                         .data = parser::TokenData{parser::OpToken{OpId::Mul}}});
         }
-        normalized.push_back(tok);
+        cur.push_back(tok);
+
+        if (opens_iterated_body(tok))
+            out.emplace_back(); // the buffer this sum's body fills
     }
 
-    return normalized;
+    while (out.size() > 1)
+        close_body(out);
+    return std::move(out.front());
 }
 
-std::vector<Token> shunting_yard(std::span<const Token> tokens) {
-    std::vector<Token> normalized = normalize(tokens);
-
+std::vector<Token> shunt_normalized(std::vector<Token> normalized) {
     std::vector<Token> output;
     output.reserve(normalized.size());
     std::vector<Token> operator_stack;
@@ -765,7 +938,14 @@ std::vector<Token> shunting_yard(std::span<const Token> tokens) {
     return output;
 }
 
+std::vector<Token> shunting_yard(std::span<const Token> tokens) {
+    return shunt_normalized(normalize(tokens));
+}
+
 Value eval_row(std::span<const Token> tokens, const Calculator &c, Calculator::AngleUnit unit) {
+    // Arms the wall-clock guard at the outermost row and reuses it for every nested row (a
+    // paren, a latex side, a call arg), so the whole evaluation shares one deadline.
+    const DeadlineScope deadline;
     return eval_rpn(shunting_yard(tokens), c, unit);
 }
 
@@ -814,7 +994,7 @@ std::string assign_target(const Token &tok) {
 
 Value evaluate(
     const parser::TokensBranch &branch, const Calculator &c, Calculator::AngleUnit unit) {
-    const std::span<const Token> tokens(branch.tokens);
+    const std::span<const Token> tokens(branch.tokens); // eval_row arms the wall-clock guard
     if (tokens.size() < 2 || !is_assign(tokens[1]))
         return eval_row(tokens, c, unit);
 

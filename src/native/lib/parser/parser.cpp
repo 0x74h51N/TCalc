@@ -403,6 +403,30 @@ extract_script_content(std::string_view s, std::size_t sigil_pos, std::size_t &o
     return extract_brace_content(s, sigil_pos + 1, out_end);
 }
 
+// After a Scripts-form macro (\sum / \prod): read `_{…}` (lower limit) and `^{…}`
+// (upper limit) in either order. A missing script stays empty; out_end lands past the
+// last consumed group (or at pos when neither script is present — the mid-typing state).
+inline void extract_two_scripts(
+    std::string_view s,
+    std::size_t pos,
+    std::string_view &lower,
+    std::string_view &upper,
+    std::size_t &out_end) {
+    lower = {};
+    upper = {};
+    std::size_t i = pos;
+    for (int read = 0; read < 2; ++read) {
+        if (i >= s.size() || (s[i] != '_' && s[i] != '^'))
+            break;
+        const char sigil = s[i];
+        std::size_t after = i;
+        const std::string_view content = extract_script_content(s, i, after);
+        (sigil == '_' ? lower : upper) = content;
+        i = after;
+    }
+    out_end = i;
+}
+
 struct MatchLatexArgs {
     std::string_view s;
     std::size_t i;
@@ -435,6 +459,14 @@ bool match_latex_expr(const MatchLatexArgs &args) {
     *args.out_kind = matched->kind;
     *args.out_op_id = matched->opid;
     const std::size_t pos = args.i + prefix_len;
+
+    if (is_iterated(matched->kind)) {
+        // Iterated ops are script-delimited (`_{…}^{…}`), not brace-delimited: out_left
+        // = lower script, out_right = upper script. scan_latex_macro then tokenizes each
+        // side into left/right exactly as it does for the brace forms.
+        extract_two_scripts(args.s, pos, *args.out_left, *args.out_right, *args.out_end);
+        return true;
+    }
 
     std::size_t after_left = pos;
     const std::string_view left = extract_brace_content(args.s, pos, after_left);
@@ -470,7 +502,11 @@ inline bool starts_construct(std::string_view s, std::size_t i) {
 }
 
 bool scan_latex_macro(
-    std::string_view s, std::size_t i, TokensBranch &result, std::size_t &out_end) {
+    std::string_view s,
+    std::size_t i,
+    TokensBranch &result,
+    std::size_t &out_end,
+    bool &expect_operand) {
     LatexKind out_kind = LatexKind::Frac;
     OpId op_id = OpId::Div;
     std::string_view out_left{}, out_right{};
@@ -490,6 +526,9 @@ bool scan_latex_macro(
             LatexToken{out_kind, op_id, std::move(left.tokens), std::move(right.tokens)},
             i,
             out_end});
+    // A Σ/Π is a prefix that still expects its operand; every other latex token is an
+    // operand and closes the position.
+    expect_operand = is_iterated(out_kind);
     return true;
 }
 
@@ -606,9 +645,8 @@ TokensBranch tokenize(std::string_view s) {
         switch (c) {
         case '\\': {
             std::size_t out_end = 0;
-            if (scan_latex_macro(s, i, result, out_end)) {
+            if (scan_latex_macro(s, i, result, out_end, expect_operand)) {
                 i = out_end;
-                expect_operand = false;
             } else {
                 ++i;
             }
@@ -724,14 +762,18 @@ std::optional<StructuralSplit> structural_split(const TokensBranch &branch) {
     LatexSplit split;
     split.kind = latex_tok.kind;
 
-    if (!latex_tok.left.empty()) {
+    // Iterated limits are never implicit: an empty limit stays empty and the body stays
+    // in the suffix, never carved out like Pow/Root/Subscript operands.
+    const bool iterated = is_iterated(latex_tok.kind);
+
+    if (iterated || !latex_tok.left.empty()) {
         split.prefix = span.subspan(0, idx);
         split.left = latex_tok.left;
     } else {
         std::tie(split.prefix, split.left) = split_operand(span, 0, idx, /*lead=*/false);
     }
 
-    if (!latex_tok.right.empty()) {
+    if (iterated || !latex_tok.right.empty()) {
         split.right = latex_tok.right;
         split.suffix = span.subspan(idx + 1, n - idx - 1);
     } else {
@@ -1103,6 +1145,30 @@ std::string token_flat_text(const Token &tok) {
             }
             return text;
         };
+
+        // Sum/Prod serialise as Σ_{lower}^{upper}, glyph then both braced scripts. Own arm;
+        // the generic path below derefs a null op_spec for OpId::Count. Limits render
+        // compact (n=1) so ops go bare via token_text, not the spaced flat form.
+        if (latex.kind == LatexKind::Sum || latex.kind == LatexKind::Prod) {
+            constexpr char open = paren_symbol(true, ParenKind::Brace);
+            constexpr char close = paren_symbol(false, ParenKind::Brace);
+            const auto unspaced = [](const std::vector<Token> &side) {
+                std::string text;
+                for (const auto &t : side)
+                    text.append(t.kind == TokenKind::Op ? token_text(t) : token_flat_text(t));
+                return text;
+            };
+            std::string out = latex.kind == LatexKind::Sum ? "Σ" : "Π";
+            out.push_back('_');
+            out.push_back(open);
+            out.append(unspaced(latex.left));
+            out.push_back(close);
+            out.push_back('^');
+            out.push_back(open);
+            out.append(unspaced(latex.right));
+            out.push_back(close);
+            return out;
+        }
 
         // Flat is a display-only form (history's FLAT mode) — never re-tokenized, so
         // it strips the script braces for readability: 2^{3} -> 2^3, 2_{3} -> 2_3.

@@ -170,6 +170,22 @@ inline Token
 Sub(std::vector<Token> base, std::vector<Token> sub, std::size_t start = 0, std::size_t end = 0) {
     return Lx(p::LatexKind::Subscript, OpId::Count, std::move(base), std::move(sub), start, end);
 }
+/// Token factory shorthand: \sum LatexToken (lower limit, upper limit).
+inline Token
+Sum(std::vector<Token> lower,
+    std::vector<Token> upper,
+    std::size_t start = 0,
+    std::size_t end = 0) {
+    return Lx(p::LatexKind::Sum, OpId::Count, std::move(lower), std::move(upper), start, end);
+}
+/// Token factory shorthand: \prod LatexToken (lower limit, upper limit).
+inline Token Prod(
+    std::vector<Token> lower,
+    std::vector<Token> upper,
+    std::size_t start = 0,
+    std::size_t end = 0) {
+    return Lx(p::LatexKind::Prod, OpId::Count, std::move(lower), std::move(upper), start, end);
+}
 
 /// Shorthand for tcalc::parser::ParenKind.
 using PK = p::ParenKind;
@@ -347,6 +363,36 @@ void unit_parser(TestContext &ctx) {
         {.id = "subscript unclosed content",
          .input = "y_{2",
          .expected = {Sub({Ch('y')}, {N("2")}, 0, 4)}},
+
+        {.id = "sum carries only its limits",
+         .input = "\\sum_{n=1}^{5} n^{2}",
+         .expected =
+             {Sum({Ch('n'), Op_(OpId::Assign), N("1")}, {N("5")}), Pow({Ch('n')}, {N("2")})}},
+        {.id = "sum reverse script order",
+         .input = "\\sum^{5}_{n=1} n",
+         .expected = {Sum({Ch('n'), Op_(OpId::Assign), N("1")}, {N("5")}), Ch('n')}},
+        {.id = "sum body stays outside the token",
+         .input = "2 + \\sum_{n=1}^{3} 2n+5",
+         .expected =
+             {N("2"),
+              Op_(OpId::Add),
+              Sum({Ch('n'), Op_(OpId::Assign), N("1")}, {N("3")}),
+              N("2"),
+              Ch('n'),
+              Op_(OpId::Add),
+              N("5")}},
+        {.id = "sum missing upper limit leaves right empty",
+         .input = "\\sum_{n=1}^{}",
+         .expected = {Sum({Ch('n'), Op_(OpId::Assign), N("1")}, {})}},
+        {.id = "sum mid-typing (no upper script) leaves right empty",
+         .input = "\\sum_{n=1}",
+         .expected = {Sum({Ch('n'), Op_(OpId::Assign), N("1")}, {})}},
+        // Note: bound var uses 'm', not 'k' — 'k' is the reserved Boltzmann-constant
+        // symbol (see consts.hpp), so "k=1" would tokenize 'k' as a ConstToken, not a
+        // Char('k') operand. 'm' has no such collision.
+        {.id = "prod carries only its limits",
+         .input = "\\prod_{m=1}^{5} m",
+         .expected = {Prod({Ch('m'), Op_(OpId::Assign), N("1")}, {N("5")}), Ch('m')}},
 
         {.id = "frac with inner expr",
          .input = "\\frac{2+3}{4}",
@@ -1417,6 +1463,17 @@ void unit_parser(TestContext &ctx) {
                   .right = {Pp({EV({N("2"), Op_(OpId::Add), N("3")})})},
                   .latex_kind = p::LatexKind::Frac}},
 
+            // -- Sum/Prod: empty limit is never a pickup site (unlike Frac above).
+            // \sum_{n=1} n -> mid-typing, no upper limit yet: right stays empty,
+            // the body `n` stays in suffix instead of being stolen as the upper limit.
+            {.id = "sum :: empty upper limit does not steal the body",
+             .input = branch(p::tokenize("\\sum_{n=1} n").tokens),
+             .expected =
+                 {.kind = K::Latex,
+                  .left = {Ch('n'), Op_(OpId::Assign), N("1")},
+                  .suffix = {Ch('n')},
+                  .latex_kind = p::LatexKind::Sum}},
+
             // -- ParenSplit cases (reactivated under unified ParenToken model).
 
             // (\frac{2}{3}) -> ParenSplit wraps one element [Frac].
@@ -2241,5 +2298,11 @@ void unit_parser(TestContext &ctx) {
     test_detail::with_case(ctx, "flat_text :: Pow chain groups the Pow base", [&] {
         auto branch = p::tokenize("2^{3}^{2}");
         EXPECT_EQ(ctx, p::tokens_to_flat_text(branch.tokens), std::string("{2^3}^2"));
+    });
+
+    // Sum/Prod always show braced limits (both scripts keep their {}).
+    test_detail::with_case(ctx, "flat_text :: sum -> glyph with braced limits", [&] {
+        const auto branch = p::tokenize("\\sum_{n=1}^{5}");
+        EXPECT_EQ(ctx, p::token_flat_text(branch.tokens.at(0)), std::string("Σ_{n=1}^{5}"));
     });
 }

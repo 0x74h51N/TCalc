@@ -31,6 +31,13 @@ from .window import MainWindow
 
 
 def run_app(argv: Optional[Sequence[str]] = None, *, debug: bool = False) -> int:
+    import calc_native
+
+    # Cap a single evaluation's wall-clock so a runaway expression errors instead of freezing
+    # the UI. Set only on the real app launch; tests and benchmarks never call run_app, so they
+    # keep the native default (unlimited) and stay deterministic.
+    calc_native.set_eval_time_budget_ms(500)
+
     if debug:
         logging.basicConfig(level=logging.DEBUG, format="%(name)s | %(message)s")
     app = QApplication(list(argv) if argv is not None else [])
