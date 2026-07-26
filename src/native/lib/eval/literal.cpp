@@ -1,3 +1,9 @@
+/*
+ * TCalc - High-performance native scientific calculator
+ * Copyright (C) 2026 Tahsin Önemli
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ */
+
 #include "eval/pub/literal.hpp"
 
 #include <cctype>

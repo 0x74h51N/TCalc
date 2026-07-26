@@ -73,7 +73,7 @@ BigInt binom(int n, int j) {
 // expanding (B+m)^(k+1) by the binomial theorem each symbolic B^j is the Bernoulli
 // number B_j. The subtracted B^(k+1) cancels the j=k+1 term, leaving one plain sum:
 //   S_k(m) = 1/(k+1) * sum_{j=0}^{k} C(k+1,j) B_j m^(k+1-j)
-// The loop below IS that sum: k+1 terms (the degree, <= 17), NOT m iterations (the range).
+// The loop below IS that sum: k+1 terms (one per degree up to k), NOT m iterations (the range).
 //
 // See: https://en.wikipedia.org/wiki/Faulhaber%27s_formula
 //      https://en.wikipedia.org/wiki/Umbral_calculus
@@ -164,16 +164,137 @@ std::optional<CppRat> const_coeff(const Value &v) {
     return CppRat(r->numerator(), r->denominator());
 }
 
-// Extract the body's polynomial in `var` as a coefficient vector, or nullopt when the
-// body is not a polynomial (a Call, division by the variable, etc.). Walks the RPN with
-// a stack of coefficient vectors; the bound variable is symbolic as [0,1].
-//
-// Example:
-// n^2 - 3n -> [0, -3, 1] (0 + -3 n + 1 n^2);
-// sin(n) -> nullopt.
-// This "interpret the body over polynomials instead of numbers" is abstract interpretation.
+// A Number, named constant, or non-loop Char as an exact Rational, or nullopt (the loop
+// variable, a non-rational value, or any other token). Shared by both body walks.
+std::optional<CppRat> token_constant(const Token &tok, std::string_view var) {
+    switch (tok.kind) {
+    case TokenKind::Number:
+        return const_coeff(literal_value(std::get<parser::NumberToken>(tok.data).value));
+    case TokenKind::Const:
+        return const_coeff(
+            const_value(*consts::const_spec(std::get<parser::ConstToken>(tok.data).id)));
+    case TokenKind::Char: {
+        const char ch = std::get<parser::CharToken>(tok.data).value;
+        if (std::string_view(&ch, 1) == var)
+            return std::nullopt; // the loop variable is not a constant
+        const Value *v = session_vars().get(std::string(1, ch));
+        return v ? const_coeff(*v) : std::nullopt;
+    }
+    default:
+        return std::nullopt;
+    }
+}
+
+// The single inner token span of a group, or nullopt if it is not a one-element open paren.
+std::optional<std::span<const Token>> paren_element(const parser::ParenToken &p) {
+    if (!p.has_open || p.elements.size() != 1)
+        return std::nullopt;
+    const auto *elem = std::get_if<std::vector<Token>>(&p.elements[0]);
+    return elem ? std::span<const Token>(*elem)
+                : std::span<const Token>(&std::get<Token>(p.elements[0]), 1);
+}
+
+// One folded value while walking the body: a var-free constant, a polynomial in the loop
+// variable, or a geometric term c*r^n. This is the union of what a polynomial-only and a
+// geometric-only walk would each track, so the single walk below classifies a body in one pass.
+// "Interpret the body over these values instead of over numbers" is abstract interpretation.
 // See: https://en.wikipedia.org/wiki/Abstract_interpretation
-std::optional<Poly> canon_walk(std::span<const Token> rpn, std::string_view var);
+//      https://en.wikipedia.org/wiki/Geometric_series
+struct ClosedTerm {
+    enum class Kind : std::uint8_t { Const, Poly, Geo };
+    Kind kind;
+    Poly poly; // Kind::Poly, low degree first
+    CppRat c;  // the constant (Const), or the multiplier (Geo)
+    CppRat r;  // the base (Geo)
+};
+
+ClosedTerm ct_const(const CppRat &c) {
+    return {ClosedTerm::Kind::Const, {}, c, CppRat(0)};
+}
+
+// A polynomial value, normalized: a degree-0 polynomial folds back to a Const.
+ClosedTerm ct_from_poly(Poly p) {
+    trim(p);
+    if (p.size() == 1)
+        return ct_const(p[0]);
+    return {ClosedTerm::Kind::Poly, std::move(p), CppRat(0), CppRat(0)};
+}
+
+// c*r^n, normalized: r == 1 is the constant c, r == 0 is degenerate.
+std::optional<ClosedTerm> ct_geo(const CppRat &c, const CppRat &r) {
+    if (r == 0)
+        return std::nullopt;
+    if (r == 1)
+        return ct_const(c);
+    return ClosedTerm{ClosedTerm::Kind::Geo, {}, c, r};
+}
+
+// A Const or Poly as a coefficient vector; nullopt for Geo, which has no polynomial form.
+std::optional<Poly> ct_poly_view(const ClosedTerm &t) {
+    if (t.kind == ClosedTerm::Kind::Geo)
+        return std::nullopt;
+    if (t.kind == ClosedTerm::Kind::Const)
+        return Poly{t.c};
+    return t.poly;
+}
+
+ClosedTerm ct_negate(ClosedTerm t) {
+    if (t.kind == ClosedTerm::Kind::Poly)
+        for (auto &co : t.poly)
+            co = -co;
+    else
+        t.c = -t.c; // Const value or Geo multiplier
+    return t;
+}
+
+// A term's geometric base; a constant's implicit base is 1. So * and / combine bases uniformly.
+CppRat ct_base(const ClosedTerm &t) {
+    return t.kind == ClosedTerm::Kind::Geo ? t.r : CppRat(1);
+}
+
+// a + sign*b. A geometric term plus anything is not a single closed term.
+std::optional<ClosedTerm> ct_add(const ClosedTerm &a, const ClosedTerm &b, int sign) {
+    const auto pa = ct_poly_view(a);
+    const auto pb = ct_poly_view(b);
+    if (!pa || !pb)
+        return std::nullopt;
+    return ct_from_poly(poly_add(*pa, *pb, sign));
+}
+
+// a * b. A polynomial times a geometric term (n^2 * 2^n) has no single closed form.
+std::optional<ClosedTerm> ct_mul(const ClosedTerm &a, const ClosedTerm &b) {
+    if (a.kind == ClosedTerm::Kind::Geo || b.kind == ClosedTerm::Kind::Geo) {
+        if (a.kind == ClosedTerm::Kind::Poly || b.kind == ClosedTerm::Kind::Poly)
+            return std::nullopt;
+        // (c_a r_a^n)(c_b r_b^n) = (c_a c_b)(r_a r_b)^n.
+        return ct_geo(a.c * b.c, ct_base(a) * ct_base(b));
+    }
+    const auto pa = ct_poly_view(a);
+    const auto pb = ct_poly_view(b);
+    if (!pa || !pb)
+        return std::nullopt; // unreachable here (neither is Geo), but keeps the access checked
+    Poly r = poly_mul(*pa, *pb);
+    if (r.size() > kMaxDegree + 1)
+        return std::nullopt;
+    return ct_from_poly(std::move(r));
+}
+
+// a / b. The divisor must be var-free (a Const, scaling) or geometric (Geo/Geo, Const/Geo).
+std::optional<ClosedTerm> ct_div(const ClosedTerm &a, const ClosedTerm &b) {
+    if (b.kind == ClosedTerm::Kind::Poly)
+        return std::nullopt; // dividing by a polynomial in the loop variable
+    if (b.c == 0)
+        calc_detail::math_error(); // var-free zero divisor always errors
+    if (b.kind == ClosedTerm::Kind::Const && a.kind == ClosedTerm::Kind::Poly) {
+        Poly r = a.poly; // polynomial / constant: scale each coefficient
+        for (auto &co : r)
+            co /= b.c;
+        return ct_from_poly(std::move(r));
+    }
+    if (a.kind == ClosedTerm::Kind::Poly)
+        return std::nullopt; // polynomial / geometric
+    return ct_geo(a.c / b.c, ct_base(a) / ct_base(b));
+}
 
 // A Pow's exponent side: exactly one non-negative integer literal.
 std::optional<CppRat> literal_int_exponent(const std::vector<Token> &right) {
@@ -186,54 +307,42 @@ std::optional<CppRat> literal_int_exponent(const std::vector<Token> &right) {
     return CppRat(r->numerator());
 }
 
-std::optional<Poly> canon_walk(std::span<const Token> rpn, std::string_view var) {
-    std::vector<Poly> stack;
+// Walk the body RPN, classifying it as a single Const / Poly / Geo term, or nullopt when it is
+// none of those (a Call, a variable divisor, a polynomial times a geometric term, etc.).
+// Examples: n^2 - 3n -> Poly[0,-3,1]; 2^n -> Geo(1,2); 5 -> Const(5); sin(n) -> nullopt.
+std::optional<ClosedTerm> classify_walk(std::span<const Token> rpn, std::string_view var) {
+    std::vector<ClosedTerm> stack;
     for (const Token &tok : rpn) {
         switch (tok.kind) {
-        // A numeric literal is a constant polynomial [c] (or nullopt if not an exact Rational).
-        case TokenKind::Number: {
-            const auto c =
-                const_coeff(literal_value(std::get<parser::NumberToken>(tok.data).value));
+        // A numeric literal, named constant, or non-loop letter is a var-free constant (nullopt
+        // if not an exact Rational, e.g. pi).
+        case TokenKind::Number:
+        case TokenKind::Const: {
+            const auto c = token_constant(tok, var);
             if (!c)
                 return std::nullopt;
-            stack.push_back({*c});
+            stack.push_back(ct_const(*c));
             break;
         }
-        // The bound variable is the polynomial n = [0,1]; any other letter is a session
-        // constant (constant w.r.t. the loop), so it is a constant polynomial [c].
+        // The bound variable is the polynomial n = [0,1]; any other letter is a loop constant.
         case TokenKind::Char: {
             const char ch = std::get<parser::CharToken>(tok.data).value;
             if (std::string_view(&ch, 1) == var) {
-                stack.push_back({CppRat(0), CppRat(1)}); // the bound variable = [0,1]
-            } else {                                     // a session variable, constant in the loop
-                const Value *v = session_vars().get(std::string(1, ch));
-                const auto c = v ? const_coeff(*v) : std::nullopt;
-                if (!c)
-                    return std::nullopt;
-                stack.push_back({*c});
+                stack.push_back(ct_from_poly({CppRat(0), CppRat(1)}));
+                break;
             }
-            break;
-        }
-        // A named constant is a constant polynomial [c]; an irrational one (pi, e) is not a
-        // Rational, so const_coeff returns nullopt and the whole body declines.
-        case TokenKind::Const: {
-            const auto c = const_coeff(
-                const_value(*consts::const_spec(std::get<parser::ConstToken>(tok.data).id)));
+            const auto c = token_constant(tok, var);
             if (!c)
                 return std::nullopt;
-            stack.push_back({*c});
+            stack.push_back(ct_const(*c));
             break;
         }
-        // A group: recurse into its single element and push the sub-body's polynomial.
+        // A group: recurse into its single element and push the sub-body's term.
         case TokenKind::Paren: {
-            const auto &p = std::get<parser::ParenToken>(tok.data);
-            if (!p.has_open || p.elements.size() != 1)
+            const auto inner = paren_element(std::get<parser::ParenToken>(tok.data));
+            if (!inner)
                 return std::nullopt;
-            const auto *elem = std::get_if<std::vector<Token>>(&p.elements[0]);
-            const std::span<const Token> inner =
-                elem ? std::span<const Token>(*elem)
-                     : std::span<const Token>(&std::get<Token>(p.elements[0]), 1);
-            auto sub = canon_walk(shunting_yard(inner), var);
+            auto sub = classify_walk(shunting_yard(*inner), var);
             if (!sub)
                 return std::nullopt;
             stack.push_back(std::move(*sub));
@@ -241,95 +350,169 @@ std::optional<Poly> canon_walk(std::span<const Token> rpn, std::string_view var)
         }
         case TokenKind::Latex: {
             const auto &lx = std::get<parser::LatexToken>(tok.data);
-            // base ^ (literal non-negative int): raise the base polynomial by repeated
-            // convolution (n^2 = [0,1] convolved with itself). Cap the exponent/degree at
-            // kMaxDegree.
             if (lx.kind == LatexKind::Pow) {
-                auto base = canon_walk(shunting_yard(lx.left), var);
-                const auto e = literal_int_exponent(lx.right);
-                if (!base || !e)
+                auto base = classify_walk(shunting_yard(lx.left), var);
+                if (!base)
                     return std::nullopt;
-                const Poly &base_poly = *base;
-                const std::int64_t ex = static_cast<std::int64_t>(*e);
-                if (ex > static_cast<std::int64_t>(kMaxDegree))
-                    return std::nullopt; // degree-0 base with huge exponent: brute force handles it
-                Poly acc{CppRat(1)};
-                for (std::int64_t p = 0; p < ex; ++p) {
-                    acc = poly_mul(acc, base_poly);
-                    if (acc.size() > kMaxDegree + 1)
+                if (const auto e = literal_int_exponent(lx.right)) {
+                    // base ^ (literal non-negative int): a polynomial power by repeated
+                    // convolution (n^2 = [0,1] convolved with itself), capped at kMaxDegree.
+                    if (base->kind == ClosedTerm::Kind::Geo)
                         return std::nullopt;
+                    const std::int64_t ex = static_cast<std::int64_t>(*e);
+                    if (ex > static_cast<std::int64_t>(kMaxDegree))
+                        return std::nullopt;
+                    ClosedTerm acc = ct_const(CppRat(1));
+                    for (std::int64_t p = 0; p < ex; ++p) {
+                        auto m = ct_mul(acc, *base);
+                        if (!m)
+                            return std::nullopt;
+                        acc = std::move(*m);
+                    }
+                    stack.push_back(std::move(acc));
+                } else {
+                    // constant ^ (bound variable): the geometric term c*r^n. The exponent must
+                    // be exactly the bare variable, the polynomial [0,1].
+                    static const Poly kBareVar = {CppRat(0), CppRat(1)};
+                    const auto exp = classify_walk(shunting_yard(lx.right), var);
+                    if (base->kind != ClosedTerm::Kind::Const || !exp ||
+                        exp->kind != ClosedTerm::Kind::Poly || exp->poly != kBareVar)
+                        return std::nullopt;
+                    auto g = ct_geo(CppRat(1), base->c);
+                    if (!g)
+                        return std::nullopt;
+                    stack.push_back(std::move(*g));
                 }
-                stack.push_back(std::move(acc));
-                // numerator / var-free divisor: scalar-divide each coefficient. A divisor
-                // containing the variable is a rational function, not a polynomial -> nullopt.
             } else if (lx.kind == LatexKind::Frac) {
-                auto n = canon_walk(shunting_yard(lx.left), var);
-                auto d = canon_walk(shunting_yard(lx.right), var);
-                if (!n || !d || d->size() != 1)
-                    return std::nullopt; // divisor must be var-free
-                const CppRat &divisor = (*d)[0];
-                if (divisor == 0)
-                    calc_detail::math_error(); // var-free zero divisor: always errors
-                Poly r = *n;
-                for (auto &co : r)
-                    co /= divisor;
-                stack.push_back(std::move(r));
+                auto n = classify_walk(shunting_yard(lx.left), var);
+                auto d = classify_walk(shunting_yard(lx.right), var);
+                if (!n || !d)
+                    return std::nullopt;
+                auto q = ct_div(*n, *d);
+                if (!q)
+                    return std::nullopt;
+                stack.push_back(std::move(*q));
             } else {
                 return std::nullopt; // Root / Log / Subscript / Sum / Prod
             }
             break;
         }
-        // Operators pop their operand polynomials and combine them.
+        // Operators pop their operand terms and combine them.
         case TokenKind::Op: {
             const OpId id = std::get<parser::OpToken>(tok.data).op_id;
-            if (id == OpId::Negate) { // -a: negate every coefficient
+            if (id == OpId::Negate) {
                 if (stack.empty())
                     return std::nullopt;
-                for (auto &co : stack.back())
-                    co = -co;
+                stack.back() = ct_negate(std::move(stack.back()));
                 break;
             }
             if (stack.size() < 2)
                 return std::nullopt;
-            Poly b = std::move(stack.back());
+            ClosedTerm b = std::move(stack.back());
             stack.pop_back();
-            Poly a = std::move(stack.back());
+            ClosedTerm a = std::move(stack.back());
             stack.pop_back();
+            std::optional<ClosedTerm> out;
             if (id == OpId::Add)
-                stack.push_back(poly_add(a, b, 1)); // a + b
+                out = ct_add(a, b, 1);
             else if (id == OpId::Sub)
-                stack.push_back(poly_add(a, b, -1)); // a - b
+                out = ct_add(a, b, -1);
             else if (id == OpId::Mul)
-                stack.push_back(poly_mul(a, b)); // a * b (convolution)
-            else if (id == OpId::Div) {          // a / var-free b: scalar-divide
-                if (b.size() != 1)
-                    return std::nullopt; // divisor must be var-free
-                if (b[0] == 0)
-                    calc_detail::math_error(); // var-free zero divisor: always errors
-                for (auto &co : a)
-                    co /= b[0];
-                stack.push_back(std::move(a));
-            } else
-                return std::nullopt; // any other op (^, !, ...) is not polynomial-closed here
+                out = ct_mul(a, b);
+            else if (id == OpId::Div)
+                out = ct_div(a, b);
+            else
+                return std::nullopt; // ^, !, ... : not closed here
+            if (!out)
+                return std::nullopt;
+            stack.push_back(std::move(*out));
             break;
         }
         default:
-            return std::nullopt; // Call, etc.: not a polynomial
+            return std::nullopt; // Call, etc.
         }
-        if (!stack.empty() && stack.back().size() > kMaxDegree + 1)
-            return std::nullopt; // degree grew past the Bernoulli table
     }
-    // A well-formed polynomial body leaves exactly one vector on the stack.
     if (stack.size() != 1)
         return std::nullopt;
-    trim(stack.back());
-    return stack.back();
+    return std::move(stack.back());
+}
+
+// |x| as an unsigned, correct even at INT64_MIN (where -x would overflow).
+std::uint64_t abs_u64(std::int64_t x) {
+    return x < 0 ? -static_cast<std::uint64_t>(x) : static_cast<std::uint64_t>(x);
+}
+
+// Bits to write the larger of |numerator|, |denominator| of a nonzero rational.
+int rat_bitlen(const CppRat &r) {
+    const BigInt num = boost::multiprecision::abs(boost::multiprecision::numerator(r));
+    const BigInt den = boost::multiprecision::denominator(r); // always > 0
+    const int nb = num == 0 ? 1 : static_cast<int>(boost::multiprecision::msb(num)) + 1;
+    const int db = static_cast<int>(boost::multiprecision::msb(den)) + 1; // msb(1) == 0
+    return std::max(nb, db);
+}
+
+// r^e in exact rational by binary exponentiation. Only reached with a small |e| (gated by the
+// caller), so the intermediate bignums stay tiny.
+CppRat rat_pow(CppRat base, std::int64_t e) {
+    if (e < 0)
+        return CppRat(1) / rat_pow(base, -e);
+    CppRat acc = 1;
+    while (e > 0) {
+        if (e & 1)
+            acc *= base;
+        base *= base;
+        e >>= 1;
+    }
+    return acc;
+}
+
+// base^e in BigReal by binary exponentiation: O(log e) fixed-precision multiplies, matching the
+// representation brute lands in once r^n overflows int64. A double would give inf for r > 1.
+BigReal big_pow(BigReal base, std::int64_t e) {
+    const bool neg = e < 0;
+    std::uint64_t q = abs_u64(e);
+    BigReal acc = 1;
+    while (q > 0) {
+        check_deadline(); // a large exponent makes each squaring a real fixed-precision multiply
+        if (q & 1)
+            acc *= base;
+        base *= base;
+        q >>= 1;
+    }
+    return neg ? BigReal(1) / acc : acc;
+}
+
+// Below this many bits the result plausibly fits int64, so the sum is computed exactly; past
+// it the exact numerator is as big as brute's, so it switches to BigReal instead.
+constexpr std::uint64_t kExactPowerBits = 62;
+
+// Sum_{n=a}^{b} c * r^n for a matched geometric term (r != 0, 1; a <= b guaranteed by the caller).
+Value geometric_sum(const CppRat &c, const CppRat &r, std::int64_t a, std::int64_t b) {
+    // Sum_{n=a}^{b} c r^n = c (r*r^b - r^a) / (r - 1). Using r*r^b (not r^(b+1)) sidesteps a
+    // b + 1 overflow at INT64_MAX. Compute exact only while the largest power stays a small
+    // bignum that plausibly fits int64; past that, a giant exact numerator would be as slow as
+    // brute, so fall to BigReal (never double: r^b would be inf for r > 1) and match brute's
+    // 50-digit overflow representation.
+    const std::uint64_t max_exp = std::max(abs_u64(a), abs_u64(b));
+    const bool exact = max_exp <= kExactPowerBits &&
+                       max_exp * static_cast<std::uint64_t>(rat_bitlen(r)) <= kExactPowerBits;
+    if (exact) {
+        const CppRat sum = c * (r * rat_pow(r, b) - rat_pow(r, a)) / (r - CppRat(1));
+        return value_from_big_rational(sum);
+    }
+    const BigReal br = r.convert_to<BigReal>();
+    const BigReal sum =
+        c.convert_to<BigReal>() * (br * big_pow(br, b) - big_pow(br, a)) / (br - BigReal(1));
+    return Value{sum};
 }
 
 } // namespace
 
 std::optional<std::vector<CppRat>> canonicalise(std::span<const Token> rpn, std::string_view var) {
-    return canon_walk(rpn, var);
+    const auto t = classify_walk(rpn, var);
+    if (!t || t->kind == ClosedTerm::Kind::Geo)
+        return std::nullopt;
+    return t->kind == ClosedTerm::Kind::Const ? std::vector<CppRat>{t->c} : t->poly;
 }
 
 std::optional<Value> try_closed_form(
@@ -338,42 +521,46 @@ std::optional<Value> try_closed_form(
     std::string_view var,
     std::int64_t first,
     std::int64_t last) {
-    const auto coeffs = canonicalise(rpn, var);
-    if (!coeffs)
-        return std::nullopt;
-    if (kind == LatexKind::Sum)
-        return value_from_big_rational(faulhaber_sum(*coeffs, first, last));
-    // Prod: only a var-free (degree 0) body has a worthwhile closed form: c^(last-first+1).
-    if (coeffs->size() == 1) {
-        // Same span iterate() uses, no +1 before the check: at first == INT64_MIN,
-        // last == INT64_MAX, count would wrap to 0 and silently skip the cap. span itself
-        // can't overflow (first <= last is guaranteed by the caller).
-        const std::uint64_t span =
-            static_cast<std::uint64_t>(last) - static_cast<std::uint64_t>(first);
-        // c^count grows exponentially, and one big-int squaring is a single allocation the
-        // wall-clock deadline cannot interrupt mid-flight, so this needs its own size bound.
-        // Over it, the product is genuinely too large: throw rather than hand a runaway count
-        // to the (now uncapped) brute loop. kind is provably Prod here (Sum returned above).
-        if (span >= static_cast<std::uint64_t>(kMaxIterations))
-            throw CalculatorError(errmsg::iterated_range_too_large("Product"), ErrorKind::Invalid);
-        const std::uint64_t count = span + 1; // safe: span < kMaxIterations here
-        // c^count by exponentiation by squaring: O(log count) multiplies, not count.
-        //
-        // See: https://cp-algorithms.com/algebra/binary-exp.html
-        //      https://en.wikipedia.org/wiki/Exponentiation_by_squaring
-        CppRat base = (*coeffs)[0];
-        CppRat acc = 1;
-        std::uint64_t q = count;
-        while (q > 0) {
-            check_deadline(); // a large base near the cap makes each squaring a big-int multiply
-            if (q & 1)
-                acc *= base;
-            base *= base;
-            q >>= 1;
-        }
-        return value_from_big_rational(acc);
+    const auto term = classify_walk(rpn, var);
+    if (kind == LatexKind::Sum) {
+        // A single closed term: Faulhaber for a polynomial (constant included), the geometric
+        // formula for c*r^n. Anything else declines, and the caller brute-forces.
+        if (!term)
+            return std::nullopt;
+        if (term->kind == ClosedTerm::Kind::Geo)
+            return geometric_sum(term->c, term->r, first, last);
+        const std::vector<CppRat> coeffs =
+            term->kind == ClosedTerm::Kind::Const ? std::vector<CppRat>{term->c} : term->poly;
+        return value_from_big_rational(faulhaber_sum(coeffs, first, last));
     }
-    return std::nullopt; // degree >= 1 product: brute force
+    // Prod: only a var-free (constant) body has a worthwhile closed form: c^(last-first+1).
+    if (!term || term->kind != ClosedTerm::Kind::Const)
+        return std::nullopt;
+    // Same span iterate() uses, no +1 before the check: at first == INT64_MIN, last == INT64_MAX,
+    // count would wrap to 0 and silently skip the cap. span itself can't overflow (first <= last).
+    const std::uint64_t span = static_cast<std::uint64_t>(last) - static_cast<std::uint64_t>(first);
+    // c^count grows exponentially, and one big-int squaring is a single allocation the wall-clock
+    // deadline cannot interrupt mid-flight, so this needs its own size bound. Over it the product
+    // is genuinely too large: throw rather than hand a runaway count to the (now uncapped) brute
+    // loop.
+    if (span >= static_cast<std::uint64_t>(kMaxIterations))
+        throw CalculatorError(errmsg::iterated_range_too_large("Product"), ErrorKind::Invalid);
+    const std::uint64_t count = span + 1; // safe: span < kMaxIterations here
+    // c^count by exponentiation by squaring: O(log count) multiplies, not count.
+    //
+    // See: https://cp-algorithms.com/algebra/binary-exp.html
+    //      https://en.wikipedia.org/wiki/Exponentiation_by_squaring
+    CppRat base = term->c;
+    CppRat acc = 1;
+    std::uint64_t q = count;
+    while (q > 0) {
+        check_deadline(); // a large base near the cap makes each squaring a big-int multiply
+        if (q & 1)
+            acc *= base;
+        base *= base;
+        q >>= 1;
+    }
+    return value_from_big_rational(acc);
 }
 
 } // namespace tcalc::eval

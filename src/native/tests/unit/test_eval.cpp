@@ -1217,6 +1217,14 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, std::holds_alternative<double>(v), true);
     });
 
+    // The geometric closed form is O(log range): a 54M range that a brute loop could never
+    // finish inside a test returns instantly, proving the geometric path handled it (not the
+    // loop). 2^n overflows int64, and the geometric path uses BigReal (not double) past that.
+    test_detail::with_case(ctx, "closed form :: geometric is O(log range), not a loop", [&] {
+        const Value v = eval_text(c, "\\sum_{n=1}^{54000000} 2^{n}");
+        EXPECT_EQ(ctx, std::holds_alternative<BigReal>(v), true);
+    });
+
     // Bodies that STAY in closed form (sums go through Faulhaber, var-free products through
     // c^count). The value is exact and equals brute force for these int64-range results.
     const std::vector<EvalCase> iterated_closed_cases = {
@@ -1257,6 +1265,24 @@ void unit_eval(TestContext &ctx) {
         {.id = "degree 24 exercises B_24 at the cap",
          .input = "\\sum_{n=1}^{3} (n+1)^{12}(n-1)^{12}",
          .expected = Value{Rational(68720008177)}},
+        {.id = "geometric sum 2^n",
+         .input = "\\sum_{n=1}^{5} 2^{n}", // 2+4+8+16+32
+         .expected = Value{Rational(62)}},
+        {.id = "geometric sum 3^n",
+         .input = "\\sum_{n=1}^{4} 3^{n}", // 3+9+27+81
+         .expected = Value{Rational(120)}},
+        {.id = "geometric sum with a fractional ratio",
+         .input = "\\sum_{n=1}^{5} (1/2)^{n}", // 1/2+1/4+1/8+1/16+1/32
+         .expected = Value{Rational(31, 32)}},
+        {.id = "geometric sum with a leading coefficient",
+         .input = "\\sum_{n=1}^{4} 3*2^{n}", // 3*(2+4+8+16)
+         .expected = Value{Rational(90)}},
+        {.id = "geometric sum with a negative ratio",
+         .input = "\\sum_{n=1}^{4} (-2)^{n}", // -2+4-8+16
+         .expected = Value{Rational(10)}},
+        {.id = "geometric sum over a range not starting at 1",
+         .input = "\\sum_{n=2}^{4} 2^{n}", // 4+8+16
+         .expected = Value{Rational(28)}},
         {.id = "var-free product", .input = "\\prod_{n=1}^{5} 3", .expected = Value{Rational(243)}},
         {.id = "var-free fractional product",
          .input = "\\prod_{n=1}^{10} (1/2)",
@@ -1278,9 +1304,6 @@ void unit_eval(TestContext &ctx) {
         {.id = "sum: division by the variable",
          .input = "\\sum_{n=1}^{4} 1/n",
          .expected = Value{Rational(25, 12)}},
-        {.id = "sum: a variable exponent (geometric)",
-         .input = "\\sum_{n=1}^{5} 2^{n}",
-         .expected = Value{Rational(62)}},
         {.id = "sum: a postfix factorial",
          .input = "\\sum_{n=1}^{4} n!",
          .expected = Value{33.0}}, // factorial has no Rational arm, so this is a double
