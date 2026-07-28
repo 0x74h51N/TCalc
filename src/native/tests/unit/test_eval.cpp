@@ -18,6 +18,7 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include <cmath>
 #include "calc/pub/error_messages.hpp"
 #include "eval/internal/closed_forms.hpp"
 #include "eval/pub/eval.hpp"
@@ -1198,7 +1199,7 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, poly("1/n").has_value(), false);     // division by the variable
         EXPECT_EQ(ctx, poly("1/(n-3)").has_value(), false); // divisor depends on the var
         EXPECT_EQ(ctx, poly("2^{n}").has_value(), false);   // variable exponent
-        EXPECT_EQ(ctx, poly("\\pi n").has_value(), false);  // irrational coefficient
+        EXPECT_EQ(ctx, poly("π n").has_value(), false);     // irrational coefficient
         EXPECT_EQ(ctx, poly("n^{25}").has_value(), false);  // degree exceeds Bernoulli table
         EXPECT_EQ(ctx, poly("2^{25}").has_value(), false);  // exponent exceeds kMaxDegree
         EXPECT_EQ(
@@ -1233,6 +1234,93 @@ void unit_eval(TestContext &ctx) {
     test_detail::with_case(ctx, "closed form :: geometric is O(log range), not a loop", [&] {
         const Value v = eval_text(c, "\\sum_{n=1}^{54000000} 2^{n}");
         EXPECT_EQ(ctx, std::holds_alternative<BigReal>(v), true);
+    });
+
+    // Trig sums close: differential closed-vs-brute (float, tolerance), plus an O(1) path proof
+    // over a range no brute loop could finish, proving the closed path (not the loop) ran.
+    test_detail::with_case(ctx, "closed form :: trig single term (radians)", [&] {
+        constexpr double eps = 1e-9;
+        const char *bodies[] = {
+            "\\sum_{n=1}^{50} sin(n)",
+            "\\sum_{n=1}^{50} cos(n)",
+            "\\sum_{n=1}^{50} sin(2n)",
+            "\\sum_{n=1}^{40} cos(3n)",
+            "\\sum_{n=1}^{60} sin(n/2)",
+            "\\sum_{n=1}^{50} 3sin(n)",
+            "\\sum_{n=1}^{40} -cos(4n)",
+            "\\sum_{n=1}^{50} sin(n+1)",
+            "\\sum_{n=1}^{40} cos(2n+1)",
+            "\\sum_{n=7}^{30} sin(n)",
+            "\\sum_{n=0}^{25} cos(n)",
+            "\\sum_{n=1}^{40} 2sin(3n+1)"};
+        for (const char *body : bodies) {
+            tcalc::eval::set_closed_forms_enabled(false);
+            const Value brute = eval_text(c, body);
+            tcalc::eval::set_closed_forms_enabled(true);
+            const Value closed = eval_text(c, body);
+            EXPECT_EQ(ctx, std::holds_alternative<double>(closed), true);
+            EXPECT_EQ(ctx, std::holds_alternative<double>(brute), true);
+            EXPECT_EQ(
+                ctx, std::abs(std::get<double>(closed) - std::get<double>(brute)) < eps, true);
+        }
+        // Path proof: 54M terms return instantly and stay within the Dirichlet bound (~2.09).
+        const Value big = eval_text(c, "\\sum_{n=1}^{54000000} sin(n)");
+        EXPECT_EQ(ctx, std::holds_alternative<double>(big), true);
+        EXPECT_EQ(ctx, std::abs(std::get<double>(big)) < 3.0, true);
+    });
+
+    // k and phi are sampled from the argument by point-eval, so a pi-based argument (irrational
+    // in CppRat) still closes. A constant-argument body (k = 0) is the degenerate branch:
+    // sum = count * trig(phi), O(1) over any range.
+    test_detail::with_case(ctx, "closed form :: trig with π and constant bodies", [&] {
+        constexpr double eps = 1e-9;
+        const auto near = [&](const char *body, double want) {
+            const Value v = eval_text(c, body);
+            return std::holds_alternative<double>(v) && std::abs(std::get<double>(v) - want) < eps;
+        };
+        EXPECT_EQ(ctx, near("\\sum_{n=1}^{10} sin(π n)", 0.0), true);
+        EXPECT_EQ(ctx, near("\\sum_{n=1}^{5} cos(π n)", -1.0), true);
+        EXPECT_EQ(ctx, near("\\sum_{n=1}^{6} cos(π n)", 0.0), true);
+        EXPECT_EQ(ctx, near("\\sum_{n=1}^{4} sin(π n/2)", 0.0), true);
+        EXPECT_EQ(ctx, near("\\sum_{n=1}^{2} sin(π n/2)", 1.0), true);
+        EXPECT_EQ(ctx, near("\\sum_{n=1}^{4} cos(π n/2)", 0.0), true);
+        EXPECT_EQ(ctx, near("\\sum_{n=1}^{3} cos(π n/2)", -1.0), true);
+        const auto val = [&](const char *bd) { return std::get<double>(eval_text(c, bd)); };
+        EXPECT_EQ(
+            ctx,
+            std::abs(val("\\sum_{n=1}^{20} sin(n + pi/2)") - val("\\sum_{n=1}^{20} cos(n)")) < eps,
+            true);
+        EXPECT_EQ(
+            ctx,
+            std::abs(val("\\sum_{n=1}^{20} cos(n + pi)") + val("\\sum_{n=1}^{20} cos(n)")) < eps,
+            true);
+        // A π frequency that is a full turn (2 pi) hits the degenerate branch: closed, O(1).
+        EXPECT_EQ(ctx, near("\\sum_{n=1}^{1000000000} sin(2π n)", 0.0), true);
+        EXPECT_EQ(ctx, near("\\sum_{n=1}^{1000000000} sin(2)", 1e9 * std::sin(2.0)), true);
+        // extreme bounds: b - a + 1 overflows int64 if computed there; must stay finite and
+        // signed like sin(2)
+        const Value big_count = eval_text(c, "\\sum_{n=-1}^{9223372036854775807} sin(2)");
+        EXPECT_EQ(ctx, std::holds_alternative<double>(big_count), true);
+        EXPECT_EQ(
+            ctx,
+            std::isfinite(std::get<double>(big_count)) && std::get<double>(big_count) > 0.0,
+            true);
+    });
+
+    // The closed form must agree with brute in every angle unit, since the argument's radian
+    // conversion is the calc's own (sin(n) means sin of n degrees in DEG).
+    test_detail::with_case(ctx, "closed form :: trig honours the angle unit", [&] {
+        constexpr double eps = 1e-9;
+        const char *bodies[] = {"\\sum_{n=1}^{40} sin(n)", "\\sum_{n=1}^{40} cos(2n+1)"};
+        for (auto unit : {Calculator::AngleUnit::DEG, Calculator::AngleUnit::GRAD}) {
+            for (const char *body : bodies) {
+                tcalc::eval::set_closed_forms_enabled(false);
+                const double brute = std::get<double>(eval_text(c, body, unit));
+                tcalc::eval::set_closed_forms_enabled(true);
+                const double closed = std::get<double>(eval_text(c, body, unit));
+                EXPECT_EQ(ctx, std::abs(closed - brute) < eps, true);
+            }
+        }
     });
 
     // Bodies that STAY in closed form (sums go through Faulhaber, var-free products through

@@ -720,7 +720,7 @@ Value iterate(
     // The closed-form matcher is checked once here, before the loop (not per iteration).
     // A benchmark can force the brute path by turning it off; production leaves it on.
     if (closed_forms_enabled())
-        if (auto closed = try_closed_form(tok.kind, rpn, var, first, last))
+        if (auto closed = try_closed_form(tok.kind, rpn, var, first, last, c, unit))
             return *closed; // O(1) for a polynomial sum, exempt from any range limit
 
     // The loop variable is a transient local bind: remember the caller's binding and put

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <utility>
 #include <boost/multiprecision/cpp_int.hpp>
 #include "calc/internal/helpers.hpp"
 #include "calc/pub/error_messages.hpp"
@@ -216,6 +217,71 @@ std::optional<std::span<const Token>> paren_element(const parser::ParenToken &p)
                 : std::span<const Token>(&std::get<Token>(p.elements[0]), 1);
 }
 
+// The single argument span of a one-argument call (its tokens), like paren_element for a group.
+std::span<const Token> call_arg_span(const parser::ParenElement &e) {
+    if (const auto *v = std::get_if<std::vector<Token>>(&e))
+        return std::span<const Token>(*v);
+    return std::span<const Token>(&std::get<Token>(e), 1);
+}
+
+// A real-arm Value as a double, reusing value.hpp's to_double overloads; nullopt for the
+// complex or collection arms.
+std::optional<double> real_value(const Value &v) {
+    return std::visit(
+        [](const auto &x) -> std::optional<double> {
+            if constexpr (requires { to_double(x); })
+                return to_double(x);
+            else
+                return std::nullopt;
+        },
+        v);
+}
+
+// Reject a nonlinear argument by comparing successive samples: loose for float noise, tight
+// enough to catch a quadratic term.
+constexpr double kLinearArgTol = 1e-9;
+
+// The trig argument's frequency k and phase phi as reals, by sampling k*var + phi at var = 0,1,2
+// with the calc's own evaluator (which resolves pi and every constant). nullopt if the argument
+// is not linear in var or not real, so the trig term then declines to brute. Reuses eval, no
+// second token walk.
+std::optional<std::pair<double, double>> trig_arg_phi(
+    const std::vector<Token> &arg,
+    std::string_view var,
+    const Calculator &calc,
+    Calculator::AngleUnit unit) {
+    const std::vector<Token> rpn = shunting_yard(std::span<const Token>(arg));
+    const std::string key(var);
+    const Value *prior = session_vars().get(key);
+    const std::optional<Value> saved =
+        prior != nullptr ? std::optional<Value>(*prior) : std::nullopt;
+    std::array<double, 3> s{};
+    bool ok = true;
+    try {
+        for (int m = 0; m < 3; ++m) {
+            session_vars().set(key, Value{Rational(m)});
+            const auto d = real_value(eval_rpn(rpn, calc, unit));
+            if (!d) {
+                ok = false;
+                break;
+            }
+            s[static_cast<std::size_t>(m)] = *d;
+        }
+    } catch (...) {
+        ok = false;
+    }
+    if (saved)
+        session_vars().set(key, *saved);
+    else
+        session_vars().unset(key);
+    if (!ok)
+        return std::nullopt;
+    const double k = s[1] - s[0];
+    if (std::abs((s[2] - s[1]) - k) > kLinearArgTol)
+        return std::nullopt; // not linear in var
+    return std::make_pair(k, s[0]);
+}
+
 // One folded value while walking the body: a var-free constant, a polynomial in the loop
 // variable, or a geometric term c*r^n. This is the union of what a polynomial-only and a
 // geometric-only walk would each track, so the single walk below classifies a body in one pass.
@@ -223,11 +289,13 @@ std::optional<std::span<const Token>> paren_element(const parser::ParenToken &p)
 // See: https://en.wikipedia.org/wiki/Abstract_interpretation
 //      https://en.wikipedia.org/wiki/Geometric_series
 struct ClosedTerm {
-    enum class Kind : std::uint8_t { Const, Poly, Geo };
+    enum class Kind : std::uint8_t { Const, Poly, Geo, Trig };
     Kind kind;
-    Poly poly; // Kind::Poly, low degree first
-    CppRat c;  // the constant (Const), or the multiplier (Geo)
-    CppRat r;  // the base (Geo)
+    Poly poly;                   // Kind::Poly, low degree first
+    CppRat c;                    // the constant (Const), or the multiplier (Geo, Trig)
+    CppRat r;                    // the base (Geo)
+    bool is_sin = false;         // Trig: sin vs cos
+    std::vector<Token> trig_arg; // Trig: the argument tokens (k*var + phi), sampled at finalize
 };
 
 ClosedTerm ct_const(const CppRat &c) {
@@ -251,9 +319,20 @@ std::optional<ClosedTerm> ct_geo(const CppRat &c, const CppRat &r) {
     return ClosedTerm{ClosedTerm::Kind::Geo, {}, c, r};
 }
 
-// A Const or Poly as a coefficient vector; nullopt for Geo, which has no polynomial form.
+// c*trig(<arg>), coefficient starts at 1 and is folded in by ct_mul/ct_negate.
+ClosedTerm ct_trig(bool is_sin, std::span<const Token> arg) {
+    return {
+        ClosedTerm::Kind::Trig,
+        {},
+        CppRat(1),
+        CppRat(0),
+        is_sin,
+        std::vector<Token>(arg.begin(), arg.end())};
+}
+
+// A Const or Poly as a coefficient vector; nullopt for Geo/Trig, which have no polynomial form.
 std::optional<Poly> ct_poly_view(const ClosedTerm &t) {
-    if (t.kind == ClosedTerm::Kind::Geo)
+    if (t.kind == ClosedTerm::Kind::Geo || t.kind == ClosedTerm::Kind::Trig)
         return std::nullopt;
     if (t.kind == ClosedTerm::Kind::Const)
         return Poly{t.c};
@@ -265,7 +344,7 @@ ClosedTerm ct_negate(ClosedTerm t) {
         for (auto &co : t.poly)
             co = -co;
     else
-        t.c = -t.c; // Const value or Geo multiplier
+        t.c = -t.c; // Const value, or Geo/Trig multiplier
     return t;
 }
 
@@ -285,6 +364,19 @@ std::optional<ClosedTerm> ct_add(const ClosedTerm &a, const ClosedTerm &b, int s
 
 // a * b. A polynomial times a geometric term (n^2 * 2^n) has no single closed form.
 std::optional<ClosedTerm> ct_mul(const ClosedTerm &a, const ClosedTerm &b) {
+    if (a.kind == ClosedTerm::Kind::Trig || b.kind == ClosedTerm::Kind::Trig) {
+        if (a.kind == ClosedTerm::Kind::Trig && b.kind == ClosedTerm::Kind::Const) {
+            ClosedTerm t = a;
+            t.c *= b.c;
+            return t;
+        }
+        if (b.kind == ClosedTerm::Kind::Trig && a.kind == ClosedTerm::Kind::Const) {
+            ClosedTerm t = b;
+            t.c *= a.c;
+            return t;
+        }
+        return std::nullopt; // trig*trig, trig*poly, trig*geo: no single closed term
+    }
     if (a.kind == ClosedTerm::Kind::Geo || b.kind == ClosedTerm::Kind::Geo) {
         if (a.kind == ClosedTerm::Kind::Poly || b.kind == ClosedTerm::Kind::Poly)
             return std::nullopt;
@@ -303,6 +395,16 @@ std::optional<ClosedTerm> ct_mul(const ClosedTerm &a, const ClosedTerm &b) {
 
 // a / b. The divisor must be var-free (a Const, scaling) or geometric (Geo/Geo, Const/Geo).
 std::optional<ClosedTerm> ct_div(const ClosedTerm &a, const ClosedTerm &b) {
+    if (a.kind == ClosedTerm::Kind::Trig || b.kind == ClosedTerm::Kind::Trig) {
+        if (a.kind == ClosedTerm::Kind::Trig && b.kind == ClosedTerm::Kind::Const) {
+            if (b.c == 0)
+                calc_detail::math_error();
+            ClosedTerm t = a;
+            t.c /= b.c;
+            return t;
+        }
+        return std::nullopt;
+    }
     if (b.kind == ClosedTerm::Kind::Poly) {
         // dividing by a polynomial in the loop variable: closed only if it divides evenly
         // (n^2 / n = n). A geometric numerator or a nonzero remainder is not a polynomial.
@@ -460,8 +562,18 @@ std::optional<ClosedTerm> classify_walk(std::span<const Token> rpn, std::string_
             stack.push_back(std::move(*out));
             break;
         }
+        case TokenKind::Call: {
+            const auto &call = std::get<parser::CallToken>(tok.data);
+            const bool is_sin = call.op_id == OpId::Sin;
+            if ((!is_sin && call.op_id != OpId::Cos) || call.args.size() != 1)
+                return std::nullopt;
+            // Store the raw argument tokens; trig_sum reads k and phi from them by sampling with
+            // the real evaluator, so a pi-based argument works. Owned copy: a span would dangle.
+            stack.push_back(ct_trig(is_sin, call_arg_span(call.args[0])));
+            break;
+        }
         default:
-            return std::nullopt; // Call, etc.
+            return std::nullopt;
         }
     }
     if (stack.size() != 1)
@@ -518,6 +630,12 @@ BigReal big_pow(BigReal base, std::int64_t e) {
 // it the exact numerator is as big as brute's, so it switches to BigReal instead.
 constexpr std::uint64_t kExactPowerBits = 62;
 
+// sum_{n=a}^{b} c*r^n given the end powers r_a = r^a, r_b = r^b. Used by the real geometric sum
+// (CppRat/BigReal). Using r*r_b (= r^(b+1)) avoids a b+1 overflow.
+template <class T> T geometric_closed(const T &c, const T &r, const T &r_a, const T &r_b) {
+    return c * (r * r_b - r_a) / (r - T(1));
+}
+
 // Sum_{n=a}^{b} c * r^n for a matched geometric term (r != 0, 1; a <= b guaranteed by the caller).
 Value geometric_sum(const CppRat &c, const CppRat &r, std::int64_t a, std::int64_t b) {
     // Sum_{n=a}^{b} c r^n = c (r*r^b - r^a) / (r - 1). Using r*r^b (not r^(b+1)) sidesteps a
@@ -529,20 +647,54 @@ Value geometric_sum(const CppRat &c, const CppRat &r, std::int64_t a, std::int64
     const bool exact = max_exp <= kExactPowerBits &&
                        max_exp * static_cast<std::uint64_t>(rat_bitlen(r)) <= kExactPowerBits;
     if (exact) {
-        const CppRat sum = c * (r * rat_pow(r, b) - rat_pow(r, a)) / (r - CppRat(1));
-        return value_from_big_rational(sum);
+        return value_from_big_rational(geometric_closed(c, r, rat_pow(r, a), rat_pow(r, b)));
     }
     const BigReal br = r.convert_to<BigReal>();
-    const BigReal sum =
-        c.convert_to<BigReal>() * (br * big_pow(br, b) - big_pow(br, a)) / (br - BigReal(1));
-    return Value{sum};
+    return Value{geometric_closed(c.convert_to<BigReal>(), br, big_pow(br, a), big_pow(br, b))};
+}
+
+// k is treated as (near) a multiple of a full turn (body constant over integer n) when
+// sin(k/2) lands within this of 0; then sum = count * c * trig(phi). Loose enough to catch
+// k = 2*pi evaluated in floating point, tight enough not to swallow a genuine small frequency.
+constexpr double kTrigDegenerateEps = 1e-9;
+
+// sum_{n=a}^{b} c*trig(k*n + phi) via the real Dirichlet product form:
+//   c * sin(k*count/2)/sin(k/2) * {sin,cos}(k*(a+b)/2 + phi),  count = b - a + 1.
+// k and phi are sampled from the argument (so pi works); all angles go through the calc's own
+// sin/cos so the angle unit and the exact values match brute. nullopt declines to brute.
+// See: https://en.wikipedia.org/wiki/List_of_trigonometric_identities#Sums
+std::optional<Value> trig_sum(
+    const ClosedTerm &t,
+    std::string_view var,
+    std::int64_t a,
+    std::int64_t b,
+    const Calculator &calc,
+    Calculator::AngleUnit unit) {
+    const auto kphi = trig_arg_phi(t.trig_arg, var, calc, unit);
+    if (!kphi)
+        return std::nullopt;
+    const double c = t.c.convert_to<double>();
+    const double k = kphi->first;
+    const double phi = kphi->second;
+    // double subtraction, so b - a + 1 cannot overflow int64 at extreme bounds
+    const double count = static_cast<double>(b) - static_cast<double>(a) + 1.0;
+    const double half = calc.sin(k / 2.0, unit); // sin(k/2)
+    if (std::abs(half) < kTrigDegenerateEps) {
+        // k is (near) 0 / a full turn: the body is the constant trig(phi).
+        const double body = t.is_sin ? calc.sin(phi, unit) : calc.cos(phi, unit);
+        return Value{count * c * body};
+    }
+    const double factor = calc.sin(k * count / 2.0, unit) / half;
+    const double mid = k * (static_cast<double>(a) + static_cast<double>(b)) / 2.0 + phi;
+    const double outer = t.is_sin ? calc.sin(mid, unit) : calc.cos(mid, unit);
+    return Value{c * factor * outer};
 }
 
 } // namespace
 
 std::optional<std::vector<CppRat>> canonicalise(std::span<const Token> rpn, std::string_view var) {
     const auto t = classify_walk(rpn, var);
-    if (!t || t->kind == ClosedTerm::Kind::Geo)
+    if (!t || t->kind == ClosedTerm::Kind::Geo || t->kind == ClosedTerm::Kind::Trig)
         return std::nullopt;
     return t->kind == ClosedTerm::Kind::Const ? std::vector<CppRat>{t->c} : t->poly;
 }
@@ -552,7 +704,9 @@ std::optional<Value> try_closed_form(
     std::span<const Token> rpn,
     std::string_view var,
     std::int64_t first,
-    std::int64_t last) {
+    std::int64_t last,
+    const Calculator &calc,
+    Calculator::AngleUnit unit) {
     const auto term = classify_walk(rpn, var);
     if (kind == LatexKind::Sum) {
         // A single closed term: Faulhaber for a polynomial (constant included), the geometric
@@ -561,6 +715,8 @@ std::optional<Value> try_closed_form(
             return std::nullopt;
         if (term->kind == ClosedTerm::Kind::Geo)
             return geometric_sum(term->c, term->r, first, last);
+        if (term->kind == ClosedTerm::Kind::Trig)
+            return trig_sum(*term, var, first, last, calc, unit);
         const std::vector<CppRat> coeffs =
             term->kind == ClosedTerm::Kind::Const ? std::vector<CppRat>{term->c} : term->poly;
         return value_from_big_rational(faulhaber_sum(coeffs, first, last));

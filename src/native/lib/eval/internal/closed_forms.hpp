@@ -25,6 +25,7 @@
 #include <string_view>
 #include <vector>
 #include <boost/multiprecision/cpp_int.hpp>
+#include "calc/pub/calculator.hpp"
 #include "parser/pub/parser.hpp"
 #include "value.hpp"
 
@@ -57,6 +58,8 @@ std::optional<Value> try_closed_form(
     std::span<const parser::Token> rpn,
     std::string_view var,
     std::int64_t first,
-    std::int64_t last);
+    std::int64_t last,
+    const Calculator &calc,
+    Calculator::AngleUnit unit);
 
 } // namespace tcalc::eval
