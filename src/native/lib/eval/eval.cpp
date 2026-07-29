@@ -8,6 +8,7 @@
 
 #include <bit>
 #include <cmath>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <span>
@@ -267,19 +268,16 @@ std::vector<Value> coerce(OpId id, std::vector<Value> args) {
     // Only the real arms remain here.
     // TODO: Fix Calculator (int, int) returning Rational(n, 1) instead of int.
     if (has_arm(arms, Arm::Rat)) {
-        std::vector<Value> lifted;
-        lifted.reserve(args.size());
-        bool all_lift = true;
-        for (const auto &a : args) {
-            const auto r = to_rational(a);
-            if (!r) {
-                all_lift = false;
-                break;
-            }
-            lifted.push_back(Value{*r});
+        // Int64 and Rational are exactly the arms an exact lift accepts, so the mask settles
+        // this all-or-nothing arm up front: one double among the operands leaves args
+        // untouched for the double arm below. Past the check only the integers convert, and
+        // like every other arm this one lifts in place.
+        if ((present & ~(arm_bit(Arm::Int64) | arm_bit(Arm::Rat))) == 0) {
+            for (auto &a : args)
+                if (const auto *i = std::get_if<std::int64_t>(&a))
+                    a = Value{Rational(*i)};
+            return args;
         }
-        if (all_lift)
-            return lifted;
     }
 
     if (has_arm(arms, Arm::Double)) {
@@ -627,7 +625,7 @@ inline constexpr std::uint8_t kIteratedBodyPrecedence = ops::op_spec(OpId::Add)-
 
 /// True when tok ends the iterated body collected so far. An operator in operand position
 /// is a sign, not a terminator, so the body of `\sum_{n=1}^{3} +n` keeps its `+`.
-bool closes_iterated_body(const Token &tok, const std::vector<Token> &body) {
+bool closes_iterated_body(const Token &tok, std::span<const Token> body) {
     if (tok.kind != TokenKind::Op || body.empty() || !ends_operand(body.back()))
         return false;
     return ops::op_spec(std::get<parser::OpToken>(tok.data).op_id)->precedence <=
@@ -639,24 +637,25 @@ bool opens_iterated_body(const Token &t) {
            parser::is_iterated(std::get<parser::LatexToken>(t.data).kind);
 }
 
-/// Finish the innermost open body and append it to its parent. A single token is already
-/// a complete operand (a user paren, a Pow, a bare Char, anything) and passes through
-/// unwrapped. An empty body becomes a paren with no elements, the "no body" marker; the
-/// eval arm reads that directly, no reaching inside a paren required. Eval-only: render
-/// reads the original branch, so this never reaches the UI.
-void close_body(std::vector<std::vector<Token>> &out) {
-    std::vector<Token> body = std::move(out.back());
-    out.pop_back();
-    if (body.size() == 1) {
-        out.back().push_back(std::move(body[0]));
+/// Finish the innermost open body: the tokens from its start index to the end of the row
+/// collapse into one operand, in place. A single token is already a complete operand (a
+/// user paren, a Pow, a bare Char, anything) and stays where it is. An empty body becomes
+/// a paren with no elements, the "no body" marker; the eval arm reads that directly, no
+/// reaching inside a paren required. Eval-only: render reads the original branch, so this
+/// never reaches the UI.
+void close_body(std::vector<Token> &out, std::vector<std::size_t> &body_starts) {
+    const std::size_t start = body_starts.back();
+    body_starts.pop_back();
+    if (out.size() - start == 1)
         return;
-    }
+    const auto first = out.begin() + static_cast<std::ptrdiff_t>(start);
     parser::ParenToken group;
     group.kind = parser::ParenKind::Paren;
-    if (!body.empty())
-        group.elements.emplace_back(std::move(body));
-    out.back().push_back(
-        Token{.kind = TokenKind::Paren, .data = parser::TokenData{std::move(group)}});
+    if (out.size() > start)
+        group.elements.emplace_back(
+            std::vector<Token>(std::make_move_iterator(first), std::make_move_iterator(out.end())));
+    out.erase(first, out.end());
+    out.push_back(Token{.kind = TokenKind::Paren, .data = parser::TokenData{std::move(group)}});
 }
 
 /// Display name for an iterated op's error messages.
@@ -827,9 +826,11 @@ Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::Angl
 /// RPN cannot lose the boundary between the body and what follows it. Reads the row
 /// without owning it and builds the normalized copy fresh.
 std::vector<Token> normalize(std::span<const Token> raw) {
-    std::vector<std::vector<Token>> out;
-    out.emplace_back();
-    out.back().reserve(raw.size());
+    std::vector<Token> out;
+    out.reserve(raw.size());
+    // Where each open iterated body starts in `out`. Stays empty, and never allocates, for
+    // a row with no iterated op, which is every row that does not contain a sum.
+    std::vector<std::size_t> body_starts;
 
     const auto is_plus_minus = [](const Token &t) -> bool {
         if (t.kind != TokenKind::Op)
@@ -855,15 +856,17 @@ std::vector<Token> normalize(std::span<const Token> raw) {
 
     for (const Token &tok : raw) {
         // A binary operator no tighter than Add closes every body it separates.
-        while (out.size() > 1 && closes_iterated_body(tok, out.back()))
-            close_body(out);
+        while (!body_starts.empty() &&
+               closes_iterated_body(tok, std::span<const Token>(out).subspan(body_starts.back())))
+            close_body(out, body_starts);
 
-        std::vector<Token> &cur = out.back();
-        if (!cur.empty()) {
-            const Token &last = cur.back();
+        // Everything below reads the innermost body only, so it starts where that body does.
+        const std::size_t body_start = body_starts.empty() ? 0 : body_starts.back();
+        if (out.size() > body_start) {
+            const Token &last = out.back();
 
             if (is_plus_minus(tok) && is_plus_minus(last)) {
-                auto &last_op = std::get<parser::OpToken>(cur.back().data);
+                auto &last_op = std::get<parser::OpToken>(out.back().data);
                 const auto &curr_op = std::get<parser::OpToken>(tok.data);
 
                 if (last_op.op_id == OpId::Sub) {
@@ -876,20 +879,20 @@ std::vector<Token> normalize(std::span<const Token> raw) {
             }
 
             if (ends_operand(last) && starts_operand(tok))
-                cur.push_back(
+                out.push_back(
                     Token{
                         .kind = TokenKind::Op,
                         .data = parser::TokenData{parser::OpToken{OpId::Mul}}});
         }
-        cur.push_back(tok);
+        out.push_back(tok);
 
         if (opens_iterated_body(tok))
-            out.emplace_back(); // the buffer this sum's body fills
+            body_starts.push_back(out.size()); // this sum's body starts after it
     }
 
-    while (out.size() > 1)
-        close_body(out);
-    return std::move(out.front());
+    while (!body_starts.empty())
+        close_body(out, body_starts);
+    return out;
 }
 
 std::vector<Token> shunt_normalized(std::vector<Token> normalized) {
