@@ -267,19 +267,16 @@ std::vector<Value> coerce(OpId id, std::vector<Value> args) {
     // Only the real arms remain here.
     // TODO: Fix Calculator (int, int) returning Rational(n, 1) instead of int.
     if (has_arm(arms, Arm::Rat)) {
-        std::vector<Value> lifted;
-        lifted.reserve(args.size());
-        bool all_lift = true;
-        for (const auto &a : args) {
-            const auto r = to_rational(a);
-            if (!r) {
-                all_lift = false;
-                break;
-            }
-            lifted.push_back(Value{*r});
+        // Int64 and Rational are exactly the arms an exact lift accepts, so the mask settles
+        // this all-or-nothing arm up front: one double among the operands leaves args
+        // untouched for the double arm below. Past the check only the integers convert, and
+        // like every other arm this one lifts in place.
+        if ((present & ~(arm_bit(Arm::Int64) | arm_bit(Arm::Rat))) == 0) {
+            for (auto &a : args)
+                if (const auto *i = std::get_if<std::int64_t>(&a))
+                    a = Value{Rational(*i)};
+            return args;
         }
-        if (all_lift)
-            return lifted;
     }
 
     if (has_arm(arms, Arm::Double)) {
