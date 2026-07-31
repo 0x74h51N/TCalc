@@ -19,6 +19,7 @@
  */
 
 #include <cmath>
+#include "calc/internal/helpers.hpp"
 #include "calc/pub/error_messages.hpp"
 #include "eval/internal/closed_forms.hpp"
 #include "eval/pub/eval.hpp"
@@ -1187,6 +1188,14 @@ void unit_eval(TestContext &ctx) {
             ctx,
             poly("\\frac{n^{3}-1}{n-1}").value(),
             (std::vector<CppRat>{CppRat(1), CppRat(1), CppRat(1)}));
+        // a negative integer exponent on a Const base closes (the gate is one classify_walk of
+        // the exponent now, not a token pattern-match, so a negative literal (two tokens) works).
+        EXPECT_EQ(ctx, poly("2^{-3}").value(), (std::vector<CppRat>{CppRat(1, 8)}));
+        // any exponent expression that folds to an integer Const closes, not just a single
+        // literal token: 3-1 classifies to Const(2), so n^{3-1} is n^2. Intentional per the
+        // brief's dispatch (classify the exponent once; do not special-case its token shape).
+        EXPECT_EQ(
+            ctx, poly("n^{3-1}").value(), (std::vector<CppRat>{CppRat(0), CppRat(0), CppRat(1)}));
     });
 
     test_detail::with_case(ctx, "closed_forms :: canonicalise rejects non-polynomials", [&] {
@@ -1202,6 +1211,13 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, poly("π n").has_value(), false);     // irrational coefficient
         EXPECT_EQ(ctx, poly("n^{25}").has_value(), false);  // degree exceeds Bernoulli table
         EXPECT_EQ(ctx, poly("2^{25}").has_value(), false);  // exponent exceeds kMaxDegree
+        EXPECT_EQ(ctx, poly("n^{-2}").has_value(), false);  // Poly base, negative exponent
+        EXPECT_EQ(ctx, poly("2^{1/2}").has_value(), false); // Const exponent, not an integer
+        // A Geo base under a literal power (G2) and an affine exponent (G1) both close to Geo
+        // at the classify_walk level; canonicalise still declines both, since it only accepts
+        // Const/Poly results.
+        EXPECT_EQ(ctx, poly("(2^{n})^{2}").has_value(), false);
+        EXPECT_EQ(ctx, poly("2^{2n}").has_value(), false);
         EXPECT_EQ(
             ctx, poly("n^{2}/(n+1)").has_value(), false); // nonzero remainder: rational function
         EXPECT_EQ(ctx, poly("\\frac{n}{n-2}").has_value(), false); // remainder 2: not a polynomial
@@ -1209,6 +1225,38 @@ void unit_eval(TestContext &ctx) {
         // calc's normal division error instead of silently declining to brute force.
         EXPECT_THROWS(ctx, poly("n/0"));          // literal-zero divisor, Op::Div arm
         EXPECT_THROWS(ctx, poly("\\frac{n}{0}")); // literal-zero divisor, Frac arm
+    });
+
+    test_detail::with_case(ctx, "closed_forms :: exact_rational_root finds exact roots", [&] {
+        using tcalc::eval::CppRat;
+        using calc_detail::exact_rational_root;
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(4), 2).value(), CppRat(2));
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(9), 2).value(), CppRat(3));
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(8), 3).value(), CppRat(2));
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(4, 9), 2).value(), CppRat(2, 3));
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(-8), 3).value(), CppRat(-2));
+        // q == 1 is the identity
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(5, 7), 1).value(), CppRat(5, 7));
+        // Larger and composite q, so Newton's convergence loop is exercised past q = 3.
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(27), 3).value(), CppRat(3));
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(16), 4).value(), CppRat(2));
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(1024), 10).value(), CppRat(2));
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(8, 27), 3).value(), CppRat(2, 3));
+    });
+
+    test_detail::with_case(ctx, "closed_forms :: exact_rational_root declines non-roots", [&] {
+        using tcalc::eval::CppRat;
+        using calc_detail::exact_rational_root;
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(2), 2).has_value(), false);
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(3), 3).has_value(), false);
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(-4), 2).has_value(), false); // even, negative
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(2, 3), 2).has_value(), false);
+        // q > log2(n): the only candidate root is 1, declines fast without Newton
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(2), 100).has_value(), false);
+        // q <= 0 is not a root degree at all; the function declines rather than trusting the
+        // caller (G1 never passes one: a CppRat's denominator is always positive).
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(4), 0).has_value(), false);
+        EXPECT_EQ(ctx, exact_rational_root(CppRat(4), -2).has_value(), false);
     });
 
     test_detail::with_case(
@@ -1221,20 +1269,234 @@ void unit_eval(TestContext &ctx) {
             session_vars().clear();
         });
 
-    // Cap-exempt: 54M is far past kMaxIterations; the closed form is instant. The result
-    // overflows int64, so it comes back a double (asserted by alternative, not value).
-    test_detail::with_case(ctx, "closed form :: is cap-exempt", [&] {
-        const Value v = eval_text(c, "\\sum_{n=1}^{54000000} (n^{2} - 3n)");
-        EXPECT_EQ(ctx, std::holds_alternative<double>(v), true);
+    // Each body's true value is astronomically large and cannot be written as a literal, so
+    // the assertion is by alternative, not value.
+    const std::vector<ArmCase> iterated_closed_arm_cases = {
+        // Cap-exempt: 54M is far past kMaxIterations; the closed form is instant. The result
+        // overflows int64, so it comes back a double.
+        {.id = "is cap-exempt",
+         .input = "\\sum_{n=1}^{54000000} (n^{2} - 3n)",
+         .expected = Arm::Double},
+        // The geometric closed form is O(log range): a 54M range that a brute loop could never
+        // finish inside a test returns instantly, proving the geometric path handled it (not
+        // the loop). 2^n overflows int64, and the geometric path uses BigReal (not double)
+        // past that.
+        {.id = "geometric is O(log range), not a loop",
+         .input = "\\sum_{n=1}^{54000000} 2^{n}",
+         .expected = Arm::Big},
+        // G1's ratio = c^a is built by rat_pow (binary exponentiation), not a loop over the
+        // range, so a huge range with a large (but not absurd) slope a still returns
+        // instantly: proof the affine exponent closes rather than declining to brute (54M
+        // terms brute could never finish).
+        {.id = "affine exponent closes over a huge range",
+         .input = "\\sum_{n=1}^{54000000} 2^{100n}",
+         .expected = Arm::Big},
+        // a = 1000000 makes the ratio c^a itself a ~1,000,000-bit number, still inside
+        // kMaxRatioBits (8M): constructing it via rat_pow is fast (O(log a) squarings), and it
+        // is far past kExactPowerBits, so the geometric sum lands in the BigReal branch, not a
+        // Rational. Also the fence on the cap's lower end: this body closes today and must
+        // keep closing, so the cap can never be tightened below it.
+        {.id = "a large slope still returns a BigReal value",
+         .input = "\\sum_{n=1}^{3} 2^{1000000n}",
+         .expected = Arm::Big},
+    };
+
+    for (const auto &tc : iterated_closed_arm_cases) {
+        test_detail::with_case(ctx, std::string("closed form :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, arm_of(eval_text(c, tc.input)), tc.expected);
+        });
+    }
+
+    // The message text is the contract: it is asserted verbatim, and only after confirming
+    // the body actually threw (a bare try/catch with no throw would otherwise let the message
+    // assertion silently pass).
+    const std::vector<MsgCase> iterated_closed_absurd_slope_cases = {
+        // The throw fires from a bit-length estimate before any big computation runs, so
+        // tripping it does not need a truly huge exponent: a = 5000000 puts the ratio past
+        // kMaxRatioBits (8M, counted as base_bits * |a|), mirroring the var-free product's own
+        // cap. Closing this body would mean a multi-minute exact -> BigReal conversion, so an
+        // error is the honest answer, not a decline to a brute loop that cannot compute it
+        // either.
+        {.id = "an absurd slope throws, never declines",
+         .input = "\\sum_{n=1}^{3} 2^{5000000n}",
+         .expected = "Sum range is too large to compute."},
+        // classify_walk serves both \sum and \prod, so the ratio-size cap must name whichever
+        // operator called it: a \prod hitting the same cap reports "Product", not "Sum".
+        {.id = "a prod's absurd slope throws with the product wording",
+         .input = "\\prod_{n=1}^{3} 2^{5000000n}",
+         .expected = "Product range is too large to compute."},
+    };
+
+    for (const auto &tc : iterated_closed_absurd_slope_cases) {
+        test_detail::with_case(ctx, std::string("closed form :: ") + tc.id, [&] {
+            EXPECT_THROWS(ctx, eval_text(c, tc.input));
+            bool threw = false;
+            try {
+                eval_text(c, tc.input);
+            } catch (const CalculatorError &e) {
+                threw = true;
+                EXPECT_EQ(ctx, std::string(e.what()), std::string(tc.expected));
+            }
+            EXPECT_EQ(ctx, threw, true);
+        });
+    }
+
+    // Budget-gated proofs that a body closes instead of falling to brute: a huge range under a
+    // 20 ms budget would blow straight through it if brute ran, so a returned value proves the
+    // closed form short-circuited before the loop ever started (not a bare 54M call, so a
+    // regression fails fast instead of hanging the suite). The shared wrapper -- set the
+    // budget, run inside a try/catch, restore the budget even if the body throws, then assert
+    // no throw fired -- is the whole point of this table. Both rows here are asserted by
+    // alternative (sharing the Arm representation above) because the true result is
+    // astronomically large and cannot be written as a literal; the G4 zero-coefficient proof
+    // below is not, since its whole point is a specific value, so it keeps its own
+    // `with_case` rather than being forced into this table.
+    const std::vector<ArmCase> iterated_closed_budget_cases = {
+        // G2 proof of closing, not brute: pre-G2 a Geo base under a literal power declined and
+        // the brute loop hit the budget; G2 folds (2^n)^2 into one Geo term via ct_mul before
+        // the loop ever starts, so it returns well inside the budget.
+        {.id = "G2 closes a geo base under a literal power, not a loop",
+         .input = "\\sum_{n=1}^{54000000} (2^{n})^{2}",
+         .expected = Arm::Big},
+        // Fix round 1 proof: a negative literal power on a Geo base closes too (the widened
+        // guard), not just a positive one. Pre-fix this declines (Geo base + negative
+        // exponent) and the brute loop over 54M terms hits the budget; post-fix ct_div inverts
+        // the positive-power Geo term before the loop ever starts.
+        {.id = "G2 closes a negative literal power on a geo base, not a loop",
+         .input = "\\sum_{n=1}^{54000000} (2^{n})^{-1}",
+         .expected = Arm::Big},
+    };
+
+    for (const auto &tc : iterated_closed_budget_cases) {
+        test_detail::with_case(ctx, std::string("closed form :: ") + tc.id, [&] {
+            tcalc::eval::set_eval_time_budget_ms(20);
+            bool threw = false;
+            std::optional<Value> v;
+            try {
+                v = eval_text(c, tc.input);
+            } catch (const CalculatorError &) {
+                threw = true;
+            }
+            tcalc::eval::set_eval_time_budget_ms(0); // restore the unlimited default
+            EXPECT_EQ(ctx, threw, false);
+            EXPECT_EQ(ctx, v.has_value() && arm_of(*v) == tc.expected, true);
+        });
+    }
+
+    // G4 proof: 0*2^n folds ct_geo(0, 2) to Const(0), not a Geo term, so it now composes into
+    // the var-free Prod arm (which only accepts Const) and closes over a huge range instead of
+    // declining to brute. Budget-gated for the same reason as the two proofs above, but kept
+    // out of that table: unlike those, the point here is a specific value (zero), not merely
+    // an alternative, so the assertion stays an exact Value comparison.
+    test_detail::with_case(
+        ctx, "closed form :: G4 zero-coefficient geo term composes into the Prod arm", [&] {
+            tcalc::eval::set_eval_time_budget_ms(20);
+            bool threw = false;
+            std::optional<Value> v;
+            try {
+                v = eval_text(c, "\\prod_{n=1}^{999999} 0*2^{n}");
+            } catch (const CalculatorError &) {
+                threw = true;
+            }
+            tcalc::eval::set_eval_time_budget_ms(0); // restore the unlimited default
+            EXPECT_EQ(ctx, threw, false);
+            EXPECT_EQ(ctx, v.has_value() && *v == Value{Rational(0)}, true);
+        });
+
+    // G1 declines when the coefficient's root is irrational, even though the ratio side would
+    // have been exact (2^{n+1/2} = sqrt(2) * 2^n): the whole term is declined, not approximated,
+    // so brute runs unchanged and closed-forms-enabled must match closed-forms-disabled exactly.
+    test_detail::with_case(ctx, "closed form :: G1 declines an irrational coefficient", [&] {
+        constexpr double eps = 1e-9;
+        const char *bodies[] = {
+            "\\sum_{n=1}^{4} 2^{n/2}",   // ratio itself irrational (sqrt(2))
+            "\\sum_{n=1}^{4} 2^{n+1/2}", // ratio exact (2), coefficient sqrt(2) irrational
+        };
+        for (const char *body : bodies) {
+            tcalc::eval::set_closed_forms_enabled(false);
+            const Value brute = eval_text(c, body);
+            tcalc::eval::set_closed_forms_enabled(true);
+            const Value closed = eval_text(c, body);
+            EXPECT_EQ(ctx, std::holds_alternative<double>(closed), true);
+            EXPECT_EQ(ctx, std::holds_alternative<double>(brute), true);
+            EXPECT_EQ(
+                ctx, std::abs(std::get<double>(closed) - std::get<double>(brute)) < eps, true);
+        }
     });
 
-    // The geometric closed form is O(log range): a 54M range that a brute loop could never
-    // finish inside a test returns instantly, proving the geometric path handled it (not the
-    // loop). 2^n overflows int64, and the geometric path uses BigReal (not double) past that.
-    test_detail::with_case(ctx, "closed form :: geometric is O(log range), not a loop", [&] {
-        const Value v = eval_text(c, "\\sum_{n=1}^{54000000} 2^{n}");
-        EXPECT_EQ(ctx, std::holds_alternative<BigReal>(v), true);
+    // (-4)^{n/2} has no real even root at odd n (a domain error, not a rational-vs-irrational
+    // question); G1 declines via exact_rational_root's own negative-even-root guard, and the
+    // real evaluator's own fallback path is what actually runs either way, landing on NaN.
+    test_detail::with_case(
+        ctx, "closed form :: G1 declines a negative base under a fractional exponent", [&] {
+            tcalc::eval::set_closed_forms_enabled(true);
+            const Value v = eval_text(c, "\\sum_{n=1}^{3} (-4)^{n/2}");
+            EXPECT_EQ(ctx, std::holds_alternative<double>(v), true);
+            EXPECT_EQ(ctx, std::isnan(std::get<double>(v)), true);
+        });
+
+    // The fence holding Task 3 (G1, affine exponent) and Task 4 (G2, geo base under a literal
+    // power) together: three different spellings of 4^n must all fold to the same value. All
+    // three land on the same Rational, not just "closed independently".
+    test_detail::with_case(ctx, "closed form :: three spellings of 4^n agree", [&] {
+        const Value implicit_mul = eval_text(c, "\\sum_{n=1}^{4} 2^{n}2^{n}");
+        const Value affine_exp = eval_text(c, "\\sum_{n=1}^{4} 2^{2n}");
+        const Value geo_pow = eval_text(c, "\\sum_{n=1}^{4} (2^{n})^{2}");
+        EXPECT_EQ(ctx, implicit_mul, Value{Rational(340)});
+        EXPECT_EQ(ctx, affine_exp, Value{Rational(340)});
+        EXPECT_EQ(ctx, geo_pow, Value{Rational(340)});
     });
+
+    // G2, negative literal power: (2^n)^-1 is the reciprocal term (1/2)^n. Anchored to the same
+    // known value both ways, not to a bare "it closed".
+    test_detail::with_case(
+        ctx, "closed form :: negative literal power on a geo base reciprocates", [&] {
+            const Value geo_pow = eval_text(c, "\\sum_{n=1}^{5} (2^{n})^{-1}");
+            const Value direct = eval_text(c, "\\sum_{n=1}^{5} (1/2)^{n}");
+            EXPECT_EQ(ctx, geo_pow, Value{Rational(31, 32)});
+            EXPECT_EQ(ctx, direct, Value{Rational(31, 32)});
+        });
+
+    // G3's headline case: (2^n - 2^n) is a like-term subtraction to zero. ct_add routes the
+    // result through ct_geo, which folds a zero coefficient to Const(0) (Task 4), so this closes
+    // to exactly Rational(0) via Faulhaber's O(1) formula -- not the Geo branch (which would
+    // promote a huge range to BigReal) and not a brute loop (a 54,000,000-term range building
+    // 2^n each step would never finish inside a test).
+    test_detail::with_case(
+        ctx, "closed form :: G3 folds 2^n - 2^n to exactly 0, closes not loops", [&] {
+            const Value small = eval_text(c, "\\sum_{n=1}^{4} (2^{n}-2^{n})");
+            EXPECT_EQ(ctx, small, Value{Rational(0)});
+            // Budget-gated like the other G-proofs above: a 54,000,000-term range building 2^n
+            // each step would blow well past 20ms if this fell to the brute loop, so a fast,
+            // non-throwing, exactly-zero result proves the like-term fold ran, not a loop.
+            tcalc::eval::set_eval_time_budget_ms(20);
+            bool threw = false;
+            std::optional<Value> huge;
+            try {
+                huge = eval_text(c, "\\sum_{n=1}^{54000000} (2^{n}-2^{n})");
+            } catch (const CalculatorError &) {
+                threw = true;
+            }
+            tcalc::eval::set_eval_time_budget_ms(0); // restore the unlimited default
+            EXPECT_EQ(ctx, threw, false);
+            EXPECT_EQ(ctx, huge.has_value() && *huge == Value{Rational(0)}, true);
+            EXPECT_EQ(ctx, huge.has_value() && std::holds_alternative<Rational>(*huge), true);
+        });
+
+    // G3 declines a trig like term: sin(n)+sin(n) would need a structural equality on the
+    // argument token vectors and the sampled k/phi, which classify_walk cannot do (no Calculator/
+    // AngleUnit). It still brute-forces to the correct value.
+    test_detail::with_case(
+        ctx, "closed form :: G3 declines a trig like term, brute-forces correctly", [&] {
+            const char *body = "\\sum_{n=1}^{5} (sin(n)+sin(n))";
+            tcalc::eval::set_closed_forms_enabled(false);
+            const Value brute = eval_text(c, body);
+            tcalc::eval::set_closed_forms_enabled(true);
+            const Value closed = eval_text(c, body);
+            EXPECT_EQ(ctx, std::holds_alternative<double>(closed), true);
+            EXPECT_EQ(ctx, std::holds_alternative<double>(brute), true);
+            EXPECT_EQ(ctx, std::get<double>(closed), std::get<double>(brute));
+        });
 
     // Trig sums close: differential closed-vs-brute (float, tolerance), plus an O(1) path proof
     // over a range no brute loop could finish, proving the closed path (not the loop) ran.
@@ -1387,6 +1649,77 @@ void unit_eval(TestContext &ctx) {
         {.id = "geometric sum over a range not starting at 1",
          .input = "\\sum_{n=2}^{4} 2^{n}", // 4+8+16
          .expected = Value{Rational(28)}},
+        // G1: an affine exponent a*n + b is still geometric, ratio = c^a, coeff = c^b.
+        {.id = "affine exponent, a=2",
+         .input = "\\sum_{n=1}^{4} 2^{2n}", // 4+16+64+256
+         .expected = Value{Rational(340)}},
+        {.id = "affine exponent, a=3",
+         .input = "\\sum_{n=1}^{3} 2^{3n}", // 8+64+512
+         .expected = Value{Rational(584)}},
+        {.id = "affine exponent, b=+1",
+         .input = "\\sum_{n=1}^{4} 2^{n+1}", // 4+8+16+32
+         .expected = Value{Rational(60)}},
+        {.id = "affine exponent, b=-1",
+         .input = "\\sum_{n=1}^{4} 2^{n-1}", // 1+2+4+8
+         .expected = Value{Rational(15)}},
+        {.id = "affine exponent, negated bare variable",
+         .input = "\\sum_{n=1}^{4} 2^{-n}", // 1/2+1/4+1/8+1/16
+         .expected = Value{Rational(15, 16)}},
+        {.id = "affine exponent, a=2 and b=1",
+         .input = "\\sum_{n=1}^{3} 2^{2n+1}", // 8+32+128
+         .expected = Value{Rational(168)}},
+        {.id = "affine exponent, negative integer a on a fractional base",
+         .input = "\\sum_{n=1}^{4} (1/2)^{-n}", // 2+4+8+16
+         .expected = Value{Rational(30)}},
+        {.id = "affine exponent, a=2 on a negative base",
+         .input = "\\sum_{n=1}^{3} (-2)^{2n}", // 4+16+64
+         .expected = Value{Rational(84)}},
+        {.id = "affine exponent, b=+1 on a negative base",
+         .input = "\\sum_{n=1}^{4} (-2)^{n+1}", // 4-8+16-32
+         .expected = Value{Rational(-20)}},
+        {.id = "affine exponent, fractional a=1/2 with an exact root",
+         .input = "\\sum_{n=1}^{4} 4^{n/2}", // 2+4+8+16
+         .expected = Value{Rational(30)}},
+        {.id = "affine exponent, fractional a=1/2, base 9",
+         .input = "\\sum_{n=1}^{4} 9^{n/2}", // 3+9+27+81
+         .expected = Value{Rational(120)}},
+        {.id = "affine exponent, fractional a=1/3, base 8",
+         .input = "\\sum_{n=1}^{4} 8^{n/3}", // 2+4+8+16
+         .expected = Value{Rational(30)}},
+        // (-8)^{n/3} = (-2)^n exactly (odd root of a negative base is fine), so this closes to
+        // Rational 2796202. Brute disagrees: its int64 exact path gives up by n=22 and the
+        // double retry evaluates std::pow(-8.0, 7.333...), a fractional power of a negative
+        // base, landing on nan. The closed answer is the correct one -- do not "fix" it to
+        // match brute's nan.
+        {.id = "affine exponent, fractional a=1/3 on a negative base: exact where brute NaNs",
+         .input = "\\sum_{n=1}^{22} (-8)^{n/3}",
+         .expected = Value{Rational(2796202)}},
+        {.id = "G1 composes with ct_div",
+         .input = "\\sum_{n=1}^{3} \\frac{2^{2n}}{3^{n}}", // (4/3)+(16/9)+(64/27) = 148/27
+         .expected = Value{Rational(148, 27)}},
+        // G2: a Geo base under a literal integer power, (c r^n)^k = c^k (r^k)^n.
+        {.id = "G2 geo base squared: (2^n)^2 = 4^n",
+         .input = "\\sum_{n=1}^{4} (2^{n})^{2}", // 4+16+64+256
+         .expected = Value{Rational(340)}},
+        {.id = "G2 geo base cubed: (2^n)^3 = 8^n",
+         .input = "\\sum_{n=1}^{3} (2^{n})^{3}", // 8+64+512
+         .expected = Value{Rational(584)}},
+        {.id = "G2 geo base to the zeroth power is 1",
+         .input = "\\sum_{n=1}^{5} (2^{n})^{0}", // 1+1+1+1+1
+         .expected = Value{Rational(5)}},
+        {.id = "G2 fractional geo base squared: ((1/2)^n)^2 = (1/4)^n",
+         .input = "\\sum_{n=1}^{5} ((1/2)^{n})^{2}", // 1/4+1/16+1/64+1/256+1/1024
+         .expected = Value{Rational(341, 1024)}},
+        // G2, negative literal power on a Geo base: (c r^n)^-k = (1/c^k)(1/r^k)^n, still
+        // geometric. (2^n)^-2 = (1/4)^n, the same value as ((1/2)^n)^2 above.
+        {.id = "G2 negative literal power squared on a geo base",
+         .input = "\\sum_{n=1}^{5} (2^{n})^{-2}", // 1/4+1/16+1/64+1/256+1/1024
+         .expected = Value{Rational(341, 1024)}},
+        // G2 on a fractional-ratio base: ((1/2)^n)^-1 = 2^n, the same value as the plain
+        // "geometric sum 2^n" case above.
+        {.id = "G2 negative literal power on a fractional-ratio geo base",
+         .input = "\\sum_{n=1}^{5} ((1/2)^{n})^{-1}", // 2+4+8+16+32
+         .expected = Value{Rational(62)}},
         {.id = "var-free product", .input = "\\prod_{n=1}^{5} 3", .expected = Value{Rational(243)}},
         {.id = "var-free fractional product",
          .input = "\\prod_{n=1}^{10} (1/2)",
@@ -1394,6 +1727,16 @@ void unit_eval(TestContext &ctx) {
         {.id = "var-free negative product",
          .input = "\\prod_{n=1}^{5} (-2)",
          .expected = Value{Rational(-32)}},
+        // G3: like-term folding, c1 r^n + c2 r^n = (c1+c2) r^n, for equal ratios.
+        {.id = "G3 like term: 2^n + 2^n doubles the coefficient",
+         .input = "\\sum_{n=1}^{4} (2^{n}+2^{n})", // 2*(2+4+8+16)
+         .expected = Value{Rational(60)}},
+        {.id = "G3 like term: 3*2^n + 2^n combines to 4*2^n",
+         .input = "\\sum_{n=1}^{4} (3*2^{n}+2^{n})", // 4*(2+4+8+16)
+         .expected = Value{Rational(120)}},
+        {.id = "G3 like term: 2^n/2 + 2^n combines to (3/2)*2^n",
+         .input = "\\sum_{n=1}^{4} (2^{n}/2+2^{n})", // (3/2)*(2+4+8+16)
+         .expected = Value{Rational(45)}},
     };
 
     for (const auto &tc : iterated_closed_cases) {
@@ -1454,6 +1797,37 @@ void unit_eval(TestContext &ctx) {
         {.id = "product: a non-monomial body",
          .input = "\\prod_{n=1}^{3} (n^{2}+1)",
          .expected = Value{Rational(100)}},
+        // G3 still declines: different ratios are genuinely two terms (splitting's job, not
+        // this task's), and mixed shapes (Geo + Const, Geo + Poly) are not like terms at all.
+        {.id = "G3 declines different ratios: 2^n + 3^n",
+         .input = "\\sum_{n=1}^{4} (2^{n}+3^{n})", // (2+4+8+16) + (3+9+27+81)
+         .expected = Value{Rational(150)}},
+        {.id = "G3 declines mixed shape: 2^n + 5",
+         .input = "\\sum_{n=1}^{4} (2^{n}+5)", // (2+4+8+16) + 4*5
+         .expected = Value{Rational(50)}},
+        {.id = "G3 declines mixed shape: 2^n + n^2",
+         .input = "\\sum_{n=1}^{4} (2^{n}+n^{2})", // (2+4+8+16) + (1+4+9+16)
+         .expected = Value{Rational(60)}},
+        // degree 2 exponent: G1 is degree-1 only, so this declines and brute-forces, proving
+        // 2^{2n}'s sibling with a nonlinear exponent stays correct (not widened too).
+        {.id = "quadratic exponent still brute-forces correctly",
+         .input = "\\sum_{n=1}^{3} 2^{n^{2}}", // 2+16+512
+         .expected = Value{Rational(530)}},
+        // G2 must still decline a variable power on a Geo base: (2^n)^n is 2^(n^2), no closed
+        // form. Same value as the quadratic-exponent case above, written the Geo-base way.
+        {.id = "G2 declines a variable power on a geo base, brute-forces correctly",
+         .input = "\\sum_{n=1}^{3} (2^{n})^{n}", // 2+16+512
+         .expected = Value{Rational(530)}},
+        // G4's r == 0 decline stays load-bearing: 0^0 == 1 in this calc, so a range starting at
+        // n=0 differs from one that does not, even though both bodies are "0^n". Both brute
+        // through a zero base, which promotes to BigReal (not the type, the number is what
+        // matters here: 1 vs 0).
+        {.id = "G4 guard: 0^n range including n=0 is 1 (0^0 == 1)",
+         .input = "\\sum_{n=0}^{2} 0^{n}",
+         .expected = Value{BigReal("1")}},
+        {.id = "G4 guard: 0^n range excluding n=0 is 0",
+         .input = "\\sum_{n=1}^{3} 0^{n}",
+         .expected = Value{BigReal("0")}},
     };
 
     for (const auto &tc : iterated_brute_cases) {
@@ -1533,6 +1907,19 @@ void unit_eval(TestContext &ctx) {
             EXPECT_THROWS(ctx, eval_text(c, "\\sum_{n=1}^{2000000} n/0"));
             try {
                 eval_text(c, "\\sum_{n=1}^{2000000} n/0");
+            } catch (const CalculatorError &e) {
+                EXPECT_EQ(ctx, std::string(e.what()), std::string("Math error"));
+            }
+        });
+
+    // A zero base under a negative affine exponent (0^{-n}) is a division by zero, not a ratio:
+    // affine_pow must decline it explicitly rather than letting rat_pow divide by zero, which
+    // would otherwise escape as a raw boost exception instead of the calc's own math error.
+    test_detail::with_case(
+        ctx, "closed form :: a zero base under a negative exponent raises the math error", [&] {
+            EXPECT_THROWS(ctx, eval_text(c, "\\sum_{n=1}^{3} 0^{-n}"));
+            try {
+                eval_text(c, "\\sum_{n=1}^{3} 0^{-n}");
             } catch (const CalculatorError &e) {
                 EXPECT_EQ(ctx, std::string(e.what()), std::string("Math error"));
             }

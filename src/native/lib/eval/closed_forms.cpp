@@ -128,6 +128,11 @@ using Poly = std::vector<CppRat>;
 // A degree > kMaxDegree can never reach faulhaber_sum (its Bernoulli table stops at 24).
 constexpr std::size_t kMaxDegree = 24;
 
+// Forward declarations: classify_walk's G1 (affine exponent) case needs these before their
+// definitions further down the file, next to the geometric sum that also uses them.
+int rat_bitlen(const CppRat &r);
+CppRat rat_pow(CppRat base, std::int64_t e);
+
 // Drop trailing (highest-degree) zero coefficients so the degree stays exact.
 void trim(Poly &p) {
     while (p.size() > 1 && p.back() == 0)
@@ -310,10 +315,18 @@ ClosedTerm ct_from_poly(Poly p) {
     return {ClosedTerm::Kind::Poly, std::move(p), CppRat(0), CppRat(0)};
 }
 
-// c*r^n, normalized: r == 1 is the constant c, r == 0 is degenerate.
+// c*r^n, normalized: r == 1 is the constant c, r == 0 is degenerate, c == 0 is identically 0.
+// The r == 0 decline stays ahead of the c == 0 fold, and it is load-bearing for a narrower
+// reason than "the formula would be wrong": geometric_closed at r = 0 reduces to c * 0^a, which
+// IS the true sum (0^0 == 1 here, so a range starting at n = 0 gives c, one starting later gives
+// 0). What it cannot survive is a negative lower bound: sum_{n=-2}^{2} 0^{n} would compute
+// rat_pow(0, -2) = 1/0 and escape as a raw Boost overflow_error instead of the calc's own math
+// error, which is what brute raises there. Declining keeps that case on the brute path.
 std::optional<ClosedTerm> ct_geo(const CppRat &c, const CppRat &r) {
     if (r == 0)
         return std::nullopt;
+    if (c == 0)
+        return ct_const(CppRat(0));
     if (r == 1)
         return ct_const(c);
     return ClosedTerm{ClosedTerm::Kind::Geo, {}, c, r};
@@ -353,8 +366,13 @@ CppRat ct_base(const ClosedTerm &t) {
     return t.kind == ClosedTerm::Kind::Geo ? t.r : CppRat(1);
 }
 
-// a + sign*b. A geometric term plus anything is not a single closed term.
+// a + sign*b. A geometric term plus anything is not a single closed term, except a like term:
+// two Geo terms with the same ratio combine, c1 r^n +- c2 r^n = (c1 +- c2) r^n (G3). CppRat is
+// exact, so == on the two ratios is a sound equality check, not a floating-point smell. Routed
+// through ct_geo so a cancelled coefficient folds to Const(0) rather than a zero-coefficient Geo.
 std::optional<ClosedTerm> ct_add(const ClosedTerm &a, const ClosedTerm &b, int sign) {
+    if (a.kind == ClosedTerm::Kind::Geo && b.kind == ClosedTerm::Kind::Geo && a.r == b.r)
+        return ct_geo(a.c + sign * b.c, a.r);
     const auto pa = ct_poly_view(a);
     const auto pb = ct_poly_view(b);
     if (!pa || !pb)
@@ -429,21 +447,49 @@ std::optional<ClosedTerm> ct_div(const ClosedTerm &a, const ClosedTerm &b) {
     return ct_geo(a.c / b.c, ct_base(a) / ct_base(b));
 }
 
-// A Pow's exponent side: exactly one non-negative integer literal.
-std::optional<CppRat> literal_int_exponent(const std::vector<Token> &right) {
-    if (right.size() != 1 || right[0].kind != TokenKind::Number)
+// Size bound for c^e inside an affine exponent (G1). Mirrors the var-free product's own cap
+// (this file's kMaxIterations / iterated_range_too_large): what follows is a single bignum
+// operation, and check_deadline() runs *between* operations, so nothing can interrupt it
+// mid-flight. Not a memory bound (1 MB even at 8M bits) and not the ratio's construction, which
+// is cheap: at -O2 rat_pow costs 0.02s even at 10M bits. What binds is geometric_sum's
+// exact -> BigReal conversion, quadratic in the ratio's size: 0.12s at 1M bits, 12s at 10M,
+// 112s at 30M. The bound is bit_length(root) * |exponent|, so `2^{1000000n}` needs 2M of it; a
+// real body puts the ratio at 2 to 100 bits, so 8M is astronomically more permissive than
+// anything a user writes, while past it an error beats a freeze nothing can interrupt.
+constexpr std::uint64_t kMaxRatioBits = 8'000'000;
+
+// c^e for a rational e = p/q: the exact q-th root of c raised to the integer power p. nullopt
+// only when the root itself does not exist (an irrational magnitude, or an even root of a
+// negative c, both handled by calc_detail::exact_rational_root); an e whose result would blow
+// past kMaxRatioBits throws instead, per the cap above, naming the operator it was called for.
+std::optional<CppRat> affine_pow(const CppRat &c, const CppRat &e, std::string_view op) {
+    const BigInt den = boost::multiprecision::denominator(e); // > 0: exact_rational_root's q
+    if (den > BigInt(std::numeric_limits<std::int64_t>::max()))
+        return std::nullopt; // an absurd root degree; no realistic input reaches this
+    const auto root = calc_detail::exact_rational_root(c, den.convert_to<std::int64_t>());
+    if (!root)
         return std::nullopt;
-    const std::optional<Rational> r =
-        to_rational(literal_value(std::get<parser::NumberToken>(right[0].data).value));
-    if (!r || r->denominator() != 1 || r->numerator() < 0)
-        return std::nullopt;
-    return CppRat(r->numerator());
+    const BigInt e_num = boost::multiprecision::numerator(e);
+    if (*root == 0 && e_num < 0)
+        return std::nullopt; // 0^negative is a division by zero, not a closed form; brute
+                             // raises the calc's own math error for whichever n hits it, if any
+    const BigInt mag = boost::multiprecision::abs(e_num);
+    const int base_bits = rat_bitlen(*root); // <= 1 iff root is 0, 1, or -1: e^this never grows
+    if (base_bits > 1 && BigInt(base_bits) * mag > BigInt(kMaxRatioBits))
+        throw CalculatorError(errmsg::iterated_range_too_large(op), ErrorKind::Invalid);
+    if (mag > BigInt(std::numeric_limits<std::int64_t>::max()))
+        throw CalculatorError(errmsg::iterated_range_too_large(op), ErrorKind::Invalid);
+    const auto e_i64 = mag.convert_to<std::int64_t>();
+    return rat_pow(*root, e_num < 0 ? -e_i64 : e_i64);
 }
 
 // Walk the body RPN, classifying it as a single Const / Poly / Geo term, or nullopt when it is
 // none of those (a Call, a variable divisor, a polynomial times a geometric term, etc.).
 // Examples: n^2 - 3n -> Poly[0,-3,1]; 2^n -> Geo(1,2); 5 -> Const(5); sin(n) -> nullopt.
-std::optional<ClosedTerm> classify_walk(std::span<const Token> rpn, std::string_view var) {
+// `op` is only carried for the one error this walk can raise (affine_pow's ratio-size cap):
+// the same walk serves \sum and \prod, so the message has to name the caller's operator.
+std::optional<ClosedTerm>
+classify_walk(std::span<const Token> rpn, std::string_view var, std::string_view op) {
     std::vector<ClosedTerm> stack;
     for (const Token &tok : rpn) {
         switch (tok.kind) {
@@ -475,7 +521,7 @@ std::optional<ClosedTerm> classify_walk(std::span<const Token> rpn, std::string_
             const auto inner = paren_element(std::get<parser::ParenToken>(tok.data));
             if (!inner)
                 return std::nullopt;
-            auto sub = classify_walk(shunting_yard(*inner), var);
+            auto sub = classify_walk(shunting_yard(*inner), var, op);
             if (!sub)
                 return std::nullopt;
             stack.push_back(std::move(*sub));
@@ -484,18 +530,33 @@ std::optional<ClosedTerm> classify_walk(std::span<const Token> rpn, std::string_
         case TokenKind::Latex: {
             const auto &lx = std::get<parser::LatexToken>(tok.data);
             if (lx.kind == LatexKind::Pow) {
-                auto base_opt = classify_walk(shunting_yard(lx.left), var);
+                auto base_opt = classify_walk(shunting_yard(lx.left), var, op);
                 if (!base_opt)
                     return std::nullopt;
                 const ClosedTerm base = std::move(*base_opt); // bind once, past the null check
-                if (const auto e = literal_int_exponent(lx.right)) {
-                    // base ^ (literal non-negative int): a polynomial power by repeated
-                    // convolution (n^2 = [0,1] convolved with itself), capped at kMaxDegree.
-                    if (base.kind == ClosedTerm::Kind::Geo)
+                const auto exp = classify_walk(shunting_yard(lx.right), var, op);
+                if (!exp)
+                    return std::nullopt;
+                if (exp->kind == ClosedTerm::Kind::Const) {
+                    // base ^ (integer constant): a polynomial power by repeated convolution
+                    // (n^2 = [0,1] convolved with itself), capped at kMaxDegree. A Geo base
+                    // folds the same way (G2): ct_mul already combines two Geo terms into one
+                    // ((c_a r_a^n)(c_b r_b^n) = (c_a c_b)(r_a r_b)^n), so the loop below lands on
+                    // (c r^n)^k = c^k (r^k)^n without any extra case.
+                    if (boost::multiprecision::denominator(exp->c) != 1)
                         return std::nullopt;
-                    const std::int64_t ex = static_cast<std::int64_t>(*e);
-                    if (ex > static_cast<std::int64_t>(kMaxDegree))
+                    const BigInt num = boost::multiprecision::numerator(exp->c);
+                    const bool neg = num < 0;
+                    // A negative exponent closes for a Const base (reciprocal) or a Geo base
+                    // (G2: 1/(c r^n) = (1/c)(1/r)^n, still geometric); a Poly base to a negative
+                    // power (n^{-2}) is not a polynomial.
+                    if (neg && base.kind != ClosedTerm::Kind::Const &&
+                        base.kind != ClosedTerm::Kind::Geo)
                         return std::nullopt;
+                    const BigInt mag = neg ? -num : num;
+                    if (mag > static_cast<std::int64_t>(kMaxDegree))
+                        return std::nullopt;
+                    const auto ex = static_cast<std::int64_t>(mag);
                     ClosedTerm acc = ct_const(CppRat(1));
                     for (std::int64_t p = 0; p < ex; ++p) {
                         auto m = ct_mul(acc, base);
@@ -503,23 +564,36 @@ std::optional<ClosedTerm> classify_walk(std::span<const Token> rpn, std::string_
                             return std::nullopt;
                         acc = std::move(*m);
                     }
+                    if (neg) {
+                        auto inv = ct_div(ct_const(CppRat(1)), acc);
+                        if (!inv)
+                            return std::nullopt;
+                        acc = std::move(*inv);
+                    }
                     stack.push_back(std::move(acc));
-                } else {
-                    // constant ^ (bound variable): the geometric term c*r^n. The exponent must
-                    // be exactly the bare variable, the polynomial [0,1].
-                    static const Poly kBareVar = {CppRat(0), CppRat(1)};
-                    const auto exp = classify_walk(shunting_yard(lx.right), var);
-                    if (base.kind != ClosedTerm::Kind::Const || !exp ||
-                        exp->kind != ClosedTerm::Kind::Poly || exp->poly != kBareVar)
+                } else if (
+                    base.kind == ClosedTerm::Kind::Const && exp->kind == ClosedTerm::Kind::Poly &&
+                    exp->poly.size() == 2) {
+                    // constant ^ (a n + b): c^(a n + b) = c^b * (c^a)^n, still geometric, with
+                    // ratio c^a and coefficient c^b (G1). The bare variable of Task 2 is the
+                    // a=1, b=0 case; degree >= 2 falls to the final else below and keeps
+                    // declining (2^{n^2} has no closed form).
+                    const auto ratio = affine_pow(base.c, exp->poly[1], op);
+                    if (!ratio)
                         return std::nullopt;
-                    auto g = ct_geo(CppRat(1), base.c);
+                    const auto coeff = affine_pow(base.c, exp->poly[0], op);
+                    if (!coeff)
+                        return std::nullopt;
+                    auto g = ct_geo(*coeff, *ratio);
                     if (!g)
                         return std::nullopt;
                     stack.push_back(std::move(*g));
+                } else {
+                    return std::nullopt;
                 }
             } else if (lx.kind == LatexKind::Frac) {
-                auto n = classify_walk(shunting_yard(lx.left), var);
-                auto d = classify_walk(shunting_yard(lx.right), var);
+                auto n = classify_walk(shunting_yard(lx.left), var, op);
+                auto d = classify_walk(shunting_yard(lx.right), var, op);
                 if (!n || !d)
                     return std::nullopt;
                 auto q = ct_div(*n, *d);
@@ -693,7 +767,9 @@ std::optional<Value> trig_sum(
 } // namespace
 
 std::optional<std::vector<CppRat>> canonicalise(std::span<const Token> rpn, std::string_view var) {
-    const auto t = classify_walk(rpn, var);
+    // "Sum" is only the operator name the ratio-size cap would report; this entry point extracts
+    // a polynomial and never reaches the geometric branch that can raise it.
+    const auto t = classify_walk(rpn, var, "Sum");
     if (!t || t->kind == ClosedTerm::Kind::Geo || t->kind == ClosedTerm::Kind::Trig)
         return std::nullopt;
     return t->kind == ClosedTerm::Kind::Const ? std::vector<CppRat>{t->c} : t->poly;
@@ -707,7 +783,7 @@ std::optional<Value> try_closed_form(
     std::int64_t last,
     const Calculator &calc,
     Calculator::AngleUnit unit) {
-    const auto term = classify_walk(rpn, var);
+    const auto term = classify_walk(rpn, var, kind == LatexKind::Prod ? "Product" : "Sum");
     if (kind == LatexKind::Sum) {
         // A single closed term: Faulhaber for a polynomial (constant included), the geometric
         // formula for c*r^n. Anything else declines, and the caller brute-forces.

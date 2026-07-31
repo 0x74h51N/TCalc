@@ -124,7 +124,9 @@ template <class Int> std::optional<Int> exact_int_root(const Int &val, long long
         return std::nullopt;
     if (q == 1)
         return val;
-    const cpp_int v(val);
+    // Binds directly for a cpp_int caller; for an int64 one it lifetime-extends the converted
+    // temporary. Either way no copy of an already-big value.
+    const cpp_int &v = val;
     if (v == 0 || v == 1)
         return val; // 0^(1/q) = 0, 1^(1/q) = 1
     if (v == -1)
