@@ -797,9 +797,49 @@ std::optional<Value> try_closed_form(
             term->kind == ClosedTerm::Kind::Const ? std::vector<CppRat>{term->c} : term->poly;
         return value_from_big_rational(faulhaber_sum(coeffs, first, last));
     }
-    // Prod: only a var-free (constant) body has a worthwhile closed form: c^(last-first+1).
-    if (!term || term->kind != ClosedTerm::Kind::Const)
+    // Prod: a var-free (constant) body closes to c^(last-first+1); a geometric one closes too,
+    // since exponents add across a product: c*r^n multiplied over the range is c^count * r^E,
+    // E = sum_{n=a}^{b} n. Neither r == 0 nor r == 1 reaches here: ct_geo declines a zero ratio
+    // and folds r == 1 into a Const.
+    if (!term || (term->kind != ClosedTerm::Kind::Const && term->kind != ClosedTerm::Kind::Geo))
         return std::nullopt;
+    if (term->kind == ClosedTerm::Kind::Geo) {
+        // first <= last is guaranteed by the caller, so span itself cannot overflow.
+        const std::uint64_t span =
+            static_cast<std::uint64_t>(last) - static_cast<std::uint64_t>(first);
+        // count feeds a Pow exponent, which is an int64_t Value, so it must fit int64_t too --
+        // checked before adding 1, not after: at first == INT64_MIN, last == INT64_MAX, span is
+        // the full uint64_t range, and span + 1 would silently wrap to 0 (c^0 == 1), the same
+        // pitfall the Const branch below already guards against for the same reason. This is not
+        // subsumed by the E guard just below: a range straddling zero can telescope E to (near)
+        // 0 while count is still huge (E is a signed sum that cancels; count only ever grows), so
+        // neither guard catches what the other misses. Declining to brute is not an option
+        // either: brute cannot compute a range this size.
+        if (span >= static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()))
+            throw CalculatorError(errmsg::iterated_range_too_large("Product"), ErrorKind::Invalid);
+        const std::uint64_t count = span + 1;
+        // E is exactly what P1's polynomial closed form already computes. It is quadratic in the
+        // range, so it overflows int64 long before first/last do; faulhaber_sum computes it in
+        // exact CppRat, so nothing overflows on the way there -- the check belongs at conversion.
+        const CppRat exp_sum = faulhaber_sum({CppRat(0), CppRat(1)}, first, last);
+        const BigInt exp_num = boost::multiprecision::numerator(exp_sum); // denominator is 1
+        const BigInt kInt64Max = std::numeric_limits<std::int64_t>::max();
+        const BigInt kInt64Min = std::numeric_limits<std::int64_t>::min();
+        if (exp_num < kInt64Min || exp_num > kInt64Max)
+            throw CalculatorError(errmsg::iterated_range_too_large("Product"), ErrorKind::Invalid);
+        const std::int64_t e = exp_num.convert_to<std::int64_t>();
+        // Built from the calculator's own ops -- the same ones the brute loop itself uses -- so
+        // the result lands in whatever arm (Rational/double/BigReal) brute would have, by
+        // construction, not by a second hand-matched exactness threshold.
+        const Value pow_c = apply(
+            calc,
+            OpId::Pow,
+            {value_from_big_rational(term->c), Value{static_cast<std::int64_t>(count)}},
+            unit);
+        const Value pow_r =
+            apply(calc, OpId::Pow, {value_from_big_rational(term->r), Value{e}}, unit);
+        return apply(calc, OpId::Mul, {pow_c, pow_r}, unit);
+    }
     // Same span iterate() uses, no +1 before the check: at first == INT64_MIN, last == INT64_MAX,
     // count would wrap to 0 and silently skip the cap. span itself can't overflow (first <= last).
     const std::uint64_t span = static_cast<std::uint64_t>(last) - static_cast<std::uint64_t>(first);

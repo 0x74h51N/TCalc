@@ -1341,6 +1341,48 @@ void unit_eval(TestContext &ctx) {
         });
     }
 
+    // Product-specific size guards, distinct from the shared ratio-size cap above: three
+    // independent checks -- E's int64 overflow, count's uint64 wrap, and the var-free
+    // product's kMaxIterations cap -- each proven with the exact range that trips it and no
+    // other. All report the same message because the calling site is what differs, not the
+    // wording.
+    const std::vector<MsgCase> iterated_closed_product_guard_cases = {
+        // E is quadratic in the range, so it overflows int64 long before a loop could finish.
+        {.id = "geometric product's E overflowing int64 throws, not declines",
+         .input = "\\prod_{n=1}^{5000000000} 2^{n}",
+         .expected = "Product range is too large to compute."},
+        // Here count = span + 1 wraps to 0, making c^count into 1, so the product would
+        // silently return r^E. The coefficient is what exposes it: with c == 1 the wrong
+        // answer equals the right one.
+        {.id = "geometric product's count wrapping at the int64 extremes throws, not 0",
+         .input = "\\prod_{n=-9223372036854775807-1}^{9223372036854775807} 3*2^{n}",
+         .expected = "Product range is too large to compute."},
+        // The var-free path raises c^count exactly, and one big-int squaring is a single
+        // allocation the deadline cannot interrupt, so it keeps a size bound of its own.
+        {.id = "a var-free product over a huge range is still capped",
+         .input = "\\prod_{n=1}^{2000000} 3",
+         .expected = "Product range is too large to compute."},
+        // -...807-1 is exactly INT64_MIN; without the -1 the literal is off by one and the
+        // span never reaches the wrap this pins.
+        {.id = "a var-free product at the true INT64_MIN lower bound does not silently return 1",
+         .input = "\\prod_{n=-9223372036854775807-1}^{9223372036854775807} 3",
+         .expected = "Product range is too large to compute."},
+    };
+
+    for (const auto &tc : iterated_closed_product_guard_cases) {
+        test_detail::with_case(ctx, std::string("closed form :: ") + tc.id, [&] {
+            EXPECT_THROWS(ctx, eval_text(c, tc.input));
+            bool threw = false;
+            try {
+                eval_text(c, tc.input);
+            } catch (const CalculatorError &e) {
+                threw = true;
+                EXPECT_EQ(ctx, std::string(e.what()), std::string(tc.expected));
+            }
+            EXPECT_EQ(ctx, threw, true);
+        });
+    }
+
     // Budget-gated proofs that a body closes instead of falling to brute: a huge range under a
     // 20 ms budget would blow straight through it if brute ran, so a returned value proves the
     // closed form short-circuited before the loop ever started (not a bare 54M call, so a
@@ -1737,13 +1779,118 @@ void unit_eval(TestContext &ctx) {
         {.id = "G3 like term: 2^n/2 + 2^n combines to (3/2)*2^n",
          .input = "\\sum_{n=1}^{4} (2^{n}/2+2^{n})", // (3/2)*(2+4+8+16)
          .expected = Value{Rational(45)}},
+        // Geometric product: exponents add across a product, c^count * r^E where
+        // E = sum_{n=a}^{b} n.
+        {.id = "geometric product 2^n",
+         .input = "\\prod_{n=1}^{5} 2^{n}", // 2*4*8*16*32
+         .expected = Value{Rational(32768)}},
+        {.id = "geometric product with a leading coefficient",
+         .input = "\\prod_{n=1}^{4} 3*2^{n}", // (3*2)*(3*4)*(3*8)*(3*16)
+         .expected = Value{Rational(82944)}},
+        {.id = "geometric product with a fractional ratio",
+         .input = "\\prod_{n=1}^{4} (1/2)^{n}", // (1/2)*(1/4)*(1/8)*(1/16)
+         .expected = Value{Rational(1, 1024)}},
+        {.id = "geometric product over a range straddling zero, E == 0",
+         .input = "\\prod_{n=-2}^{2} 2^{n}", // 2^-2 * 2^-1 * 2^0 * 2^1 * 2^2, E = 0
+         .expected = Value{Rational(1)}},
+        {.id = "geometric product with a negative E gives a reciprocal",
+         .input = "\\prod_{n=-3}^{-1} 2^{n}", // 2^-3 * 2^-2 * 2^-1, E = -6
+         .expected = Value{Rational(1, 64)}},
+        {.id = "geometric product with a negative ratio, E even",
+         .input = "\\prod_{n=1}^{4} (-2)^{n}", // E = 10
+         .expected = Value{Rational(1024)}},
+        {.id = "geometric product with a negative ratio, E odd",
+         .input = "\\prod_{n=1}^{5} (-2)^{n}", // E = 15
+         .expected = Value{Rational(-32768)}},
     };
 
+    // Each row asserts both the value and that the closed-form path is the one that produced it.
     for (const auto &tc : iterated_closed_cases) {
         test_detail::with_case(ctx, std::string("closed form :: ") + tc.id, [&] {
             EXPECT_EQ(ctx, eval_text(c, tc.input), tc.expected);
         });
     }
+
+    // Arm-ladder agreement, the point of the geometric-product approach: closed and brute must
+    // land in the very same arm (Rational/double/BigReal) at every range, not merely the same
+    // numeric value. Compared live against brute (not a hardcoded literal) so a future rewrite
+    // that reintroduces a hand-rolled exactness gate fails here the moment it diverges. A BigReal
+    // compares at its documented 50 significant digits, not raw variant equality: brute's
+    // incremental multiply and the closed form's direct r^E squaring take different rounding
+    // paths through cpp_dec_float's undocumented guard digits past that precision, which is
+    // noise, not a real divergence -- Rational and double agree bit-for-bit at every range here.
+    test_detail::with_case(
+        ctx, "closed form :: geometric product arm ladder matches brute at every range", [&] {
+            const char *bodies[] = {
+                "\\prod_{n=1}^{5} 2^{n}",
+                "\\prod_{n=1}^{10} 2^{n}",
+                "\\prod_{n=1}^{20} 2^{n}",
+                "\\prod_{n=1}^{60} 2^{n}",
+            };
+            for (const char *body : bodies) {
+                tcalc::eval::set_closed_forms_enabled(false);
+                const Value brute = eval_text(c, body);
+                tcalc::eval::set_closed_forms_enabled(true);
+                const Value closed = eval_text(c, body);
+                EXPECT_EQ(ctx, arm_of(closed), arm_of(brute));
+                if (const auto *b = std::get_if<BigReal>(&brute)) {
+                    // Deliberately NOT `closed == brute` here: raw variant equality on two
+                    // independently-computed BigReals compares cpp_dec_float's full internal
+                    // digit count, which exceeds the type's documented 50-significant-digit
+                    // precision. Brute's incremental multiply and the closed form's direct r^E
+                    // squaring take different rounding paths through those extra undocumented
+                    // guard digits and disagree there even though both are correct to 50
+                    // significant digits -- measured, not assumed: raw `==` fails here today. Do
+                    // not "tighten" this back to `==`; compare at the documented precision.
+                    const auto *cl = std::get_if<BigReal>(&closed);
+                    const bool same_at_precision =
+                        cl != nullptr && cl->str(50, std::ios_base::scientific) ==
+                                             b->str(50, std::ios_base::scientific);
+                    EXPECT_EQ(ctx, same_at_precision, true);
+                } else {
+                    // Rational and double DO agree bit-for-bit at these ranges (verified), so
+                    // exact equality is the right, stronger check for those two arms.
+                    EXPECT_EQ(ctx, closed, brute);
+                }
+            }
+        });
+
+    // Composition with the normalisation rules already on this branch (G1's affine exponent,
+    // G2's geo base under a literal power): all three spellings of 4^n must land on the same
+    // value once the product side closes them too.
+    test_detail::with_case(
+        ctx, "closed form :: geometric product composes with affine exponent and geo-base G2", [&] {
+            tcalc::eval::set_closed_forms_enabled(false);
+            const Value brute = eval_text(c, "\\prod_{n=1}^{10} 4^{n}");
+            tcalc::eval::set_closed_forms_enabled(true);
+            // Reset and check around each call, not once across all three: the flag is a
+            // single yes/no, so only a per-call check can prove each of the three spellings
+            // closed rather than just one of them.
+            const Value affine_exp = eval_text(c, "\\prod_{n=1}^{10} 2^{2n}");
+            const Value geo_pow = eval_text(c, "\\prod_{n=1}^{10} (2^{n})^{2}");
+            const Value plain = eval_text(c, "\\prod_{n=1}^{10} 4^{n}");
+            EXPECT_EQ(ctx, affine_exp, brute);
+            EXPECT_EQ(ctx, geo_pow, brute);
+            EXPECT_EQ(ctx, plain, brute);
+        });
+
+    // Closes rather than loops: a million-term range under a 20 ms budget would blow straight
+    // through it if brute ran, so a returned value (not a timeout) proves the closed form
+    // short-circuited before the loop ever started.
+    test_detail::with_case(
+        ctx, "closed form :: geometric product over a million terms closes, not loops", [&] {
+            tcalc::eval::set_eval_time_budget_ms(20);
+            bool threw = false;
+            std::optional<Value> v;
+            try {
+                v = eval_text(c, "\\prod_{n=1}^{1000000} 2^{n}");
+            } catch (const CalculatorError &) {
+                threw = true;
+            }
+            tcalc::eval::set_eval_time_budget_ms(0); // restore the unlimited default
+            EXPECT_EQ(ctx, threw, false);
+            EXPECT_EQ(ctx, v.has_value() && arm_of(*v) == Arm::Big, true);
+        });
 
     // Unsimplifiable rational bodies (nonzero remainder) whose divisor hits zero inside the
     // range: they decline the closed form, brute-force, and raise the calc's math error at the
@@ -1828,6 +1975,11 @@ void unit_eval(TestContext &ctx) {
         {.id = "G4 guard: 0^n range excluding n=0 is 0",
          .input = "\\sum_{n=1}^{3} 0^{n}",
          .expected = Value{BigReal("0")}},
+        // ct_geo declines a zero ratio, so the product branch never sees a Geo term here; the
+        // range avoids 0^0, which would make the body's value depend on the bound, not the ratio.
+        {.id = "geometric product declines a zero ratio, brute-forces to 0",
+         .input = "\\prod_{n=1}^{3} 0^{n}",
+         .expected = Value{BigReal("0")}},
     };
 
     for (const auto &tc : iterated_brute_cases) {
@@ -1836,21 +1988,6 @@ void unit_eval(TestContext &ctx) {
         });
     }
 
-    test_detail::with_case(
-        ctx, "closed form :: a var-free product over a huge range is still capped", [&] {
-            // c^count blows up exponentially, unlike Faulhaber's Sum, and one big-int squaring
-            // is a single allocation the deadline cannot interrupt, so the product closed form
-            // keeps its own size bound and throws directly over it.
-            EXPECT_THROWS(ctx, eval_text(c, "\\prod_{n=1}^{2000000} 3"));
-            try {
-                eval_text(c, "\\prod_{n=1}^{2000000} 3");
-            } catch (const CalculatorError &e) {
-                EXPECT_EQ(
-                    ctx,
-                    std::string(e.what()),
-                    std::string("Product range is too large to compute."));
-            }
-        });
 
     test_detail::with_case(
         ctx, "closed form :: a var-free product at the int64 extremes does not overflow", [&] {
@@ -1860,28 +1997,6 @@ void unit_eval(TestContext &ctx) {
             // silently wrapping to a near-zero count and returning 1.
             EXPECT_THROWS(
                 ctx, eval_text(c, "\\prod_{n=-9223372036854775807}^{9223372036854775807} 3"));
-        });
-
-    test_detail::with_case(
-        ctx,
-        "closed form :: a var-free product at the true INT64_MIN lower bound does not "
-        "silently return 1",
-        [&] {
-            // -9223372036854775807-1 evaluates to exactly INT64_MIN, the true extreme (the
-            // test above is off by one, since -9223372036854775807 alone still fits as a
-            // positive literal negated). At this span, count = last - first + 1 wraps to 0 in
-            // uint64, so a naive count-based cap check would miss it and the exponentiation
-            // loop would run 0 iterations, silently returning 1 instead of throwing.
-            EXPECT_THROWS(
-                ctx, eval_text(c, "\\prod_{n=-9223372036854775807-1}^{9223372036854775807} 3"));
-            try {
-                eval_text(c, "\\prod_{n=-9223372036854775807-1}^{9223372036854775807} 3");
-            } catch (const CalculatorError &e) {
-                EXPECT_EQ(
-                    ctx,
-                    std::string(e.what()),
-                    std::string("Product range is too large to compute."));
-            }
         });
 
     test_detail::with_case(
