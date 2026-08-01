@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <limits>
 #include <optional>
+#include <utility>
 
 #include <boost/multiprecision/cpp_int.hpp>
 
@@ -81,52 +82,92 @@ inline bool rational_pow_overflows(const Rational &base, long long exp) {
     return check(base.numerator()) || check(base.denominator());
 }
 
+/// floor(m^(1/q)) for m >= 2, q >= 2, over exact big integers. Only a floor estimate; the
+/// caller is what verifies r^q == m. Boost has an exact integer square root but no general
+/// integer n-th root, so q == 2 uses that directly and larger q falls to Newton, the same
+/// method GMP's mpz_root uses internally. Returns 1 when q exceeds m's bit length: any r >= 2
+/// already overshoots there (2^q > m), so no Newton run can help.
+/// See: https://en.wikipedia.org/wiki/Nth_root_algorithm
+inline boost::multiprecision::cpp_int
+integer_root_floor(const boost::multiprecision::cpp_int &m, long long q) {
+    using boost::multiprecision::cpp_int;
+    const auto bits = static_cast<long long>(boost::multiprecision::msb(m)) + 1;
+    if (q > bits)
+        return 1;
+    if (q == 2)
+        return boost::multiprecision::sqrt(m);
+    // Newton for the integer q-th root, quadratic convergence from an overestimate:
+    // r_{k+1} = ((q-1) r_k + m / r_k^(q-1)) / q.
+    const auto qu = static_cast<unsigned>(q); // q <= bits here, so this always fits
+    cpp_int r = 1;
+    r <<= static_cast<unsigned>((bits + q - 1) / q); // 2^ceil(bits/q) >= the true root
+    while (true) {
+        const cpp_int next = ((q - 1) * r + m / boost::multiprecision::pow(r, qu - 1)) / q;
+        if (next >= r)
+            return r;
+        r = next;
+    }
+}
+
 /// Try to compute the exact integer q-th root of val (q >= 1).
-/// Returns nullopt if val^(1/q) is not an exact integer.
-inline std::optional<std::int64_t> exact_int_root(std::int64_t val, long long q) {
+/// Returns nullopt if val^(1/q) is not an exact integer: an irrational magnitude, or an even
+/// root of a negative value. The verification is on the *signed* value, so (-4)^(1/2) declines
+/// while (-8)^(1/3) is -2.
+///
+/// Templated on the integer type, with the arithmetic done in arbitrary precision, so one body
+/// serves both the int64 (Rational) and the cpp_int (closed-form) callers: a double
+/// approximation of the root cannot decide rootness once the value passes double's precision
+/// (pow(8.0, 1.0/3.0) is 1.9999999999999998) or its range.
+template <class Int> std::optional<Int> exact_int_root(const Int &val, long long q) {
+    using boost::multiprecision::cpp_int;
     if (q <= 0)
         return std::nullopt;
     if (q == 1)
         return val;
-    if (val == 0)
-        return std::int64_t(0);
-    if (val == 1)
-        return std::int64_t(1);
-    if (val == -1)
-        return (q % 2 != 0) ? std::optional<std::int64_t>(-1) : std::nullopt;
-
-    const bool negative = val < 0;
+    // Binds directly for a cpp_int caller; for an int64 one it lifetime-extends the converted
+    // temporary. Either way no copy of an already-big value.
+    const cpp_int &v = val;
+    if (v == 0 || v == 1)
+        return val; // 0^(1/q) = 0, 1^(1/q) = 1
+    if (v == -1)
+        return (q % 2 != 0) ? std::optional<Int>(val) : std::nullopt;
+    const bool negative = v < 0;
     if (negative && (q % 2 == 0))
         return std::nullopt;
+    const cpp_int mag = boost::multiprecision::abs(v);
+    const cpp_int r = integer_root_floor(mag, q);
+    if (r < 2)
+        return std::nullopt; // mag > 1 here, so a floor root of 1 cannot be exact
+    // r >= 2 implies 2^q <= r^q <= mag, so q is bounded by mag's bit length and the cast fits.
+    if (boost::multiprecision::pow(r, static_cast<unsigned>(q)) != mag)
+        return std::nullopt;
+    return static_cast<Int>(negative ? -r : r);
+}
 
-    const auto abs_val = static_cast<std::uint64_t>(negative ? -val : val);
-    const auto abs_max = static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max());
+/// Numerator/denominator of a rational value: Rational exposes member accessors, boost's
+/// cpp_rational needs its free boost::multiprecision::numerator/denominator. These two
+/// overloads bridge that so exact_rational_root can be written once, templated over both,
+/// instead of once per accessor style.
+inline std::pair<std::int64_t, std::int64_t> rational_parts(const Rational &r) {
+    return {r.numerator(), r.denominator()};
+}
+inline std::pair<boost::multiprecision::cpp_int, boost::multiprecision::cpp_int>
+rational_parts(const boost::multiprecision::cpp_rational &r) {
+    return {boost::multiprecision::numerator(r), boost::multiprecision::denominator(r)};
+}
 
-    // Float approximation, then verify candidate ± 1.
-    const double approx = std::pow(static_cast<double>(abs_val), 1.0 / static_cast<double>(q));
-    auto lo = static_cast<std::int64_t>(std::floor(approx));
-    if (lo < 2)
-        lo = 2;
-
-    for (std::int64_t c = lo; c <= lo + 2; ++c) {
-        std::uint64_t power = 1;
-        bool overflow = false;
-        for (long long i = 0; i < q; ++i) {
-            if (power > abs_max / static_cast<std::uint64_t>(c)) {
-                overflow = true;
-                break;
-            }
-            power *= static_cast<std::uint64_t>(c);
-            if (power > abs_val) {
-                overflow = true;
-                break;
-            }
-        }
-        if (!overflow && power == abs_val) {
-            return negative ? -c : c;
-        }
-    }
-    return std::nullopt;
+/// Exact q-th root of a rational c (Rational or boost's cpp_rational), or nullopt when it does
+/// not exist. Numerator and denominator are rooted separately by exact_int_root and recombined;
+/// every guard that matters (q <= 0, q == 1, the 0/1/-1 cases, an even root of a negative value)
+/// already lives inside exact_int_root, so this adds none of its own. The verification is on
+/// each part's *signed* value, so (-4)^(1/2) declines while (-8)^(1/3) is -2.
+template <class R> std::optional<R> exact_rational_root(const R &c, long long q) {
+    const auto [num, den] = rational_parts(c);
+    const auto nr = exact_int_root(num, q);
+    const auto dr = exact_int_root(den, q);
+    if (!nr || !dr)
+        return std::nullopt;
+    return R(*nr, *dr);
 }
 
 /// Try to compute base^exp as an exact Rational.
@@ -152,11 +193,7 @@ try_rational_pow(const Calculator &calc, const Rational &base, const Rational &e
         return std::nullopt;
 
     const Rational powered = calc.pow(base, Rational(p));
-    const auto nr = exact_int_root(powered.numerator(), q);
-    const auto dr = exact_int_root(powered.denominator(), q);
-    if (!nr || !dr)
-        return std::nullopt;
-    return Rational(*nr, *dr);
+    return exact_rational_root(powered, q);
 }
 
 /// Wide rational for overflow-safe add/sub/mul/div: int64 arithmetic on

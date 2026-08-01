@@ -78,6 +78,11 @@ Value evaluate(const parser::TokensBranch &branch, const Calculator &c, Calculat
 void set_closed_forms_enabled(bool on);
 bool closed_forms_enabled();
 
+/// Test-only flag for whether a closed form ran since the last reset, so a test can assert the
+/// closed path actually ran rather than merely that the loop would have produced the same value.
+void reset_closed_form_taken();
+bool closed_form_taken();
+
 /// Wall-clock budget for one top-level evaluate(), in milliseconds. 0 (default) is unlimited,
 /// which the benchmark and the whole test suite keep so their timings stay deterministic.
 /// The app sets ~500ms so a runaway expression returns a "timed out" error instead of freezing
