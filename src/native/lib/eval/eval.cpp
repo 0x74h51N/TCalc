@@ -690,6 +690,13 @@ bool &closed_forms_flag() {
     return on;
 }
 
+// Test-only hit flag for the closed-form matcher below, thread_local so parallel test runs
+// don't cross-pollute each other's results.
+bool &closed_form_taken_flag() {
+    thread_local bool taken = false;
+    return taken;
+}
+
 // Check the deadline once every this many brute iterations, so the clock read is amortized away.
 constexpr std::int64_t kDeadlineCheckStride = 1024;
 
@@ -720,8 +727,10 @@ Value iterate(
     // The closed-form matcher is checked once here, before the loop (not per iteration).
     // A benchmark can force the brute path by turning it off; production leaves it on.
     if (closed_forms_enabled())
-        if (auto closed = try_closed_form(tok.kind, rpn, var, first, last, c, unit))
+        if (auto closed = try_closed_form(tok.kind, rpn, var, first, last, c, unit)) {
+            closed_form_taken_flag() = true;
             return *closed; // O(1) for a polynomial sum, exempt from any range limit
+        }
 
     // The loop variable is a transient local bind: remember the caller's binding and put
     // it back on every exit, so a sum never leaks its index.
@@ -759,6 +768,13 @@ void set_closed_forms_enabled(bool on) {
 }
 bool closed_forms_enabled() {
     return closed_forms_flag();
+}
+
+void reset_closed_form_taken() {
+    closed_form_taken_flag() = false;
+}
+bool closed_form_taken() {
+    return closed_form_taken_flag();
 }
 
 Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::AngleUnit unit) {

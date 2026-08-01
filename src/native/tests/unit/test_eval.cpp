@@ -1303,7 +1303,9 @@ void unit_eval(TestContext &ctx) {
 
     for (const auto &tc : iterated_closed_arm_cases) {
         test_detail::with_case(ctx, std::string("closed form :: ") + tc.id, [&] {
+            tcalc::eval::reset_closed_form_taken();
             EXPECT_EQ(ctx, arm_of(eval_text(c, tc.input)), tc.expected);
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
         });
     }
 
@@ -1807,7 +1809,9 @@ void unit_eval(TestContext &ctx) {
     // Each row asserts both the value and that the closed-form path is the one that produced it.
     for (const auto &tc : iterated_closed_cases) {
         test_detail::with_case(ctx, std::string("closed form :: ") + tc.id, [&] {
+            tcalc::eval::reset_closed_form_taken();
             EXPECT_EQ(ctx, eval_text(c, tc.input), tc.expected);
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
         });
     }
 
@@ -1831,7 +1835,9 @@ void unit_eval(TestContext &ctx) {
                 tcalc::eval::set_closed_forms_enabled(false);
                 const Value brute = eval_text(c, body);
                 tcalc::eval::set_closed_forms_enabled(true);
+                tcalc::eval::reset_closed_form_taken();
                 const Value closed = eval_text(c, body);
+                EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
                 EXPECT_EQ(ctx, arm_of(closed), arm_of(brute));
                 if (const auto *b = std::get_if<BigReal>(&brute)) {
                     // Deliberately NOT `closed == brute` here: raw variant equality on two
@@ -1866,9 +1872,15 @@ void unit_eval(TestContext &ctx) {
             // Reset and check around each call, not once across all three: the flag is a
             // single yes/no, so only a per-call check can prove each of the three spellings
             // closed rather than just one of them.
+            tcalc::eval::reset_closed_form_taken();
             const Value affine_exp = eval_text(c, "\\prod_{n=1}^{10} 2^{2n}");
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+            tcalc::eval::reset_closed_form_taken();
             const Value geo_pow = eval_text(c, "\\prod_{n=1}^{10} (2^{n})^{2}");
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+            tcalc::eval::reset_closed_form_taken();
             const Value plain = eval_text(c, "\\prod_{n=1}^{10} 4^{n}");
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
             EXPECT_EQ(ctx, affine_exp, brute);
             EXPECT_EQ(ctx, geo_pow, brute);
             EXPECT_EQ(ctx, plain, brute);
@@ -1920,9 +1932,6 @@ void unit_eval(TestContext &ctx) {
         {.id = "sum: a postfix factorial",
          .input = "\\sum_{n=1}^{4} n!",
          .expected = Value{33.0}}, // factorial has no Rational arm, so this is a double
-        {.id = "sum: a nested sum",
-         .input = "\\sum_{q=1}^{2} \\sum_{m=1}^{2} qm",
-         .expected = Value{Rational(9)}},
         {.id = "sum: a function-call mask",
          .input = "\\sum_{n=1}^{3} n(1-mod(n,2))",
          .expected = Value{BigReal("2")}}, // mod has no Rational kernel, promotes to BigReal
@@ -1984,10 +1993,23 @@ void unit_eval(TestContext &ctx) {
 
     for (const auto &tc : iterated_brute_cases) {
         test_detail::with_case(ctx, std::string("iterated brute :: ") + tc.id, [&] {
+            tcalc::eval::reset_closed_form_taken();
             EXPECT_EQ(ctx, eval_text(c, tc.input), tc.expected);
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), false);
         });
     }
 
+    // Neither purely closed nor purely brute: the outer sum's body is the inner \sum token
+    // itself, not a polynomial in q, so the outer level declines and brute-forces over q = 1, 2.
+    // But each of those two outer iterations binds q to a concrete value before evaluating the
+    // inner sum, and qm is then a degree-1 polynomial in m (coefficient q), so the inner level
+    // closes on every one of those outer steps.
+    test_detail::with_case(
+        ctx, "iterated mixed :: nested sum, outer declines, inner closes on every outer step", [&] {
+            tcalc::eval::reset_closed_form_taken();
+            EXPECT_EQ(ctx, eval_text(c, "\\sum_{q=1}^{2} \\sum_{m=1}^{2} qm"), Value{Rational(9)});
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+        });
 
     test_detail::with_case(
         ctx, "closed form :: a var-free product at the int64 extremes does not overflow", [&] {

@@ -767,8 +767,9 @@ std::optional<Value> trig_sum(
 } // namespace
 
 std::optional<std::vector<CppRat>> canonicalise(std::span<const Token> rpn, std::string_view var) {
-    // "Sum" is only the operator name the ratio-size cap would report; this entry point extracts
-    // a polynomial and never reaches the geometric branch that can raise it.
+    // "Sum" is the operator name the ratio-size cap would report. The walk does reach the
+    // geometric branch and can raise from it, even though a Geo result is discarded below, so
+    // the name is not vestigial: this entry point is only ever used on the sum side.
     const auto t = classify_walk(rpn, var, "Sum");
     if (!t || t->kind == ClosedTerm::Kind::Geo || t->kind == ClosedTerm::Kind::Trig)
         return std::nullopt;
