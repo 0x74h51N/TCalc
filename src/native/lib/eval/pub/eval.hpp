@@ -49,8 +49,9 @@ std::vector<Value> coerce(ops::OpId id, std::vector<Value> args);
 /// exact arithmetic cannot represent its result, then range promotion.
 Value apply(const Calculator &c, ops::OpId id, std::vector<Value> args, Calculator::AngleUnit unit);
 
-/// A constant's value, which is a double for all but the imaginary unit.
-Value const_value(const consts::ConstSpec &spec);
+/// A constant's value, which is a double for all but the imaginary unit. The single point where
+/// a constant becomes a value; a caller holding a spec passes its `id`.
+Value const_value(consts::ConstId id);
 
 /// Insert implicit multiplication and fold runs of + and - into one sign. The step the
 /// shunt runs first; exposed because it is worth pinning on its own.

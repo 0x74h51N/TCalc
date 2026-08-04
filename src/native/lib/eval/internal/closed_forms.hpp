@@ -26,12 +26,12 @@
 #include <vector>
 #include <boost/multiprecision/cpp_int.hpp>
 #include "calc/pub/calculator.hpp"
+#include "eval/internal/scalar.hpp"
 #include "parser/pub/parser.hpp"
+#include "eval/internal/scalar.hpp"
 #include "value.hpp"
 
 namespace tcalc::eval {
-
-using CppRat = boost::multiprecision::cpp_rational;
 
 /// Size bound for the var-free product closed form (c^count). Its exponentiation squares a
 /// big integer, and one squaring is a single allocation the wall-clock deadline cannot
@@ -44,7 +44,11 @@ inline constexpr std::int64_t kMaxIterations = 1'000'000;
 /// promotion; overflowing Rational arithmetic already falls to double).
 Value value_from_big_rational(const CppRat &r);
 
-/// Sum_{n=a}^{b} p(n) for polynomial p with coefficients [c0..cd] (low degree first), exact.
+/// Sum_{n=a}^{b} p(n) for polynomial p with coefficients [c0..cd] (low degree first).
+std::optional<Scalar>
+faulhaber_sum(const std::vector<Scalar> &coeffs, std::int64_t a, std::int64_t b);
+
+/// The same sum for rational-only coefficients, which stay exact and cannot decline.
 CppRat faulhaber_sum(const std::vector<CppRat> &coeffs, std::int64_t a, std::int64_t b);
 
 /// Matcher entry point: the closed-form Value, or nullopt (the caller then brute-forces).

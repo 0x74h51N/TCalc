@@ -22,6 +22,7 @@
 #include "calc/internal/helpers.hpp"
 #include "calc/pub/error_messages.hpp"
 #include "eval/internal/closed_forms.hpp"
+#include "eval/internal/scalar.hpp"
 #include "eval/pub/eval.hpp"
 #include "eval/pub/literal.hpp"
 #include "eval/pub/varstore.hpp"
@@ -67,6 +68,16 @@ using LitCase = Case<const char *, Value>;
 using ArmCase = Case<const char *, Arm>;
 /// Case row for the evaluator: source text -> the value it evaluates to.
 using EvalCase = Case<const char *, Value>;
+/// Operand pair and operation for the symbolic scalar table: `op` is one of * / + -.
+struct ScalarOps {
+    tcalc::eval::Scalar lhs;
+    tcalc::eval::Scalar rhs;
+    char op;
+};
+/// Case row for the scalar algebra: an operation on two scalars -> the scalar it must equal.
+using ScalarCase = Case<ScalarOps, tcalc::eval::Scalar>;
+/// Case row for a body whose value is irrational: source text -> the real it must land near.
+using NearCase = Case<const char *, double>;
 /// Case row for a rejected expression: source text -> nothing, it must throw.
 using RejectCase = Case<const char *, std::monostate>;
 /// Case row for a rejected expression whose message text is part of the contract.
@@ -1160,6 +1171,84 @@ void unit_eval(TestContext &ctx) {
             CppRat("333333833333500000"));
     });
 
+    // Symbolic scalar algebra, exercised directly rather than through a sum. `sym` builds an
+    // expectation from scalar_push, so no row is checked against the operation it is testing.
+    {
+        using tcalc::consts::ConstId;
+        using tcalc::eval::CppRat;
+        using tcalc::eval::Scalar;
+        const auto sym = [](ConstId id, int exp) {
+            Scalar s;
+            tcalc::eval::scalar_push(s, static_cast<std::int16_t>(id), exp);
+            return s;
+        };
+        const auto scaled = [](const CppRat &c, Scalar s) {
+            s.coeff = c;
+            return s;
+        };
+        const Scalar two = tcalc::eval::scalar_rational(CppRat(2));
+        const Scalar pi = sym(ConstId::Pi, 1);
+        const Scalar e = sym(ConstId::EulerNumber, 1);
+
+        const std::vector<ScalarCase> scalar_cases = {
+            {.id = "a symbol times itself raises its exponent",
+             .input = {pi, pi, '*'},
+             .expected = sym(ConstId::Pi, 2)},
+            {.id = "a symbol over itself is exactly one",
+             .input = {pi, pi, '/'},
+             .expected = tcalc::eval::scalar_rational(CppRat(1))},
+            {.id = "a squared symbol over itself is exactly the symbol",
+             .input = {sym(ConstId::Pi, 2), pi, '/'},
+             .expected = pi},
+            {.id = "like terms add exactly",
+             .input = {pi, pi, '+'},
+             .expected = scaled(CppRat(2), pi)},
+            {.id = "like terms cancel exactly",
+             .input = {pi, pi, '-'},
+             .expected = scaled(CppRat(0), pi)},
+            {.id = "two symbols take two slots",
+             .input = {pi, e, '*'},
+             .expected = tcalc::eval::scalar_mul(sym(ConstId::Pi, 1), sym(ConstId::EulerNumber, 1))
+                             .value()},
+            {.id = "a symbol divides back out of a product",
+             .input = {tcalc::eval::scalar_mul(pi, e).value(), e, '/'},
+             .expected = pi},
+        };
+
+        for (const auto &tc : scalar_cases) {
+            test_detail::with_case(ctx, std::string("scalar :: ") + tc.id, [&] {
+                const auto got = tc.input.op == '*'
+                                     ? tcalc::eval::scalar_mul(tc.input.lhs, tc.input.rhs)
+                                 : tc.input.op == '/'
+                                     ? tcalc::eval::scalar_div(tc.input.lhs, tc.input.rhs)
+                                     : tcalc::eval::scalar_add(
+                                           tc.input.lhs, tc.input.rhs, tc.input.op == '+' ? 1 : -1);
+                EXPECT_EQ(ctx, got.has_value(), true);
+                EXPECT_EQ(ctx, tcalc::eval::scalar_equal(*got, tc.expected), true);
+            });
+        }
+
+        // Predicates and the opaque fall-back do not fit a two-operand row.
+        test_detail::with_case(ctx, "scalar :: predicates and the opaque fall-back", [&] {
+            EXPECT_EQ(ctx, tcalc::eval::scalar_is_rational(two), true);
+            EXPECT_EQ(ctx, tcalc::eval::scalar_is_rational(pi), false);
+            EXPECT_EQ(
+                ctx,
+                tcalc::eval::scalar_is_rational(tcalc::eval::scalar_div(pi, pi).value()),
+                true);
+            EXPECT_EQ(
+                ctx,
+                tcalc::eval::scalar_is_zero(tcalc::eval::scalar_add(pi, pi, -1).value()),
+                true);
+            // Unlike terms leave the symbolic world; the value survives, the identity does not.
+            const Scalar sum = tcalc::eval::scalar_add(two, pi, 1).value();
+            EXPECT_EQ(ctx, tcalc::eval::scalar_is_rational(sum), false);
+            EXPECT_EQ(ctx, tcalc::eval::scalar_equal(sum, pi), false);
+            const double want = 2.0 + tcalc::eval::scalar_eval(pi).value();
+            EXPECT_EQ(ctx, tcalc::eval::scalar_eval(sum).value() == want, true);
+        });
+    }
+
     test_detail::with_case(ctx, "closed_forms :: exact_rational_root finds exact roots", [&] {
         using tcalc::eval::CppRat;
         using calc_detail::exact_rational_root;
@@ -1796,6 +1885,125 @@ void unit_eval(TestContext &ctx) {
             EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
         });
     }
+
+    // Bodies carrying an irrational constant: the walk keeps the constant's identity, so these
+    // close symbolically and only become a double at the end.
+    const auto real_of = [&](const char *body) { return std::get<double>(eval_text(c, body)); };
+    const double pi = real_of("π");
+    const double euler = real_of("e");
+    const double boltzmann = real_of("k");
+    const double sin_sum = real_of("\\sum_{n=1}^{10} sin(n)");
+
+    const std::vector<NearCase> iterated_symbolic_cases = {
+        {.id = "a bare constant body", .input = "\\sum_{n=1}^{4} π", .expected = 4 * pi},
+        {.id = "scaled polynomial", .input = "\\sum_{n=1}^{4} π n", .expected = 10 * pi},
+        {.id = "scaled square", .input = "\\sum_{n=1}^{4} π n^{2}", .expected = 30 * pi},
+        {.id = "scaled geometric", .input = "\\sum_{n=1}^{5} π 2^{n}", .expected = 62 * pi},
+        {.id = "polynomial over a constant", .input = "\\sum_{n=1}^{4} n/π", .expected = 10 / pi},
+        {.id = "a constant other than pi", .input = "\\sum_{n=1}^{4} e n", .expected = 10 * euler},
+        {.id = "scaled trig", .input = "\\sum_{n=1}^{10} π sin(n)", .expected = pi * sin_sum},
+        {.id = "trig over a constant",
+         .input = "\\sum_{n=1}^{10} sin(n)/π",
+         .expected = sin_sum / pi},
+        {.id = "a measured physics constant",
+         .input = "\\sum_{n=1}^{10} k sin(n)",
+         .expected = boltzmann * sin_sum},
+        {.id = "equal symbols add",
+         .input = "\\sum_{n=1}^{4} (π n^{2} + π n)",
+         .expected = 40 * pi},
+        {.id = "a literal power raises the symbol",
+         .input = "\\sum_{n=1}^{4} (π n)^{2}",
+         .expected = 30 * pi * pi},
+        {.id = "two constants in one product",
+         .input = "\\sum_{n=1}^{4} π e n",
+         .expected = 10 * pi * euler},
+        {.id = "unlike symbols still close, as one number",
+         .input = "\\sum_{n=1}^{4} (5 + π)",
+         .expected = 4 * (5 + pi)},
+        {.id = "unlike symbols on a polynomial",
+         .input = "\\sum_{n=1}^{4} (π n^{2} + n)",
+         .expected = 30 * pi + 10},
+    };
+
+    for (const auto &tc : iterated_symbolic_cases) {
+        test_detail::with_case(ctx, std::string("iterated symbolic :: ") + tc.id, [&] {
+            tcalc::eval::reset_closed_form_taken();
+            const Value v = eval_text(c, tc.input);
+            EXPECT_EQ(ctx, std::holds_alternative<double>(v), true);
+            EXPECT_EQ(ctx, near_rel(std::get<double>(v), tc.expected), true);
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+        });
+    }
+
+    // Every pi cancels at the coefficient level, so this is 2n^2 - n and never becomes a double.
+    test_detail::with_case(ctx, "iterated symbolic :: a body whose constants cancel exactly", [&] {
+        tcalc::eval::reset_closed_form_taken();
+        EXPECT_EQ(
+            ctx,
+            eval_text(c, "\\sum_{n=1}^{4} ((π-n)^{2} - π^{2} + n^{2} + 2π n - n)"),
+            Value{Rational(50)});
+        EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+    });
+
+    // A double-bound variable is a symbol too, so it cancels the same way.
+    test_detail::with_case(ctx, "iterated symbolic :: a double-bound variable cancels", [&] {
+        session_vars().clear();
+        session_vars().set("A", Value{0.3});
+        tcalc::eval::reset_closed_form_taken();
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{4} (A n - A n + n)"), Value{Rational(10)});
+        EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+        session_vars().clear();
+    });
+
+    // The exponent side keeps its guard: n^{pi} has no closed form, and without the guard the
+    // walk reads the exponent's rational part as 1 and answers `sum n`.
+    test_detail::with_case(ctx, "iterated symbolic :: a symbol in an exponent declines", [&] {
+        tcalc::eval::reset_closed_form_taken();
+        const Value v = eval_text(c, "\\sum_{n=1}^{4} n^{π}");
+        const double want =
+            std::pow(1.0, pi) + std::pow(2.0, pi) + std::pow(3.0, pi) + std::pow(4.0, pi);
+        EXPECT_EQ(ctx, near_rel(std::get<double>(v), want), true);
+        EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), false);
+    });
+
+    // A constant in the RATIO, not the coefficient: the ratio cannot factor out of the sum, so
+    // these resolve to a double before the geometric formula runs.
+    const auto powers = [](double base) {
+        double acc = 0.0;
+        for (int m = 1; m <= 4; ++m)
+            acc += std::pow(base, m);
+        return acc;
+    };
+
+    const std::vector<NearCase> iterated_symbolic_ratio_cases = {
+        {.id = "a constant as the ratio", .input = "\\sum_{n=1}^{4} π^{n}", .expected = powers(pi)},
+        {.id = "a constant inside the base",
+         .input = "\\sum_{n=1}^{4} (2π)^{n}",
+         .expected = powers(2 * pi)},
+        {.id = "a constant in an affine exponent",
+         .input = "\\sum_{n=1}^{4} 2^{π n}",
+         .expected = powers(std::pow(2.0, pi))},
+    };
+
+    for (const auto &tc : iterated_symbolic_ratio_cases) {
+        test_detail::with_case(ctx, std::string("iterated symbolic ratio :: ") + tc.id, [&] {
+            tcalc::eval::reset_closed_form_taken();
+            const Value v = eval_text(c, tc.input);
+            EXPECT_EQ(ctx, std::holds_alternative<double>(v), true);
+            EXPECT_EQ(ctx, near_rel(std::get<double>(v), tc.expected), true);
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+        });
+    }
+
+    // A zero-valued symbol is a zero divisor whatever the coefficient says.
+    test_detail::with_case(
+        ctx, "iterated symbolic :: a zero-valued variable is a zero divisor", [&] {
+            session_vars().clear();
+            session_vars().set("Z", Value{0.0});
+            EXPECT_THROWS(ctx, eval_text(c, "\\sum_{n=1}^{3} n/Z"));
+            EXPECT_THROWS(ctx, eval_text(c, "\\sum_{n=1}^{3} sin(n)/Z"));
+            session_vars().clear();
+        });
 
     // Arm-ladder agreement, the point of the geometric-product approach: closed and brute must
     // land in the very same arm (Rational/double/BigReal) at every range, not merely the same
