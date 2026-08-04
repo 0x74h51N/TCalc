@@ -47,11 +47,6 @@ Value value_from_big_rational(const CppRat &r);
 /// Sum_{n=a}^{b} p(n) for polynomial p with coefficients [c0..cd] (low degree first), exact.
 CppRat faulhaber_sum(const std::vector<CppRat> &coeffs, std::int64_t a, std::int64_t b);
 
-/// Walk an iterated body's RPN, building the polynomial in `var` as a trimmed coefficient
-/// vector, or nullopt when the body is not a polynomial the matcher accepts.
-std::optional<std::vector<CppRat>>
-canonicalise(std::span<const parser::Token> rpn, std::string_view var);
-
 /// Matcher entry point: the closed-form Value, or nullopt (the caller then brute-forces).
 std::optional<Value> try_closed_form(
     parser::LatexKind kind,

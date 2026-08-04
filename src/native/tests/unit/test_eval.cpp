@@ -1160,73 +1160,6 @@ void unit_eval(TestContext &ctx) {
             CppRat("333333833333500000"));
     });
 
-    test_detail::with_case(ctx, "closed_forms :: canonicalise polynomial bodies", [&] {
-        using tcalc::eval::canonicalise;
-        using tcalc::eval::CppRat;
-        const auto poly = [](const char *body) {
-            return canonicalise(
-                tcalc::eval::shunting_yard(tcalc::parser::tokenize(body).tokens), "n");
-        };
-        EXPECT_EQ(ctx, poly("n").value(), (std::vector<CppRat>{CppRat(0), CppRat(1)}));
-        EXPECT_EQ(
-            ctx, poly("n^{2}-3n").value(), (std::vector<CppRat>{CppRat(0), CppRat(-3), CppRat(1)}));
-        EXPECT_EQ(
-            ctx,
-            poly("(n^{2}-1)/2").value(),
-            (std::vector<CppRat>{CppRat(-1, 2), CppRat(0), CppRat(1, 2)}));
-        EXPECT_EQ(ctx, poly("2n").value(), (std::vector<CppRat>{CppRat(0), CppRat(2)}));
-        EXPECT_EQ(ctx, poly("5").value(), (std::vector<CppRat>{CppRat(5)}));
-        // trailing zero trimmed: (n+1)^2 - n^2 = 2n + 1
-        EXPECT_EQ(
-            ctx, poly("(n+1)^{2}-n^{2}").value(), (std::vector<CppRat>{CppRat(1), CppRat(2)}));
-        // degree exactly at the cap is still accepted
-        EXPECT_EQ(ctx, poly("n^{24}").has_value(), true);
-        // exact polynomial division: the divisor divides the numerator evenly, so it is a
-        // polynomial (n^2 / n = n, (n^3 - 1) / (n - 1) = n^2 + n + 1).
-        EXPECT_EQ(ctx, poly("n^{2}/n").value(), (std::vector<CppRat>{CppRat(0), CppRat(1)}));
-        EXPECT_EQ(
-            ctx,
-            poly("\\frac{n^{3}-1}{n-1}").value(),
-            (std::vector<CppRat>{CppRat(1), CppRat(1), CppRat(1)}));
-        // a negative integer exponent on a Const base closes (the gate is one classify_walk of
-        // the exponent now, not a token pattern-match, so a negative literal (two tokens) works).
-        EXPECT_EQ(ctx, poly("2^{-3}").value(), (std::vector<CppRat>{CppRat(1, 8)}));
-        // any exponent expression that folds to an integer Const closes, not just a single
-        // literal token: 3-1 classifies to Const(2), so n^{3-1} is n^2. Intentional per the
-        // brief's dispatch (classify the exponent once; do not special-case its token shape).
-        EXPECT_EQ(
-            ctx, poly("n^{3-1}").value(), (std::vector<CppRat>{CppRat(0), CppRat(0), CppRat(1)}));
-    });
-
-    test_detail::with_case(ctx, "closed_forms :: canonicalise rejects non-polynomials", [&] {
-        using tcalc::eval::canonicalise;
-        const auto poly = [](const char *body) {
-            return canonicalise(
-                tcalc::eval::shunting_yard(tcalc::parser::tokenize(body).tokens), "n");
-        };
-        EXPECT_EQ(ctx, poly("sin(n)").has_value(), false);  // a Call
-        EXPECT_EQ(ctx, poly("1/n").has_value(), false);     // division by the variable
-        EXPECT_EQ(ctx, poly("1/(n-3)").has_value(), false); // divisor depends on the var
-        EXPECT_EQ(ctx, poly("2^{n}").has_value(), false);   // variable exponent
-        EXPECT_EQ(ctx, poly("π n").has_value(), false);     // irrational coefficient
-        EXPECT_EQ(ctx, poly("n^{25}").has_value(), false);  // degree exceeds Bernoulli table
-        EXPECT_EQ(ctx, poly("2^{25}").has_value(), false);  // exponent exceeds kMaxDegree
-        EXPECT_EQ(ctx, poly("n^{-2}").has_value(), false);  // Poly base, negative exponent
-        EXPECT_EQ(ctx, poly("2^{1/2}").has_value(), false); // Const exponent, not an integer
-        // A Geo base under a literal power (G2) and an affine exponent (G1) both close to Geo
-        // at the classify_walk level; canonicalise still declines both, since it only accepts
-        // Const/Poly results.
-        EXPECT_EQ(ctx, poly("(2^{n})^{2}").has_value(), false);
-        EXPECT_EQ(ctx, poly("2^{2n}").has_value(), false);
-        EXPECT_EQ(
-            ctx, poly("n^{2}/(n+1)").has_value(), false); // nonzero remainder: rational function
-        EXPECT_EQ(ctx, poly("\\frac{n}{n-2}").has_value(), false); // remainder 2: not a polynomial
-        // a var-free zero divisor always errors, even without a bound loop: it throws the
-        // calc's normal division error instead of silently declining to brute force.
-        EXPECT_THROWS(ctx, poly("n/0"));          // literal-zero divisor, Op::Div arm
-        EXPECT_THROWS(ctx, poly("\\frac{n}{0}")); // literal-zero divisor, Frac arm
-    });
-
     test_detail::with_case(ctx, "closed_forms :: exact_rational_root finds exact roots", [&] {
         using tcalc::eval::CppRat;
         using calc_detail::exact_rational_root;
@@ -1259,9 +1192,15 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, exact_rational_root(CppRat(4), -2).has_value(), false);
     });
 
+    // Relative comparison with an absolute floor, so a reference of 0 still has slack.
+    // 1e-9 is what the trig cases already use.
+    const auto near_rel = [](double got, double want) {
+        return std::abs(got - want) <= 1e-9 * std::max(1.0, std::abs(want));
+    };
+
     test_detail::with_case(
         ctx, "closed form :: a double-bound session variable falls to brute", [&] {
-            // A is bound to a double, not a Rational, so canonicalise's exactness gate rejects
+            // A is bound to a double, not a Rational, so classify_walk's exactness gate rejects
             // the coefficient and the body brute-forces: 0.5 * (1 + 2 + 3) = 3.0, a double.
             session_vars().clear();
             session_vars().set("A", Value{0.5});
@@ -1804,6 +1743,49 @@ void unit_eval(TestContext &ctx) {
         {.id = "geometric product with a negative ratio, E odd",
          .input = "\\prod_{n=1}^{5} (-2)^{n}", // E = 15
          .expected = Value{Rational(-32768)}},
+        // Range 4..6 throughout below: it clears 1/(n-3)'s and n/(n-2)'s poles in the sibling
+        // brute table, so one range serves every body.
+        {.id = "bare variable body", .input = "\\sum_{n=4}^{6} n", .expected = Value{Rational(15)}},
+        // The parens are load-bearing: bare, the top-level `-` would end the sum body.
+        {.id = "quadratic minus linear",
+         .input = "\\sum_{n=4}^{6} (n^{2}-3n)",
+         .expected = Value{Rational(32)}},
+        {.id = "polynomial over a constant divisor, Op arm",
+         .input = "\\sum_{n=4}^{6} (n^{2}-1)/2",
+         .expected = Value{Rational(37)}},
+        {.id = "linear with a coefficient",
+         .input = "\\sum_{n=4}^{6} 2n",
+         .expected = Value{Rational(30)}},
+        {.id = "a rational var-free constant body",
+         .input = "\\sum_{n=4}^{6} 5",
+         .expected = Value{Rational(15)}},
+        {.id = "trailing zero coefficient trimmed",
+         .input = "\\sum_{n=4}^{6} ((n+1)^{2}-n^{2})", // = sum of 2n+1
+         .expected = Value{Rational(33)}},
+        {.id = "degree 24 monomial at the cap",
+         .input = "\\sum_{n=4}^{6} n^{24}",
+         .expected = Value{Rational(4798267458073718177)}},
+        {.id = "exact division by the variable, Op arm",
+         .input = "\\sum_{n=4}^{6} n^{2}/n",
+         .expected = Value{Rational(15)}},
+        {.id = "exact division by a linear divisor, Frac arm",
+         .input = "\\sum_{n=4}^{6} \\frac{n^{3}-1}{n-1}", // = sum of n^2+n+1
+         .expected = Value{Rational(95)}},
+        {.id = "a var-free power folds to a constant",
+         .input = "\\sum_{n=4}^{6} 2^{-3}",
+         .expected = Value{Rational(3, 8)}},
+        {.id = "an exponent expression folding to an integer",
+         .input = "\\sum_{n=4}^{6} n^{3-1}", // = n^2
+         .expected = Value{Rational(77)}},
+        {.id = "geometric body over a shifted range",
+         .input = "\\sum_{n=4}^{6} 2^{n}", // 16+32+64
+         .expected = Value{Rational(112)}},
+        {.id = "G2 geo base squared over a shifted range",
+         .input = "\\sum_{n=4}^{6} (2^{n})^{2}",
+         .expected = Value{Rational(5376)}},
+        {.id = "G1 affine exponent over a shifted range",
+         .input = "\\sum_{n=4}^{6} 2^{2n}",
+         .expected = Value{Rational(5376)}},
     };
 
     // Each row asserts both the value and that the closed-form path is the one that produced it.
@@ -1989,6 +1971,24 @@ void unit_eval(TestContext &ctx) {
         {.id = "geometric product declines a zero ratio, brute-forces to 0",
          .input = "\\prod_{n=1}^{3} 0^{n}",
          .expected = Value{BigReal("0")}},
+        {.id = "sum: 1/n over a shifted range",
+         .input = "\\sum_{n=4}^{6} 1/n",
+         .expected = Value{Rational(37, 60)}},
+        {.id = "sum: a divisor depending on the variable",
+         .input = "\\sum_{n=4}^{6} 1/(n-3)",
+         .expected = Value{Rational(11, 6)}},
+        {.id = "sum: an exponent past kMaxDegree on a const base",
+         .input = "\\sum_{n=4}^{6} 2^{25}",
+         .expected = Value{Rational(100663296)}},
+        {.id = "sum: a poly base under a negative exponent",
+         .input = "\\sum_{n=4}^{6} n^{-2}",
+         .expected = Value{Rational(469, 3600)}},
+        {.id = "sum: a nonzero division remainder, Op arm",
+         .input = "\\sum_{n=4}^{6} n^{2}/(n+1)",
+         .expected = Value{Rational(2627, 210)}},
+        {.id = "sum: a nonzero division remainder, Frac arm",
+         .input = "\\sum_{n=4}^{6} \\frac{n}{n-2}",
+         .expected = Value{Rational(31, 6)}},
     };
 
     for (const auto &tc : iterated_brute_cases) {
@@ -1998,6 +1998,42 @@ void unit_eval(TestContext &ctx) {
             EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), false);
         });
     }
+
+    // The same 4..6 range as the tables above, for bodies whose value cannot be an EvalCase:
+    // a Value compares exactly and these are irrational, overflowed or throwing.
+    test_detail::with_case(ctx, "closed form :: a trig body over a shifted range", [&] {
+        tcalc::eval::reset_closed_form_taken();
+        const Value v = eval_text(c, "\\sum_{n=4}^{6} sin(n)");
+        EXPECT_EQ(ctx, near_rel(std::get<double>(v), -1.9951422681699926), true);
+        EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+    });
+
+    test_detail::with_case(ctx, "iterated brute :: degree 25 is one past the Bernoulli table", [&] {
+        // The exact sum overflows int64, so brute lands on a double.
+        tcalc::eval::reset_closed_form_taken();
+        const Value v = eval_text(c, "\\sum_{n=4}^{6} n^{25}");
+        EXPECT_EQ(ctx, near_rel(std::get<double>(v), 2.8729437153713496e+19), true);
+        EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), false);
+    });
+
+    test_detail::with_case(ctx, "iterated brute :: a const exponent that is not an integer", [&] {
+        tcalc::eval::reset_closed_form_taken();
+        const Value v = eval_text(c, "\\sum_{n=4}^{6} 2^{1/2}"); // 3*sqrt(2)
+        EXPECT_EQ(ctx, near_rel(std::get<double>(v), 4.242640687119286), true);
+        EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), false);
+    });
+
+    test_detail::with_case(
+        ctx, "closed_forms :: a literal-zero divisor throws in both spellings", [&] {
+            for (const char *s : {"\\sum_{n=4}^{6} n/0", "\\sum_{n=4}^{6} \\frac{n}{0}"}) {
+                EXPECT_THROWS(ctx, eval_text(c, s));
+                try {
+                    eval_text(c, s);
+                } catch (const CalculatorError &e) {
+                    EXPECT_EQ(ctx, std::string(e.what()), std::string("Math error"));
+                }
+            }
+        });
 
     // Neither purely closed nor purely brute: the outer sum's body is the inner \sum token
     // itself, not a polynomial in q, so the outer level declines and brute-forces over q = 1, 2.
@@ -2039,7 +2075,7 @@ void unit_eval(TestContext &ctx) {
         ctx,
         "closed_forms :: a huge div-by-zero range reports the math error, not range-too-large",
         [&] {
-            // canonicalise walks the body before any size check, so a var-free zero divisor
+            // classify_walk walks the body before any size check, so a var-free zero divisor
             // surfaces the real div-by-zero error rather than being masked by a range limit.
             EXPECT_THROWS(ctx, eval_text(c, "\\sum_{n=1}^{2000000} n/0"));
             try {

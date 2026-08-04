@@ -766,16 +766,6 @@ std::optional<Value> trig_sum(
 
 } // namespace
 
-std::optional<std::vector<CppRat>> canonicalise(std::span<const Token> rpn, std::string_view var) {
-    // "Sum" is the operator name the ratio-size cap would report. The walk does reach the
-    // geometric branch and can raise from it, even though a Geo result is discarded below, so
-    // the name is not vestigial: this entry point is only ever used on the sum side.
-    const auto t = classify_walk(rpn, var, "Sum");
-    if (!t || t->kind == ClosedTerm::Kind::Geo || t->kind == ClosedTerm::Kind::Trig)
-        return std::nullopt;
-    return t->kind == ClosedTerm::Kind::Const ? std::vector<CppRat>{t->c} : t->poly;
-}
-
 std::optional<Value> try_closed_form(
     LatexKind kind,
     std::span<const Token> rpn,
