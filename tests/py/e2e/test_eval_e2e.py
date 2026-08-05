@@ -754,3 +754,88 @@ def test_every_constant_symbol_and_alias_tokenizes() -> None:
                 continue
             assert tok.kind == calc_native.TokenKind.Const, f"{s!r} -> {tok.kind}"
             assert tok.as_const().id == spec.id, f"{s!r} -> {tok.as_const().id}, want {spec.id}"
+
+
+# Iterated ops through _eval, so the editor round-trip and the binding layer are in the path.
+# The closed-form matcher runs inside evaluate, so these pin its result type, not just its value.
+@pytest.mark.parametrize(
+    ("expr", "num", "den"),
+    [
+        param("\\sum_{n=1}^{4} n^{2}", 30, 1, id="sum-polynomial-faulhaber"),
+        param("\\sum_{n=1}^{4} (n^{2}-3n)", 0, 1, id="sum-polynomial-multi-term"),
+        param("\\sum_{n=1}^{4} 2^{n}", 30, 1, id="sum-geometric"),
+        param("\\sum_{n=1}^{4} 2^{2n}", 340, 1, id="sum-geometric-affine-exponent"),
+        param("\\sum_{n=1}^{5} (1/2)^{n}", 31, 32, id="sum-geometric-convergent-exact"),
+        param("\\sum_{n=1}^{4} n^{2}/n", 10, 1, id="sum-exact-poly-division"),
+        param("\\prod_{n=1}^{5} 2^{n}", 32768, 1, id="prod-geometric"),
+        param("\\prod_{n=1}^{4} n", 24, 1, id="prod-factorial-brute"),
+        param("\\sum_{n=1}^{4} 1/n", 25, 12, id="sum-harmonic-brute"),
+        # The symbolic-constant headline: every pi cancels, so this is 2n^2 - n and must come
+        # back exact rather than as a double.
+        param(
+            "\\sum_{n=1}^{4} ((π-n)^{2} - π^{2} + n^{2} + 2π n - n)",
+            50,
+            1,
+            id="sum-constants-cancel-exactly",
+        ),
+    ],
+)
+def test_iterated_stays_rational(expr: str, num: int, den: int) -> None:
+    out = _eval(expr)
+    assert isinstance(out, calc_native.Rational), (
+        f"Expected Rational, got {type(out).__name__}: {out}"
+    )
+    assert out.numerator == num, f"numerator: expected {num}, got {out.numerator}"
+    assert out.denominator == den, f"denominator: expected {den}, got {out.denominator}"
+
+
+@pytest.mark.parametrize(
+    ("expr", "expected"),
+    [
+        param("\\sum_{n=1}^{4} π n", 10.0 * math.pi, id="sum-scaled-polynomial"),
+        param("\\sum_{n=1}^{5} π 2^{n}", 62.0 * math.pi, id="sum-scaled-geometric"),
+        param("\\sum_{n=1}^{4} n/π", 10.0 / math.pi, id="sum-polynomial-over-constant"),
+        param("\\sum_{n=1}^{4} e n", 10.0 * math.e, id="sum-scaled-by-euler"),
+        param(
+            "\\sum_{n=1}^{4} π^{n}",
+            sum(math.pi**m for m in range(1, 5)),
+            id="sum-irrational-ratio",
+        ),
+        param(
+            "\\sum_{n=1}^{4} n^{π}",
+            sum(float(m) ** math.pi for m in range(1, 5)),
+            id="sum-constant-exponent-brute",
+        ),
+        param(
+            "\\sum_{n=1}^{10} sin(n)",
+            sum(math.sin(m) for m in range(1, 11)),
+            id="sum-trig-dirichlet",
+        ),
+        param(
+            "\\sum_{n=1}^{10} π sin(n)",
+            math.pi * sum(math.sin(m) for m in range(1, 11)),
+            id="sum-scaled-trig",
+        ),
+        param("\\prod_{n=1}^{4} π", math.pi**4, id="prod-constant-brute"),
+    ],
+)
+def test_iterated_real_values(expr: str, expected: float) -> None:
+    out = _eval(expr)
+    if isinstance(out, calc_native.Rational):
+        out = out.to_double()
+    assert isinstance(out, (int, float)), f"Expected a real, got {type(out).__name__}: {out}"
+    assert float(out) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    "expr",
+    [
+        param("\\sum_{n=1}^{3} n/0", id="sum-zero-divisor"),
+        param("\\sum_{n=1}^{3} \\frac{n}{0}", id="sum-zero-divisor-frac"),
+    ],
+)
+def test_iterated_zero_divisor_raises(expr: str) -> None:
+    from tcalc.errors import Error
+
+    with pytest.raises(Error, match="Math Error"):
+        _eval(expr)
