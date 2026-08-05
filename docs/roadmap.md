@@ -141,9 +141,21 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [x] Combinatorics - x! (factorial), nPr (permutation), nCr (combination)
   - [x] Number theory - gcd, lcm, mod, intdiv
 - [x] Power / Complex - sqrt, x², xʸ, i, complex domain rules
-- [ ] Iterated ops - summation (Σ), product (Π) over a bound variable and range
 - [x] Parser parity - Implement ops in native + pybind
 - [x] Edge cases + error messages
+- [ ] Iterated ops - summation (Σ), product (Π) over a bound variable and range
+  - [x] Brute-force evaluation - native loop over the range, wall-clock deadline
+  - [ ] Closed forms - recognise the body once, before the loop, and answer in O(1) or O(logN)
+    - [x] Polynomial sums via Faulhaber (Bernoulli B_0..B_24, degree cap 24)
+    - [x] Exact polynomial division (`n^2/n`, removable singularities)
+    - [x] Geometric sums, affine exponents, geometric bases under a literal power, like-term folding
+    - [x] Trig sums via the real Dirichlet product form (affine argument, sampled frequency)
+    - [x] Var-free and geometric products
+    - [x] Symbolic constants - a constant keeps its identity through the walk, so `π n^2`, `π sin(n)` and `π^n` close and bodies whose constants cancel stay exact
+    - [ ] Arithmetico-geometric - `n 2^n`, `n sin(n)`, `2^n sin(n)`, over a complex ratio
+    - [ ] Trig like-term folding - `(sin(n) - sin(n))`, `(3sin(n) + sin(n))`
+    - [ ] Quadratic trig arguments - `sin(π n^2)`, `sin(2π n^2)`
+    - [ ] Term splitting - partition the body at top-level +/-, close each term
 
 #### Statistic
 
