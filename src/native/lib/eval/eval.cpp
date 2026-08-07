@@ -366,8 +366,9 @@ Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::A
 }
 
 /// A constant's value, which is a double for all but the imaginary unit.
-Value const_value(const consts::ConstSpec &spec) {
-    return std::visit([](const auto &x) -> Value { return Value{x}; }, spec.value);
+Value const_value(consts::ConstId id) {
+    return std::visit(
+        [](const auto &x) -> Value { return Value{x}; }, consts::const_spec(id)->value);
 }
 
 namespace {
@@ -429,7 +430,7 @@ Value resolve_name(const std::string &name) {
 Value eval_subscript(const Token &tok) {
     const std::string name = strip_braces(parser::token_text(tok));
     if (const consts::ConstSpec *spec = subscript_const(name))
-        return const_value(*spec);
+        return const_value(spec->id);
     return resolve_name(name);
 }
 
@@ -792,8 +793,7 @@ Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::Angl
                 resolve_name(std::string(1, std::get<parser::CharToken>(tok.data).value)));
             break;
         case TokenKind::Const:
-            stack.push_back(
-                const_value(*consts::const_spec(std::get<parser::ConstToken>(tok.data).id)));
+            stack.push_back(const_value(std::get<parser::ConstToken>(tok.data).id));
             break;
         case TokenKind::Latex: {
             const auto &latex = std::get<parser::LatexToken>(tok.data);
