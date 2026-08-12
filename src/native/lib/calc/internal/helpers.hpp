@@ -40,6 +40,10 @@ inline void require_nonzero(double x) {
     require(x != 0.0);
 }
 
+inline void require_nonzero(std::int64_t x) {
+    require(x != 0);
+}
+
 inline void require_nonzero(const BigReal &x) {
     require(x != 0);
 }
@@ -83,12 +87,15 @@ inline bool rational_pow_overflows(const Rational &base, long long exp) {
     return check(base.numerator()) || check(base.denominator());
 }
 
-/// Check whether dividing a Rational by a positive integer divisor would overflow int64.
+/// Check whether dividing a Rational by a nonzero integer divisor would overflow int64.
 /// boost::rational's operator/= reduces gcd(numerator, divisor) first, so the result denominator
 /// is denominator * (divisor / gcd); a large denominator with a numerator coprime to divisor can
 /// push that product past INT64_MAX with no bound check of its own. Declining is the right call:
 /// nothing about the input is invalid, there is just no exact quotient to report.
 inline bool rational_div_overflows(const Rational &a, std::int64_t divisor) {
+    // Precondition, not a case this handles: divisor == 0 would make factor 0 below and the
+    // next division divide by zero, so callers must not pass it.
+    require_nonzero(divisor);
     // std::gcd takes the argument's absolute value internally, which is UB at INT64_MIN
     // (libstdc++ asserts and aborts); declining here is the correct answer anyway, since
     // there is no exact quotient path for a numerator this size.

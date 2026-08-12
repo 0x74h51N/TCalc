@@ -839,3 +839,60 @@ def test_iterated_zero_divisor_raises(expr: str) -> None:
 
     with pytest.raises(Error, match="Math Error"):
         _eval(expr)
+
+
+def _eval_unit(expr: str, unit: calc_native.AngleUnit) -> object:
+    from tcalc.core.native_eval import evaluate_branch
+    from tcalc.core.parser import tokenize
+
+    calc_native.clear_vars()
+    return evaluate_branch(tokenize(_canonicalize(expr)), calc_native.Calculator(), unit)
+
+
+@pytest.mark.parametrize(
+    ("expr", "unit", "num", "den"),
+    [
+        param(r"sin(\frac{π}{6})", calc_native.AngleUnit.RAD, 1, 2, id="sin-pi-over-6-latex"),
+        param(r"cos(\frac{π}{3})", calc_native.AngleUnit.RAD, 1, 2, id="cos-pi-over-3-latex"),
+        param(r"tan(\frac{π}{4})", calc_native.AngleUnit.RAD, 1, 1, id="tan-pi-over-4-latex"),
+        param(r"sin(\frac{π}{2})", calc_native.AngleUnit.RAD, 1, 1, id="sin-pi-over-2-latex"),
+        param(r"sin(\frac{3π}{2})", calc_native.AngleUnit.RAD, -1, 1, id="sin-3pi-over-2-latex"),
+        param("sin(π)", calc_native.AngleUnit.RAD, 0, 1, id="sin-pi"),
+        param("cos(π)", calc_native.AngleUnit.RAD, -1, 1, id="cos-pi"),
+        param("sin(30)", calc_native.AngleUnit.DEG, 1, 2, id="sin-30-deg"),
+        param("cos(60)", calc_native.AngleUnit.DEG, 1, 2, id="cos-60-deg"),
+        param("cos(120)", calc_native.AngleUnit.DEG, -1, 2, id="cos-120-deg"),
+        param("tan(45)", calc_native.AngleUnit.DEG, 1, 1, id="tan-45-deg"),
+        param(
+            r"2sin(\frac{π}{6})",
+            calc_native.AngleUnit.RAD,
+            1,
+            1,
+            id="exactness-survives-multiplication",
+        ),
+    ],
+)
+def test_trig_exact_at_rational_turns(
+    expr: str, unit: calc_native.AngleUnit, num: int, den: int
+) -> None:
+    """A trig value that is rational comes back exact, with the Rational type, not a double one
+    ULP away. Full type and value, no float() and no tolerance."""
+    out = _eval_unit(expr, unit)
+    assert isinstance(out, calc_native.Rational)
+    assert out.numerator == num
+    assert out.denominator == den
+
+
+@pytest.mark.parametrize(
+    ("expr", "unit"),
+    [
+        param("tan(90)", calc_native.AngleUnit.DEG, id="tan-pole-deg"),
+        param(r"tan(\frac{π}{2})", calc_native.AngleUnit.RAD, id="tan-pole-rad"),
+    ],
+)
+def test_tan_pole_raises(expr: str, unit: calc_native.AngleUnit) -> None:
+    """tan is undefined at an odd quarter turn. Answering 1.633e16 for it is a wrong answer."""
+    from tcalc.errors import Error
+
+    with pytest.raises(Error, match="Math Error"):
+        _eval_unit(expr, unit)

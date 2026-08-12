@@ -19,16 +19,18 @@
 
 namespace {
 
-constexpr double kDegreesPerCircle = 180.0;
-constexpr double kGradsPerCircle = 200.0;
+constexpr double kDegreesPerHalfTurn = 180.0;
+constexpr double kGradsPerHalfTurn = 200.0;
+constexpr double kDegreesPerFullTurn = 2.0 * kDegreesPerHalfTurn;
+constexpr double kGradsPerFullTurn = 2.0 * kGradsPerHalfTurn;
 
 constexpr double radians_factor(Calculator::AngleUnit unit) noexcept {
     constexpr double pi = boost::math::constants::pi<double>();
     switch (unit) {
     case Calculator::AngleUnit::DEG:
-        return pi / kDegreesPerCircle;
+        return pi / kDegreesPerHalfTurn;
     case Calculator::AngleUnit::GRAD:
-        return pi / kGradsPerCircle;
+        return pi / kGradsPerHalfTurn;
     case Calculator::AngleUnit::RAD:
     default:
         return 1.0;
@@ -39,9 +41,9 @@ constexpr double from_radians_factor(Calculator::AngleUnit unit) noexcept {
     constexpr double pi = boost::math::constants::pi<double>();
     switch (unit) {
     case Calculator::AngleUnit::DEG:
-        return kDegreesPerCircle / pi;
+        return kDegreesPerHalfTurn / pi;
     case Calculator::AngleUnit::GRAD:
-        return kGradsPerCircle / pi;
+        return kGradsPerHalfTurn / pi;
     case Calculator::AngleUnit::RAD:
     default:
         return 1.0;
@@ -52,9 +54,9 @@ constexpr double from_radians_factor(Calculator::AngleUnit unit) noexcept {
 constexpr double turn_of(Calculator::AngleUnit unit) noexcept {
     switch (unit) {
     case Calculator::AngleUnit::DEG:
-        return 2.0 * kDegreesPerCircle;
+        return kDegreesPerFullTurn;
     case Calculator::AngleUnit::GRAD:
-        return 2.0 * kGradsPerCircle;
+        return kGradsPerFullTurn;
     case Calculator::AngleUnit::RAD:
     default:
         return 0.0;
@@ -82,9 +84,9 @@ inline BigReal radians_factor_big(Calculator::AngleUnit unit) {
     const BigReal &pi = boost::math::constants::pi<BigReal>();
     switch (unit) {
     case Calculator::AngleUnit::DEG:
-        return pi / BigReal(kDegreesPerCircle);
+        return pi / BigReal(kDegreesPerHalfTurn);
     case Calculator::AngleUnit::GRAD:
-        return pi / BigReal(kGradsPerCircle);
+        return pi / BigReal(kGradsPerHalfTurn);
     case Calculator::AngleUnit::RAD:
     default:
         return BigReal(1);
@@ -95,9 +97,9 @@ inline BigReal from_radians_factor_big(Calculator::AngleUnit unit) {
     const BigReal &pi = boost::math::constants::pi<BigReal>();
     switch (unit) {
     case Calculator::AngleUnit::DEG:
-        return BigReal(kDegreesPerCircle) / pi;
+        return BigReal(kDegreesPerHalfTurn) / pi;
     case Calculator::AngleUnit::GRAD:
-        return BigReal(kGradsPerCircle) / pi;
+        return BigReal(kGradsPerHalfTurn) / pi;
     case Calculator::AngleUnit::RAD:
     default:
         return BigReal(1);
@@ -117,9 +119,9 @@ inline BigComplex radians_factor_bigcx(Calculator::AngleUnit unit) {
     const BF &pi = boost::math::constants::pi<BF>();
     switch (unit) {
     case Calculator::AngleUnit::DEG:
-        return BigComplex(pi / BF(kDegreesPerCircle), BF(0));
+        return BigComplex(pi / BF(kDegreesPerHalfTurn), BF(0));
     case Calculator::AngleUnit::GRAD:
-        return BigComplex(pi / BF(kGradsPerCircle), BF(0));
+        return BigComplex(pi / BF(kGradsPerHalfTurn), BF(0));
     case Calculator::AngleUnit::RAD:
     default:
         return BigComplex(BF(1), BF(0));
@@ -131,9 +133,9 @@ inline BigComplex from_radians_factor_bigcx(Calculator::AngleUnit unit) {
     const BF &pi = boost::math::constants::pi<BF>();
     switch (unit) {
     case Calculator::AngleUnit::DEG:
-        return BigComplex(BF(kDegreesPerCircle) / pi, BF(0));
+        return BigComplex(BF(kDegreesPerHalfTurn) / pi, BF(0));
     case Calculator::AngleUnit::GRAD:
-        return BigComplex(BF(kGradsPerCircle) / pi, BF(0));
+        return BigComplex(BF(kGradsPerHalfTurn) / pi, BF(0));
     case Calculator::AngleUnit::RAD:
     default:
         return BigComplex(BF(1), BF(0));
@@ -204,9 +206,10 @@ std::optional<Rational> Calculator::exact_half_turns(TrigFn fn, const Rational &
 double Calculator::real_half_turns(TrigFn fn, const Rational &t) const {
     // u = t mod 2 half turns, then quadrant = floor(2u) and num/2q = u - quadrant/2, in [0, 1/2).
     const std::int64_t q = t.denominator();
-    std::int64_t quadrant;
-    bool upper_half;
-    double eps; // pi times the fold's residual from whichever quadrant edge is nearer, in [0, pi/4]
+    std::int64_t quadrant = 0;
+    bool upper_half = false;
+    double eps =
+        0.0; // pi times the fold's residual from whichever quadrant edge is nearer, in [0, pi/4]
     if (!calc_detail::half_turn_fold_overflows(q)) {
         std::int64_t p = t.numerator() % (2 * q);
         if (p < 0)
@@ -277,7 +280,8 @@ double Calculator::tan(double a, AngleUnit unit) const {
         // degrees and grads the quarter turn is an exact double, so a value either is one or is
         // not, and there is no epsilon to choose.
         const double m = std::fmod(r, half);
-        if (m == half / 2.0 || m == -half / 2.0)
+        const double quarter = half / 2.0; // a quarter turn, the pole
+        if (m == quarter || m == -quarter)
             calc_detail::math_error();
     }
     return std::tan(to_radians(r, unit));
