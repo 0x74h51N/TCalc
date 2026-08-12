@@ -269,13 +269,6 @@ std::optional<std::span<const Token>> paren_element(const parser::ParenToken &p)
                 : std::span<const Token>(&std::get<Token>(p.elements[0]), 1);
 }
 
-// The single argument span of a one-argument call (its tokens), like paren_element for a group.
-std::span<const Token> call_arg_span(const parser::ParenElement &e) {
-    if (const auto *v = std::get_if<std::vector<Token>>(&e))
-        return std::span<const Token>(*v);
-    return std::span<const Token>(&std::get<Token>(e), 1);
-}
-
 // A real-arm Value as a double, reusing value.hpp's to_double overloads; nullopt for the
 // complex or collection arms.
 std::optional<double> real_value(const Value &v) {
@@ -772,7 +765,7 @@ classify_walk(std::span<const Token> rpn, std::string_view var, std::string_view
                 return std::nullopt;
             // Store the raw argument tokens; trig_sum reads k and phi from them by sampling with
             // the real evaluator, so a pi-based argument works. Owned copy: a span would dangle.
-            stack.push_back(ct_trig(is_sin, call_arg_span(call.args[0])));
+            stack.push_back(ct_trig(is_sin, parser::element_tokens(call.args[0])));
             break;
         }
         default:
@@ -924,6 +917,15 @@ std::optional<Value> trig_sum(
 }
 
 } // namespace
+
+std::optional<Scalar> scalar_of_tokens(std::span<const Token> rpn) {
+    // With no bound variable nothing can become a Poly, so the affine-exponent branch that
+    // raises the ratio-size error is unreachable and the operator name it would print is dead.
+    const auto term = classify_walk(rpn, "", "Sum");
+    if (!term || term->kind != ClosedTerm::Kind::Const)
+        return std::nullopt;
+    return term->c;
+}
 
 std::optional<Value> try_closed_form(
     LatexKind kind,
