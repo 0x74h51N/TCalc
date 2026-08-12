@@ -82,6 +82,20 @@ using NearCase = Case<const char *, double>;
 using RejectCase = Case<const char *, std::monostate>;
 /// Case row for a rejected expression whose message text is part of the contract.
 using MsgCase = Case<const char *, const char *>;
+/// Source text paired with the angle unit to evaluate it under (EvalCase always uses the
+/// default radians, so a degree/grad row needs this instead).
+struct SrcUnit {
+    const char *src;
+    Calculator::AngleUnit unit;
+};
+/// Case row for the evaluator under an explicit angle unit: source text -> the value it
+/// evaluates to.
+using UnitEvalCase = Case<SrcUnit, Value>;
+/// Case row for an evaluation under an explicit angle unit that must throw.
+using UnitRejectCase = Case<SrcUnit, std::monostate>;
+/// Case row for an evaluation under an explicit angle unit where only the resulting arm is
+/// asserted.
+using UnitArmCase = Case<SrcUnit, Arm>;
 /// Case row for normalize: input tokens -> normalized tokens.
 using NormCase = Case<std::vector<tcalc::parser::Token>, std::vector<tcalc::parser::Token>>;
 /// Case row for shunting_yard: infix tokens -> RPN tokens.
@@ -635,7 +649,88 @@ void unit_eval(TestContext &ctx) {
 
     test_detail::with_case(ctx, "eval :: an angle-taking call gets the unit", [&] {
         const Calculator c;
-        EXPECT_EQ(ctx, eval_text(c, "sin(90)", Calculator::AngleUnit::DEG), Value{1.0});
+        EXPECT_EQ(ctx, eval_text(c, "sin(90)", Calculator::AngleUnit::DEG), Value{Rational(1)});
+    });
+
+    // Exact values across all angle units: rational multiples of pi in radians, and Niven
+    // angles in degrees/grad, where the double kernel alone would miss (e.g. sin(pi) by ~1.22e-16).
+    const auto deg = Calculator::AngleUnit::DEG;
+    const auto grad = Calculator::AngleUnit::GRAD;
+    const std::vector<UnitEvalCase> exact_trig_cases = {
+        {.id = "sin(π)", .input = {"sin(π)", kRad}, .expected = Value{Rational(0)}},
+        {.id = "sin π", .input = {"sin π", kRad}, .expected = Value{Rational(0)}},
+        {.id = "sin(2π)", .input = {"sin(2π)", kRad}, .expected = Value{Rational(0)}},
+        {.id = "cos(π)", .input = {"cos(π)", kRad}, .expected = Value{Rational(-1)}},
+        {.id = "cos(π/2)", .input = {"cos(π/2)", kRad}, .expected = Value{Rational(0)}},
+        {.id = "sin(π/6)", .input = {"sin(π/6)", kRad}, .expected = Value{Rational(1, 2)}},
+        {.id = "sin(\\frac{π}{6})",
+         .input = {"sin(\\frac{π}{6})", kRad},
+         .expected = Value{Rational(1, 2)}},
+        {.id = "cos(π/3)", .input = {"cos(π/3)", kRad}, .expected = Value{Rational(1, 2)}},
+        {.id = "tan(π/4)", .input = {"tan(π/4)", kRad}, .expected = Value{Rational(1)}},
+        {.id = "sin(1000π)", .input = {"sin(1000π)", kRad}, .expected = Value{Rational(0)}},
+        {.id = "2sin(π/6)", .input = {"2sin(π/6)", kRad}, .expected = Value{Rational(1)}},
+        {.id = "sin(30)", .input = {"sin(30)", deg}, .expected = Value{Rational(1, 2)}},
+        {.id = "sin 30", .input = {"sin 30", deg}, .expected = Value{Rational(1, 2)}},
+        {.id = "cos(60)", .input = {"cos(60)", deg}, .expected = Value{Rational(1, 2)}},
+        {.id = "cos(120)", .input = {"cos(120)", deg}, .expected = Value{Rational(-1, 2)}},
+        {.id = "cos(90)", .input = {"cos(90)", deg}, .expected = Value{Rational(0)}},
+        {.id = "tan(45)", .input = {"tan(45)", deg}, .expected = Value{Rational(1)}},
+        {.id = "sin(100) grad", .input = {"sin(100)", grad}, .expected = Value{Rational(1)}},
+        // The point of an exact result type: the exactness survives into what surrounds it.
+        {.id = "2sin(30)", .input = {"2sin(30)", deg}, .expected = Value{Rational(1)}},
+    };
+    for (const auto &tc : exact_trig_cases) {
+        test_detail::with_case(ctx, std::string("exact trig :: ") + tc.id, [&] {
+            const Calculator c;
+            EXPECT_EQ(ctx, eval_text(c, tc.input.src, tc.input.unit), tc.expected);
+        });
+    }
+
+    // A rational half-turn with an undefined tangent must still throw, in either unit.
+    const std::vector<UnitRejectCase> exact_trig_reject_cases = {
+        {.id = "tan(π/2)", .input = {"tan(π/2)", kRad}, .expected = {}},
+        {.id = "tan(90)", .input = {"tan(90)", deg}, .expected = {}},
+    };
+    for (const auto &tc : exact_trig_reject_cases) {
+        test_detail::with_case(ctx, std::string("exact trig :: ") + tc.id, [&] {
+            const Calculator c;
+            EXPECT_THROWS(ctx, eval_text(c, tc.input.src, tc.input.unit));
+        });
+    }
+
+    // Misses that must still answer, on the double path: no rational half-turn, no constant
+    // at all, or (degrees) an argument outside the Niven table.
+    const std::vector<UnitArmCase> exact_trig_arm_cases = {
+        {.id = "sin(π/5) is not a rational half-turn",
+         .input = {"sin(π/5)", kRad},
+         .expected = Arm::Double},
+        {.id = "sin(2) has no constant at all", .input = {"sin(2)", kRad}, .expected = Arm::Double},
+        {.id = "sin(20) misses the Niven table",
+         .input = {"sin(20)", deg},
+         .expected = Arm::Double},
+        // -9223372036854775807-1 lands on an int64 Rational whose numerator is exactly
+        // INT64_MIN; that used to reach std::gcd and abort, and must instead decline to the
+        // double path.
+        {.id = "an INT64_MIN numerator declines, not aborts",
+         .input = {"sin(-9223372036854775807-1)", deg},
+         .expected = Arm::Double},
+    };
+    for (const auto &tc : exact_trig_arm_cases) {
+        test_detail::with_case(ctx, std::string("exact trig :: ") + tc.id, [&] {
+            const Calculator c;
+            EXPECT_EQ(ctx, arm_of(eval_text(c, tc.input.src, tc.input.unit)), tc.expected);
+        });
+    }
+
+    // A constant stored in a variable loses its identity at assignment, because the store holds
+    // a Value. Asserted so the limitation is deliberate and visible, not a silent gap.
+    test_detail::with_case(ctx, "exact trig :: a stored constant is not symbolic", [&] {
+        const Calculator c;
+        session_vars().clear();
+        session_vars().set("A", tcalc::eval::const_value(tcalc::consts::ConstId::Pi));
+        EXPECT_EQ(ctx, std::holds_alternative<double>(eval_text(c, "sin(A)")), true);
+        session_vars().clear();
     });
 
     // evaluate() carries state, so its cases run in sequence rather than from one table.
@@ -1248,6 +1343,36 @@ void unit_eval(TestContext &ctx) {
             EXPECT_EQ(ctx, tcalc::eval::scalar_eval(sum).value() == want, true);
         });
     }
+
+    // The same walk the closed forms use, with no bound variable, so every token folds into the
+    // var-free arm and the result is the span's Scalar. This is what lets the radian trig path
+    // see that an argument was a rational multiple of pi after the Value has lost it.
+    test_detail::with_case(ctx, "scalar_of_tokens :: reads a var-free span", [&] {
+        using tcalc::eval::CppRat;
+        const auto of = [&](const char *src) {
+            return tcalc::eval::scalar_of_tokens(
+                tcalc::eval::shunting_yard(tcalc::parser::tokenize(src).tokens));
+        };
+        const auto pi_coeff = [&](const char *src) -> std::optional<CppRat> {
+            const auto s = of(src);
+            if (!s || s->n_syms != 1 || s->real != 1.0 || s->syms[0].exp != 1)
+                return std::nullopt;
+            if (s->syms[0].id != tcalc::eval::const_sym(tcalc::consts::ConstId::Pi))
+                return std::nullopt;
+            return s->coeff;
+        };
+        EXPECT_EQ(ctx, pi_coeff("π").has_value(), true);
+        EXPECT_EQ(ctx, *pi_coeff("π"), CppRat(1));
+        EXPECT_EQ(ctx, *pi_coeff("2π"), CppRat(2));
+        EXPECT_EQ(ctx, *pi_coeff("π/6"), CppRat(1, 6));
+        EXPECT_EQ(ctx, *pi_coeff("\\frac{π}{6}"), CppRat(1, 6));
+        EXPECT_EQ(ctx, *pi_coeff("3π/2"), CppRat(3, 2));
+        // A plain rational is still a Scalar, just not a pi-carrying one.
+        EXPECT_EQ(ctx, pi_coeff("30").has_value(), false);
+        EXPECT_EQ(ctx, of("30")->coeff, CppRat(30));
+        // pi squared is not a rational multiple of a half turn.
+        EXPECT_EQ(ctx, pi_coeff("π^{2}").has_value(), false);
+    });
 
     test_detail::with_case(ctx, "closed_forms :: exact_rational_root finds exact roots", [&] {
         using tcalc::eval::CppRat;
