@@ -110,6 +110,11 @@ class Calculator {
     /// small product is formed. For a t that has no exact value but is still known exactly.
     double real_half_turns(TrigFn fn, const Rational &t) const;
 
+    /// `a`, given in `unit`, as radians. Exposed so eval's periodic-trig closed form can convert
+    /// an inexact phase (sampled in the caller's angle unit) to radians before combining it with
+    /// an already-radian angle, without copying the pi/180 and pi/200 factors that belong here.
+    double angle_to_radians(double a, AngleUnit unit) const;
+
     // BigComplex ops
     BigComplex add(const BigComplex &a, const BigComplex &b) const { return a + b; }
     BigComplex sub(const BigComplex &a, const BigComplex &b) const { return a - b; }

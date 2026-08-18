@@ -96,6 +96,9 @@ using UnitRejectCase = Case<SrcUnit, std::monostate>;
 /// Case row for an evaluation under an explicit angle unit where only the resulting arm is
 /// asserted.
 using UnitArmCase = Case<SrcUnit, Arm>;
+/// Case row under an explicit angle unit whose loop compares against a brute re-evaluation
+/// instead of a fixed expected value, so the row itself carries none (mirrors RejectCase).
+using UnitBruteCase = Case<SrcUnit, std::monostate>;
 /// Case row for normalize: input tokens -> normalized tokens.
 using NormCase = Case<std::vector<tcalc::parser::Token>, std::vector<tcalc::parser::Token>>;
 /// Case row for shunting_yard: infix tokens -> RPN tokens.
@@ -107,6 +110,8 @@ using tcalc::parser::TokenKind;
 using namespace tcalc::test_tokens;
 
 constexpr auto kRad = Calculator::AngleUnit::RAD;
+constexpr auto kDeg = Calculator::AngleUnit::DEG;
+constexpr auto kGrad = Calculator::AngleUnit::GRAD;
 
 /// Evaluate a source string the way the application does: tokenize, then eval_row.
 Value eval_text(const Calculator &c, const char *src, Calculator::AngleUnit u = kRad) {
@@ -116,6 +121,18 @@ Value eval_text(const Calculator &c, const char *src, Calculator::AngleUnit u = 
 /// A whole row, assignment peel included: tokenize, then evaluate.
 Value eval_source(const Calculator &c, const char *src, Calculator::AngleUnit u = kRad) {
     return evaluate(tcalc::parser::tokenize(src), c, u);
+}
+
+/// A real-arm Value narrowed to double, for a tolerance comparison against another arm.
+double as_double(const Value &v) {
+    return std::visit(
+        [](const auto &x) -> double {
+            if constexpr (requires { to_double(x); })
+                return to_double(x);
+            else
+                throw std::logic_error("as_double: not a real arm");
+        },
+        v);
 }
 
 } // namespace
@@ -1511,6 +1528,11 @@ void unit_eval(TestContext &ctx) {
         {.id = "a prod's absurd slope throws with the product wording",
          .input = "\\prod_{n=1}^{3} 2^{5000000n}",
          .expected = "Product range is too large to compute."},
+        // base_bits <= 1 (root is 1) skips the bit-length check above; the slope's own
+        // magnitude, built by exact multiplication of three int64 literals, still throws.
+        {.id = "a trivial base under an absurd slope still throws",
+         .input = "\\sum_{n=1}^{3} 1^{100000000*100000000*100000000n}",
+         .expected = "Sum range is too large to compute."},
     };
 
     for (const auto &tc : iterated_closed_absurd_slope_cases) {
@@ -1553,11 +1575,6 @@ void unit_eval(TestContext &ctx) {
         {.id = "a var-free product at the true INT64_MIN lower bound does not silently return 1",
          .input = "\\prod_{n=-9223372036854775807-1}^{9223372036854775807} 3",
          .expected = "Product range is too large to compute."},
-        // base_bits <= 1 (root is 1) skips the bit-length check above; the slope's own
-        // magnitude, built by exact multiplication of three int64 literals, still throws.
-        {.id = "a trivial base under an absurd slope still throws",
-         .input = "\\sum_{n=1}^{3} 1^{100000000*100000000*100000000n}",
-         .expected = "Sum range is too large to compute."},
     };
 
     for (const auto &tc : iterated_closed_product_guard_cases) {
@@ -1731,6 +1748,31 @@ void unit_eval(TestContext &ctx) {
             EXPECT_EQ(ctx, std::get<double>(closed), std::get<double>(brute));
         });
 
+    // Trig*trig, trig*poly, trig*geo have no closed form yet (separate roadmap items);
+    // pin today's decline-to-brute, not a future closed form.
+    const std::vector<UnitEvalCase> trig_combination_decline_cases = {
+        {.id = "ct_mul trig*trig: sin(n)cos(n)",
+         .input = {"\\sum_{n=1}^{5} sin(n)cos(n)", kRad},
+         .expected = Value{0.15920828452641983}},
+        {.id = "ct_mul trig*poly: n sin(n)",
+         .input = {"\\sum_{n=1}^{5} n sin(n)", kRad},
+         .expected = Value{-4.738405491908544}},
+        {.id = "ct_mul trig*geo: sin(n) 2^n",
+         .input = {"\\sum_{n=1}^{5} sin(n) 2^{n}", kRad},
+         .expected = Value{-36.34532497274982}},
+        {.id = "ct_div X/trig: 1/sin(n)",
+         .input = {"\\sum_{n=1}^{5} 1/sin(n)", kRad},
+         .expected = Value{7.010128750227617}},
+    };
+    for (const auto &tc : trig_combination_decline_cases) {
+        test_detail::with_case(ctx, std::string("trig combination declines :: ") + tc.id, [&] {
+            tcalc::eval::reset_closed_form_taken();
+            const Value v = eval_text(c, tc.input.src, tc.input.unit);
+            EXPECT_EQ(ctx, near_rel(std::get<double>(v), std::get<double>(tc.expected)), true);
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), false);
+        });
+    }
+
     // Trig sums close: differential closed-vs-brute (float, tolerance), plus an O(1) path proof
     // over a range no brute loop could finish, proving the closed path (not the loop) ran.
     test_detail::with_case(ctx, "closed form :: trig single term (radians)", [&] {
@@ -1765,21 +1807,25 @@ void unit_eval(TestContext &ctx) {
     });
 
     // k and phi are sampled from the argument by point-eval, so a pi-based argument (irrational
-    // in CppRat) still closes. A constant-argument body (k = 0) is the degenerate branch:
-    // sum = count * trig(phi), O(1) over any range.
+    // in CppRat) still closes. A rational-multiple-of-pi argument is periodic and now closes
+    // exactly (Rational), not through this sampling; a constant-argument body (k = 0, "sin(2)"
+    // below) still reaches trig_sum's degenerate branch (sum = count * trig(phi)), and so does
+    // any argument whose sampled frequency merely lands near a full turn without being an exact
+    // rational multiple of pi (e.g. a decimal literal close to 2*pi).
     test_detail::with_case(ctx, "closed form :: trig with π and constant bodies", [&] {
         constexpr double eps = 1e-9;
         const auto near = [&](const char *body, double want) {
             const Value v = eval_text(c, body);
             return std::holds_alternative<double>(v) && std::abs(std::get<double>(v) - want) < eps;
         };
-        EXPECT_EQ(ctx, near("\\sum_{n=1}^{10} sin(π n)", 0.0), true);
-        EXPECT_EQ(ctx, near("\\sum_{n=1}^{5} cos(π n)", -1.0), true);
-        EXPECT_EQ(ctx, near("\\sum_{n=1}^{6} cos(π n)", 0.0), true);
-        EXPECT_EQ(ctx, near("\\sum_{n=1}^{4} sin(π n/2)", 0.0), true);
-        EXPECT_EQ(ctx, near("\\sum_{n=1}^{2} sin(π n/2)", 1.0), true);
-        EXPECT_EQ(ctx, near("\\sum_{n=1}^{4} cos(π n/2)", 0.0), true);
-        EXPECT_EQ(ctx, near("\\sum_{n=1}^{3} cos(π n/2)", -1.0), true);
+        // Periodic route (this task): exact through the Rational arm, not `near`.
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{10} sin(π n)"), Value{Rational(0)});
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{5} cos(π n)"), Value{Rational(-1)});
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{6} cos(π n)"), Value{Rational(0)});
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{4} sin(π n/2)"), Value{Rational(0)});
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{2} sin(π n/2)"), Value{Rational(1)});
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{4} cos(π n/2)"), Value{Rational(0)});
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} cos(π n/2)"), Value{Rational(-1)});
         const auto val = [&](const char *bd) { return std::get<double>(eval_text(c, bd)); };
         EXPECT_EQ(
             ctx,
@@ -1789,8 +1835,8 @@ void unit_eval(TestContext &ctx) {
             ctx,
             std::abs(val("\\sum_{n=1}^{20} cos(n + pi)") + val("\\sum_{n=1}^{20} cos(n)")) < eps,
             true);
-        // A π frequency that is a full turn (2 pi) hits the degenerate branch: closed, O(1).
-        EXPECT_EQ(ctx, near("\\sum_{n=1}^{1000000000} sin(2π n)", 0.0), true);
+        // A π frequency that is a full turn (2 pi) is periodic and closes exactly, O(1).
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{1000000000} sin(2π n)"), Value{Rational(0)});
         EXPECT_EQ(ctx, near("\\sum_{n=1}^{1000000000} sin(2)", 1e9 * std::sin(2.0)), true);
         // extreme bounds: b - a + 1 overflows int64 if computed there; must stay finite and
         // signed like sin(2)
@@ -1817,6 +1863,261 @@ void unit_eval(TestContext &ctx) {
             }
         }
     });
+
+    // A trig argument whose degree >= 1 coefficients are rational multiples of a half turn makes
+    // the summand periodic, so one period is summed exactly instead of through the sampled
+    // Dirichlet form. Ranges are chosen to cover both a whole number of periods and a tail.
+    const std::vector<UnitEvalCase> periodic_trig_cases = {
+        {.id = "sin pi n",
+         .input = {"\\sum_{n=1}^{10} sin(π n)", kRad},
+         .expected = Value{Rational(0)}},
+        {.id = "sin pi n, odd count",
+         .input = {"\\sum_{n=1}^{7} sin(π n)", kRad},
+         .expected = Value{Rational(0)}},
+        {.id = "sin 2pi n",
+         .input = {"\\sum_{n=1}^{10} sin(2π n)", kRad},
+         .expected = Value{Rational(0)}},
+        {.id = "cos pi n, even count",
+         .input = {"\\sum_{n=1}^{4} cos(π n)", kRad},
+         .expected = Value{Rational(0)}},
+        {.id = "cos pi n, odd count",
+         .input = {"\\sum_{n=1}^{5} cos(π n)", kRad},
+         .expected = Value{Rational(-1)}},
+        {.id = "sin pi n over 2",
+         .input = {"\\sum_{n=1}^{4} sin(π n/2)", kRad},
+         .expected = Value{Rational(0)}},
+        {.id = "sin pi n over 2, tail",
+         .input = {"\\sum_{n=1}^{2} sin(π n/2)", kRad},
+         .expected = Value{Rational(1)}},
+        {.id = "cos pi n over 2",
+         .input = {"\\sum_{n=1}^{3} cos(π n/2)", kRad},
+         .expected = Value{Rational(-1)}},
+        {.id = "quadratic",
+         .input = {"\\sum_{n=1}^{10} sin(π n^{2})", kRad},
+         .expected = Value{Rational(0)}},
+        {.id = "quadratic, 2pi",
+         .input = {"\\sum_{n=1}^{10} sin(2π n^{2})", kRad},
+         .expected = Value{Rational(0)}},
+        {.id = "cubic",
+         .input = {"\\sum_{n=1}^{10} sin(π n^{3})", kRad},
+         .expected = Value{Rational(0)}},
+        {.id = "scaled",
+         .input = {"\\sum_{n=1}^{10} 3sin(π n)", kRad},
+         .expected = Value{Rational(0)}},
+        {.id = "degrees",
+         .input = {"\\sum_{n=1}^{10} sin(180 n)", kDeg},
+         .expected = Value{Rational(0)}},
+        {.id = "degrees, quarter",
+         .input = {"\\sum_{n=1}^{4} sin(90 n)", kDeg},
+         .expected = Value{Rational(0)}},
+        {.id = "degrees, quadratic",
+         .input = {"\\sum_{n=1}^{10} sin(180 n^{2})", kDeg},
+         .expected = Value{Rational(0)}},
+        {.id = "grads",
+         .input = {"\\sum_{n=1}^{10} sin(200 n)", kGrad},
+         .expected = Value{Rational(0)}},
+        // Every row above is Rational(0): each individual term is 0 by Niven's theorem, so a
+        // wrong period, wrong reduction or a dropped coefficient still sums to 0 and the row
+        // cannot fail. These four have a nonzero expected value so the arithmetic is load-bearing.
+        {.id = "scaled, nonzero",
+         .input = {"\\sum_{n=1}^{2} 3sin(π n/2)", kRad},
+         .expected = Value{Rational(3)}},
+        {.id = "quadratic, nonzero",
+         .input = {"\\sum_{n=1}^{4} cos(π n^{2}/2)", kRad},
+         .expected = Value{Rational(2)}},
+        {.id = "crosses zero",
+         .input = {"\\sum_{n=-1}^{1} cos(π n/2)", kRad},
+         .expected = Value{Rational(1)}},
+        {.id = "starts below zero",
+         .input = {"\\sum_{n=-3}^{-1} cos(π n/2)", kRad},
+         .expected = Value{Rational(-1)}},
+        // a = 1e15 is divisible by 4 (2^15 | a), so residues start at 0; cos(π n^2/2) is period 4
+        // with values 1,0,1,0 (sum 2/period). 1e8 whole periods + a 2-term tail (1,0): 2e8+1.
+        {.id = "huge lower bound, many whole periods",
+         .input = {"\\sum_{n=1000000000000000}^{1000000400000001} cos(π n^{2}/2)", kRad},
+         .expected = Value{Rational(200000001)}},
+    };
+    for (const auto &tc : periodic_trig_cases) {
+        test_detail::with_case(ctx, std::string("periodic trig :: ") + tc.id, [&] {
+            tcalc::eval::reset_closed_form_taken();
+            EXPECT_EQ(ctx, eval_text(c, tc.input.src, tc.input.unit), tc.expected);
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+        });
+    }
+
+    // Regression: a == INT64_MIN, b == INT64_MAX makes span == UINT64_MAX, so count = span + 1
+    // must not be allowed to wrap to 0 and let the periodic route silently answer 0 (whole =
+    // tail = 0). Checked by arm, not value: trig_sum's sampled fallback is numerically
+    // ill-conditioned at this magnitude (a + b rounds to exactly 0.0 in double for these two
+    // particular int64 extremes, so no specific numeric value here is a fair hand derivation),
+    // but it always returns a double, whereas the wrap bug made periodic_trig_sum "succeed" with
+    // an exact Rational(0) -- the arm alone tells fixed from broken apart, and is reachable by
+    // reasoning about both functions' return types, not by running this input first.
+    test_detail::with_case(ctx, "periodic trig :: declines the full int64 span, not 0", [&] {
+        tcalc::eval::reset_closed_form_taken();
+        const Value v =
+            eval_text(c, "\\sum_{n=-9223372036854775807-1}^{9223372036854775807} sin(π n/3)");
+        EXPECT_EQ(ctx, arm_of(v), Arm::Double);
+        EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+    });
+
+    // Periodic but the values are irrational, and a phase that is not a rational turn. Both must
+    // close and both must agree with the brute loop, which is the contract this route exists for.
+    // The rows carry no expected value, so the alias mirrors RejectCase's monostate.
+    const std::vector<UnitBruteCase> periodic_vs_brute_cases = {
+        {.id = "thirds", .input = {"\\sum_{n=1}^{12} sin(π n/3)", kRad}, .expected = {}},
+        {.id = "phase not a turn",
+         .input = {"\\sum_{n=1}^{10} sin(π n + 1)", kRad},
+         .expected = {}},
+        {.id = "quarter turns", .input = {"\\sum_{n=1}^{9} cos(π n/4)", kRad}, .expected = {}},
+        // Regression: an inexact phase (π, e) is in the caller's angle unit, not radians;
+        // periodic_term must combine it consistently with the exact reduced part instead of
+        // always treating it as radians.
+        {.id = "irrational phase, deg",
+         .input = {"\\sum_{n=1}^{5} sin(n + π)", kDeg},
+         .expected = {}},
+        {.id = "irrational phase, deg scaled",
+         .input = {"\\sum_{n=1}^{5} sin(30 n + π)", kDeg},
+         .expected = {}},
+        {.id = "irrational phase, deg cos with e",
+         .input = {"\\sum_{n=1}^{5} cos(90 n + e)", kDeg},
+         .expected = {}},
+        {.id = "irrational phase, grad",
+         .input = {"\\sum_{n=1}^{5} sin(n + π)", kGrad},
+         .expected = {}},
+    };
+    for (const auto &tc : periodic_vs_brute_cases) {
+        test_detail::with_case(ctx, std::string("periodic trig vs brute :: ") + tc.id, [&] {
+            tcalc::eval::set_closed_forms_enabled(false);
+            const Value brute = eval_text(c, tc.input.src, tc.input.unit);
+            tcalc::eval::set_closed_forms_enabled(true);
+            tcalc::eval::reset_closed_form_taken();
+            const Value closed = eval_text(c, tc.input.src, tc.input.unit);
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+            EXPECT_TRUE(ctx, approx(as_double(closed), as_double(brute), 1e-12));
+        });
+    }
+
+    // Regression: period 4, count 2 (whole == 0), b == INT64_MAX. The period loop now always
+    // starts at 0 (never a + i), so this no longer has an overflow to guard; kept as a value
+    // check on the same hard shape. Not compared against brute: last == INT64_MAX makes the
+    // brute loop's own `++m` overflow past INT64_MAX too, a separate, pre-existing bug outside
+    // this fix. Expected value derived exactly, not from the reduced-mod-period doubles above
+    // (those are float noise from pi*n at this magnitude, irrelevant to the exact CppRat
+    // reduction the implementation actually does): n mod 4 is 2 then 3, so the terms are
+    // sin(pi) = 0 and sin(3pi/2) = -1, summing to -1.
+    test_detail::with_case(ctx, "periodic trig :: short tail ending at INT64_MAX", [&] {
+        tcalc::eval::reset_closed_form_taken();
+        const Value v =
+            eval_text(c, "\\sum_{n=9223372036854775806}^{9223372036854775807} sin(π n/2)");
+        EXPECT_EQ(ctx, v, Value{Rational(-1)});
+        EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+    });
+
+    // periodic_trig_sum declines and the sampled Dirichlet route answers instead, either because
+    // the argument isn't periodic over the integers or because its period exceeds the cap.
+    const std::vector<UnitArmCase> trig_declines_cases = {
+        {.id = "plain n", .input = {"\\sum_{n=1}^{50} sin(n)", kRad}, .expected = Arm::Double},
+        {.id = "half n", .input = {"\\sum_{n=1}^{60} sin(n/2)", kRad}, .expected = Arm::Double},
+        {.id = "affine", .input = {"\\sum_{n=1}^{40} cos(2n+1)", kRad}, .expected = Arm::Double},
+        {.id = "n over pi", .input = {"\\sum_{n=1}^{20} sin(n/π)", kRad}, .expected = Arm::Double},
+        // 9973 is prime, so its denominator q = 9973 exceeds kMaxPeriod/2 (2048): periodic, but
+        // past the cap.
+        {.id = "period past the cap",
+         .input = {"\\sum_{n=1}^{20} sin(π n/9973)", kRad},
+         .expected = Arm::Double},
+        // 2049 passes the per-step cap (q/g=1 <= kMaxPeriod/2049=1) but fails the tighter final
+        // check (q=2049 > kMaxPeriod/2=2048): a period the per-coefficient loop alone would admit.
+        {.id = "period between the per-step and final cap",
+         .input = {"\\sum_{n=1}^{20} sin(π n/2049)", kRad},
+         .expected = Arm::Double},
+        // The phase's denominator (2^63-1, an int64-valid fraction on its own) is not bounded by
+        // the period cap, which only sees the turns; combined with the n term it overflows int64
+        // at n=1, so periodic_term declines and the sum falls to the sampled route instead.
+        {.id = "phase denominator overflows int64 once combined",
+         .input = {"\\sum_{n=1}^{2} sin(π n + π/9223372036854775807)", kRad},
+         .expected = Arm::Double},
+        // Same overflow, but count=1 < period=2 makes whole==0: the period loop above is skipped
+        // entirely, so it is the tail loop's own guard, not the period loop's, that catches n=1.
+        {.id = "phase denominator overflows int64, caught by the tail loop alone",
+         .input = {"\\sum_{n=1}^{1} sin(π n + π/9223372036854775807)", kRad},
+         .expected = Arm::Double},
+    };
+    for (const auto &tc : trig_declines_cases) {
+        test_detail::with_case(ctx, std::string("trig declines :: ") + tc.id, [&] {
+            tcalc::eval::reset_closed_form_taken();
+            EXPECT_EQ(ctx, arm_of(eval_text(c, tc.input.src, tc.input.unit)), tc.expected);
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+        });
+    }
+
+    // periodic_arg's own classify_walk over the trig argument tokens is the first structural look
+    // at them (ct_trig captures them raw, unvalidated). A non-polynomial argument (Root) or one
+    // that classifies as Geo/Trig itself declines periodic_arg outright; here the frequency is
+    // also non-linear, so trig_arg_phi's sampling declines too and the whole sum falls fully to
+    // brute (no closed form at all, not even the Dirichlet route).
+    const std::vector<UnitEvalCase> periodic_arg_unclassifiable_cases = {
+        {.id = "argument is not a polynomial (Root)",
+         .input = {"\\sum_{n=1}^{5} sin(sqrt(n))", kRad},
+         .expected = Value{4.512310134163881}},
+        {.id = "argument classifies as Geo, not Poly",
+         .input = {"\\sum_{n=1}^{5} sin(2^{n})", kRad},
+         .expected = Value{1.4053765427177605}},
+        // trig_arg_phi samples at var = 0 regardless of the sum's real range; 1/n throws there
+        // even though the actual range (n=1..5) never divides by zero.
+        {.id = "sampling at var=0 throws (1/n)",
+         .input = {"\\sum_{n=1}^{5} sin(1/n)", kRad},
+         .expected = Value{2.0941645102578357}},
+    };
+    for (const auto &tc : periodic_arg_unclassifiable_cases) {
+        test_detail::with_case(ctx, std::string("periodic arg declines :: ") + tc.id, [&] {
+            tcalc::eval::reset_closed_form_taken();
+            const Value v = eval_text(c, tc.input.src, tc.input.unit);
+            EXPECT_EQ(ctx, near_rel(std::get<double>(v), std::get<double>(tc.expected)), true);
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), false);
+        });
+    }
+
+    // A sample lands on a Complex (sqrt(-n) at n=1): trig_arg_phi's real_value check declines,
+    // same full-decline contract as above, but the result itself is Complex.
+    test_detail::with_case(ctx, "periodic arg declines :: a sample is Complex (Root of -n)", [&] {
+        tcalc::eval::reset_closed_form_taken();
+        const Value v = eval_text(c, "\\sum_{n=1}^{5} sin(sqrt(-n))");
+        const Complex got = std::get<Complex>(v);
+        EXPECT_EQ(ctx, got.real(), 0.0);
+        EXPECT_EQ(ctx, near_rel(got.imag(), 14.099580202993721), true);
+        EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), false);
+    });
+
+    // kMaxSyms == 6: a trig or geo term times 7 distinct constants overflows the slot on
+    // the 7th, in ct_mul or ct_div, and the sum declines to brute.
+    const std::vector<UnitEvalCase> symbol_slot_overflow_cases = {
+        {.id = "ct_mul trig * 7 constants",
+         .input = {"\\sum_{n=1}^{3} sin(n) pi euler phi tau lightspeed planck gravitation", kRad},
+         .expected = Value{2.177658817540871e-33}},
+        {.id = "ct_mul geo * 7 constants",
+         .input = {"\\sum_{n=1}^{3} 2^{n} pi euler phi tau lightspeed planck gravitation", kRad},
+         .expected = Value{1.6114704825199063e-32}},
+        {.id = "ct_div trig / 7th constant",
+         .input = {"\\sum_{n=1}^{3} sin(n) pi euler phi tau lightspeed planck / gravitation", kRad},
+         .expected = Value{4.888531194045986e-13}},
+        {.id = "ct_div geo / 7th constant",
+         .input = {"\\sum_{n=1}^{3} 2^{n} pi euler phi tau lightspeed planck / gravitation", kRad},
+         .expected = Value{3.6175197228456783e-12}},
+    };
+    // near_rel's absolute floor would pass any two values this small; these have no
+    // cancellation, so a plain relative check is the honest one here.
+    const auto near_tiny = [](double got, double want) {
+        return std::abs(got - want) <= 1e-9 * std::abs(want);
+    };
+    for (const auto &tc : symbol_slot_overflow_cases) {
+        test_detail::with_case(ctx, std::string("symbol slot overflow declines :: ") + tc.id, [&] {
+            tcalc::eval::reset_closed_form_taken();
+            const Value v = eval_text(c, tc.input.src, tc.input.unit);
+            EXPECT_EQ(ctx, near_tiny(std::get<double>(v), std::get<double>(tc.expected)), true);
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), false);
+        });
+    }
 
     // Bodies that STAY in closed form (sums go through Faulhaber, var-free products through
     // c^count). The value is exact and equals brute force for these int64-range results.
@@ -2376,6 +2677,25 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, near_rel(std::get<double>(v), -1.9951422681699926), true);
         EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
     });
+
+    // Prod raises the base (or ratio) to an exact Pow, which a symbol must not enter: a
+    // symbolic base or ratio declines the whole product to brute.
+    const std::vector<UnitEvalCase> prod_symbolic_decline_cases = {
+        {.id = "symbolic base: pi",
+         .input = {"\\prod_{n=1}^{3} pi", kRad},
+         .expected = Value{31.006276680299816}},
+        {.id = "symbolic ratio: pi^n",
+         .input = {"\\prod_{n=1}^{3} pi^{n}", kRad},
+         .expected = Value{961.3891935753041}},
+    };
+    for (const auto &tc : prod_symbolic_decline_cases) {
+        test_detail::with_case(ctx, std::string("prod symbolic declines :: ") + tc.id, [&] {
+            tcalc::eval::reset_closed_form_taken();
+            const Value v = eval_text(c, tc.input.src, tc.input.unit);
+            EXPECT_EQ(ctx, near_rel(std::get<double>(v), std::get<double>(tc.expected)), true);
+            EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), false);
+        });
+    }
 
     test_detail::with_case(ctx, "iterated brute :: degree 25 is one past the Bernoulli table", [&] {
         // The exact sum overflows int64, so brute lands on a double.

@@ -256,6 +256,10 @@ double Calculator::real_half_turns(TrigFn fn, const Rational &t) const {
     return sin_v / cos_v;
 }
 
+double Calculator::angle_to_radians(double a, AngleUnit unit) const {
+    return to_radians(a, unit);
+}
+
 Calculator::Complex Calculator::polar(double a, AngleUnit unit) const {
     const double t = to_radians(a, unit);
     return std::polar(1.0, t);
