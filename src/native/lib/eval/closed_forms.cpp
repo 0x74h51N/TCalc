@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <numeric>
+#include <stdexcept>
 #include <utility>
 #include <boost/math/constants/constants.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
@@ -147,6 +148,16 @@ Value value_from_big_rational(const CppRat &r) {
 }
 
 namespace {
+
+/// Read an optional that a classify_walk invariant guarantees is engaged: the walk only ever
+/// builds a symbol it has already confirmed resolvable, and nothing rebinds a session variable
+/// inside one synchronous evaluation. Raises rather than reading an empty one, so a broken
+/// invariant surfaces instead of quietly becoming a wrong number.
+template <class T> T unwrap(const std::optional<T> &v, const char *what) {
+    if (!v)
+        throw std::logic_error(what);
+    return *v;
+}
 
 std::optional<Value> value_from_scalar(const Scalar &s) {
     if (scalar_is_rational(s))
@@ -443,10 +454,9 @@ Scalar ct_base(const ClosedTerm &t) {
 std::optional<ClosedTerm> ct_add(const ClosedTerm &a, const ClosedTerm &b, int sign) {
     if (a.kind == ClosedTerm::Kind::Geo && b.kind == ClosedTerm::Kind::Geo &&
         scalar_equal(a.r, b.r)) {
-        // scalar_add only declines when unlike symbol sets fail to resolve to a double; a and b
-        // are still mid-walk here, and every symbol either one carries was already confirmed
-        // resolvable when classify_walk built it, so this cannot fail.
-        return ct_geo(*scalar_add(a.c, b.c, sign), a.r);
+        // scalar_add only declines when unlike symbol sets fail to resolve to a double, which
+        // the walk's own terms never do (see unwrap).
+        return ct_geo(unwrap(scalar_add(a.c, b.c, sign), "ct_add: unlike geometric scalars"), a.r);
     }
     const auto pa = ct_poly_view(a);
     const auto pb = ct_poly_view(b);
@@ -861,10 +871,8 @@ std::optional<Value> with_symbols(
     const Value &exact, const Scalar &c, const Calculator &calc, Calculator::AngleUnit unit) {
     if (scalar_is_rational(c))
         return exact;
-    // c came out of classify_walk, which only ever builds a symbol from one it already confirmed
-    // resolvable (token_term declines anything it can't); nothing rebinds a session variable
-    // between that walk and this call in the same synchronous evaluation, so this cannot fail.
-    const double factor = *scalar_eval(scalar_symbols_of(c));
+    const double factor =
+        unwrap(scalar_eval(scalar_symbols_of(c)), "with_symbols: unresolvable symbol");
     return apply(calc, OpId::Mul, {exact, Value{factor}}, unit);
 }
 
@@ -928,12 +936,11 @@ std::optional<PeriodicArg> periodic_arg(
     if (const auto p = scalar_half_turns(coeffs[0], calc, unit)) {
         out.phase_turns = CppRat(p->numerator(), p->denominator());
     } else {
-        // Every symbol reaching here still names a currently bound variable or table constant
-        // (classify_walk only ever built one from one), and nothing between there and here
-        // rebinds it, so scalar_eval cannot fail on it. The raw value is in `unit`, but
-        // periodic_term combines it with an already-radian angle and calls sin/cos as RAD, so it
-        // has to become radians here rather than staying in whatever unit it was sampled in.
-        out.phase_real = calc.angle_to_radians(*scalar_eval(coeffs[0]), unit);
+        // The sampled value is in `unit`, but periodic_term combines it with an already-radian
+        // angle and calls sin/cos as RAD, so it has to become radians here rather than staying
+        // in whatever unit it was sampled in.
+        const double phase = unwrap(scalar_eval(coeffs[0]), "periodic_arg: unresolvable phase");
+        out.phase_real = calc.angle_to_radians(phase, unit);
     }
     if (q > kMaxPeriod / 2)
         return std::nullopt; // the per-step cap above is looser than this; a q just under it
@@ -1074,9 +1081,7 @@ std::optional<Value> trig_sum(
     const auto kphi = trig_arg_phi(t.trig_arg, var, calc, unit);
     if (!kphi)
         return std::nullopt;
-    // t.c is resolvable for the same reason with_symbols' argument is (see there): every symbol
-    // in it was confirmed at classify_walk build time, and nothing rebinds it before this runs.
-    const double c = *scalar_eval(t.c);
+    const double c = unwrap(scalar_eval(t.c), "trig_sum: unresolvable coefficient");
     const double k = kphi->first;
     const double phi = kphi->second;
     // double subtraction, so b - a + 1 cannot overflow int64 at extreme bounds
