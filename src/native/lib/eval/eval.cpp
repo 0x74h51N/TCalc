@@ -183,22 +183,6 @@ std::optional<Calculator::TrigFn> trig_fn_of(OpId id) {
     }
 }
 
-/// A radian argument in half turns, read from its tokens because the evaluated Value no longer
-/// says the constant was pi. Gated on shape first: a lone Number or Char cannot contain a
-/// constant, and that is exactly the argument an iterated loop passes a million times, so it
-/// must not reach the allocating walk.
-std::optional<Rational> radian_half_turns(std::span<const Token> arg) {
-    if (arg.size() == 1 && arg[0].kind != TokenKind::Const && arg[0].kind != TokenKind::Paren &&
-        arg[0].kind != TokenKind::Latex)
-        return std::nullopt;
-    const auto s = scalar_of_tokens(shunting_yard(arg));
-    // Exactly one pi to the first power and no residual: then the coefficient is t half turns.
-    if (!s || s->n_syms != 1 || s->real != 1.0 || s->syms[0].exp != 1 ||
-        s->syms[0].id != const_sym(consts::ConstId::Pi))
-        return std::nullopt;
-    return to_rational(value_from_big_rational(s->coeff));
-}
-
 /// The exact value of a radian trig call, read from the argument's own tokens before it is ever
 /// evaluated: a rational multiple of pi survives here, the collapsed double does not.
 std::optional<Value>
@@ -206,11 +190,18 @@ exact_trig_radian(OpId id, std::span<const Token> arg_tokens, const Calculator &
     const auto fn = trig_fn_of(id);
     if (!fn)
         return std::nullopt;
-    const auto t = radian_half_turns(arg_tokens);
+    // A lone Number or Char cannot contain a constant, and that is what an iterated loop passes
+    // a million times, so it must not reach the allocating walk.
+    if (arg_tokens.size() == 1 && arg_tokens[0].kind != TokenKind::Const &&
+        arg_tokens[0].kind != TokenKind::Paren && arg_tokens[0].kind != TokenKind::Latex)
+        return std::nullopt;
+    const auto s = scalar_of_tokens(shunting_yard(arg_tokens));
+    if (!s)
+        return std::nullopt;
+    const auto t = scalar_half_turns(*s, c, Calculator::AngleUnit::RAD);
     if (!t)
         return std::nullopt;
-    const auto v = c.exact_half_turns(*fn, *t);
-    return v ? Value{*v} : Value{c.real_half_turns(*fn, *t)};
+    return trig_at_half_turns(c, *fn, *t);
 }
 
 /// The exact value of a degree/grad trig call, read from the already-evaluated operand: t comes
@@ -226,8 +217,7 @@ exact_trig_degree(OpId id, const Value &arg, const Calculator &c, Calculator::An
     const auto t = c.half_turns(*a, unit);
     if (!t)
         return std::nullopt;
-    const auto v = c.exact_half_turns(*fn, *t);
-    return v ? Value{*v} : Value{c.real_half_turns(*fn, *t)};
+    return trig_at_half_turns(c, *fn, *t);
 }
 
 } // namespace

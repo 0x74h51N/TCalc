@@ -94,9 +94,11 @@ class Calculator {
     /// Which trigonometric function an exact half-turn lookup is for.
     enum class TrigFn : std::uint8_t { Sin, Cos, Tan };
 
-    /// The argument as an exact number of half turns, so the angle is pi*t radians, or nullopt
-    /// when it cannot be one. Kept here rather than in eval so the 180 and 200 per half turn
-    /// live beside the conversion that already uses them.
+    /// `a` degrees or grads as an exact number of half turns, so the angle is pi*t radians, or
+    /// nullopt when it cannot be one. unit must be DEG or GRAD: a radian argument's own exact
+    /// case (zero) is resolved by the caller directly, so RAD never reaches this. Kept here
+    /// rather than in eval so the 180 and 200 per half turn live beside the conversion that
+    /// already uses them.
     std::optional<Rational> half_turns(const Rational &a, AngleUnit unit) const;
 
     /// sin/cos/tan of pi*t when that value is rational, nullopt otherwise; raises at a tan pole.

@@ -927,6 +927,34 @@ std::optional<Scalar> scalar_of_tokens(std::span<const Token> rpn) {
     return term->c;
 }
 
+std::optional<Rational>
+scalar_half_turns(const Scalar &s, const Calculator &c, Calculator::AngleUnit unit) {
+    const auto exact = [&](const CppRat &r) { return to_rational(value_from_big_rational(r)); };
+    if (unit == Calculator::AngleUnit::RAD) {
+        // A plain rational is a count of radians; the only one that is also an exact count of
+        // half turns is zero.
+        if (scalar_is_rational(s))
+            return s.coeff == 0 ? std::optional<Rational>(Rational(0)) : std::nullopt;
+        // Otherwise pi to the first power and nothing else: then the coefficient counts half
+        // turns.
+        if (s.n_syms != 1 || s.real != 1.0 || s.syms[0].exp != 1 ||
+            s.syms[0].id != const_sym(consts::ConstId::Pi))
+            return std::nullopt;
+        return exact(s.coeff);
+    }
+    if (!scalar_is_rational(s))
+        return std::nullopt;
+    const auto a = exact(s.coeff);
+    if (!a)
+        return std::nullopt;
+    return c.half_turns(*a, unit);
+}
+
+Value trig_at_half_turns(const Calculator &c, Calculator::TrigFn fn, const Rational &t) {
+    const auto exact = c.exact_half_turns(fn, t);
+    return exact ? Value{*exact} : Value{c.real_half_turns(fn, t)};
+}
+
 std::optional<Value> try_closed_form(
     LatexKind kind,
     std::span<const Token> rpn,

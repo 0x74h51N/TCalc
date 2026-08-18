@@ -57,6 +57,17 @@ CppRat faulhaber_sum(const std::vector<CppRat> &coeffs, std::int64_t a, std::int
 /// trig path uses it to recover a pi-carrying coefficient the evaluated Value has lost.
 std::optional<Scalar> scalar_of_tokens(std::span<const parser::Token> rpn);
 
+/// The scalar as t half turns, so the angle is pi*t, or nullopt when it is not one. Radians
+/// accept only a rational multiple of pi, since a rational number of radians is an irrational
+/// number of half turns; degrees and grads accept only a plain rational and convert through the
+/// Calculator, which is where the 180 and 200 live.
+std::optional<Rational>
+scalar_half_turns(const Scalar &s, const Calculator &c, Calculator::AngleUnit unit);
+
+/// sin or cos of pi*t: the exact value where the table has one, the folded numeric value
+/// otherwise. Never raises for sine or cosine; a tan pole is the caller's to handle.
+Value trig_at_half_turns(const Calculator &c, Calculator::TrigFn fn, const Rational &t);
+
 /// Matcher entry point: the closed-form Value, or nullopt (the caller then brute-forces).
 std::optional<Value> try_closed_form(
     parser::LatexKind kind,

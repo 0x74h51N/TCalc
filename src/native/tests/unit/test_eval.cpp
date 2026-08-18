@@ -1374,6 +1374,37 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, pi_coeff("π^{2}").has_value(), false);
     });
 
+    // A Scalar as t half turns. In radians only a rational multiple of pi qualifies, since a
+    // rational number of radians is an irrational number of half turns; in degrees and grads
+    // only a plain rational does.
+    test_detail::with_case(ctx, "scalar_half_turns :: reads a scalar per unit", [&] {
+        using tcalc::eval::scalar_half_turns;
+        using tcalc::eval::scalar_rational;
+        using tcalc::eval::scalar_symbol;
+        using tcalc::eval::CppRat;
+        const auto rad = Calculator::AngleUnit::RAD;
+        const auto deg = Calculator::AngleUnit::DEG;
+        const auto grad = Calculator::AngleUnit::GRAD;
+        const auto pi = scalar_symbol(tcalc::consts::ConstId::Pi);
+        auto pi_times = [&](int num, int den) {
+            auto s = pi;
+            s.coeff = CppRat(num, den);
+            return s;
+        };
+        EXPECT_EQ(ctx, *scalar_half_turns(pi, c, rad), Rational(1));
+        EXPECT_EQ(ctx, *scalar_half_turns(pi_times(1, 6), c, rad), Rational(1, 6));
+        EXPECT_EQ(ctx, *scalar_half_turns(pi_times(-3, 2), c, rad), Rational(-3, 2));
+        // A plain rational is a number of radians, never a rational count of half turns.
+        EXPECT_EQ(ctx, scalar_half_turns(scalar_rational(CppRat(1)), c, rad).has_value(), false);
+        EXPECT_EQ(ctx, *scalar_half_turns(scalar_rational(CppRat(0)), c, rad), Rational(0));
+        // Degrees and grads want the plain rational and reject the symbol.
+        EXPECT_EQ(ctx, *scalar_half_turns(scalar_rational(CppRat(30)), c, deg), Rational(1, 6));
+        EXPECT_EQ(ctx, *scalar_half_turns(scalar_rational(CppRat(180)), c, deg), Rational(1));
+        EXPECT_EQ(ctx, *scalar_half_turns(scalar_rational(CppRat(100)), c, grad), Rational(1, 2));
+        EXPECT_EQ(ctx, scalar_half_turns(pi, c, deg).has_value(), false);
+        EXPECT_EQ(ctx, scalar_half_turns(pi, c, grad).has_value(), false);
+    });
+
     test_detail::with_case(ctx, "closed_forms :: exact_rational_root finds exact roots", [&] {
         using tcalc::eval::CppRat;
         using calc_detail::exact_rational_root;
