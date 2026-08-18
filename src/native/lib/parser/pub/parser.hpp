@@ -290,6 +290,14 @@ inline bool CallToken::operator==(const CallToken &o) const {
            has_latex_descendant == o.has_latex_descendant && args == o.args;
 }
 
+/// An element's tokens, whichever shape the variant holds. A single-token element is a span of
+/// one over the token in place, so neither shape copies.
+inline std::span<const Token> element_tokens(const ParenElement &e) {
+    if (const auto *v = std::get_if<std::vector<Token>>(&e))
+        return std::span<const Token>(*v);
+    return std::span<const Token>(&std::get<Token>(e), 1);
+}
+
 /// Structural split payload for a ParenToken (wraps a latex descendant).
 /// Spans reference tokens inside the source TokensBranch; caller keeps branch alive.
 struct ParenSplit {

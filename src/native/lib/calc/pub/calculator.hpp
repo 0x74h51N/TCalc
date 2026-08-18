@@ -22,6 +22,8 @@
 #pragma once
 
 #include <complex>
+#include <cstdint>
+#include <optional>
 #include <span>
 #include "calc/pub/errors.hpp"
 #include "collection/collection.hpp"
@@ -88,6 +90,23 @@ class Calculator {
     Rational sqrt(const Rational &a) const;
     Rational cbrt(const Rational &a) const;
     Rational root(const Rational &a, const Rational &b) const;
+
+    /// Which trigonometric function an exact half-turn lookup is for.
+    enum class TrigFn : std::uint8_t { Sin, Cos, Tan };
+
+    /// The argument as an exact number of half turns, so the angle is pi*t radians, or nullopt
+    /// when it cannot be one. Kept here rather than in eval so the 180 and 200 per half turn
+    /// live beside the conversion that already uses them.
+    std::optional<Rational> half_turns(const Rational &a, AngleUnit unit) const;
+
+    /// sin/cos/tan of pi*t when that value is rational, nullopt otherwise; raises at a tan pole.
+    /// Deliberately not a Calculator arm: an arm can only decline by raising, and declining is
+    /// the normal case here, at 1058 ns per throw against 5.7 ns for the sine itself.
+    std::optional<Rational> exact_half_turns(TrigFn fn, const Rational &t) const;
+
+    /// sin/cos/tan of pi*t numerically, with t folded into the first quadrant first so only a
+    /// small product is formed. For a t that has no exact value but is still known exactly.
+    double real_half_turns(TrigFn fn, const Rational &t) const;
 
     // BigComplex ops
     BigComplex add(const BigComplex &a, const BigComplex &b) const { return a + b; }

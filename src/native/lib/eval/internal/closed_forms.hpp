@@ -51,6 +51,12 @@ faulhaber_sum(const std::vector<Scalar> &coeffs, std::int64_t a, std::int64_t b)
 /// The same sum for rational-only coefficients, which stay exact and cannot decline.
 CppRat faulhaber_sum(const std::vector<CppRat> &coeffs, std::int64_t a, std::int64_t b);
 
+/// The span's value as a Scalar (coefficient, symbols, residual) when it is variable-free, or
+/// nullopt when it does not classify. Runs the closed forms' own walk with an empty bound
+/// variable, so no Char is the loop variable and every token folds into the var-free arm. The
+/// trig path uses it to recover a pi-carrying coefficient the evaluated Value has lost.
+std::optional<Scalar> scalar_of_tokens(std::span<const parser::Token> rpn);
+
 /// Matcher entry point: the closed-form Value, or nullopt (the caller then brute-forces).
 std::optional<Value> try_closed_form(
     parser::LatexKind kind,

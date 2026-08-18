@@ -341,12 +341,6 @@ bool tokenize_core(
 
 namespace {
 
-inline std::vector<Token> element_tokens(const ParenElement &e) {
-    if (e.index() == 0)
-        return {std::get<Token>(e)};
-    return std::get<std::vector<Token>>(e);
-}
-
 inline bool element_has_latex_descendant(const ParenElement &e) {
     auto check = [](const Token &t) {
         if (t.kind == TokenKind::Latex)
@@ -834,9 +828,10 @@ void build_row(std::vector<MathNode> &out, TokensBranch branch, bool after_node)
                                 pending_text = ", ";
                             }
                             flush_text();
+                            const auto elem_toks = element_tokens(s.elements[k]);
                             build_row(
                                 /*out=*/pn.children,
-                                /*branch=*/classify_tokens(element_tokens(s.elements[k])),
+                                /*branch=*/classify_tokens({elem_toks.begin(), elem_toks.end()}),
                                 /*after_node=*/false);
                             last_was_latex = true;
                         } else {
@@ -1122,7 +1117,11 @@ std::string flat_group(
     for (std::size_t i = 0; i < elements.size(); ++i) {
         if (i > 0)
             out += ", ";
-        out += tokens_to_flat_text(element_tokens(elements[i]));
+        if (const auto *v = std::get_if<std::vector<Token>>(&elements[i])) {
+            out += tokens_to_flat_text(*v);
+        } else {
+            out += tokens_to_flat_text({std::get<Token>(elements[i])});
+        }
     }
     if (has_close)
         out.push_back(paren_symbol(false, kind));

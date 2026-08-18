@@ -168,6 +168,68 @@ Value promote_range(
     return redispatch_big(id, c, args, unit);
 }
 
+/// The trig function an op id names, or nullopt. First test in the exact path, so the ops that
+/// are not trig leave it after one comparison.
+std::optional<Calculator::TrigFn> trig_fn_of(OpId id) {
+    switch (id) {
+    case OpId::Sin:
+        return Calculator::TrigFn::Sin;
+    case OpId::Cos:
+        return Calculator::TrigFn::Cos;
+    case OpId::Tan:
+        return Calculator::TrigFn::Tan;
+    default:
+        return std::nullopt;
+    }
+}
+
+/// A radian argument in half turns, read from its tokens because the evaluated Value no longer
+/// says the constant was pi. Gated on shape first: a lone Number or Char cannot contain a
+/// constant, and that is exactly the argument an iterated loop passes a million times, so it
+/// must not reach the allocating walk.
+std::optional<Rational> radian_half_turns(std::span<const Token> arg) {
+    if (arg.size() == 1 && arg[0].kind != TokenKind::Const && arg[0].kind != TokenKind::Paren &&
+        arg[0].kind != TokenKind::Latex)
+        return std::nullopt;
+    const auto s = scalar_of_tokens(shunting_yard(arg));
+    // Exactly one pi to the first power and no residual: then the coefficient is t half turns.
+    if (!s || s->n_syms != 1 || s->real != 1.0 || s->syms[0].exp != 1 ||
+        s->syms[0].id != const_sym(consts::ConstId::Pi))
+        return std::nullopt;
+    return to_rational(value_from_big_rational(s->coeff));
+}
+
+/// The exact value of a radian trig call, read from the argument's own tokens before it is ever
+/// evaluated: a rational multiple of pi survives here, the collapsed double does not.
+std::optional<Value>
+exact_trig_radian(OpId id, std::span<const Token> arg_tokens, const Calculator &c) {
+    const auto fn = trig_fn_of(id);
+    if (!fn)
+        return std::nullopt;
+    const auto t = radian_half_turns(arg_tokens);
+    if (!t)
+        return std::nullopt;
+    const auto v = c.exact_half_turns(*fn, *t);
+    return v ? Value{*v} : Value{c.real_half_turns(*fn, *t)};
+}
+
+/// The exact value of a degree/grad trig call, read from the already-evaluated operand: t comes
+/// straight from the Value, no token walk needed.
+std::optional<Value>
+exact_trig_degree(OpId id, const Value &arg, const Calculator &c, Calculator::AngleUnit unit) {
+    const auto fn = trig_fn_of(id);
+    if (!fn)
+        return std::nullopt;
+    const auto a = to_rational(arg);
+    if (!a)
+        return std::nullopt;
+    const auto t = c.half_turns(*a, unit);
+    if (!t)
+        return std::nullopt;
+    const auto v = c.exact_half_turns(*fn, *t);
+    return v ? Value{*v} : Value{c.real_half_turns(*fn, *t)};
+}
+
 } // namespace
 
 bool promote_complex(OpId id, std::vector<Value> &args) {
@@ -563,7 +625,9 @@ Value call_dataset(
 }
 
 /// A call token: a variadic op reduces one dataset, a fixed-arity op takes exactly the
-/// arguments its spec names, and no collection among them.
+/// arguments its spec names, and no collection among them. A single-argument trig call tries
+/// its exact form first: radians from the argument's own tokens, before it is evaluated at
+/// all; degrees and grads from the evaluated value, after.
 Value eval_call(const parser::CallToken &call, const Calculator &c, Calculator::AngleUnit unit) {
     const ops::OpSpec &spec = *ops::op_spec(call.op_id);
 
@@ -573,6 +637,11 @@ Value eval_call(const parser::CallToken &call, const Calculator &c, Calculator::
     if (call.args.size() != spec.call_arity)
         throw_invalid(errmsg::takes_arguments(spec.symbol, spec.call_arity));
 
+    if (call.args.size() == 1 && unit == Calculator::AngleUnit::RAD) {
+        if (auto exact = exact_trig_radian(call.op_id, parser::element_tokens(call.args[0]), c))
+            return *exact;
+    }
+
     std::vector<Value> args;
     args.reserve(call.args.size());
     for (const auto &arg : call.args) {
@@ -581,10 +650,18 @@ Value eval_call(const parser::CallToken &call, const Calculator &c, Calculator::
             throw_invalid(errmsg::not_for_list_or_point(spec.symbol));
         args.push_back(std::move(v));
     }
+
+    if (args.size() == 1 && unit != Calculator::AngleUnit::RAD) {
+        if (auto exact = exact_trig_degree(call.op_id, args[0], c, unit))
+            return *exact;
+    }
+
     return apply(c, call.op_id, std::move(args), unit);
 }
 
-/// An op token: take its operands off the stack and hand them to apply.
+/// An op token: take its operands off the stack and hand them to apply. A unary op in degrees
+/// or grads tries the exact trig path on its operand's value first; radians are already handled
+/// by eval_rpn's lookahead before this ever runs.
 Value eval_op(OpId id, std::vector<Value> &stack, const Calculator &c, Calculator::AngleUnit unit) {
     if (id == OpId::Assign)
         throw_invalid(std::string(errmsg::kInvalidAssignment));
@@ -596,8 +673,13 @@ Value eval_op(OpId id, std::vector<Value> &stack, const Calculator &c, Calculato
     if (!ops::is_variadic(spec) && spec.call_arity != 1)
         throw_invalid(errmsg::needs_call_form(spec.symbol));
 
-    if (spec.arity != ops::Arity::Binary)
-        return apply(c, id, args_of(pop_operand(stack)), unit);
+    if (spec.arity != ops::Arity::Binary) {
+        Value operand = pop_operand(stack);
+        if (unit != Calculator::AngleUnit::RAD)
+            if (auto exact = exact_trig_degree(id, operand, c, unit))
+                return *exact;
+        return apply(c, id, args_of(std::move(operand)), unit);
+    }
 
     Value right = pop_operand(stack);
     Value left = pop_operand(stack);
@@ -784,6 +866,20 @@ Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::Angl
 
     for (std::size_t i = 0; i < rpn.size(); ++i) {
         const Token &tok = rpn[i];
+
+        // The bare infix form (`sin π`) binds exactly one operand, the entry right before it.
+        // In radians the exact path only reads tokens, so it can run here, on tok itself,
+        // before tok is evaluated: a hit needs no value and no stack pop to undo.
+        if (unit == Calculator::AngleUnit::RAD && i + 1 < rpn.size() &&
+            rpn[i + 1].kind == TokenKind::Op) {
+            const OpId next_id = std::get<parser::OpToken>(rpn[i + 1].data).op_id;
+            if (auto exact = exact_trig_radian(next_id, rpn.subspan(i, 1), c)) {
+                stack.push_back(*exact);
+                ++i; // consume the trig op too
+                continue;
+            }
+        }
+
         switch (tok.kind) {
         case TokenKind::Number:
             stack.push_back(literal_value(std::get<parser::NumberToken>(tok.data).value));
