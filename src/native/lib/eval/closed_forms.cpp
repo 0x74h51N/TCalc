@@ -441,10 +441,10 @@ Scalar ct_base(const ClosedTerm &t) {
 std::optional<ClosedTerm> ct_add(const ClosedTerm &a, const ClosedTerm &b, int sign) {
     if (a.kind == ClosedTerm::Kind::Geo && b.kind == ClosedTerm::Kind::Geo &&
         scalar_equal(a.r, b.r)) {
-        const auto c = scalar_add(a.c, b.c, sign);
-        if (!c)
-            return std::nullopt;
-        return ct_geo(*c, a.r);
+        // scalar_add only declines when unlike symbol sets fail to resolve to a double; a and b
+        // are still mid-walk here, and every symbol either one carries was already confirmed
+        // resolvable when classify_walk built it, so this cannot fail.
+        return ct_geo(*scalar_add(a.c, b.c, sign), a.r);
     }
     const auto pa = ct_poly_view(a);
     const auto pb = ct_poly_view(b);
@@ -859,10 +859,11 @@ std::optional<Value> with_symbols(
     const Value &exact, const Scalar &c, const Calculator &calc, Calculator::AngleUnit unit) {
     if (scalar_is_rational(c))
         return exact;
-    const auto factor = scalar_eval(scalar_symbols_of(c));
-    if (!factor)
-        return std::nullopt;
-    return apply(calc, OpId::Mul, {exact, Value{*factor}}, unit);
+    // c came out of classify_walk, which only ever builds a symbol from one it already confirmed
+    // resolvable (token_term declines anything it can't); nothing rebinds a session variable
+    // between that walk and this call in the same synchronous evaluation, so this cannot fail.
+    const double factor = *scalar_eval(scalar_symbols_of(c));
+    return apply(calc, OpId::Mul, {exact, Value{factor}}, unit);
 }
 
 std::optional<Value>
@@ -873,7 +874,7 @@ geometric_sum_real(const Scalar &c, const Scalar &r, std::int64_t a, std::int64_
         return std::nullopt;
     const double ra = std::pow(*rv, static_cast<double>(a));
     const double rb = std::pow(*rv, static_cast<double>(b));
-    return Value{*cv * (*rv * rb - ra) / (*rv - 1.0)};
+    return Value{geometric_closed(*cv, *rv, ra, rb)};
 }
 
 // k is treated as (near) a multiple of a full turn (body constant over integer n) when
@@ -896,10 +897,9 @@ std::optional<Value> trig_sum(
     const auto kphi = trig_arg_phi(t.trig_arg, var, calc, unit);
     if (!kphi)
         return std::nullopt;
-    const auto cv = scalar_eval(t.c);
-    if (!cv)
-        return std::nullopt;
-    const double c = *cv;
+    // t.c is resolvable for the same reason with_symbols' argument is (see there): every symbol
+    // in it was confirmed at classify_walk build time, and nothing rebinds it before this runs.
+    const double c = *scalar_eval(t.c);
     const double k = kphi->first;
     const double phi = kphi->second;
     // double subtraction, so b - a + 1 cannot overflow int64 at extreme bounds

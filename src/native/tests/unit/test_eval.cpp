@@ -1522,6 +1522,11 @@ void unit_eval(TestContext &ctx) {
         {.id = "a var-free product at the true INT64_MIN lower bound does not silently return 1",
          .input = "\\prod_{n=-9223372036854775807-1}^{9223372036854775807} 3",
          .expected = "Product range is too large to compute."},
+        // base_bits <= 1 (root is 1) skips the bit-length check above; the slope's own
+        // magnitude, built by exact multiplication of three int64 literals, still throws.
+        {.id = "a trivial base under an absurd slope still throws",
+         .input = "\\sum_{n=1}^{3} 1^{100000000*100000000*100000000n}",
+         .expected = "Sum range is too large to compute."},
     };
 
     for (const auto &tc : iterated_closed_product_guard_cases) {
