@@ -149,12 +149,11 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [x] Polynomial sums via Faulhaber (Bernoulli B_0..B_24, degree cap 24)
     - [x] Exact polynomial division (`n^2/n`, removable singularities)
     - [x] Geometric sums, affine exponents, geometric bases under a literal power, like-term folding
-    - [x] Trig sums via the real Dirichlet product form (affine argument, sampled frequency)
+    - [x] Trig sums - periodic arguments of any degree close exactly from the half-turn table, the sampled Dirichlet form otherwise (arguments that are not a rational multiple of a half turn)
     - [x] Var-free and geometric products
     - [x] Symbolic constants - a constant keeps its identity through the walk, so `π n^2`, `π sin(n)` and `π^n` close and bodies whose constants cancel stay exact
     - [ ] Arithmetico-geometric - `n 2^n`, `n sin(n)`, `2^n sin(n)`, over a complex ratio
     - [ ] Trig like-term folding - `(sin(n) - sin(n))`, `(3sin(n) + sin(n))`
-    - [ ] Quadratic trig arguments - `sin(π n^2)`, `sin(2π n^2)`
     - [ ] Term splitting - partition the body at top-level +/-, close each term
 
 #### Statistic
