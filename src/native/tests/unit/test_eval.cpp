@@ -1931,6 +1931,18 @@ void unit_eval(TestContext &ctx) {
         {.id = "starts below zero",
          .input = {"\\sum_{n=-3}^{-1} cos(π n/2)", kRad},
          .expected = Value{Rational(-1)}},
+        // Expected 0 but not vacuous like the first group: no term here is 0, and the ones the
+        // table cannot answer (sqrt(3)/2, sqrt(2)/2) are what cancel. Folding each on sight makes
+        // these a double near 0 instead, so the arm alone separates fixed from broken.
+        {.id = "irrational terms cancel, degrees",
+         .input = {"\\sum_{n=1}^{12} sin(30 n)", kDeg},
+         .expected = Value{Rational(0)}},
+        {.id = "irrational terms cancel, grads",
+         .input = {"\\sum_{n=1}^{8} cos(50 n)", kGrad},
+         .expected = Value{Rational(0)}},
+        {.id = "irrational terms cancel, radians",
+         .input = {"\\sum_{n=1}^{6} sin(π n/3)", kRad},
+         .expected = Value{Rational(0)}},
         // a = 1e15 is divisible by 4 (2^15 | a), so residues start at 0; cos(π n^2/2) is period 4
         // with values 1,0,1,0 (sum 2/period). 1e8 whole periods + a 2-term tail (1,0): 2e8+1.
         {.id = "huge lower bound, many whole periods",
@@ -1944,6 +1956,19 @@ void unit_eval(TestContext &ctx) {
             EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
         });
     }
+
+    // Regression: the period sum's rounding residue used to be multiplied by the number of whole
+    // periods, so the error grew with the range rather than staying put. sin of 30n degrees has
+    // period 12 summing to exactly 0, and 1e8 = 8333333 * 12 + 4 leaves the tail
+    // 1/2 + sqrt(3)/2 + 1 + sqrt(3)/2 = 3/2 + sqrt(3). Folding each term on sight left 1.11e-16
+    // per period, so 9.25e-10 after the multiply: wrong in the 9th digit. near_rel's 1e-9 is too
+    // loose to see that, hence the explicit tolerance here.
+    test_detail::with_case(ctx, "periodic trig :: a period residue is not multiplied up", [&] {
+        tcalc::eval::reset_closed_form_taken();
+        const Value v = eval_text(c, "\\sum_{n=1}^{100000000} sin(30 n)", kDeg);
+        EXPECT_EQ(ctx, std::abs(as_double(v) - (1.5 + std::sqrt(3.0))) < 1e-12, true);
+        EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), true);
+    });
 
     // Regression: a == INT64_MIN, b == INT64_MAX makes span == UINT64_MAX, so count = span + 1
     // must not be allowed to wrap to 0 and let the periodic route silently answer 0 (whole =

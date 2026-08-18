@@ -64,10 +64,6 @@ std::optional<Scalar> scalar_of_tokens(std::span<const parser::Token> rpn);
 std::optional<Rational>
 scalar_half_turns(const Scalar &s, const Calculator &c, Calculator::AngleUnit unit);
 
-/// sin or cos of pi*t: the exact value where the table has one, the folded numeric value
-/// otherwise. Never raises for sine or cosine; a tan pole is the caller's to handle.
-Value trig_at_half_turns(const Calculator &c, Calculator::TrigFn fn, const Rational &t);
-
 /// Matcher entry point: the closed-form Value, or nullopt (the caller then brute-forces).
 std::optional<Value> try_closed_form(
     parser::LatexKind kind,

@@ -183,6 +183,13 @@ std::optional<Calculator::TrigFn> trig_fn_of(OpId id) {
     }
 }
 
+/// sin or cos of pi*t: the exact value where the table has one, the folded numeric value
+/// otherwise. Never raises for sine or cosine; a tan pole is the caller's to handle.
+Value trig_at_half_turns(const Calculator &c, Calculator::TrigFn fn, const Rational &t) {
+    const auto exact = c.exact_half_turns(fn, t);
+    return exact ? Value{*exact} : Value{c.real_half_turns(fn, t)};
+}
+
 /// The exact value of a radian trig call, read from the argument's own tokens before it is ever
 /// evaluated: a rational multiple of pi survives here, the collapsed double does not.
 std::optional<Value>

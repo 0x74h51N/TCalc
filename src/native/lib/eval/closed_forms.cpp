@@ -891,7 +891,8 @@ geometric_sum_real(const Scalar &c, const Scalar &r, std::int64_t a, std::int64_
 // constant term is separate because it does not have to be exact for the summand to repeat: it
 // only shifts the phase. When it is exact too the whole sum can be.
 struct PeriodicArg {
-    std::vector<CppRat> turns; // index 0 is the coefficient of n^1, in the form periodic_term uses
+    std::vector<CppRat>
+        turns; // index 0 is the coefficient of n^1, in the form periodic_reduced uses
     std::optional<CppRat> phase_turns;
     double phase_real = 0.0; // radians; used only when phase_turns is nullopt
     std::int64_t period = 0; // 2Q, Q the common denominator of turns
@@ -936,7 +937,7 @@ std::optional<PeriodicArg> periodic_arg(
     if (const auto p = scalar_half_turns(coeffs[0], calc, unit)) {
         out.phase_turns = CppRat(p->numerator(), p->denominator());
     } else {
-        // The sampled value is in `unit`, but periodic_term combines it with an already-radian
+        // The sampled value is in `unit`, but sum_periodic_terms combines it with an already-radian
         // angle and calls sin/cos as RAD, so it has to become radians here rather than staying
         // in whatever unit it was sampled in.
         const double phase = unwrap(scalar_eval(coeffs[0]), "periodic_arg: unresolvable phase");
@@ -949,45 +950,61 @@ std::optional<PeriodicArg> periodic_arg(
     return out;
 }
 
-// sin or cos of pi*T(n), where T(n) is the argument in half turns reduced modulo 2. Exact when
-// the reduced value is one of the rational points, otherwise the folded numeric evaluation,
-// which forms only a small product. Returns nullopt when the reduced fraction overflows int64:
-// the period cap bounds the turns' denominators, but not the phase's, which can be any int64
-// denominator on its own and still blow past int64 once combined with a turn.
-std::optional<Value>
-periodic_term(const PeriodicArg &arg, bool is_sin, std::int64_t n, const Calculator &calc) {
+// T(n) reduced modulo two turns, so a lookup sees one period and the double conversion below
+// stays small however large n was. nullopt when the reduced fraction overflows int64: the period
+// cap bounds the turns' denominators, but not the phase's, which can be any int64 denominator on
+// its own and still blow past int64 once combined with a turn.
+std::optional<Rational> periodic_reduced(const PeriodicArg &arg, std::int64_t n) {
     CppRat total = arg.phase_turns.value_or(CppRat(0));
     CppRat power = 1;
     for (const CppRat &t : arg.turns) {
         power *= CppRat(n);
         total += t * power;
     }
-    // Reduce modulo 2 so the lookup sees one period, and so the double conversion below stays
-    // small however large n was. cpp_rational has no floor, so shift into [0, two_den) with the
-    // standard (a % m + m) % m idiom instead.
+    // cpp_rational has no floor, so shift into [0, two_den) with the standard (a % m + m) % m
+    // idiom instead.
     const BigInt den = boost::multiprecision::denominator(total);
     const BigInt two_den = 2 * den;
     const BigInt rem = ((boost::multiprecision::numerator(total) % two_den) + two_den) % two_den;
-    const auto reduced = to_rational(value_from_big_rational(CppRat(rem, den)));
-    if (!reduced)
-        return std::nullopt;
-    if (!arg.phase_turns) {
-        // An inexact phase cannot use the exact table; fold what is exact and add the residual.
-        // pi*reduced is already radians, and phase_real was converted to radians when it was
-        // sampled (periodic_arg), so both terms are in the same unit before the hardcoded RAD.
-        const double angle =
-            boost::math::constants::pi<double>() * reduced->to_double() + arg.phase_real;
-        return Value{
-            is_sin ? calc.sin(angle, Calculator::AngleUnit::RAD)
-                   : calc.cos(angle, Calculator::AngleUnit::RAD)};
-    }
-    const auto fn = is_sin ? Calculator::TrigFn::Sin : Calculator::TrigFn::Cos;
-    return trig_at_half_turns(calc, fn, *reduced);
+    return to_rational(value_from_big_rational(CppRat(rem, den)));
 }
 
-// Sum periodic_term(arg, is_sin, n) for n = start .. start+count-1. nullopt if any term declines
-// (an overflowed reduced fraction). Shared by periodic_trig_sum's period loop (start = 0) and its
-// tail loop (start = a) below: same accumulation, different range.
+// A reduced t as a sign and a key in [0, 1/2], where sine and cosine are both non-negative, so a
+// key names one magnitude and two terms are exact opposites exactly when they share a key and
+// differ in sign. Every intermediate stays inside the denominator the reduction already fitted
+// into int64, so none of this can overflow.
+std::pair<Rational, int> canonical_half_turn(bool is_sin, const Rational &t) {
+    const std::int64_t den = t.denominator();
+    std::int64_t num = t.numerator(); // the reduction leaves 0 <= num < 2*den
+    int sign = 1;
+    if (is_sin && num >= den) { // sin(pi(u+1)) = -sin(pi u)
+        num -= den;
+        sign = -1;
+    } else if (!is_sin && num > den) { // cos(pi(2-u)) = cos(pi u)
+        num = den - (num - den);
+    }
+    if (num > den - num) { // sin(pi(1-u)) = sin(pi u), cos(pi(1-u)) = -cos(pi u)
+        num = den - num;
+        if (!is_sin)
+            sign = -sign;
+    }
+    return {Rational(num, den), sign};
+}
+
+// A folded value that survived cancellation, and how many times it occurred.
+struct ResidualTerm {
+    Rational key;
+    std::int64_t count;
+};
+
+// Sum the term at n = start .. start+count-1. nullopt if any reduction overflows int64. Shared by
+// periodic_trig_sum's period loop (start = 0) and its tail loop (start = a) below: same
+// accumulation, different range.
+//
+// Exact terms add exactly. The rest are collected by canonical key rather than folded on sight,
+// so a pair like sin(60 deg) and sin(240 deg) cancels as a pair of integers. Folding first would
+// leave the rounding residue of two doubles instead, which is what made a period whose irrational
+// parts sum to zero come out at 1e-16.
 std::optional<Value> sum_periodic_terms(
     const PeriodicArg &arg,
     bool is_sin,
@@ -995,12 +1012,45 @@ std::optional<Value> sum_periodic_terms(
     std::uint64_t count,
     const Calculator &calc,
     Calculator::AngleUnit unit) {
+    const auto fn = is_sin ? Calculator::TrigFn::Sin : Calculator::TrigFn::Cos;
     Value total{Rational(0)};
+    std::vector<ResidualTerm> residual;
     for (std::uint64_t i = 0; i < count; ++i) {
-        const auto v = periodic_term(arg, is_sin, start + static_cast<std::int64_t>(i), calc);
-        if (!v)
+        const auto t = periodic_reduced(arg, start + static_cast<std::int64_t>(i));
+        if (!t)
             return std::nullopt;
-        total = apply(calc, OpId::Add, {total, *v}, unit);
+        if (!arg.phase_turns) {
+            // An inexact phase has no table entry and no exact opposite to pair with, so there is
+            // nothing to cancel and the term folds here. pi*t is already radians, and phase_real
+            // was converted to radians when it was sampled (periodic_arg), so both terms are in
+            // the same unit before the hardcoded RAD.
+            const double angle =
+                boost::math::constants::pi<double>() * t->to_double() + arg.phase_real;
+            const double v = is_sin ? calc.sin(angle, Calculator::AngleUnit::RAD)
+                                    : calc.cos(angle, Calculator::AngleUnit::RAD);
+            total = apply(calc, OpId::Add, {total, Value{v}}, unit);
+            continue;
+        }
+        if (const auto exact = calc.exact_half_turns(fn, *t)) {
+            total = apply(calc, OpId::Add, {total, Value{*exact}}, unit);
+            continue;
+        }
+        const auto [key, sign] = canonical_half_turn(is_sin, *t);
+        const auto at =
+            std::find_if(residual.begin(), residual.end(), [&key](const ResidualTerm &r) {
+                return r.key == key;
+            });
+        if (at == residual.end())
+            residual.push_back({key, sign});
+        else
+            at->count += sign;
+    }
+    // Only what survived cancellation is folded, once per key and scaled by its multiplicity.
+    for (const ResidualTerm &r : residual) {
+        if (r.count == 0)
+            continue;
+        const double v = calc.real_half_turns(fn, r.key) * static_cast<double>(r.count);
+        total = apply(calc, OpId::Add, {total, Value{v}}, unit);
     }
     return total;
 }
@@ -1130,11 +1180,6 @@ scalar_half_turns(const Scalar &s, const Calculator &c, Calculator::AngleUnit un
     if (!a)
         return std::nullopt;
     return c.half_turns(*a, unit);
-}
-
-Value trig_at_half_turns(const Calculator &c, Calculator::TrigFn fn, const Rational &t) {
-    const auto exact = c.exact_half_turns(fn, t);
-    return exact ? Value{*exact} : Value{c.real_half_turns(fn, t)};
 }
 
 std::optional<Value> try_closed_form(
