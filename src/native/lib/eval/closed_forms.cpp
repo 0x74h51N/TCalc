@@ -9,7 +9,10 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <numeric>
+#include <stdexcept>
 #include <utility>
+#include <boost/math/constants/constants.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 #include "calc/internal/helpers.hpp"
 #include "calc/pub/error_messages.hpp"
@@ -145,6 +148,16 @@ Value value_from_big_rational(const CppRat &r) {
 }
 
 namespace {
+
+/// Read an optional that a classify_walk invariant guarantees is engaged: the walk only ever
+/// builds a symbol it has already confirmed resolvable, and nothing rebinds a session variable
+/// inside one synchronous evaluation. Raises rather than reading an empty one, so a broken
+/// invariant surfaces instead of quietly becoming a wrong number.
+template <class T> T unwrap(const std::optional<T> &v, const char *what) {
+    if (!v)
+        throw std::logic_error(what);
+    return *v;
+}
 
 std::optional<Value> value_from_scalar(const Scalar &s) {
     if (scalar_is_rational(s))
@@ -441,10 +454,9 @@ Scalar ct_base(const ClosedTerm &t) {
 std::optional<ClosedTerm> ct_add(const ClosedTerm &a, const ClosedTerm &b, int sign) {
     if (a.kind == ClosedTerm::Kind::Geo && b.kind == ClosedTerm::Kind::Geo &&
         scalar_equal(a.r, b.r)) {
-        const auto c = scalar_add(a.c, b.c, sign);
-        if (!c)
-            return std::nullopt;
-        return ct_geo(*c, a.r);
+        // scalar_add only declines when unlike symbol sets fail to resolve to a double, which
+        // the walk's own terms never do (see unwrap).
+        return ct_geo(unwrap(scalar_add(a.c, b.c, sign), "ct_add: unlike geometric scalars"), a.r);
     }
     const auto pa = ct_poly_view(a);
     const auto pb = ct_poly_view(b);
@@ -859,10 +871,9 @@ std::optional<Value> with_symbols(
     const Value &exact, const Scalar &c, const Calculator &calc, Calculator::AngleUnit unit) {
     if (scalar_is_rational(c))
         return exact;
-    const auto factor = scalar_eval(scalar_symbols_of(c));
-    if (!factor)
-        return std::nullopt;
-    return apply(calc, OpId::Mul, {exact, Value{*factor}}, unit);
+    const double factor =
+        unwrap(scalar_eval(scalar_symbols_of(c)), "with_symbols: unresolvable symbol");
+    return apply(calc, OpId::Mul, {exact, Value{factor}}, unit);
 }
 
 std::optional<Value>
@@ -873,7 +884,231 @@ geometric_sum_real(const Scalar &c, const Scalar &r, std::int64_t a, std::int64_
         return std::nullopt;
     const double ra = std::pow(*rv, static_cast<double>(a));
     const double rb = std::pow(*rv, static_cast<double>(b));
-    return Value{*cv * (*rv * rb - ra) / (*rv - 1.0)};
+    return Value{geometric_closed(*cv, *rv, ra, rb)};
+}
+
+// The argument in half turns: turns[i] is the coefficient of n^i for i >= 1, all exact. The
+// constant term is separate because it does not have to be exact for the summand to repeat: it
+// only shifts the phase. When it is exact too the whole sum can be.
+struct PeriodicArg {
+    std::vector<CppRat>
+        turns; // index 0 is the coefficient of n^1, in the form periodic_reduced uses
+    std::optional<CppRat> phase_turns;
+    double phase_real = 0.0; // radians; used only when phase_turns is nullopt
+    std::int64_t period = 0; // 2Q, Q the common denominator of turns
+};
+
+// A period past this many terms would cost more than the brute loop it replaces, and anything a
+// user writes is far below it. Also keeps 2Q and its square inside int64 by a wide margin.
+constexpr std::int64_t kMaxPeriod = 4096;
+
+std::optional<PeriodicArg> periodic_arg(
+    const std::vector<Token> &arg,
+    std::string_view var,
+    std::string_view op,
+    const Calculator &calc,
+    Calculator::AngleUnit unit) {
+    const auto term = classify_walk(shunting_yard(std::span<const Token>(arg)), var, op);
+    if (!term)
+        return std::nullopt;
+    // Const declines here (trig_sum's degenerate branch already has it); Geo/Trig are not a
+    // polynomial in the loop variable. ct_from_poly never folds down to a size-1 Poly, so what's
+    // left always has a var-dependent term, i.e. coeffs.size() >= 2.
+    if (term->kind != ClosedTerm::Kind::Poly)
+        return std::nullopt;
+    const Poly &coeffs = term->poly;
+    PeriodicArg out;
+    // The summand repeats every 2Q terms, Q being the common denominator of the coefficients in
+    // half turns: each (n+q)^i - n^i carries a factor q, so the increment is a whole number of
+    // turns. Nothing here depends on the degree. Folded into the same pass that builds turns,
+    // since Q only needs each coefficient's (int64) denominator, not its CppRat form.
+    std::int64_t q = 1;
+    for (std::size_t i = 1; i < coeffs.size(); ++i) {
+        const auto t = scalar_half_turns(coeffs[i], calc, unit);
+        if (!t)
+            return std::nullopt; // one non-rational coefficient and nothing repeats
+        const std::int64_t d = t->denominator();
+        const std::int64_t g = std::gcd(q, d);
+        if (q / g > kMaxPeriod / d)
+            return std::nullopt; // the lcm would exceed the cap
+        q = q / g * d;
+        out.turns.push_back(CppRat(t->numerator(), t->denominator()));
+    }
+    if (const auto p = scalar_half_turns(coeffs[0], calc, unit)) {
+        out.phase_turns = CppRat(p->numerator(), p->denominator());
+    } else {
+        // The sampled value is in `unit`, but sum_periodic_terms combines it with an already-radian
+        // angle and calls sin/cos as RAD, so it has to become radians here rather than staying
+        // in whatever unit it was sampled in.
+        const double phase = unwrap(scalar_eval(coeffs[0]), "periodic_arg: unresolvable phase");
+        out.phase_real = calc.angle_to_radians(phase, unit);
+    }
+    if (q > kMaxPeriod / 2)
+        return std::nullopt; // the per-step cap above is looser than this; a q just under it
+                             // (e.g. 2049) still fails here
+    out.period = 2 * q;
+    return out;
+}
+
+// T(n) reduced modulo two turns, so a lookup sees one period and the double conversion below
+// stays small however large n was. nullopt when the reduced fraction overflows int64: the period
+// cap bounds the turns' denominators, but not the phase's, which can be any int64 denominator on
+// its own and still blow past int64 once combined with a turn.
+std::optional<Rational> periodic_reduced(const PeriodicArg &arg, std::int64_t n) {
+    CppRat total = arg.phase_turns.value_or(CppRat(0));
+    CppRat power = 1;
+    for (const CppRat &t : arg.turns) {
+        power *= CppRat(n);
+        total += t * power;
+    }
+    // cpp_rational has no floor, so shift into [0, two_den) with the standard (a % m + m) % m
+    // idiom instead.
+    const BigInt den = boost::multiprecision::denominator(total);
+    const BigInt two_den = 2 * den;
+    const BigInt rem = ((boost::multiprecision::numerator(total) % two_den) + two_den) % two_den;
+    return to_rational(value_from_big_rational(CppRat(rem, den)));
+}
+
+// A reduced t as a sign and a key in [0, 1/2], where sine and cosine are both non-negative, so a
+// key names one magnitude and two terms are exact opposites exactly when they share a key and
+// differ in sign. Every intermediate stays inside the denominator the reduction already fitted
+// into int64, so none of this can overflow.
+std::pair<Rational, int> canonical_half_turn(bool is_sin, const Rational &t) {
+    const std::int64_t den = t.denominator();
+    std::int64_t num = t.numerator(); // the reduction leaves 0 <= num < 2*den
+    int sign = 1;
+    if (is_sin && num >= den) { // sin(pi(u+1)) = -sin(pi u)
+        num -= den;
+        sign = -1;
+    } else if (!is_sin && num > den) { // cos(pi(2-u)) = cos(pi u)
+        num = den - (num - den);
+    }
+    if (num > den - num) { // sin(pi(1-u)) = sin(pi u), cos(pi(1-u)) = -cos(pi u)
+        num = den - num;
+        if (!is_sin)
+            sign = -sign;
+    }
+    return {Rational(num, den), sign};
+}
+
+// A folded value that survived cancellation, and how many times it occurred.
+struct ResidualTerm {
+    Rational key;
+    std::int64_t count;
+};
+
+// Sum the term at n = start .. start+count-1. nullopt if any reduction overflows int64. Shared by
+// periodic_trig_sum's period loop (start = 0) and its tail loop (start = a) below: same
+// accumulation, different range.
+//
+// Exact terms add exactly. The rest are collected by canonical key rather than folded on sight,
+// so a pair like sin(60 deg) and sin(240 deg) cancels as a pair of integers. Folding first would
+// leave the rounding residue of two doubles instead, which is what made a period whose irrational
+// parts sum to zero come out at 1e-16.
+std::optional<Value> sum_periodic_terms(
+    const PeriodicArg &arg,
+    bool is_sin,
+    std::int64_t start,
+    std::uint64_t count,
+    const Calculator &calc,
+    Calculator::AngleUnit unit) {
+    const auto fn = is_sin ? Calculator::TrigFn::Sin : Calculator::TrigFn::Cos;
+    Value total{Rational(0)};
+    std::vector<ResidualTerm> residual;
+    for (std::uint64_t i = 0; i < count; ++i) {
+        const auto t = periodic_reduced(arg, start + static_cast<std::int64_t>(i));
+        if (!t)
+            return std::nullopt;
+        if (!arg.phase_turns) {
+            // An inexact phase has no table entry and no exact opposite to pair with, so there is
+            // nothing to cancel and the term folds here. pi*t is already radians, and phase_real
+            // was converted to radians when it was sampled (periodic_arg), so both terms are in
+            // the same unit before the hardcoded RAD.
+            const double angle =
+                boost::math::constants::pi<double>() * t->to_double() + arg.phase_real;
+            const double v = is_sin ? calc.sin(angle, Calculator::AngleUnit::RAD)
+                                    : calc.cos(angle, Calculator::AngleUnit::RAD);
+            total = apply(calc, OpId::Add, {total, Value{v}}, unit);
+            continue;
+        }
+        if (const auto exact = calc.exact_half_turns(fn, *t)) {
+            total = apply(calc, OpId::Add, {total, Value{*exact}}, unit);
+            continue;
+        }
+        const auto [key, sign] = canonical_half_turn(is_sin, *t);
+        const auto at =
+            std::find_if(residual.begin(), residual.end(), [&key](const ResidualTerm &r) {
+                return r.key == key;
+            });
+        if (at == residual.end())
+            residual.push_back({key, sign});
+        else
+            at->count += sign;
+    }
+    // Only what survived cancellation is folded, once per key and scaled by its multiplicity.
+    for (const ResidualTerm &r : residual) {
+        if (r.count == 0)
+            continue;
+        const double v = calc.real_half_turns(fn, r.key) * static_cast<double>(r.count);
+        total = apply(calc, OpId::Add, {total, Value{v}}, unit);
+    }
+    return total;
+}
+
+// count = whole periods * one period + a tail. Every term of a whole period is the same set of
+// values, so the period is summed once.
+std::optional<Value> periodic_trig_sum(
+    const ClosedTerm &t,
+    std::string_view var,
+    std::string_view op,
+    std::int64_t a,
+    std::int64_t b,
+    const Calculator &calc,
+    Calculator::AngleUnit unit) {
+    const auto arg = periodic_arg(t.trig_arg, var, op, calc, unit);
+    if (!arg)
+        return std::nullopt;
+    // b >= a is guaranteed by the caller, so span cannot overflow -- except at the one point
+    // where it saturates: a == INT64_MIN, b == INT64_MAX makes span == UINT64_MAX, and span + 1
+    // would silently wrap to 0 (whole = tail = 0, a wrong answer of 0 for any such sum). Unlike
+    // Product (which must throw: count there feeds a required Pow exponent), this path only
+    // exists to skip trig_sum's sampled route, and that route already forms its count via double
+    // subtraction with no such wraparound -- so decline to it instead of computing a wrong count.
+    const std::uint64_t span = static_cast<std::uint64_t>(b) - static_cast<std::uint64_t>(a);
+    if (span == std::numeric_limits<std::uint64_t>::max())
+        return std::nullopt;
+    const std::uint64_t count = span + 1;
+    const auto period = static_cast<std::uint64_t>(arg->period);
+    const std::uint64_t whole = count / period;
+    const std::uint64_t tail = count % period;
+    // T(n+period) - T(n) is a whole number of turns (see periodic_arg above), so the summand
+    // repeats every `period` terms and any `period` consecutive terms sum to the same value:
+    // start at 0, not a, so the indices here never approach INT64_MAX. Skipped when whole == 0:
+    // the multiply below would discard it anyway, so there is nothing to pay for.
+    Value period_sum{Rational(0)};
+    if (whole != 0) {
+        const auto s = sum_periodic_terms(*arg, t.is_sin, 0, period, calc, unit);
+        if (!s)
+            return std::nullopt;
+        period_sum = *s;
+    }
+    Value total =
+        apply(calc, OpId::Mul, {period_sum, value_from_big_rational(CppRat(whole))}, unit);
+    // When whole != 0 every residue was already exercised, checked, by the period sum above, so a
+    // tail value cannot newly fail here; but when whole == 0 that sum was skipped and these are
+    // the first calls for their residues, so the check stays live rather than assuming safety the
+    // skip no longer earns.
+    if (tail != 0) {
+        const auto s = sum_periodic_terms(*arg, t.is_sin, a, tail, calc, unit);
+        if (!s)
+            return std::nullopt;
+        total = apply(calc, OpId::Add, {total, *s}, unit);
+    }
+    // with_symbols only factors in the symbolic part; per its own contract (see above), the
+    // caller must already have multiplied in the coefficient's rational part, same as the
+    // geometric branch does by passing term->c.coeff into geometric_sum_exact.
+    total = apply(calc, OpId::Mul, {total, value_from_big_rational(t.c.coeff)}, unit);
+    return with_symbols(total, t.c, calc, unit);
 }
 
 // k is treated as (near) a multiple of a full turn (body constant over integer n) when
@@ -896,10 +1131,7 @@ std::optional<Value> trig_sum(
     const auto kphi = trig_arg_phi(t.trig_arg, var, calc, unit);
     if (!kphi)
         return std::nullopt;
-    const auto cv = scalar_eval(t.c);
-    if (!cv)
-        return std::nullopt;
-    const double c = *cv;
+    const double c = unwrap(scalar_eval(t.c), "trig_sum: unresolvable coefficient");
     const double k = kphi->first;
     const double phi = kphi->second;
     // double subtraction, so b - a + 1 cannot overflow int64 at extreme bounds
@@ -927,6 +1159,29 @@ std::optional<Scalar> scalar_of_tokens(std::span<const Token> rpn) {
     return term->c;
 }
 
+std::optional<Rational>
+scalar_half_turns(const Scalar &s, const Calculator &c, Calculator::AngleUnit unit) {
+    const auto exact = [&](const CppRat &r) { return to_rational(value_from_big_rational(r)); };
+    if (unit == Calculator::AngleUnit::RAD) {
+        // A plain rational is a count of radians; the only one that is also an exact count of
+        // half turns is zero.
+        if (scalar_is_rational(s))
+            return s.coeff == 0 ? std::optional<Rational>(Rational(0)) : std::nullopt;
+        // Otherwise pi to the first power and nothing else: then the coefficient counts half
+        // turns.
+        if (s.n_syms != 1 || s.real != 1.0 || s.syms[0].exp != 1 ||
+            s.syms[0].id != const_sym(consts::ConstId::Pi))
+            return std::nullopt;
+        return exact(s.coeff);
+    }
+    if (!scalar_is_rational(s))
+        return std::nullopt;
+    const auto a = exact(s.coeff);
+    if (!a)
+        return std::nullopt;
+    return c.half_turns(*a, unit);
+}
+
 std::optional<Value> try_closed_form(
     LatexKind kind,
     std::span<const Token> rpn,
@@ -935,7 +1190,8 @@ std::optional<Value> try_closed_form(
     std::int64_t last,
     const Calculator &calc,
     Calculator::AngleUnit unit) {
-    const auto term = classify_walk(rpn, var, kind == LatexKind::Prod ? "Product" : "Sum");
+    const std::string_view op = kind == LatexKind::Prod ? "Product" : "Sum";
+    const auto term = classify_walk(rpn, var, op);
     if (kind == LatexKind::Sum) {
         // A single closed term: Faulhaber for a polynomial (constant included), the geometric
         // formula for c*r^n. Anything else declines, and the caller brute-forces.
@@ -950,8 +1206,11 @@ std::optional<Value> try_closed_form(
             const Value exact = geometric_sum_exact(term->c.coeff, term->r.coeff, first, last);
             return with_symbols(exact, term->c, calc, unit);
         }
-        if (term->kind == ClosedTerm::Kind::Trig)
+        if (term->kind == ClosedTerm::Kind::Trig) {
+            if (auto periodic = periodic_trig_sum(*term, var, op, first, last, calc, unit))
+                return periodic;
             return trig_sum(*term, var, first, last, calc, unit);
+        }
         const std::vector<Scalar> coeffs =
             term->kind == ClosedTerm::Kind::Const ? std::vector<Scalar>{term->c} : term->poly;
         const auto sum = faulhaber_sum(coeffs, first, last);

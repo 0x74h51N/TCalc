@@ -165,9 +165,9 @@ constexpr std::array<std::int8_t, 4> kTanHalves{0, 2, kTanPole, -2};
 
 } // namespace
 
+// unit is DEG or GRAD: a radian argument's exact case (zero) is resolved by the caller before
+// this is ever reached, via the pi-coefficient test in scalar_half_turns, not this conversion.
 std::optional<Rational> Calculator::half_turns(const Rational &a, AngleUnit unit) const {
-    if (unit == AngleUnit::RAD)
-        return a.numerator() == 0 ? std::optional<Rational>(Rational(0)) : std::nullopt;
     const auto half = static_cast<std::int64_t>(turn_of(unit) / 2.0); // 180 or 200
     // A denominator coprime to half can overflow int64 once boost multiplies it by half; decline
     // rather than divide into undefined behaviour.
@@ -254,6 +254,10 @@ double Calculator::real_half_turns(TrigFn fn, const Rational &t) const {
     if (cos_v == 0.0)
         calc_detail::math_error();
     return sin_v / cos_v;
+}
+
+double Calculator::angle_to_radians(double a, AngleUnit unit) const {
+    return to_radians(a, unit);
 }
 
 Calculator::Complex Calculator::polar(double a, AngleUnit unit) const {

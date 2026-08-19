@@ -94,9 +94,11 @@ class Calculator {
     /// Which trigonometric function an exact half-turn lookup is for.
     enum class TrigFn : std::uint8_t { Sin, Cos, Tan };
 
-    /// The argument as an exact number of half turns, so the angle is pi*t radians, or nullopt
-    /// when it cannot be one. Kept here rather than in eval so the 180 and 200 per half turn
-    /// live beside the conversion that already uses them.
+    /// `a` degrees or grads as an exact number of half turns, so the angle is pi*t radians, or
+    /// nullopt when it cannot be one. unit must be DEG or GRAD: a radian argument's own exact
+    /// case (zero) is resolved by the caller directly, so RAD never reaches this. Kept here
+    /// rather than in eval so the 180 and 200 per half turn live beside the conversion that
+    /// already uses them.
     std::optional<Rational> half_turns(const Rational &a, AngleUnit unit) const;
 
     /// sin/cos/tan of pi*t when that value is rational, nullopt otherwise; raises at a tan pole.
@@ -107,6 +109,11 @@ class Calculator {
     /// sin/cos/tan of pi*t numerically, with t folded into the first quadrant first so only a
     /// small product is formed. For a t that has no exact value but is still known exactly.
     double real_half_turns(TrigFn fn, const Rational &t) const;
+
+    /// `a`, given in `unit`, as radians. Exposed so eval's periodic-trig closed form can convert
+    /// an inexact phase (sampled in the caller's angle unit) to radians before combining it with
+    /// an already-radian angle, without copying the pi/180 and pi/200 factors that belong here.
+    double angle_to_radians(double a, AngleUnit unit) const;
 
     // BigComplex ops
     BigComplex add(const BigComplex &a, const BigComplex &b) const { return a + b; }

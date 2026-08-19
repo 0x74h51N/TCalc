@@ -217,18 +217,15 @@ void unit_trig(TestContext &ctx) {
             ctx, approx_big(c.tan(bc_z, U::RAD), c.sin(bc_z, U::RAD) / c.cos(bc_z, U::RAD)));
     });
 
-    // half_turns: the argument in half turns, so the angle is pi*t. A rational number of
-    // radians is a/pi half turns, irrational unless a is zero, so radians have exactly one
-    // exact case (the "zero radians" row below).
+    // half_turns: a degrees/grads argument in half turns, so the angle is pi*t. Radians go
+    // through a different exact test entirely (scalar_half_turns's own pi-coefficient check,
+    // see the "scalar_half_turns :: reads a scalar per unit" case in test_eval.cpp, which
+    // covers radians' one exact case: zero), so this table only has DEG/GRAD rows.
     constexpr std::int64_t kMin = (std::numeric_limits<std::int64_t>::min)();
     const std::vector<HalfTurnCase> half_turn_cases = {
         {.id = "30 degrees", .input = {Rational(30), U::DEG}, .expected = Rational(1, 6)},
         {.id = "180 degrees", .input = {Rational(180), U::DEG}, .expected = Rational(1)},
         {.id = "50 grad", .input = {Rational(50), U::GRAD}, .expected = Rational(1, 4)},
-        {.id = "zero radians", .input = {Rational(0), U::RAD}, .expected = Rational(0)},
-        {.id = "one radian has no exact case",
-         .input = {Rational(1), U::RAD},
-         .expected = std::nullopt},
         // A denominator this large, coprime to 180, would overflow int64 in the reduction; the
         // guard must decline instead of dividing into undefined behaviour.
         {.id = "a denominator too large to reduce declines",
