@@ -152,6 +152,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [x] Trig sums - periodic arguments of any degree close exactly from the half-turn table, the sampled Dirichlet form otherwise (arguments that are not a rational multiple of a half turn)
     - [x] Var-free and geometric products
     - [x] Symbolic constants - a constant keeps its identity through the walk, so `π n^2`, `π sin(n)` and `π^n` close and bodies whose constants cancel stay exact
+    - [ ] Periodic products - a product whose factors repeat over the range
     - [ ] Arithmetico-geometric - `n 2^n`, `n sin(n)`, `2^n sin(n)`, over a complex ratio
     - [ ] Trig like-term folding - `(sin(n) - sin(n))`, `(3sin(n) + sin(n))`
     - [ ] Term splitting - partition the body at top-level +/-, close each term

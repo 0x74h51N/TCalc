@@ -11,7 +11,7 @@
 - g++
 - cmake
 - ninja
-- Boost headers (for Multiprecision)
+- Boost headers >= 1.83 (for Multiprecision)
   - Debian/Ubuntu: libboost-dev
   - Fedora: boost-devel
 - Python development headers
@@ -23,7 +23,7 @@
 - Xcode Command Line Tools (clang++)
 - cmake (Homebrew)
 - ninja (Homebrew)
-- Boost headers (Homebrew)
+- Boost headers >= 1.83 (Homebrew)
 
 ## Install Deps & Development setup
 

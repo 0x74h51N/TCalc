@@ -14,6 +14,7 @@ Originally started as a minimal calculator, TCalc is designed with a modular arc
 - **Multi-argument & variadic functions**: one unified call syntax (`mean(2,3,5)`, `gcd(12,8)`, `nCr(5,2)`, `sin(45)`), with arity checks and dataset-folding evaluation
 - **Exact arithmetic**: rationals kept exact when possible (decimal ⇄ fraction toggle), with BigReal / complex fallback
 - **Scientific functions**: angle-aware trig, logs, combinatorics, number theory, complex-domain rules
+- **Iterated operations**: summation (Σ) and product (Π) over a bound variable and range, answered in closed form wherever the body allows it (polynomial, geometric, trigonometric, symbolic constants) instead of looping, with a native brute-force loop as the fallback; the set of recognised bodies keeps growing
 - **Composable UI**: dockable panels, custom keypads, keypad presets, readable history (LaTeX → symbols)
 - **Well-tested**: native C++ suite + Python unit/e2e coverage with edge cases, plus performance benchmarks
 
@@ -34,6 +35,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 - [ ] Calculus
   - [ ] Scientific (WiP ~95%)
     - [x] Scientific function set
+    - [ ] Iterated ops (Σ, Π) with closed-form evaluation
   - [ ] Statistic (WiP ~10%)
     - [ ] Statistic operations - normalization/preprocessing, data processing & analysis
     - [ ] Lists & Points - manual or CSV-loaded datasets

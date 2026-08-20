@@ -8,7 +8,7 @@ PYTHON := $(ROOT)/.venv/bin/python
 TEST_ARGS ?= --quiet
 STUBS_DIR := $(ROOT)/stubs
 
-CPP_FORMAT_FILES := $(shell find $(ROOT)/src/native -type f \( -name "*.cpp" -o -name "*.hpp" -o -name "*.h" \) -print)
+CPP_FORMAT_FILES := $(shell find $(ROOT)/src/native -type f \( -name "*.cpp" -o -name "*.hpp" -o -name "*.h" \) -not -path "*/$(BUILD_DIR)/*" -print)
 CPP_TIDY_WARNS := -warnings-as-errors=clang-analyzer-core-*,clang-analyzer-cplusplus-*,clang-analyzer-deadcode.*,bugprone-*,cppcoreguidelines-*,performance-*
 
 configure:
