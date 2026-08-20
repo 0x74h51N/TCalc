@@ -84,13 +84,7 @@ BigReal Calculator::div(const BigReal &a, const BigReal &b) const {
 
 BigReal Calculator::intdiv(const BigReal &a, const BigReal &b) const {
     calc_detail::require_nonzero(b);
-    const BigReal q = a / b;
-    using boost::multiprecision::ceil;
-    using boost::multiprecision::floor;
-    if (q < 0) {
-        return ceil(q);
-    }
-    return floor(q);
+    return calc_detail::trunc_div(a, b).quot;
 }
 
 BigReal Calculator::pow(const BigReal &a, const BigReal &b) const {
@@ -101,8 +95,7 @@ BigReal Calculator::pow(const BigReal &a, const BigReal &b) const {
 
 BigReal Calculator::mod(const BigReal &a, const BigReal &b) const {
     calc_detail::require_nonzero(b);
-    using boost::multiprecision::fmod;
-    return fmod(a, b);
+    return calc_detail::trunc_div(a, b).rem;
 }
 
 BigReal Calculator::trunc(const BigReal &a) const {

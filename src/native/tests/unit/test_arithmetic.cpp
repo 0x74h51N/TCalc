@@ -52,6 +52,28 @@ void unit_arithmetic(TestContext &ctx) {
     TEST_CASE(ctx, "bigreal :: mod negative", {
         EXPECT_EQ(ctx, c.mod(BigReal("-8.5"), BigReal("2.5")), BigReal("-1.0"));
     });
+    // An exact division used to come back as the divisor itself.
+    TEST_CASE(ctx, "bigreal :: mod exact division", {
+        EXPECT_EQ(ctx, c.mod(BigReal("93"), BigReal("3")), BigReal("0"));
+    });
+    TEST_CASE(ctx, "bigreal :: mod exact division negative a", {
+        EXPECT_EQ(ctx, c.mod(BigReal("-93"), BigReal("3")), BigReal("0"));
+    });
+    TEST_CASE(ctx, "bigreal :: mod exact division negative b", {
+        EXPECT_EQ(ctx, c.mod(BigReal("93"), BigReal("-3")), BigReal("0"));
+    });
+    TEST_CASE(ctx, "bigreal :: mod exact division fractional", {
+        EXPECT_EQ(ctx, c.mod(BigReal("9.6"), BigReal("1.2")), BigReal("0"));
+    });
+    TEST_CASE(ctx, "bigreal :: intdiv exact division", {
+        EXPECT_EQ(ctx, c.intdiv(BigReal("93"), BigReal("3")), BigReal("31"));
+    });
+    TEST_CASE(ctx, "bigreal :: intdiv exact division negative", {
+        EXPECT_EQ(ctx, c.intdiv(BigReal("-93"), BigReal("3")), BigReal("-31"));
+    });
+    TEST_CASE(ctx, "bigreal :: intdiv exact division fractional", {
+        EXPECT_EQ(ctx, c.intdiv(BigReal("9.6"), BigReal("1.2")), BigReal("8"));
+    });
 
     // BigComplex arithmetic
     const BigComplex bc_a("1.5", "-2.5");

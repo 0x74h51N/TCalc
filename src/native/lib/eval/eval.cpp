@@ -165,7 +165,13 @@ Value promote_range(
         return result;
     if (!has_arm(ops::arms_of(id), Arm::Big))
         return result;
-    return redispatch_big(id, c, args, unit);
+    // A zero the widened run confirms was never an underflow, so the double stands rather
+    // than leaking a BigReal into everything after it.
+    Value widened = redispatch_big(id, c, args, unit);
+    const auto *w = std::get_if<BigReal>(&widened);
+    if (w != nullptr && *w == 0)
+        return result;
+    return widened;
 }
 
 /// The trig function an op id names, or nullopt. First test in the exact path, so the ops that
