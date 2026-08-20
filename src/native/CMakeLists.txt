@@ -11,6 +11,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
+find_package(Boost 1.83 REQUIRED CONFIG)
 
 # Prefer the pybind11 that is installed into the active Python environment (venv).
 execute_process(
@@ -42,6 +43,7 @@ add_library(calc_core STATIC
 target_include_directories(calc_core PUBLIC
   "${CMAKE_CURRENT_LIST_DIR}/lib"
 )
+target_link_libraries(calc_core PUBLIC Boost::headers)
 
 add_executable(native_tests
   tests/main.cpp
