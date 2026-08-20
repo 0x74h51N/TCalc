@@ -132,11 +132,15 @@ bool any_operand_zero(const std::vector<Value> &args) {
 /// it collapsed to zero although no operand was zero, or it landed in the subnormal band
 /// below 1e-308, where a double keeps shedding significant digits unnoticed. IEEE-754
 /// makes each of them an exact detector, so no magnitude estimate is needed.
-bool escaped_double_range(double result, const std::vector<Value> &args) {
+bool escaped_double_range(double result, const std::vector<Value> &args, bool exact_zero) {
     if (std::isinf(result))
         return true;
     if (std::fpclassify(result) == FP_SUBNORMAL)
         return true;
+    // fmod and a difference of two doubles are exact, so a zero out of them is the answer,
+    // not a magnitude that fell out of range. Overflow and the subnormal band still apply.
+    if (exact_zero)
+        return false;
     return result == 0.0 && !any_operand_zero(args);
 }
 
@@ -161,7 +165,7 @@ Value promote_range(
     Value result,
     Calculator::AngleUnit unit) {
     const auto *d = std::get_if<double>(&result);
-    if (d == nullptr || !escaped_double_range(*d, args))
+    if (d == nullptr || !escaped_double_range(*d, args, ops::has_trait(id, ops::Trait::ExactZero)))
         return result;
     if (!has_arm(ops::arms_of(id), Arm::Big))
         return result;
