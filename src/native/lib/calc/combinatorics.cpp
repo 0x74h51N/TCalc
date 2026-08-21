@@ -38,8 +38,11 @@ BigReal Calculator::fact(const BigReal &a) const {
 
 BigReal Calculator::gamma(const BigReal &a) const {
     if (a <= 0) {
+        // gamma's poles sit on the non-positive integers, so integerness is read at the
+        // precision BigReal advertises rather than off its guard digits.
+        const BigReal snapped = calc_detail::snap_integer(a);
         using boost::multiprecision::floor;
-        if (floor(a) == a) {
+        if (floor(snapped) == snapped) {
             calc_detail::math_error();
         }
     }

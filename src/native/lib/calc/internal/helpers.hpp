@@ -52,6 +52,46 @@ inline void require_nonzero(const boost::rational<std::int64_t> &x) {
     require(x != 0);
 }
 
+struct BigDivRem {
+    BigReal quot;
+    BigReal rem;
+};
+
+/// v snapped to the integer it already equals at the precision BigReal advertises.
+/// cpp_dec_float keeps more digits internally than it promises, so a value that is exactly
+/// N at 50 digits can sit just under N in the rest, and the integer extractions read those.
+/// Never snaps to zero: that would turn ceil of a tiny positive value into 0.
+inline BigReal snap_integer(const BigReal &v) {
+    using boost::multiprecision::abs;
+    using boost::multiprecision::pow;
+    using boost::multiprecision::round;
+    static const BigReal resolution = pow(BigReal(10), -kBigRealPrecisionDigits);
+    BigReal n = round(v);
+    if (n == v || n == 0) {
+        return v;
+    }
+    if (abs(n - v) < abs(n) * resolution) {
+        return n;
+    }
+    return v;
+}
+
+/// Truncated division: quotient toward zero, plus its remainder. cpp_dec_float divides
+/// through a Newton-Raphson reciprocal, so an exact division lands just under its integer
+/// quotient and trunc drops a unit. A remainder reaching the divisor is what catches that.
+inline BigDivRem trunc_div(const BigReal &a, const BigReal &b) {
+    using boost::multiprecision::abs;
+    using boost::multiprecision::trunc;
+    BigReal q = trunc(a / b);
+    BigReal r = a - q * b;
+    if (abs(r) >= abs(b)) {
+        const BigReal step = ((a < 0) == (b < 0)) ? 1 : -1;
+        q += step;
+        r -= step * b;
+    }
+    return {std::move(q), std::move(r)};
+}
+
 inline void require_nonzero(Calculator::Complex x) {
     require(!(x.real() == 0.0 && x.imag() == 0.0));
 }

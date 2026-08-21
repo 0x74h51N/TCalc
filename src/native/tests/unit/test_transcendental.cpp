@@ -39,6 +39,15 @@ void unit_transcendental(TestContext &ctx) {
     // BigReal
     // ----
     TEST_CASE(ctx, "bigreal :: sqrt", { EXPECT_EQ(ctx, c.sqrt(BigReal("4.0")), BigReal("2.0")); });
+    // An odd degree reached through a division that leaves a guard-digit residue is still odd.
+    TEST_CASE(ctx, "bigreal :: root of a negative takes a quotient degree", {
+        EXPECT_TRUE(
+            ctx,
+            approx_big(
+                c.root(BigReal("-8"), BigReal("9e400") / BigReal("3e400")),
+                BigReal("-2"),
+                BigReal("1e-40")));
+    });
     TEST_CASE(
         ctx, "bigreal :: sqrt domain throws", { EXPECT_THROWS(ctx, c.sqrt(BigReal("-1.0"))); });
 

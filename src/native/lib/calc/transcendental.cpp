@@ -78,9 +78,12 @@ BigReal Calculator::root(const BigReal &x, const BigReal &y) const {
     calc_detail::require(!(x == 0 && y < 0));
 
     if (x < 0) {
+        // The degree decides whether this is real at all, so it is read at the precision
+        // BigReal advertises rather than off its guard digits.
+        const BigReal degree = calc_detail::snap_integer(y);
         using boost::multiprecision::floor;
-        const BigReal yi = floor(y);
-        calc_detail::require(yi == y);
+        const BigReal yi = floor(degree);
+        calc_detail::require(yi == degree);
         using boost::multiprecision::fmod;
         calc_detail::require(fmod(yi, BigReal(2)) != 0);
 

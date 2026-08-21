@@ -174,6 +174,12 @@ def _eval(expr: str) -> object:
         param("1e16!", "BigReal", "e+155657055180967490", id="factorial-bigreal-huge"),
         param("1e17!", "BigReal", "inf", id="factorial-overflows-to-inf"),
         param("10^309 + e", "BigReal", "e+309", id="bigreal-promotes-e"),
+        # An exact division is an ordinary mod result, not an underflow, so it stays a double.
+        param("mod(93,3)", "float", 0.0, id="mod-exact-division-stays-float"),
+        param("mod(93,31)", "float", 0.0, id="mod-exact-division-large-divisor"),
+        param("mod(92,3)", "float", 2.0, id="mod-remainder-stays-float"),
+        param("\\ln(1)", "float", 0.0, id="ln-one-stays-float"),
+        param("\\ln(2)-\\ln(2)", "float", 0.0, id="equal-transcendentals-stay-float"),
         # ----------------------------
         # BigReal + complex -> BigComplex promotion
         # ----------------------------
@@ -310,10 +316,30 @@ def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> N
         assert expected_msg_substr in str(exc_info.value)
 
 
-def test_pow_boundary_exactness() -> None:
-    out = _eval("(10^308*10)/(10^309)")
-    assert isinstance(out, calc_native.BigReal)
-    assert Decimal(str(out)) == Decimal(1)
+@pytest.mark.parametrize(
+    ("expr", "expected"),
+    [
+        param("(10^308*10)/(10^309)", "1", id="pow-boundary-divides-exactly"),
+        # Big literals reach the BigReal arm, where an exact quotient came out a unit short.
+        param("mod(9e400,3e400)", "0", id="mod-exact-division"),
+        param("intdiv(9e400,3e400)", "3", id="intdiv-exact-division"),
+        param("mod(1e400,1e399)", "0", id="mod-exact-division-power-of-ten"),
+        param("intdiv(1e400,1e399)", "10", id="intdiv-exact-division-power-of-ten"),
+        # The integer extractions read BigReal's internal digits, past the precision it
+        # advertises, so an exact quotient used to come out a unit short.
+        param("trunc(9e400/3e400)", "3", id="trunc-exact-quotient"),
+        param("floor(9e400/3e400)", "3", id="floor-exact-quotient"),
+        param("ceil(9e400/3e400)", "3", id="ceil-exact-quotient"),
+        param("trunc(9*10^{400}/(3*10^{400}))", "3", id="trunc-exact-quotient-scientific"),
+        # Not only after a division: a multiplication chain leaves the same residue.
+        param("trunc((1e400/3)*3/1e400)", "1", id="trunc-exact-product"),
+        param("floor((1e400/7)*7/1e400)", "1", id="floor-exact-product"),
+    ],
+)
+def test_bigreal_exact_results(expr: str, expected: str) -> None:
+    out = _eval(expr)
+    assert isinstance(out, calc_native.BigReal), f"expected BigReal, got {type(out).__name__}"
+    assert Decimal(str(out)) == Decimal(expected)
 
 
 # ============================================================================

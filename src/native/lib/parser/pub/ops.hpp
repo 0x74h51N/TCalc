@@ -897,21 +897,40 @@ using DomainRule = bool (*)(double x, double y);
 /// looking at the double it produced can recover the digits the rounding dropped.
 using RangeRule = bool (*)(double x, double y);
 
+/// Eval-time properties an op's kernel signature cannot report. Separate from
+/// OpSpec::OpFlags, which carries the syntax the tokenizer reads.
+enum class Trait : std::uint8_t {
+    /// A zero result is the answer, never an underflow that collapsed into one.
+    ExactZero,
+    Count,
+};
+using TraitMask = std::uint8_t;
+
+constexpr TraitMask trait_bit(Trait t) {
+    return static_cast<TraitMask>(1U << static_cast<unsigned>(t));
+}
+
 struct OpRow {
     OpId id{};
     Kernel fn{};
     ArmMask arms{};
     DomainRule domain{}; // most ops have no domain boundary
     RangeRule range{};   // and only powers can predict their own range
+    TraitMask traits{};
 };
 
 /// Attach the domain rule to an op's own row, next to its kernel and its arms.
 constexpr OpRow with_domain(OpRow r, DomainRule d) {
-    return OpRow{r.id, r.fn, r.arms, d, r.range};
+    return OpRow{r.id, r.fn, r.arms, d, r.range, r.traits};
 }
 
 constexpr OpRow with_range(OpRow r, RangeRule g) {
-    return OpRow{r.id, r.fn, r.arms, r.domain, g};
+    return OpRow{r.id, r.fn, r.arms, r.domain, g, r.traits};
+}
+
+constexpr OpRow with_trait(OpRow r, Trait t) {
+    const auto traits = static_cast<TraitMask>(r.traits | trait_bit(t));
+    return OpRow{r.id, r.fn, r.arms, r.domain, r.range, traits};
 }
 
 template <class F> constexpr OpRow unary(OpId id, F) {
@@ -969,8 +988,8 @@ inline bool power_needs_big(double base, double exp) {
 
 inline constexpr std::array kOpRows = {
     // arithmetic
-    binary(OpId::Add, TCALC_CALL(add)),
-    binary(OpId::Sub, TCALC_CALL(sub)),
+    with_trait(binary(OpId::Add, TCALC_CALL(add)), Trait::ExactZero),
+    with_trait(binary(OpId::Sub, TCALC_CALL(sub)), Trait::ExactZero),
     binary(OpId::Mul, TCALC_CALL(mul)),
     binary(OpId::Div, TCALC_CALL(div)),
     with_range(
@@ -987,7 +1006,7 @@ inline constexpr std::array kOpRows = {
             }),
         // the degree is an inverse exponent: root(x, y) is x^(1/y)
         [](double x, double y) { return y != 0.0 && detail::power_needs_big(x, 1.0 / y); }),
-    binary(OpId::Mod, TCALC_CALL(mod)),
+    with_trait(binary(OpId::Mod, TCALC_CALL(mod)), Trait::ExactZero),
     binary(OpId::IntDiv, TCALC_CALL(intdiv)),
 
     // trig, angle-taking
@@ -1104,6 +1123,20 @@ inline constexpr auto kRanges = build_ranges();
 /// The op's range rule, or nullptr when its result cannot be predicted from its operands.
 constexpr RangeRule range_of(OpId id) {
     return kRanges[static_cast<std::size_t>(id)];
+}
+
+constexpr std::array<TraitMask, kOpCount> build_traits() {
+    std::array<TraitMask, kOpCount> t{};
+    for (const auto &row : kOpRows)
+        t[static_cast<std::size_t>(row.id)] = row.traits;
+    return t;
+}
+inline constexpr auto kTraits = build_traits();
+
+/// Whether the op carries the trait. Unmarked is the conservative answer everywhere, so a
+/// trait can only ever narrow a check the evaluator would otherwise run.
+constexpr bool has_trait(OpId id, Trait t) {
+    return (kTraits[static_cast<std::size_t>(id)] & trait_bit(t)) != 0;
 }
 
 inline Kernel kernel_of(OpId id) {

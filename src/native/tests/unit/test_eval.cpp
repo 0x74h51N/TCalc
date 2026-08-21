@@ -68,6 +68,15 @@ using LitCase = Case<const char *, Value>;
 using ArmCase = Case<const char *, Arm>;
 /// Case row for the evaluator: source text -> the value it evaluates to.
 using EvalCase = Case<const char *, Value>;
+/// An apply() call: the op and its already-built operands.
+struct ApplyCall {
+    OpId op;
+    std::vector<Value> args;
+};
+/// Case row for apply where the arm is the claim: the expected magnitude has no literal.
+using ApplyArmCase = Case<ApplyCall, Arm>;
+/// Case row for apply where the exact result is the claim; Value equality carries the arm.
+using ApplyValueCase = Case<ApplyCall, Value>;
 /// Operand pair and operation for the symbolic scalar table: `op` is one of * / + -.
 struct ScalarOps {
     tcalc::eval::Scalar lhs;
@@ -411,54 +420,54 @@ void unit_eval(TestContext &ctx) {
 
     // Range promotion: one rule, after dispatch, for every op. IEEE-754 makes inf, a
     // spurious zero and a subnormal exact detectors, so no magnitude estimate is needed.
-    TEST_CASE(ctx, "apply :: pow(1e-200, 3) comes back BigReal", {
-        const Calculator c;
-        const Value r =
-            apply(c, OpId::Pow, {Value{1e-200}, Value{3.0}}, Calculator::AngleUnit::RAD);
-        EXPECT_EQ(ctx, arm_of(r), Arm::Big);
-    });
+    // Every row below returned a collapsed or overflowed double before the rule existed.
+    const std::vector<ApplyArmCase> range_promotion_arm_cases = {
+        {.id = "pow(1e-200, 3) underflows into BigReal",
+         .input = {OpId::Pow, {Value{1e-200}, Value{3.0}}},
+         .expected = Arm::Big},
+        {.id = "mul(1e200, 1e200) overflows into BigReal",
+         .input = {OpId::Mul, {Value{1e200}, Value{1e200}}},
+         .expected = Arm::Big},
+        {.id = "mul(1e-200, 1e-200) underflows into BigReal",
+         .input = {OpId::Mul, {Value{1e-200}, Value{1e-200}}},
+         .expected = Arm::Big},
+        {.id = "pow(2, -1075) underflows into BigReal",
+         .input = {OpId::Pow, {Value{2.0}, Value{-1075.0}}},
+         .expected = Arm::Big},
+        // The band below 1e-308, where a double is subnormal and has already lost digits.
+        {.id = "pow(2, -1030) goes subnormal into BigReal",
+         .input = {OpId::Pow, {Value{2.0}, Value{-1030.0}}},
+         .expected = Arm::Big},
+    };
 
-    TEST_CASE(ctx, "apply :: mul(1e200, 1e200) comes back BigReal", {
-        const Calculator c;
-        const Value r =
-            apply(c, OpId::Mul, {Value{1e200}, Value{1e200}}, Calculator::AngleUnit::RAD);
-        EXPECT_EQ(ctx, arm_of(r), Arm::Big);
-    });
+    for (const auto &tc : range_promotion_arm_cases) {
+        test_detail::with_case(ctx, std::string("apply :: ") + tc.id, [&] {
+            const Calculator c;
+            const Value r = apply(c, tc.input.op, tc.input.args, Calculator::AngleUnit::RAD);
+            EXPECT_EQ(ctx, arm_of(r), tc.expected);
+        });
+    }
 
-    // Deliberate divergence: mul(1e-200, 1e-200) returns double 0.0 today (underflow
-    // silently collapses); the single post-dispatch rule now promotes it instead.
-    TEST_CASE(ctx, "apply :: mul(1e-200, 1e-200) comes back BigReal (deliberate divergence)", {
-        const Calculator c;
-        const Value r =
-            apply(c, OpId::Mul, {Value{1e-200}, Value{1e-200}}, Calculator::AngleUnit::RAD);
-        EXPECT_EQ(ctx, arm_of(r), Arm::Big);
-    });
+    // The other side of the rule: a zero it cannot mistake for an underflow keeps its double.
+    const std::vector<ApplyValueCase> range_promotion_value_cases = {
+        {.id = "mul(0, 5) keeps a zero operand's zero",
+         .input = {OpId::Mul, {Value{0.0}, Value{5.0}}},
+         .expected = Value{0.0}},
+        {.id = "mod(93, 3) keeps an exact division's zero",
+         .input = {OpId::Mod, {Value{93.0}, Value{3.0}}},
+         .expected = Value{0.0}},
+        {.id = "sub(5, 5) keeps a difference's zero",
+         .input = {OpId::Sub, {Value{5.0}, Value{5.0}}},
+         .expected = Value{0.0}},
+    };
 
-    // Deliberate divergence: pow(2, -1075) returns double 0.0 today, with neither
-    // operand zero.
-    TEST_CASE(ctx, "apply :: pow(2, -1075) comes back BigReal (deliberate divergence)", {
-        const Calculator c;
-        const Value r =
-            apply(c, OpId::Pow, {Value{2.0}, Value{-1075.0}}, Calculator::AngleUnit::RAD);
-        EXPECT_EQ(ctx, arm_of(r), Arm::Big);
-    });
-
-    // Deliberate divergence: this lands in the band below 1e-308 where a double is
-    // subnormal and has already lost digits.
-    TEST_CASE(ctx, "apply :: pow(2, -1030) comes back BigReal (deliberate divergence)", {
-        const Calculator c;
-        const Value r =
-            apply(c, OpId::Pow, {Value{2.0}, Value{-1030.0}}, Calculator::AngleUnit::RAD);
-        EXPECT_EQ(ctx, arm_of(r), Arm::Big);
-    });
-
-    // A legitimate zero must never be promoted.
-    TEST_CASE(ctx, "apply :: mul(0, 5) stays double 0.0", {
-        const Calculator c;
-        const Value r = apply(c, OpId::Mul, {Value{0.0}, Value{5.0}}, Calculator::AngleUnit::RAD);
-        EXPECT_EQ(ctx, arm_of(r), Arm::Double);
-        EXPECT_EQ(ctx, std::get<double>(r), 0.0);
-    });
+    for (const auto &tc : range_promotion_value_cases) {
+        test_detail::with_case(ctx, std::string("apply :: ") + tc.id, [&] {
+            const Calculator c;
+            const Value r = apply(c, tc.input.op, tc.input.args, Calculator::AngleUnit::RAD);
+            EXPECT_EQ(ctx, r, tc.expected);
+        });
+    }
 
     // The Rational kernel throws on overflow (denominator past int64); apply retries
     // in double and the caller gets a value, not an exception.
@@ -2611,7 +2620,7 @@ void unit_eval(TestContext &ctx) {
          .expected = Value{33.0}}, // factorial has no Rational arm, so this is a double
         {.id = "sum: a function-call mask",
          .input = "\\sum_{n=1}^{3} n(1-mod(n,2))",
-         .expected = Value{BigReal("2")}}, // mod has no Rational kernel, promotes to BigReal
+         .expected = Value{2.0}}, // mod has no Rational kernel, so the mask is a double
         {.id = "sum: a divisor containing the variable",
          .input = "\\sum_{n=1}^{3} \\frac{n^{2}}{n+1}",
          .expected = Value{Rational(49, 12)}},
