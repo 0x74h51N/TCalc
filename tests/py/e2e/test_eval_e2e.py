@@ -325,6 +325,15 @@ def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> N
         param("intdiv(9e400,3e400)", "3", id="intdiv-exact-division"),
         param("mod(1e400,1e399)", "0", id="mod-exact-division-power-of-ten"),
         param("intdiv(1e400,1e399)", "10", id="intdiv-exact-division-power-of-ten"),
+        # The integer extractions read BigReal's internal digits, past the precision it
+        # advertises, so an exact quotient used to come out a unit short.
+        param("trunc(9e400/3e400)", "3", id="trunc-exact-quotient"),
+        param("floor(9e400/3e400)", "3", id="floor-exact-quotient"),
+        param("ceil(9e400/3e400)", "3", id="ceil-exact-quotient"),
+        param("trunc(9*10^{400}/(3*10^{400}))", "3", id="trunc-exact-quotient-scientific"),
+        # Not only after a division: a multiplication chain leaves the same residue.
+        param("trunc((1e400/3)*3/1e400)", "1", id="trunc-exact-product"),
+        param("floor((1e400/7)*7/1e400)", "1", id="floor-exact-product"),
     ],
 )
 def test_bigreal_exact_results(expr: str, expected: str) -> None:

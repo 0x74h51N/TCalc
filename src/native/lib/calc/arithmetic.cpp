@@ -100,17 +100,17 @@ BigReal Calculator::mod(const BigReal &a, const BigReal &b) const {
 
 BigReal Calculator::trunc(const BigReal &a) const {
     using boost::multiprecision::trunc;
-    return trunc(a);
+    return trunc(calc_detail::snap_integer(a));
 }
 
 BigReal Calculator::floor(const BigReal &a) const {
     using boost::multiprecision::floor;
-    return floor(a);
+    return floor(calc_detail::snap_integer(a));
 }
 
 BigReal Calculator::ceil(const BigReal &a) const {
     using boost::multiprecision::ceil;
-    return ceil(a);
+    return ceil(calc_detail::snap_integer(a));
 }
 
 // -----------------

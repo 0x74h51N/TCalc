@@ -31,6 +31,10 @@ void unit_combinatorics(TestContext &ctx) {
 
     TEST_CASE(
         ctx, "bigreal :: gamma domain zero throws", { EXPECT_THROWS(ctx, c.gamma(BigReal("0"))); });
+    // A pole reached through a division that leaves a guard-digit residue is still a pole.
+    TEST_CASE(ctx, "bigreal :: gamma domain pole from a quotient throws", {
+        EXPECT_THROWS(ctx, c.gamma(BigReal("-9e400") / BigReal("3e400")));
+    });
     TEST_CASE(ctx, "bigreal :: gamma domain negative int throws", {
         EXPECT_THROWS(ctx, c.gamma(BigReal("-2")));
     });
