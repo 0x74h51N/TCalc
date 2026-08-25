@@ -9,10 +9,25 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <string>
+#include <utility>
+
 #include "bindings.hpp"
 #include "collection/collection.hpp"
 
 namespace py = pybind11;
+
+// Display cap shared by __repr__ and preview: past kReprThreshold a collection
+// shows kHead leading and kTail trailing items, so a bulk-CSV collection (~M items)
+// stays UI/REPL-friendly. Typed user lists up to the threshold display in full.
+constexpr std::size_t kReprThreshold = 100;
+constexpr std::size_t kHead = 4;
+constexpr std::size_t kTail = 2;
+
+/// Open/close glyph pair for a collection's kind.
+constexpr std::pair<char, char> brackets(tcalc::CollectionKind kind) {
+    return kind == tcalc::CollectionKind::List ? std::pair{'[', ']'} : std::pair{'(', ')'};
+}
 
 void bind_collection(py::module_ &m) {
     using K = tcalc::CollectionKind;
@@ -53,17 +68,22 @@ void bind_collection(py::module_ &m) {
                 return py::cast(a == other.cast<tcalc::Collection>());
             })
         .def(
+            "preview",
+            [](const tcalc::Collection &c) {
+                // Everything a caller needs to render one: the glyphs, and the
+                // (head, tail) cap or None when every item is shown. No items copied.
+                const auto [open, close] = brackets(c.kind);
+                const bool capped = c.items().size() > kReprThreshold;
+                py::object cap = py::none();
+                if (capped)
+                    cap = py::make_tuple(kHead, kTail);
+                return py::make_tuple(std::string(1, open), std::string(1, close), cap);
+            },
+            "(open, close, cap) where cap is (head, tail) or None if all items show.")
+        .def(
             "__repr__",
             [](const tcalc::Collection &c) {
-                // Truncate display when item count > kReprThreshold to keep
-                // bulk-CSV collections (~M items) UI/REPL-friendly. Typed
-                // user lists (up to threshold) display in full.
-                constexpr std::size_t kReprThreshold = 100;
-                constexpr std::size_t kHead = 4;
-                constexpr std::size_t kTail = 2;
-
-                const char open = (c.kind == K::List) ? '[' : '(';
-                const char close = (c.kind == K::List) ? ']' : ')';
+                const auto [open, close] = brackets(c.kind);
                 const auto fmt = [](const tcalc::CollectionItem &it) {
                     return py::cast<std::string>(py::repr(
                         std::visit([](const auto &v) -> py::object { return py::cast(v); }, it)));
