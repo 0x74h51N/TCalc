@@ -43,6 +43,17 @@ FORMAT_CASES = [
     pytest.param(_list([]), False, "[]", id="empty-list"),
     # Element separators are list syntax, so they survive the no-grouping default.
     pytest.param(_list([1000000, 2, 3]), False, "[1000000, 2, 3]", id="collection-keeps-commas"),
+    # Items are formatted too: a BigReal or complex element must not reach the
+    # screen as its Python repr.
+    pytest.param(_eval("[2, 9e400]"), False, "[2, 9e+400]", id="list-of-bigreal"),
+    pytest.param(_eval("(2.5, 1e400)"), False, "(2.5, 1e+400)", id="point-of-bigreal"),
+    pytest.param(_eval("[sqrt(-1), 2]"), False, "[i, 2]", id="list-of-complex"),
+    pytest.param(
+        _eval("[" + ",".join(["9e400"] * 101) + "]"),
+        False,
+        "[9e+400, 9e+400, 9e+400, 9e+400, ..., 9e+400, 9e+400]",
+        id="list-past-preview-cap",
+    ),
     pytest.param(1234567.89, False, "1234567.89", id="float-plain"),
     pytest.param(1234567.0, False, "1234567", id="float-integral-plain"),
     pytest.param(1234567.89, True, "1,234,567.89", id="float-grouped"),
@@ -71,6 +82,7 @@ ROUND_TRIP_CASES = [
     pytest.param(1234567.89, calc_native.TokenKind.Number, id="float"),
     pytest.param(_eval("10^{16}+1"), calc_native.TokenKind.Number, id="exact-int-past-double"),
     pytest.param(_list([1000000, 2, 3]), calc_native.TokenKind.Paren, id="collection"),
+    pytest.param(_eval("[2, 9e400]"), calc_native.TokenKind.Paren, id="collection-of-bigreal"),
 ]
 
 

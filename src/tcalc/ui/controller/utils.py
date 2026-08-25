@@ -52,7 +52,18 @@ def format_result(value, *, group: bool = False) -> str:
     screen, memory bar, history), where the comma is a visual separator."""
 
     if isinstance(value, calc_native.Collection):
-        return repr(value)
+        # Native owns the glyphs and the cap, so a bulk collection formats at most
+        # head+tail items. Items never group: "1,000,000" would not tokenize back.
+        opener, closer, cap = value.preview()
+        if cap is None:
+            parts = [format_result(item) for item in value]
+        else:
+            head, tail = cap
+            n = len(value)
+            parts = [format_result(value[i]) for i in range(head)]
+            parts.append("...")
+            parts += [format_result(value[i]) for i in range(n - tail, n)]
+        return opener + ", ".join(parts) + closer
 
     if isinstance(value, int) and not isinstance(value, bool):
         return _fmt_exact_int(value, group=group)
