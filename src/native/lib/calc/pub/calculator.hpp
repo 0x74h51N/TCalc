@@ -49,6 +49,7 @@ class Calculator {
     double mod(double a, double b) const;
     double pow(double a, long long b) const;
     double pow(double a, double b) const;
+    double exp(double a) const;
     double sqrt(double a) const;
     double cbrt(double a) const;
     double root(double a, double b) const;
@@ -62,6 +63,7 @@ class Calculator {
     BigReal mul(const BigReal &a, const BigReal &b) const { return a * b; }
     BigReal div(const BigReal &a, const BigReal &b) const;
     BigReal pow(const BigReal &a, const BigReal &b) const;
+    BigReal exp(const BigReal &a) const;
     BigReal intdiv(const BigReal &a, const BigReal &b) const;
     BigReal mod(const BigReal &a, const BigReal &b) const;
     BigReal sqrt(const BigReal &a) const;
@@ -78,6 +80,7 @@ class Calculator {
     Complex mul(Complex a, Complex b) const { return a * b; }
     Complex div(Complex a, Complex b) const;
     Complex pow(Complex a, Complex b) const;
+    Complex exp(Complex a) const;
     Complex sqrt(Complex a) const;
     Complex root(Complex a, Complex b) const;
 
@@ -121,6 +124,7 @@ class Calculator {
     BigComplex mul(const BigComplex &a, const BigComplex &b) const { return a * b; }
     BigComplex div(const BigComplex &a, const BigComplex &b) const;
     BigComplex pow(const BigComplex &a, const BigComplex &b) const;
+    BigComplex exp(const BigComplex &a) const;
     BigComplex sqrt(const BigComplex &a) const;
     BigComplex root(const BigComplex &a, const BigComplex &b) const;
     BigComplex log(const BigComplex &a) const;

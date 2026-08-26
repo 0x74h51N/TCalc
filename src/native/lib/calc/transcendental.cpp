@@ -41,6 +41,26 @@ double Calculator::root(double x, double y) const {
     return this->pow(x, 1.0 / y);
 }
 
+/// exp is its own primitive: routing it through pow(e, a) would go via log(e), which
+/// costs the last digit and an order of magnitude in BigReal.
+double Calculator::exp(double a) const {
+    return std::exp(a);
+}
+
+BigReal Calculator::exp(const BigReal &a) const {
+    using boost::multiprecision::exp;
+    return exp(a);
+}
+
+Calculator::Complex Calculator::exp(Complex a) const {
+    return std::exp(a);
+}
+
+BigComplex Calculator::exp(const BigComplex &a) const {
+    using boost::multiprecision::exp;
+    return exp(a);
+}
+
 double Calculator::log(double a) const {
     calc_detail::require(a > 0.0);
     return std::log10(a);

@@ -1059,12 +1059,7 @@ inline constexpr std::array kOpRows = {
     unary(OpId::Cube, TCALC_CALL_WITH(pow, 3)),
     unary(OpId::Recip, TCALC_CALL_WITH(pow, -1)),
     unary(OpId::Pow10, TCALC_CALL_ONTO(pow, 10)),
-    without_rational(unary(
-        OpId::Exp,
-        [](const Calculator &c, auto &&a) -> decltype(c.pow(std::decay_t<decltype(a)>{}, a)) {
-            using T = std::decay_t<decltype(a)>;
-            return c.pow(T(consts::euler_number()), a);
-        })),
+    unary(OpId::Exp, TCALC_CALL(exp)),
 
     // collection reducers (calculator.hpp). Note the OpId and the method name differ
     // for the last four; read the mapping off OpSpec.method.
