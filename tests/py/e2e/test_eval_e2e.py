@@ -450,6 +450,9 @@ class TestRational:
             param("tan(1)", None, id="tan-drops-rational"),
             param("exp(1)", 2.718281828459045, id="exp-drops-rational"),
             param("exp(0)", 1.0, id="exp-zero"),
+            # exp is a primitive, not pow(e, x): the detour through log(e) used to
+            # leave exp(ln 2) one ulp short of 2.
+            param("exp(\\ln(2))", 2.0, id="exp-of-ln-two-exact"),
             # fractional exponent => irrational result
             param("2^(1/2)", 1.4142135623730951, id="pow-frac-exp-sqrt2"),
             param("3^(1/3)", 1.4422495703074083, id="pow-frac-exp-cbrt3"),
