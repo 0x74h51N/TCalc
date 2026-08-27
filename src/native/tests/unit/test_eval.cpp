@@ -22,6 +22,7 @@
 #include "calc/internal/helpers.hpp"
 #include "calc/pub/error_messages.hpp"
 #include "eval/internal/closed_forms.hpp"
+#include "eval/internal/exact.hpp"
 #include "eval/internal/scalar.hpp"
 #include "eval/pub/eval.hpp"
 #include "eval/pub/literal.hpp"
@@ -112,6 +113,14 @@ using UnitBruteCase = Case<SrcUnit, std::monostate>;
 using NormCase = Case<std::vector<tcalc::parser::Token>, std::vector<tcalc::parser::Token>>;
 /// Case row for shunting_yard: infix tokens -> RPN tokens.
 using ShuntCase = Case<std::vector<tcalc::parser::Token>, std::vector<tcalc::parser::Token>>;
+
+/// Which phases the exact table carries for an op.
+struct RulePresence {
+    bool token;
+    bool value;
+};
+/// Case row for the exact rule table: op id -> the phases it carries.
+using RuleCase = Case<OpId, RulePresence>;
 
 using tcalc::parser::OpToken;
 using tcalc::parser::Token;
@@ -466,6 +475,23 @@ void unit_eval(TestContext &ctx) {
             const Calculator c;
             const Value r = apply(c, tc.input.op, tc.input.args, Calculator::AngleUnit::RAD);
             EXPECT_EQ(ctx, r, tc.expected);
+        });
+    }
+
+    // The table is the only place that says which ops have an exact path. Range and duplicate
+    // ids are caught at compile time by index_by_id; this pins the rows themselves.
+    const std::vector<RuleCase> exact_rule_cases = {
+        {.id = "sin carries both phases", .input = OpId::Sin, .expected = {true, true}},
+        {.id = "cos carries both phases", .input = OpId::Cos, .expected = {true, true}},
+        {.id = "tan carries both phases", .input = OpId::Tan, .expected = {true, true}},
+        {.id = "tanh carries neither", .input = OpId::Tanh, .expected = {false, false}},
+        {.id = "add carries neither", .input = OpId::Add, .expected = {false, false}},
+    };
+
+    for (const auto &tc : exact_rule_cases) {
+        test_detail::with_case(ctx, std::string("exact rule table :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, tcalc::eval::exact::token_rule(tc.input) != nullptr, tc.expected.token);
+            EXPECT_EQ(ctx, tcalc::eval::exact::value_rule(tc.input) != nullptr, tc.expected.value);
         });
     }
 

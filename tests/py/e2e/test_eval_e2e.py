@@ -567,18 +567,19 @@ def _to_int(v) -> int:
     return int(v)
 
 
-def _ev_multi(lines, *, assert_env_key=None):
+def _ev_multi(lines, *, assert_env_key=None, unit=None):
     from tcalc.core.native_eval import evaluate_branch
     from tcalc.core.parser import tokenize
 
+    unit = calc_native.AngleUnit.RAD if unit is None else unit
     calc_native.clear_vars()
     calc = calc_native.Calculator()
     result = None
     for line in lines:
-        result = evaluate_branch(tokenize(_canonicalize(line)), calc, calc_native.AngleUnit.RAD)
+        result = evaluate_branch(tokenize(_canonicalize(line)), calc, unit)
     if assert_env_key is not None:
         # The store is native, so the binding is read back by evaluating the name.
-        return evaluate_branch(tokenize(assert_env_key), calc, calc_native.AngleUnit.RAD)
+        return evaluate_branch(tokenize(assert_env_key), calc, unit)
     return result
 
 
@@ -899,6 +900,14 @@ def _eval_unit(expr: str, unit: calc_native.AngleUnit) -> object:
             1,
             id="exactness-survives-multiplication",
         ),
+        # Behavior net for the exact-rule extraction. Each row reaches the exact path by a
+        # different route: a rational-zero argument, the bare infix form, a double literal,
+        # a compound argument.
+        param("sin(2-2)", calc_native.AngleUnit.RAD, 0, 1, id="sin-rational-zero-arg"),
+        param("sin π", calc_native.AngleUnit.RAD, 0, 1, id="sin-pi-infix"),
+        param("sin(30.0)", calc_native.AngleUnit.DEG, 1, 2, id="sin-deg-double-literal"),
+        param("sin(15+15)", calc_native.AngleUnit.DEG, 1, 2, id="sin-deg-compound-arg"),
+        param("sin 30", calc_native.AngleUnit.DEG, 1, 2, id="sin-deg-infix"),
     ],
 )
 def test_trig_exact_at_rational_turns(
@@ -910,6 +919,40 @@ def test_trig_exact_at_rational_turns(
     assert isinstance(out, calc_native.Rational)
     assert out.numerator == num
     assert out.denominator == den
+
+
+@pytest.mark.parametrize(
+    ("expr", "unit", "expected"),
+    [
+        param("sin(0)", calc_native.AngleUnit.RAD, 0.0, id="sin-lone-zero-declines"),
+        param("sin((2))", calc_native.AngleUnit.RAD, 0.9092974268256817, id="sin-paren-declines"),
+        param("sin(2+3)", calc_native.AngleUnit.RAD, -0.9589242746631385, id="sin-sum-declines"),
+    ],
+)
+def test_trig_declines_stay_float(expr: str, unit: calc_native.AngleUnit, expected: float) -> None:
+    """An argument the exact path cannot resolve comes back as a plain double, not a Rational.
+    Exact equality: these are the values the numeric kernel already produces."""
+    out = _eval_unit(expr, unit)
+    assert isinstance(out, float)
+    assert out == expected
+
+
+@pytest.mark.parametrize(
+    ("lines", "exact", "expected"),
+    [
+        param(["x = 30", "sin(x)"], True, (1, 2), id="deg-var-rational-stays-exact"),
+        param(["x = 30.5", "sin(x)"], False, 0.5075383629607041, id="deg-var-nonrational-float"),
+    ],
+)
+def test_trig_deg_through_variable(lines, exact: bool, expected) -> None:
+    """The degree path reads the evaluated operand, so a variable reaches it too."""
+    out = _ev_multi(lines, unit=calc_native.AngleUnit.DEG)
+    if exact:
+        assert isinstance(out, calc_native.Rational)
+        assert (out.numerator, out.denominator) == expected
+        return
+    assert isinstance(out, float)
+    assert out == expected
 
 
 @pytest.mark.parametrize(
