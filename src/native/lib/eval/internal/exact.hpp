@@ -34,8 +34,16 @@ using TokenRule = std::optional<Value> (*)(
 using ValueRule =
     std::optional<Value> (*)(ops::OpId, const Value &, const Calculator &, Calculator::AngleUnit);
 
+/// Answers from a latex token's two operand rows, before either is evaluated.
+using LatexRule = std::optional<Value> (*)(
+    std::span<const parser::Token>,
+    std::span<const parser::Token>,
+    const Calculator &,
+    Calculator::AngleUnit);
+
 /// nullptr when the op has no rule for that phase.
 TokenRule token_rule(ops::OpId id);
 ValueRule value_rule(ops::OpId id);
+LatexRule latex_rule(ops::OpId id);
 
 } // namespace tcalc::eval::exact

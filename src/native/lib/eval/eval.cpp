@@ -446,8 +446,13 @@ Value eval_subscript(const Token &tok) {
 }
 
 /// A Frac / Pow / Root / Log token: each side is a row of its own. An absent side is
-/// zero, except a Root's degree, where it means the square root.
+/// zero, except a Root's degree, where it means the square root. A latex rule, when the op
+/// has one, runs on both rows before either is evaluated: evaluating the base is exactly what
+/// would destroy an identity like e^{ln u}.
 Value eval_latex(const parser::LatexToken &latex, const Calculator &c, Calculator::AngleUnit unit) {
+    if (const exact::LatexRule rule = exact::latex_rule(latex.op_id))
+        if (auto v = rule(latex.left, latex.right, c, unit))
+            return *v;
     Value left = latex.left.empty() ? Value{Rational(0)} : eval_row(latex.left, c, unit);
     Value right = Value{Rational(latex.kind == LatexKind::Root ? 2 : 0)};
     if (!latex.right.empty())

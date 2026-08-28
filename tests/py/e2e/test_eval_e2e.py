@@ -178,8 +178,8 @@ def _eval(expr: str) -> object:
         param("mod(93,3)", "float", 0.0, id="mod-exact-division-stays-float"),
         param("mod(93,31)", "float", 0.0, id="mod-exact-division-large-divisor"),
         param("mod(92,3)", "float", 2.0, id="mod-remainder-stays-float"),
-        param("\\ln(1)", "float", 0.0, id="ln-one-stays-float"),
-        param("\\ln(2)-\\ln(2)", "float", 0.0, id="equal-transcendentals-stay-float"),
+        param("ln(1)", "float", 0.0, id="ln-one-stays-float"),
+        param("ln(2)-ln(2)", "float", 0.0, id="equal-transcendentals-stay-float"),
         # ----------------------------
         # BigReal + complex -> BigComplex promotion
         # ----------------------------
@@ -235,6 +235,27 @@ def _eval(expr: str) -> object:
         param("{2+3", "float", 5.0, id="brace-unclosed-grouping"),
         param("1+2)", "float", 3.0, id="stray-close-skipped"),
         param("[[5]]", "float", 5.0, id="nested-list-arity-1-demote-chain"),
+        # ----------------------------
+        # a base raised to its own logarithm cancels to the logarithm's argument, and the
+        # argument comes back as itself: the exact type is the claim, since the numeric path
+        # this replaces returned a float that was one ulp out (e^ln(56) = 56.000000000000014)
+        # ----------------------------
+        param("e^{ln(56)}", "int", "56", id="e-pow-ln-int"),
+        param("e^{ln(80)}", "int", "80", id="e-pow-ln-int-80"),
+        param("e^{ln(1000)}", "int", "1000", id="e-pow-ln-int-1000"),
+        param("e^{ln 56}", "int", "56", id="e-pow-ln-infix"),
+        param("e^{(ln(56))}", "int", "56", id="e-pow-ln-parenthesized"),
+        param("e^{ln(e^{ln(7)})}", "int", "7", id="e-pow-ln-nested"),
+        param("exp(ln(56))", "int", "56", id="exp-of-ln-int"),
+        param("10^{log(56)}", "int", "56", id="ten-pow-log-int"),
+        param("10^{log(1000)}", "int", "1000", id="ten-pow-log-int-1000"),
+        param("exp(ln(1/2))", "Rational", "1/2", id="exp-of-ln-fraction"),
+        param("e^{ln(2.5)}", "Rational", "5/2", id="e-pow-ln-decimal"),
+        param("e^{ln(-1)}", "Rational", "-1", id="e-pow-ln-negative"),
+        param("10^{log(-5)}", "Rational", "-5", id="ten-pow-log-negative"),
+        param("e^{ln(10^{400})}", "BigReal", "1e+400", id="e-pow-ln-bigreal"),
+        param("e^{ln(10^{-400})}", "BigReal", "1e-400", id="e-pow-ln-bigreal-small"),
+        param("e^{ln(10^{400}i)}", "BigComplex", "0+1e+400i", id="e-pow-ln-bigcomplex"),
     ],
 )
 def test_native_eval_golden(expr: str, expected_type: str, expected_value: object) -> None:
@@ -299,6 +320,14 @@ def test_native_eval_golden(expr: str, expected_type: str, expected_value: objec
         param("5 + [1, 2]", None, id="scalar-plus-collection-undefined"),
         param("((1,2),(3,4))", "Point item cannot be a collection", id="point-of-points-multi"),
         param("(1, [2,3])", "Point item cannot be a collection", id="point-with-list-item"),
+        # The log inverse walks the logarithm before answering and throws away the value, so an
+        # operand the logarithm rejects still raises here instead of short-circuiting to it.
+        param("e^{ln(0)}", "Math Error", id="log-inverse-keeps-ln-of-zero-error"),
+        param(
+            "e^{ln([1,2])}",
+            "not defined for a list or point",
+            id="log-inverse-keeps-ln-of-list-error",
+        ),
         # ----------------------------
         # Variable assignment errors
         # ----------------------------
@@ -450,9 +479,9 @@ class TestRational:
             param("tan(1)", None, id="tan-drops-rational"),
             param("exp(1)", 2.718281828459045, id="exp-drops-rational"),
             param("exp(0)", 1.0, id="exp-zero"),
-            # exp is a primitive, not pow(e, x): the detour through log(e) used to
-            # leave exp(ln 2) one ulp short of 2.
-            param("exp(\\ln(2))", 2.0, id="exp-of-ln-two-exact"),
+            # Used to pass by accident: libm's exp(log 2) happens to land on exactly 2.0,
+            # exp(log 5) does not. The cancellation is structural now, not luck.
+            param("exp(ln(2))", 2.0, id="exp-of-ln-two-exact"),
             # fractional exponent => irrational result
             param("2^(1/2)", 1.4142135623730951, id="pow-frac-exp-sqrt2"),
             param("3^(1/3)", 1.4422495703074083, id="pow-frac-exp-cbrt3"),
@@ -968,3 +997,30 @@ def test_tan_pole_raises(expr: str, unit: calc_native.AngleUnit) -> None:
 
     with pytest.raises(Error, match="Math Error"):
         _eval_unit(expr, unit)
+
+
+@pytest.mark.parametrize(
+    ("expr", "expected_type", "real", "imag"),
+    [
+        # The golden table's complex rows go through pytest.approx, which accepts the
+        # 6.123e-17 real part the old numeric path left in exp(log(i)). These two assert the
+        # residue is gone, so they need exact equality and cannot live there.
+        param("e^{ln(i)}", complex, 0.0, 1.0, id="log-inverse-imaginary-unit-exact"),
+        param("e^{ln(2+3i)}", complex, 2.0, 3.0, id="log-inverse-complex-exact"),
+        # A coefficient or a sum in the exponent is a different class and stays numeric. The
+        # golden table's "float" branch accepts an int too, so it cannot pin that either.
+        param("e^{2ln(3)}", float, 9.0, None, id="log-inverse-declines-coefficient"),
+        param("e^{ln(2)+ln(3)}", float, 5.999999999999999, None, id="log-inverse-declines-sum"),
+    ],
+)
+def test_log_inverse_exactness_the_golden_table_cannot_pin(
+    expr: str, expected_type: type, real: float, imag: float | None
+) -> None:
+    """Exact equality, no approx: for the complex rows the claim is that the imaginary or real
+    residue is exactly zero, and for the declines it is that the result is still a float rather
+    than the logarithm's own operand."""
+    out = _eval(expr)
+    assert type(out) is expected_type
+    assert (out.real if imag is not None else out) == real
+    if imag is not None:
+        assert out.imag == imag
