@@ -22,6 +22,7 @@
 #include "calc/pub/error_messages.hpp"
 #include "eval/internal/closed_forms.hpp"
 #include "eval/internal/deadline.hpp"
+#include "eval/internal/exact.hpp"
 #include "eval/pub/literal.hpp"
 #include "eval/pub/varstore.hpp"
 #include "parser/pub/consts.hpp"
@@ -176,65 +177,6 @@ Value promote_range(
     if (w != nullptr && *w == 0)
         return result;
     return widened;
-}
-
-/// The trig function an op id names, or nullopt. First test in the exact path, so the ops that
-/// are not trig leave it after one comparison.
-std::optional<Calculator::TrigFn> trig_fn_of(OpId id) {
-    switch (id) {
-    case OpId::Sin:
-        return Calculator::TrigFn::Sin;
-    case OpId::Cos:
-        return Calculator::TrigFn::Cos;
-    case OpId::Tan:
-        return Calculator::TrigFn::Tan;
-    default:
-        return std::nullopt;
-    }
-}
-
-/// sin or cos of pi*t: the exact value where the table has one, the folded numeric value
-/// otherwise. Never raises for sine or cosine; a tan pole is the caller's to handle.
-Value trig_at_half_turns(const Calculator &c, Calculator::TrigFn fn, const Rational &t) {
-    const auto exact = c.exact_half_turns(fn, t);
-    return exact ? Value{*exact} : Value{c.real_half_turns(fn, t)};
-}
-
-/// The exact value of a radian trig call, read from the argument's own tokens before it is ever
-/// evaluated: a rational multiple of pi survives here, the collapsed double does not.
-std::optional<Value>
-exact_trig_radian(OpId id, std::span<const Token> arg_tokens, const Calculator &c) {
-    const auto fn = trig_fn_of(id);
-    if (!fn)
-        return std::nullopt;
-    // A lone Number or Char cannot contain a constant, and that is what an iterated loop passes
-    // a million times, so it must not reach the allocating walk.
-    if (arg_tokens.size() == 1 && arg_tokens[0].kind != TokenKind::Const &&
-        arg_tokens[0].kind != TokenKind::Paren && arg_tokens[0].kind != TokenKind::Latex)
-        return std::nullopt;
-    const auto s = scalar_of_tokens(shunting_yard(arg_tokens));
-    if (!s)
-        return std::nullopt;
-    const auto t = scalar_half_turns(*s, c, Calculator::AngleUnit::RAD);
-    if (!t)
-        return std::nullopt;
-    return trig_at_half_turns(c, *fn, *t);
-}
-
-/// The exact value of a degree/grad trig call, read from the already-evaluated operand: t comes
-/// straight from the Value, no token walk needed.
-std::optional<Value>
-exact_trig_degree(OpId id, const Value &arg, const Calculator &c, Calculator::AngleUnit unit) {
-    const auto fn = trig_fn_of(id);
-    if (!fn)
-        return std::nullopt;
-    const auto a = to_rational(arg);
-    if (!a)
-        return std::nullopt;
-    const auto t = c.half_turns(*a, unit);
-    if (!t)
-        return std::nullopt;
-    return trig_at_half_turns(c, *fn, *t);
 }
 
 } // namespace
@@ -504,8 +446,13 @@ Value eval_subscript(const Token &tok) {
 }
 
 /// A Frac / Pow / Root / Log token: each side is a row of its own. An absent side is
-/// zero, except a Root's degree, where it means the square root.
+/// zero, except a Root's degree, where it means the square root. A latex rule, when the op
+/// has one, runs on both rows before either is evaluated: evaluating the base is exactly what
+/// would destroy an identity like e^{ln u}.
 Value eval_latex(const parser::LatexToken &latex, const Calculator &c, Calculator::AngleUnit unit) {
+    if (const exact::LatexRule rule = exact::latex_rule(latex.op_id))
+        if (auto v = rule(latex.left, latex.right, c, unit))
+            return *v;
     Value left = latex.left.empty() ? Value{Rational(0)} : eval_row(latex.left, c, unit);
     Value right = Value{Rational(latex.kind == LatexKind::Root ? 2 : 0)};
     if (!latex.right.empty())
@@ -644,10 +591,9 @@ Value eval_call(const parser::CallToken &call, const Calculator &c, Calculator::
     if (call.args.size() != spec.call_arity)
         throw_invalid(errmsg::takes_arguments(spec.symbol, spec.call_arity));
 
-    if (call.args.size() == 1 && unit == Calculator::AngleUnit::RAD) {
-        if (auto exact = exact_trig_radian(call.op_id, parser::element_tokens(call.args[0]), c))
-            return *exact;
-    }
+    if (const exact::TokenRule rule = exact::token_rule(call.op_id))
+        if (auto v = rule(call.op_id, parser::element_tokens(call.args.front()), c, unit))
+            return *v;
 
     std::vector<Value> args;
     args.reserve(call.args.size());
@@ -658,10 +604,10 @@ Value eval_call(const parser::CallToken &call, const Calculator &c, Calculator::
         args.push_back(std::move(v));
     }
 
-    if (args.size() == 1 && unit != Calculator::AngleUnit::RAD) {
-        if (auto exact = exact_trig_degree(call.op_id, args[0], c, unit))
-            return *exact;
-    }
+    if (args.size() == 1)
+        if (const exact::ValueRule rule = exact::value_rule(call.op_id))
+            if (auto v = rule(call.op_id, args[0], c, unit))
+                return *v;
 
     return apply(c, call.op_id, std::move(args), unit);
 }
@@ -682,9 +628,9 @@ Value eval_op(OpId id, std::vector<Value> &stack, const Calculator &c, Calculato
 
     if (spec.arity != ops::Arity::Binary) {
         Value operand = pop_operand(stack);
-        if (unit != Calculator::AngleUnit::RAD)
-            if (auto exact = exact_trig_degree(id, operand, c, unit))
-                return *exact;
+        if (const exact::ValueRule rule = exact::value_rule(id))
+            if (auto v = rule(id, operand, c, unit))
+                return *v;
         return apply(c, id, args_of(std::move(operand)), unit);
     }
 
@@ -875,16 +821,16 @@ Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::Angl
         const Token &tok = rpn[i];
 
         // The bare infix form (`sin π`) binds exactly one operand, the entry right before it.
-        // In radians the exact path only reads tokens, so it can run here, on tok itself,
-        // before tok is evaluated: a hit needs no value and no stack pop to undo.
-        if (unit == Calculator::AngleUnit::RAD && i + 1 < rpn.size() &&
-            rpn[i + 1].kind == TokenKind::Op) {
+        // The token phase reads tokens only, so it can run on tok itself, before tok is
+        // evaluated: a hit needs no value and no stack pop to undo.
+        if (i + 1 < rpn.size() && rpn[i + 1].kind == TokenKind::Op) {
             const OpId next_id = std::get<parser::OpToken>(rpn[i + 1].data).op_id;
-            if (auto exact = exact_trig_radian(next_id, rpn.subspan(i, 1), c)) {
-                stack.push_back(*exact);
-                ++i; // consume the trig op too
-                continue;
-            }
+            if (const exact::TokenRule rule = exact::token_rule(next_id))
+                if (auto v = rule(next_id, rpn.subspan(i, 1), c, unit)) {
+                    stack.push_back(*v);
+                    ++i; // consume the trig op too
+                    continue;
+                }
         }
 
         switch (tok.kind) {

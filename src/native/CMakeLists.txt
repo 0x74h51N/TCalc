@@ -35,6 +35,7 @@ add_library(calc_core STATIC
   lib/calc/statistic.cpp
   lib/collection/collection.cpp
   lib/eval/eval.cpp
+  lib/eval/exact.cpp
   lib/eval/literal.cpp
   lib/eval/closed_forms.cpp
   lib/eval/deadline.cpp
