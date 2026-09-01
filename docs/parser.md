@@ -64,7 +64,7 @@ comma-split `elements`, and `has_open` / `has_close`; this is the data / groupin
 - a `(` **immediately after a call-function op** opens a **`CallToken`** instead (the
   call arm; the look-back behind it is explained below).
 - the `{ }` of a LaTeX construct are not paren tokens at all: when the scanner hits `\`
-  and it matches `\frac` / `\root` / `\log`, the whole construct _and its
+  and it matches `\frac` / `\root`, the whole construct _and its
   braces_ are consumed into one **`LatexToken`** (via `extract_brace_content`). A `{`
   becomes a `Brace` `ParenToken` only when it stands alone, outside a LaTeX construct;
   a `\` that matches no construct is skipped.
@@ -81,7 +81,7 @@ flowchart TD
     IN --> SCAN{"tokenize scan [C++]<br/>per char, track expect_operand"}
     SCAN -->|"'(' and previous token is a call-function op"| CALL["CallToken(op_id, args)<br/>set has_call = true"]
     SCAN -->|"'(' '[' '{' open"| PAREN["ParenToken(kind, elements, has_close)<br/>push paren_indices"]
-    SCAN -->|"'\\' matches \frac \root \log, or a '^' '_' script"| LATEX["LatexToken(kind, op_id, left, right)<br/>push latex_indices"]
+    SCAN -->|"'\\' matches \frac \root, or a '^' '_' script"| LATEX["LatexToken(kind, op_id, left, right)<br/>push latex_indices"]
     SCAN -->|"')' ']' '}' with no open"| STRAY["stray-close ParenToken(has_open: false)<br/>push paren_indices"]
     SCAN -->|"digits / operator / free text"| CORE["tokenize_core<br/>NumberToken / OpToken"]
     CALL -.->|"recurse: tokenize each arg<br/>(latex inside &rarr; has_latex_descendant)"| SCAN
@@ -165,6 +165,13 @@ has no arithmetic kernel, so eval never derefs its `OpSpec` and instead reads a
 subscripted token as a variable name / index (`n_{2}`). Both serialize as
 `base<sigil>{script}` (`2^{3}`, `x_{2}`); flat text strips the braces for readability
 (`x_{2}` -> `x_2`).
+
+The look-back skips an operator, since an operator is not an operand, with one exception:
+`log` claims a script the way a name does, because a logarithm's script is the base it is
+taken in. So `log_{2}` folds into a single `Subscript` whose `left` is the `Op(Log)`,
+exactly as `x_{2}` folds the name, and `normalize` reads it back off there (see
+[eval](#shunting_yard-to-rpn)). `log` with no script keeps base ten. There is no `\log`
+macro.
 
 ## shunting_yard (to RPN)
 

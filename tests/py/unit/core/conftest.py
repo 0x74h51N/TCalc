@@ -362,7 +362,6 @@ def latex_exprs():
         LatexExprEntry("\\frac", ExprKind.Frac, Id.Div),
         LatexExprEntry("^", ExprKind.Pow, Id.Pow),
         LatexExprEntry("\\sqrt", ExprKind.Root, Id.Root),
-        LatexExprEntry("\\log", ExprKind.Log, Id.Log),
     ]
 
 

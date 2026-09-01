@@ -51,6 +51,7 @@ using tcalc::eval::promote_complex;
 using tcalc::eval::session_vars;
 using tcalc::eval::VarStore;
 using tcalc::ops::OpId;
+namespace ops = tcalc::ops;
 
 namespace {
 
@@ -121,6 +122,8 @@ struct RulePresence {
 };
 /// Case row for the exact rule table: op id -> the phases it carries.
 using RuleCase = Case<OpId, RulePresence>;
+/// Case row for the table's stand-in second operand: op id -> the value, 0 when none.
+using DefaultCase = Case<OpId, std::uint8_t>;
 
 using tcalc::parser::OpToken;
 using tcalc::parser::Token;
@@ -478,6 +481,19 @@ void unit_eval(TestContext &ctx) {
         });
     }
 
+    // A bare `log 8` reaches apply with one operand, so the base it falls back to lives on
+    // the op's own row rather than at each of the spellings that can leave it out.
+    const std::vector<DefaultCase> second_default_cases = {
+        {.id = "log defaults to 10", .input = OpId::Log, .expected = 10},
+        {.id = "add declares none", .input = OpId::Add, .expected = 0},
+    };
+
+    for (const auto &tc : second_default_cases) {
+        test_detail::with_case(ctx, std::string("second default :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, ops::second_default_of(tc.input), tc.expected);
+        });
+    }
+
     // The table is the only place that says which ops have an exact path. Range and duplicate
     // ids are caught at compile time by index_by_id; this pins the rows themselves.
     const std::vector<RuleCase> exact_rule_cases = {
@@ -564,6 +580,7 @@ void unit_eval(TestContext &ctx) {
         {.id = "a root with no degree is square",
          .input = "\\root{9}{}",
          .expected = Value{Rational(3)}},
+        {.id = "a power with no exponent is one", .input = "2^{}", .expected = Value{Rational(1)}},
         {.id = "a power", .input = "2^{10}", .expected = Value{Rational(1024)}},
         {.id = "a postfix factorial", .input = "5!", .expected = Value{120.0}},
         // The stack pops right operand first, so a non-commutative op is the only thing
@@ -609,6 +626,9 @@ void unit_eval(TestContext &ctx) {
         {.id = "a binary op missing its second operand", .input = "69+", .expected = {}},
         {.id = "a postfix op with no operand", .input = "%", .expected = {}},
         {.id = "an empty row", .input = "", .expected = {}},
+        {.id = "a fraction with no denominator divides by zero",
+         .input = "\\frac{1}{}",
+         .expected = {}},
     };
 
     for (const auto &tc : rpn_reject_cases) {

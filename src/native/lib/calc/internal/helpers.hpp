@@ -242,6 +242,49 @@ template <class R> std::optional<R> exact_rational_root(const R &c, long long q)
     return R(*nr, *dr);
 }
 
+/// The k with base^k == value, or nullopt. Repeated multiplication on cpp_int: k is bounded by
+/// value's bit length, so the loop is short and every step is exact.
+template <class Int> std::optional<long long> exact_int_log(const Int &value, const Int &base) {
+    using boost::multiprecision::cpp_int;
+    const cpp_int &v = value;
+    const cpp_int &b = base;
+    // A base of 0 or 1 never grows, so the loop below would not terminate. Measured: a zero or
+    // negative value already falls out as nullopt on its own and needs no guard.
+    if (b <= 1)
+        return std::nullopt;
+    // b^0 == 1 for every base, and the loop starts at b^1, so it cannot reach this on its own.
+    if (v == 1)
+        return 0;
+    cpp_int acc = b;
+    long long k = 1;
+    while (acc < v) {
+        acc *= b;
+        ++k;
+    }
+    return acc == v ? std::optional<long long>(k) : std::nullopt;
+}
+
+/// The k with base^k == value for a fraction, or nullopt. Both are in lowest terms, so the
+/// equality splits into vn == bn^k and vd == bd^k, and a negative k asks the same of the
+/// inverted base, which is what makes log_{1/2}(8) exactly -3. A base half of 1 is 1 at every
+/// k, so it fixes nothing: k comes from the half that grows, and the pair is verified after.
+template <class R> std::optional<long long> exact_rational_log(const R &value, const R &base) {
+    using boost::multiprecision::cpp_int;
+    const auto [vn, vd] = rational_parts(value);
+    const auto [bn, bd] = rational_parts(base);
+    for (const long long sign : {1LL, -1LL}) {
+        const cpp_int n = sign > 0 ? cpp_int(bn) : cpp_int(bd);
+        const cpp_int d = sign > 0 ? cpp_int(bd) : cpp_int(bn);
+        const auto k = n > 1 ? exact_int_log(cpp_int(vn), n) : exact_int_log(cpp_int(vd), d);
+        if (!k)
+            continue;
+        const auto e = static_cast<unsigned>(*k);
+        if (boost::multiprecision::pow(n, e) == vn && boost::multiprecision::pow(d, e) == vd)
+            return sign * *k;
+    }
+    return std::nullopt;
+}
+
 /// Try to compute base^exp as an exact Rational.
 /// Returns nullopt if the result is not exactly representable:
 ///   - integer exp: int64 overflow

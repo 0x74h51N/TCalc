@@ -450,6 +450,8 @@ class TestRational:
             param("2^{2^{2^{2}}}", 65536, 1, id="pow-chain-2-2-2-2"),
             param("(2^3) + (3^2)", 17, 1, id="pow-then-add"),
             param("(1/2)^2 * 8", 2, 1, id="pow-then-mul"),
+            # log base equal to its value cancels exactly
+            param("log(10)", 1, 1, id="log-base-ten-of-ten-exact"),
             # ----------------------------
             # Variable assignment returns value (single-expression)
             # ----------------------------
@@ -473,7 +475,6 @@ class TestRational:
             param("sqrt(2)", 1.4142135623730951, id="sqrt-irrational"),
             param("sqrt(3)", 1.7320508075688772, id="sqrt-three"),
             param("ln(2)", 0.6931471805599453, id="ln-drops-rational"),
-            param("log(10)", 1.0, id="log10-drops-rational"),
             param("sin(1)", None, id="sin-drops-rational"),
             param("cos(1)", None, id="cos-drops-rational"),
             param("tan(1)", None, id="tan-drops-rational"),

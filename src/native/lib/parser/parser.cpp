@@ -541,14 +541,19 @@ std::size_t fold_script(
     const std::string_view content = extract_script_content(s, i, out_end);
     std::vector<Token> base;
     std::size_t start = i;
-    // A subscript may claim a unicode-symbol op (σ) as its label: convert it to a plain
-    // letter token so the existing operand-base branch takes it. ASCII ops (+) are left.
+    // An operator before a script is normally not its base. Two claim one anyway: a
+    // logarithm, whose script is the base it is taken in, and a unicode-symbol op (σ) used as
+    // a label, which becomes a plain letter first so the operand branch below takes it. ASCII
+    // ops (+) are left alone.
     if (expect_operand && kind == LatexKind::Subscript && !result.tokens.empty() &&
         result.tokens.back().kind == TokenKind::Op) {
         Token &prev = result.tokens.back();
-        const auto *sp = ops::op_spec(std::get<OpToken>(prev.data).op_id);
-        if (sp != nullptr && !sp->symbol.empty() &&
-            static_cast<unsigned char>(sp->symbol[0]) >= detail::kAsciiLimit) {
+        const OpId prev_id = std::get<OpToken>(prev.data).op_id;
+        if (prev_id == OpId::Log) {
+            expect_operand = false; // stays an op, so eval can read the base off it
+        } else if (const auto *sp = ops::op_spec(prev_id);
+                   sp != nullptr && !sp->symbol.empty() &&
+                   static_cast<unsigned char>(sp->symbol[0]) >= detail::kAsciiLimit) {
             prev = Token{
                 TokenKind::Number,
                 NumberToken{std::string(sp->symbol)},
@@ -992,7 +997,7 @@ std::string format_expr_str(LatexKind kind, std::string_view left, std::string_v
         out.push_back(close);
         return out;
     }
-    // Macro shape: sym{left}{right} — frac/root/log.
+    // Macro shape: sym{left}{right} — frac/root.
     const auto sym = kLatexSymbols[static_cast<std::size_t>(kind)];
     out.reserve(sym.size() + left.size() + right.size() + 4);
     out.append(sym);
@@ -1145,18 +1150,21 @@ std::string token_flat_text(const Token &tok) {
             return text;
         };
 
+        // Renders a script side without the space that tokens_to_flat_text puts around
+        // binary ops.
+        const auto unspaced = [](const std::vector<Token> &side) {
+            std::string text;
+            for (const auto &t : side)
+                text.append(t.kind == TokenKind::Op ? token_text(t) : token_flat_text(t));
+            return text;
+        };
+
         // Sum/Prod serialise as Σ_{lower}^{upper}, glyph then both braced scripts. Own arm;
         // the generic path below derefs a null op_spec for OpId::Count. Limits render
         // compact (n=1) so ops go bare via token_text, not the spaced flat form.
         if (latex.kind == LatexKind::Sum || latex.kind == LatexKind::Prod) {
             constexpr char open = paren_symbol(true, ParenKind::Brace);
             constexpr char close = paren_symbol(false, ParenKind::Brace);
-            const auto unspaced = [](const std::vector<Token> &side) {
-                std::string text;
-                for (const auto &t : side)
-                    text.append(t.kind == TokenKind::Op ? token_text(t) : token_flat_text(t));
-                return text;
-            };
             std::string out = latex.kind == LatexKind::Sum ? "Σ" : "Π";
             out.push_back('_');
             out.push_back(open);
