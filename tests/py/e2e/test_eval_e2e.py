@@ -256,6 +256,38 @@ def _eval(expr: str) -> object:
         param("e^{ln(10^{400})}", "BigReal", "1e+400", id="e-pow-ln-bigreal"),
         param("e^{ln(10^{-400})}", "BigReal", "1e-400", id="e-pow-ln-bigreal-small"),
         param("e^{ln(10^{400}i)}", "BigComplex", "0+1e+400i", id="e-pow-ln-bigcomplex"),
+        # ----------------------------
+        # a logarithm that carries its base
+        # ----------------------------
+        param("log_{2}8", "Rational", "3", id="log-base-two-exact"),
+        param("log_{3}243", "Rational", "5", id="log-base-three-exact"),
+        param("log_{2}(1/8)", "Rational", "-3", id="log-base-two-fraction"),
+        param("log_{1/2}8", "Rational", "-3", id="log-fractional-base"),
+        param("log 1000", "Rational", "3", id="log-bare-defaults-to-ten"),
+        param("log_{2}10", "float", 3.321928094887362, id="log-inexact-stays-float"),
+        param("log_{2}8 * 2", "Rational", "6", id="log-binds-one-operand"),
+        # ----------------------------
+        # both directions of a base and its own logarithm, subscripted or implicit
+        # ----------------------------
+        param("2^{log_{2}8}", "int", "8", id="base-pow-its-own-log"),
+        param("3^{log_{3}81}", "int", "81", id="base-pow-its-own-log-three"),
+        param("log_{2}(2^{62})", "int", "62", id="log-of-its-own-power-past-int64"),
+        param("log_{3}(3^{5})", "int", "5", id="log-of-its-own-power"),
+        # Without a base script the log stays an ordinary prefix op, so its value is computed
+        # before it runs and the token rule has nothing left to read. Nothing is lost but the
+        # integer type: base ten is exact through std::log10 either way.
+        param("log(10^{21})", "float", 21.0, id="log-of-its-own-power-implicit-base"),
+        param("2^{log_{3}9}", "float", 4.0, id="log-inverse-declines-other-base"),
+        param("log_{2}(3^{5})", "float", 7.924812503605781, id="log-of-power-declines-other-base"),
+        # A negative base is structurally self-matching but the logarithm rejects it, so the
+        # shortcut must decline and fall through to the same complex answer the numeric path
+        # gives for a base it never matched.
+        param(
+            "log_{(-2)}((-2)^{3})",
+            "complex",
+            (1.0928406470908163, -0.42078724841586035),
+            id="log-of-power-negative-base-declines-to-numeric",
+        ),
     ],
 )
 def test_native_eval_golden(expr: str, expected_type: str, expected_value: object) -> None:
@@ -334,6 +366,16 @@ def test_native_eval_golden(expr: str, expected_type: str, expected_value: objec
         param("2 = 5", None, id="assign-non-variable-lhs"),
         param("e = 1", None, id="assign-reserved-name"),
         param("mean(B)", None, id="undefined-variable-reference"),
+        param("log_{1}8", None, id="log-base-one-raises"),
+        # The base also self-matches log_of_power's exponent structurally (1^{5}, 0^{2}), so the
+        # shortcut must still ask the kernel whether a log in this base exists at all.
+        param("log_{1}(1^{5})", None, id="log-of-power-base-one-raises"),
+        param("log_{0}(0^{2})", None, id="log-of-power-base-zero-raises"),
+        param("log_{2}0", None, id="log-of-zero-raises"),
+        param("log_{2}", None, id="log-without-a-value-raises"),
+        # fold_script claims a script for the operator before it, never for a name, so this
+        # is the logarithm of a variable and not a base-two log left without a value.
+        param("log y_{2}", "undefined variable y_2", id="log-of-subscripted-variable"),
     ],
 )
 def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> None:
