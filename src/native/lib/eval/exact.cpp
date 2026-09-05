@@ -163,14 +163,14 @@ std::optional<OpId> log_of_base(std::span<const Token> row) {
 }
 
 /// Whether `power_base` is the base of a logarithm whose own base row is `log_base`, empty when
-/// that logarithm carries no subscript and its base is implicit (ten for `\log`, e for `ln`,
+/// that logarithm carries no subscript and its base is implicit (ten for `log`, e for `ln`,
 /// which `log_of_base` already recognises).
 bool base_matches(std::span<const Token> power_base, std::span<const Token> log_base, OpId log_id) {
     return log_base.empty() ? log_of_base(power_base) == log_id : same_row(power_base, log_base);
 }
 
 /// A base raised to its own logarithm cancels to the logarithm's argument: e^{ln u} = u,
-/// 10^{log u} = u, b^{\log_{b} u} = u. The exponent is matched first, structurally, for both
+/// 10^{log u} = u, b^{log_{b} u} = u. The exponent is matched first, structurally, for both
 /// candidate logs: most Pow exponents are not a log call at all, so the common case bails there
 /// without ever looking at the base. Only once the exponent is known to be a specific log call
 /// does the base get checked, and only then does anything get evaluated.

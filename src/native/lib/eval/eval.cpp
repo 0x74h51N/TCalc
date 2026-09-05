@@ -648,8 +648,14 @@ Value eval_op(OpId id, std::vector<Value> &stack, const Calculator &c, Calculato
 /// multiplication may be inserted after it. Shared by the implicit-mult rule and the
 /// iterated-body terminator.
 bool ends_operand(const Token &t) {
-    if (t.kind == TokenKind::Latex)
-        return !parser::takes_following_operand(std::get<parser::LatexToken>(t.data).kind);
+    if (t.kind == TokenKind::Latex) {
+        // An iterated op takes the term after it, and so does a logarithm carrying its base,
+        // so neither closes an operand no implicit multiplication may follow.
+        if (parser::is_iterated(std::get<parser::LatexToken>(t.data).kind))
+            return false;
+        const auto scripted = parser::scripted_op(t);
+        return !scripted || scripted->id != OpId::Log;
+    }
     if (t.kind == TokenKind::Number || t.kind == TokenKind::Char || t.kind == TokenKind::Const)
         return true;
     if (t.kind == TokenKind::Paren)
@@ -863,9 +869,15 @@ Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::Angl
                 stack.push_back(iterate(latex, rpn.subspan(i, 1), c, unit));
                 break;
             }
-            if (latex.kind == LatexKind::Log) {
-                // The value is the next token; the base is the token's own left row, or the
-                // stand-in on Log's row when it carries no subscript.
+            if (latex.kind == LatexKind::Subscript) {
+                const auto scripted = parser::scripted_op(tok);
+                if (!scripted || scripted->id != OpId::Log) {
+                    stack.push_back(eval_subscript(tok)); // a name and its index
+                    break;
+                }
+                // A logarithm's script is its base and its value is the next token, which the
+                // shunt leaves right here because this token is an operand to it.
+                const std::vector<Token> &base = *scripted->script;
                 ++i;
                 if (i >= rpn.size())
                     throw_invalid(errmsg::log_missing_value());
@@ -873,19 +885,17 @@ Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::Angl
                 // right here is exactly what a matching rule reads off, and evaluating it
                 // first is what would turn a power into a float and lose the answer.
                 if (const exact::LatexRule rule = exact::latex_rule(OpId::Log))
-                    if (auto v = rule(latex.left, rpn.subspan(i, 1), c, unit)) {
+                    if (auto v = rule(base, rpn.subspan(i, 1), c, unit)) {
                         stack.push_back(*v);
                         break;
                     }
                 std::vector<Value> args = args_of(eval_row(rpn.subspan(i, 1), c, unit));
-                if (!latex.left.empty())
-                    args.push_back(eval_row(latex.left, c, unit));
+                if (!base.empty())
+                    args.push_back(eval_row(base, c, unit));
                 stack.push_back(apply(c, OpId::Log, std::move(args), unit));
                 break;
             }
-            stack.push_back(
-                latex.kind == LatexKind::Subscript ? eval_subscript(tok)
-                                                   : eval_latex(latex, c, unit));
+            stack.push_back(eval_latex(latex, c, unit));
             break;
         }
         case TokenKind::Paren: {
@@ -945,13 +955,6 @@ std::vector<Token> normalize(std::span<const Token> raw) {
     };
 
     for (const Token &tok : raw) {
-        // A logarithm's script is the base it is taken in, so the two become the logarithm
-        // itself: an operand token the shunt leaves next to the value it applies to, which is
-        // what lets the rules that read a value before it is computed still see one.
-        const std::optional<parser::ScriptedOp> scripted = parser::scripted_op(tok);
-        const std::vector<Token> *log_base =
-            scripted && scripted->id == OpId::Log ? scripted->script : nullptr;
-
         // A binary operator no tighter than Add closes every body it separates.
         while (!body_starts.empty() &&
                closes_iterated_body(tok, std::span<const Token>(out).subspan(body_starts.back())))
@@ -981,15 +984,7 @@ std::vector<Token> normalize(std::span<const Token> raw) {
                         .kind = TokenKind::Op,
                         .data = parser::TokenData{parser::OpToken{OpId::Mul}}});
         }
-        if (log_base == nullptr) {
-            out.push_back(tok);
-        } else {
-            out.push_back(
-                Token{
-                    .kind = TokenKind::Latex,
-                    .data = parser::TokenData{parser::LatexToken{
-                        .kind = LatexKind::Log, .op_id = OpId::Log, .left = *log_base}}});
-        }
+        out.push_back(tok);
 
         if (opens_iterated_body(tok))
             body_starts.push_back(out.size()); // this sum's body starts after it

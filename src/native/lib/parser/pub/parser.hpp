@@ -103,10 +103,6 @@ enum class LatexKind : std::uint8_t {
     /// Root:
     /// \root{radicand}{degree}
     Root,
-    /// Logarithm: left = base, empty means ten; the value is the following token in the row,
-    /// not captured here. No latex spelling of its own: `log` matches the op table and a bare
-    /// `_{…}` script after it names the base, which normalize binds into this token.
-    Log,
     /// Subscript (variable index):
     /// base_{index}
     Subscript,
@@ -123,12 +119,6 @@ enum class LatexKind : std::uint8_t {
 /// never stolen from neighbours, and no implicit multiplication after the token.
 inline constexpr bool is_iterated(LatexKind kind) noexcept {
     return kind == LatexKind::Sum || kind == LatexKind::Prod;
-}
-
-/// The kinds whose operand follows the token rather than sitting inside it. Normalize must not
-/// insert an implicit multiplication after one of these.
-inline constexpr bool takes_following_operand(LatexKind kind) noexcept {
-    return is_iterated(kind) || kind == LatexKind::Log;
 }
 
 /// LaTeX expression mapping: symbol -> LatexKind

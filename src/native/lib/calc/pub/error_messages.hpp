@@ -108,7 +108,7 @@ inline std::string iterated_missing_body(std::string_view op) {
     return std::string(op) + " has no body.";
 }
 
-/// A \log with no value after it.
+/// A log with no value after it.
 inline std::string log_missing_value() {
     return "log has no value.";
 }

@@ -169,9 +169,9 @@ subscripted token as a variable name / index (`n_{2}`). Both serialize as
 The look-back skips an operator, since an operator is not an operand, with one exception:
 `log` claims a script the way a name does, because a logarithm's script is the base it is
 taken in. So `log_{2}` folds into a single `Subscript` whose `left` is the `Op(Log)`,
-exactly as `x_{2}` folds the name, and `normalize` reads it back off there (see
-[eval](#shunting_yard-to-rpn)). `log` with no script keeps base ten. There is no `\log`
-macro.
+exactly as `x_{2}` folds the name, and eval reads the base back off there (see
+[eval](#shunting_yard-to-rpn)). `log` with no script keeps base ten. A logarithm has no
+latex spelling and no `LatexKind` of its own.
 
 ## shunting_yard (to RPN)
 
