@@ -14,11 +14,13 @@ namespace {
 using RealFn = double (Calculator::*)(double) const;
 using RealBinFn = double (Calculator::*)(double, double) const;
 using BigFn = BigReal (Calculator::*)(const BigReal &) const;
+using RatBinFn = Rational (Calculator::*)(const Rational &, const Rational &) const;
 
 /// Overloaded names need the target signature spelled out to take an address.
 #define REAL_FN(name) static_cast<RealFn>(&Calculator::name)
 #define REAL_BIN_FN(name) static_cast<RealBinFn>(&Calculator::name)
 #define BIG_FN(name) static_cast<BigFn>(&Calculator::name)
+#define RAT_BIN_FN(name) static_cast<RatBinFn>(&Calculator::name)
 
 struct RealCase {
     const char *id;
@@ -35,6 +37,23 @@ struct RealBinCase {
     double y;
     double expected;
     double tol;
+};
+
+/// The value, then the base.
+struct RatBinCase {
+    const char *id;
+    RatBinFn fn;
+    Rational value;
+    Rational base;
+    Rational expected;
+};
+
+/// A value/base pair that has no exact answer and must throw rather than approximate one.
+struct RatRejectCase {
+    const char *id;
+    RatBinFn fn;
+    Rational value;
+    Rational base;
 };
 
 /// BigReal rows carry decimal text so no double sneaks into an input or an expectation.
@@ -162,6 +181,28 @@ void unit_transcendental(TestContext &ctx) {
         });
     }
 
+    // These are exact through std::log10 today and wrong through log(a)/log(10).
+    const std::vector<RealBinCase> log_double_cases = {
+        {.id = "log_10(1e21) is exactly 21",
+         .fn = REAL_BIN_FN(log),
+         .x = 1e21,
+         .y = 10.0,
+         .expected = 21.0,
+         .tol = 0.0},
+        {.id = "log_10(1e23) is exactly 23",
+         .fn = REAL_BIN_FN(log),
+         .x = 1e23,
+         .y = 10.0,
+         .expected = 23.0,
+         .tol = 0.0},
+    };
+
+    for (const auto &tc : log_double_cases) {
+        test_detail::with_case(ctx, std::string("real :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, (c.*tc.fn)(tc.x, tc.y), tc.expected);
+        });
+    }
+
     // pow's integer exponent is a separate overload, so it cannot join the table above.
     TEST_CASE(
         ctx, "real :: pow :: integer exponent", { EXPECT_EQ(ctx, c.pow(2.0, 10LL), 1024.0); });
@@ -178,6 +219,65 @@ void unit_transcendental(TestContext &ctx) {
     });
     TEST_CASE(
         ctx, "real :: zero to a negative power throws", { EXPECT_THROWS(ctx, c.pow(0.0, -1LL)); });
+
+    // Base 1 makes the ratio x/0. Without the guard, promote_range sees the resulting
+    // infinity and widens the call into BigReal instead of raising.
+    TEST_CASE(ctx, "real :: log base one throws", { EXPECT_THROWS(ctx, c.log(8.0, 1.0)); });
+    TEST_CASE(ctx, "real :: log base zero throws", { EXPECT_THROWS(ctx, c.log(8.0, 0.0)); });
+
+    // The Rational arm answers exactly or raises, and apply retries in double. This is root's
+    // mechanism, and it is why log_3(243) is 5 rather than 4.999999999999999.
+    const std::vector<RatBinCase> log_base_cases = {
+        {.id = "log_2(8) is exactly 3",
+         .fn = RAT_BIN_FN(log),
+         .value = Rational(8),
+         .base = Rational(2),
+         .expected = Rational(3)},
+        {.id = "log_3(243) is exactly 5",
+         .fn = RAT_BIN_FN(log),
+         .value = Rational(243),
+         .base = Rational(3),
+         .expected = Rational(5)},
+        {.id = "log_2(1/8) is exactly -3",
+         .fn = RAT_BIN_FN(log),
+         .value = Rational(1, 8),
+         .base = Rational(2),
+         .expected = Rational(-3)},
+        {.id = "log_{1/2}(8) is exactly -3",
+         .fn = RAT_BIN_FN(log),
+         .value = Rational(8),
+         .base = Rational(1, 2),
+         .expected = Rational(-3)},
+    };
+
+    for (const auto &tc : log_base_cases) {
+        test_detail::with_case(ctx, std::string("rational :: ") + tc.id, [&] {
+            EXPECT_EQ(ctx, (c.*tc.fn)(tc.value, tc.base), tc.expected);
+        });
+    }
+
+    // None of these has an integer answer, or a base that could produce one; all three raise
+    // rather than approximate.
+    const std::vector<RatRejectCase> log_reject_cases = {
+        {.id = "log_2(10) has no integer answer",
+         .fn = RAT_BIN_FN(log),
+         .value = Rational(10),
+         .base = Rational(2)},
+        {.id = "log base one has no answer",
+         .fn = RAT_BIN_FN(log),
+         .value = Rational(8),
+         .base = Rational(1)},
+        {.id = "log of zero has no answer",
+         .fn = RAT_BIN_FN(log),
+         .value = Rational(0),
+         .base = Rational(2)},
+    };
+
+    for (const auto &tc : log_reject_cases) {
+        test_detail::with_case(ctx, std::string("rational :: ") + tc.id, [&] {
+            EXPECT_THROWS(ctx, (c.*tc.fn)(tc.value, tc.base));
+        });
+    }
 
     // ----
     // BigReal
@@ -254,11 +354,43 @@ void unit_transcendental(TestContext &ctx) {
         EXPECT_TRUE(ctx, c.ln(BigReal("1e-100000000")) < c.ln(BigReal("1e-1")));
     });
 
+    // A BigReal is never domain-checked ahead of the kernel (unlike double, whose non-positive
+    // value is caught by promotion before this arm ever runs), so it needs its own guards.
+    TEST_CASE(ctx, "bigreal :: log_2(8)", {
+        EXPECT_TRUE(
+            ctx, approx_big(c.log(BigReal("8"), BigReal("2")), BigReal("3"), BigReal("1e-40")));
+    });
+    TEST_CASE(ctx, "bigreal :: log of a non-positive value throws", {
+        EXPECT_THROWS(ctx, c.log(BigReal("-1"), BigReal("2")));
+    });
+    TEST_CASE(ctx, "bigreal :: log base one throws", {
+        EXPECT_THROWS(ctx, c.log(BigReal("8"), BigReal("1")));
+    });
+    TEST_CASE(ctx, "bigreal :: log base zero throws", {
+        EXPECT_THROWS(ctx, c.log(BigReal("8"), BigReal("0")));
+    });
+
     // ----
     // Complex
     // ----
     TEST_CASE(ctx, "complex :: log domain throws", { EXPECT_THROWS(ctx, c.log(Z(0.0, 0.0))); });
     TEST_CASE(ctx, "complex :: ln domain throws", { EXPECT_THROWS(ctx, c.ln(Z(0.0, 0.0))); });
+
+    // A complex base has no ordering, so only what the type can express is guarded: zero,
+    // the same as the unary overload.
+    TEST_CASE(ctx, "complex :: binary log of zero value throws", {
+        EXPECT_THROWS(ctx, c.log(Z(0.0, 0.0), Z(2.0, 0.0)));
+    });
+    TEST_CASE(ctx, "complex :: binary log of zero base throws", {
+        EXPECT_THROWS(ctx, c.log(Z(2.0, 0.0), Z(0.0, 0.0)));
+    });
+    const Z log_binary = c.log(Z(100.0, 0.0), Z(10.0, 0.0));
+    TEST_CASE(ctx, "complex :: log_10(100) real part", {
+        EXPECT_TRUE(ctx, approx(log_binary.real(), 2.0, 1e-12));
+    });
+    TEST_CASE(ctx, "complex :: log_10(100) imag part", {
+        EXPECT_TRUE(ctx, approx(log_binary.imag(), 0.0, 1e-12));
+    });
 
     const Z i(0.0, 1.0);
     const Z i_pow = c.pow(i, Z(2.0, 0.0));
@@ -307,6 +439,19 @@ void unit_transcendental(TestContext &ctx) {
     const BC z_log = c.log(z);
     TEST_CASE(ctx, "bigcomplex :: log pow roundtrip", {
         EXPECT_TRUE(ctx, approx_big(c.pow(BC("10"), z_log), z, BF("1e-20")));
+    });
+
+    // A complex base has no ordering, so only what the type can express is guarded: zero,
+    // the same as the unary overload.
+    TEST_CASE(ctx, "bigcomplex :: binary log of zero value throws", {
+        EXPECT_THROWS(ctx, c.log(BC("0"), BC("2")));
+    });
+    TEST_CASE(ctx, "bigcomplex :: binary log of zero base throws", {
+        EXPECT_THROWS(ctx, c.log(BC("2"), BC("0")));
+    });
+    const BC z_log_base2 = c.log(z, BC("2"));
+    TEST_CASE(ctx, "bigcomplex :: binary log pow roundtrip", {
+        EXPECT_TRUE(ctx, approx_big(c.pow(BC("2"), z_log_base2), z, BF("1e-20")));
     });
 
     const BC z_ln("1e10", "1e-5");

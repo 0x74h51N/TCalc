@@ -103,9 +103,6 @@ enum class LatexKind : std::uint8_t {
     /// Root:
     /// \root{radicand}{degree}
     Root,
-    /// Logarithm:
-    /// \log{base}{value}
-    Log,
     /// Subscript (variable index):
     /// base_{index}
     Subscript,
@@ -136,7 +133,6 @@ constexpr std::array kLatexExprs = {
     LatexEntry{"^", LatexKind::Pow, tcalc::ops::OpId::Pow},
     LatexEntry{"_", LatexKind::Subscript, tcalc::ops::OpId::Count},
     LatexEntry{"\\root", LatexKind::Root, tcalc::ops::OpId::Root},
-    LatexEntry{"\\log", LatexKind::Log, tcalc::ops::OpId::Log},
     LatexEntry{"\\sum", LatexKind::Sum, tcalc::ops::OpId::Count},
     LatexEntry{"\\prod", LatexKind::Prod, tcalc::ops::OpId::Count}};
 
@@ -226,6 +222,25 @@ struct Token {
 };
 
 std::ostream &operator<<(std::ostream &, const Token &);
+
+/// An operator carrying a script, and the script it carries. A script folds its base in like
+/// any other (`x_{2}` takes the name), so an operator that claims one holds it the same way,
+/// and what the script means is that operator's business: `log_{2}` is a base, a script over
+/// a name is an index. Nullopt when the script's base is not a lone operator.
+struct ScriptedOp {
+    OpId id;
+    const std::vector<Token> *script;
+};
+
+inline std::optional<ScriptedOp> scripted_op(const Token &tok) noexcept {
+    const auto *latex = std::get_if<LatexToken>(&tok.data);
+    if (latex == nullptr || latex->kind != LatexKind::Subscript || latex->left.size() != 1)
+        return std::nullopt;
+    const auto *op = std::get_if<OpToken>(&latex->left.front().data);
+    if (op == nullptr)
+        return std::nullopt;
+    return ScriptedOp{op->op_id, &latex->right};
+}
 
 // ------------------------------------------------------------
 // Shared visitor helper

@@ -315,8 +315,6 @@ inline std::string_view latex_kind_name(LatexKind k) {
         return "Pow";
     case LatexKind::Root:
         return "Root";
-    case LatexKind::Log:
-        return "Log";
     }
     return "<unknown>";
 }
@@ -348,8 +346,6 @@ token_kind_name(TokenKind kind, ParenKind pk = ParenKind::Paren, LatexKind lk = 
             return "LatexPow";
         case LatexKind::Root:
             return "LatexRoot";
-        case LatexKind::Log:
-            return "LatexLog";
         }
         return "<unknown-latex>";
     case TokenKind::Paren:

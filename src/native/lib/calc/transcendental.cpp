@@ -13,6 +13,11 @@
 #include <boost/multiprecision/cpp_dec_float.hpp>
 #include <boost/multiprecision/cpp_complex.hpp>
 
+namespace {
+// The base a bare log is taken in, and the one base with a dedicated library function.
+constexpr int kBaseTen = 10;
+} // namespace
+
 // -----------------
 // Real
 // -----------------
@@ -66,6 +71,15 @@ double Calculator::log(double a) const {
     return std::log10(a);
 }
 
+double Calculator::log(double a, double b) const {
+    calc_detail::require(b > 0.0 && b != 1.0);
+    // log(1e21) is exactly 21 today through std::log10, and log(a)/log(10) is
+    // 20.999999999999996. Base ten keeps its own function so this arm does not regress it.
+    if (b == kBaseTen)
+        return std::log10(a);
+    return std::log(a) / std::log(b);
+}
+
 double Calculator::ln(double a) const {
     calc_detail::require(a > 0.0);
     return std::log(a);
@@ -85,6 +99,19 @@ BigReal Calculator::log(const BigReal &a) const {
     calc_detail::require(a > 0);
     using boost::multiprecision::log10;
     return log10(a);
+}
+
+BigReal Calculator::log(const BigReal &a, const BigReal &b) const {
+    // Unlike double, a BigReal operand is never domain-checked ahead of the kernel: reading
+    // it as a double to test the domain rule could underflow it to 0 and force a promotion
+    // that was never warranted. So this guard is the only one it gets.
+    calc_detail::require(a > 0);
+    calc_detail::require(b > 0 && b != 1);
+    using boost::multiprecision::log10;
+    if (b == kBaseTen)
+        return log10(a);
+    using boost::multiprecision::log;
+    return log(a) / log(b);
 }
 
 BigReal Calculator::ln(const BigReal &a) const {
@@ -131,6 +158,14 @@ Calculator::Complex Calculator::log(Complex a) const {
     return std::log10(a);
 }
 
+Calculator::Complex Calculator::log(Complex a, Complex b) const {
+    // A complex base has no ordering, so there is no b != 1 shortcut to write here: only
+    // what the type can express is guarded, the same as the unary overload above.
+    calc_detail::require_nonzero(a);
+    calc_detail::require_nonzero(b);
+    return std::log(a) / std::log(b);
+}
+
 Calculator::Complex Calculator::ln(Complex a) const {
     calc_detail::require_nonzero(a);
     return std::log(a);
@@ -156,8 +191,27 @@ BigComplex Calculator::log(const BigComplex &a) const {
     return log10(a);
 }
 
+BigComplex Calculator::log(const BigComplex &a, const BigComplex &b) const {
+    // Same reasoning as the Complex overload: no ordering on a complex base, so guard only
+    // what the type can express.
+    calc_detail::require_nonzero(a);
+    calc_detail::require_nonzero(b);
+    using boost::multiprecision::log;
+    return log(a) / log(b);
+}
+
 BigComplex Calculator::ln(const BigComplex &a) const {
     calc_detail::require_nonzero(a);
     using boost::multiprecision::log;
     return log(a);
+}
+
+// -----------------
+// Rational
+// -----------------
+
+Rational Calculator::log(const Rational &a, const Rational &b) const {
+    if (const auto k = calc_detail::exact_rational_log(a, b))
+        return Rational(*k);
+    calc_detail::math_error();
 }

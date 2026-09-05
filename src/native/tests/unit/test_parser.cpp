@@ -316,6 +316,18 @@ void unit_parser(TestContext &ctx) {
          .input = "\\root{8}{3}",
          .expected = {Root({N("8")}, {N("3")}, 0, 11)}},
 
+        // `log` has no latex spelling: it matches the op table, and the script after it folds
+        // onto it the way a script folds onto a name, because a logarithm's script is the base
+        // it is taken in. fold_script skips every other operator, so a script over anything
+        // else stays that name's index, which is what keeps `log y_{2}` a log of a variable.
+        {.id = "log_{2}8 folds the op into the script",
+         .input = "log_{2}8",
+         .expected = {Sub({Op_(OpId::Log)}, {N("2")}), N("8")}},
+        {.id = "log8 carries no script", .input = "log8", .expected = {Op_(OpId::Log), N("8")}},
+        {.id = "log y_{2} leaves the script on the name",
+         .input = "log y_{2}",
+         .expected = {Op_(OpId::Log), Sub({Ch('y')}, {N("2")})}},
+
         {.id = "pow caret simple", .input = "2^{3}", .expected = {Pow({N("2")}, {N("3")}, 0, 5)}},
         {.id = "pow caret paren base",
          .input = "(2+5)^{4}",
@@ -1237,6 +1249,16 @@ void unit_parser(TestContext &ctx) {
         EXPECT_EQ(ctx, p::tokens_to_text(toks), std::string("\\frac{2}{3}"));
     });
 
+    // A based log prints as the op carrying its own script, which is what it was typed as,
+    // so the editor round-trip is the ordinary one. A multi-token base makes the point:
+    // token_text spaces the Div ("log_{1 / 2}") and the tokenizer skips whitespace, so the
+    // printed string is not literally the input and the tokens are what must match.
+    test_detail::with_case(ctx, "round-trip :: log_{1/2}8 with a multi-token base", [&] {
+        const auto branch = p::tokenize("log_{1/2}8");
+        const auto reparsed = p::tokenize(p::tokens_to_text(branch.tokens));
+        EXPECT_EQ(ctx, reparsed.tokens, branch.tokens);
+    });
+
     test_detail::with_case(ctx, "tokens_to_text :: postfix no spacing", [&] {
         std::vector<Token> toks = {
             N("5"),
@@ -2122,6 +2144,13 @@ void unit_parser(TestContext &ctx) {
                  {T_("2, "),
                   Pn(PK::Bracket, true, {Frn({T_("3")}, {T_("4")}), T_(" + 5")}),
                   T_(", 6")})}},
+
+            // The renderer draws a script's base from the node's left row, so a logarithm
+            // that did not carry its own would be drawn with an empty base slot next to a
+            // loose "log" -- which is what the editor showed before fold_script claimed it.
+            {.id = "log-base-fills-the-script-base",
+             .input = p::tokenize("log_{2}8"),
+             .expected = {Ln(LK::Subscript, {T_("log")}, {T_("2")}), T_("8")}},
 
             // -- Call cases (CallToken lowered render-only to Op(symbol) + Paren) --
             // "mean([2, \frac{1}{2}])": latex inside a function call must render

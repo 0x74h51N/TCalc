@@ -135,8 +135,8 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [x] inverse trig via Shift (asin/acos/atan or asinh/acosh/atanh)
 - [x] Basic Science Functions
   - [x] Logarithmic & Reciprocal
-    - [x] log10, ln
-    - [ ] Logarithm with custom base - log(x, base)
+    - [x] log, ln
+    - [x] Logarithm with custom base - log_{base} value
     - [x] 1/x
   - [x] Combinatorics - x! (factorial), nPr (permutation), nCr (combination)
   - [x] Number theory - gcd, lcm, mod, intdiv

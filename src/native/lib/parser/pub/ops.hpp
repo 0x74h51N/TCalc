@@ -361,7 +361,9 @@ inline constexpr std::array kOps{
         .precedence = 4,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
-        .aliases = {"log10", ""},
+        // No "log10" alias: base ten is what a bare log already means, and the alias ate
+        // digits out of the value ("log1000" matched log10 and left "00").
+        .aliases = {},
         .method = "log",
         .flags = Flags::CallFunction,
     },
@@ -917,20 +919,25 @@ struct OpRow {
     DomainRule domain{}; // most ops have no domain boundary
     RangeRule range{};   // and only powers can predict their own range
     TraitMask traits{};
+    std::uint8_t second_default{}; // stands in for a missing second operand
 };
 
 /// Attach the domain rule to an op's own row, next to its kernel and its arms.
 constexpr OpRow with_domain(OpRow r, DomainRule d) {
-    return OpRow{r.id, r.fn, r.arms, d, r.range, r.traits};
+    return OpRow{r.id, r.fn, r.arms, d, r.range, r.traits, r.second_default};
 }
 
 constexpr OpRow with_range(OpRow r, RangeRule g) {
-    return OpRow{r.id, r.fn, r.arms, r.domain, g, r.traits};
+    return OpRow{r.id, r.fn, r.arms, r.domain, g, r.traits, r.second_default};
 }
 
 constexpr OpRow with_trait(OpRow r, Trait t) {
     const auto traits = static_cast<TraitMask>(r.traits | trait_bit(t));
-    return OpRow{r.id, r.fn, r.arms, r.domain, r.range, traits};
+    return OpRow{r.id, r.fn, r.arms, r.domain, r.range, traits, r.second_default};
+}
+
+constexpr OpRow with_default(OpRow r, std::uint8_t n) {
+    return OpRow{r.id, r.fn, r.arms, r.domain, r.range, r.traits, n};
 }
 
 template <class F> constexpr OpRow unary(OpId id, F) {
@@ -953,7 +960,14 @@ template <class F> constexpr OpRow reduce(OpId id, F) {
 }
 /// Exp is pow(e, a) and `e` is irrational, so it can have no exact Rational arm.
 constexpr OpRow without_rational(OpRow r) {
-    return OpRow{r.id, r.fn, static_cast<ArmMask>(r.arms & ~arm_bit(Arm::Rat))};
+    return OpRow{
+        r.id,
+        r.fn,
+        static_cast<ArmMask>(r.arms & ~arm_bit(Arm::Rat)),
+        r.domain,
+        r.range,
+        r.traits,
+        r.second_default};
 }
 
 /// The ops defined through another one: Sqr is `c.pow(a, 2)`, Pow10 is `c.pow(10, a)`.
@@ -1032,7 +1046,13 @@ inline constexpr std::array kOpRows = {
         unary(OpId::Atanh, TCALC_CALL(atanh)), [](double x, double) { return std::abs(x) >= 1.0; }),
     with_domain(unary(OpId::Sqrt, TCALC_CALL(sqrt)), [](double x, double) { return x < 0.0; }),
     unary(OpId::Cbrt, TCALC_CALL(cbrt)),
-    with_domain(unary(OpId::Log, TCALC_CALL(log)), [](double x, double) { return x <= 0.0; }),
+    with_default(
+        with_domain(
+            binary(OpId::Log, TCALC_CALL(log)),
+            // The value leaving the real domain promotes to complex. An invalid base is a
+            // math error the kernel raises, not a promotion: log base 1 has no complex answer.
+            [](double x, double) { return x <= 0.0; }),
+        10),
     with_domain(unary(OpId::Ln, TCALC_CALL(ln)), [](double x, double) { return x <= 0.0; }),
     unary(OpId::Fact, TCALC_CALL(fact)),
     unary(OpId::Gamma, TCALC_CALL(gamma)),
@@ -1132,6 +1152,19 @@ inline constexpr auto kTraits = build_traits();
 /// trait can only ever narrow a check the evaluator would otherwise run.
 constexpr bool has_trait(OpId id, Trait t) {
     return (kTraits[static_cast<std::size_t>(id)] & trait_bit(t)) != 0;
+}
+
+constexpr std::array<std::uint8_t, kOpCount> build_second_defaults() {
+    std::array<std::uint8_t, kOpCount> t{};
+    for (const auto &row : kOpRows)
+        t[static_cast<std::size_t>(row.id)] = row.second_default;
+    return t;
+}
+inline constexpr auto kSecondDefaults = build_second_defaults();
+
+/// The stand-in for this op's missing second operand, zero when the op names none.
+constexpr std::uint8_t second_default_of(OpId id) {
+    return kSecondDefaults[static_cast<std::size_t>(id)];
 }
 
 inline Kernel kernel_of(OpId id) {

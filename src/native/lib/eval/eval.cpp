@@ -330,6 +330,11 @@ Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::A
     if (ops::kernel_of(id) == nullptr)
         throw_math(errmsg::unsupported_operand(op_name(id)));
 
+    // An op that names a stand-in for its second operand gets it here, the one place every
+    // caller converges. Zero means none is named, and those ops always arrive with both.
+    if (args.size() == 1 && ops::second_default_of(id) != 0)
+        args.push_back(Value{static_cast<std::int64_t>(ops::second_default_of(id))});
+
     // A power whose result cannot fit a double is widened before it runs, not after: the
     // rounding is not reversible once the kernel has returned.
     promote_big(id, args);
@@ -445,7 +450,7 @@ Value eval_subscript(const Token &tok) {
     return resolve_name(name);
 }
 
-/// A Frac / Pow / Root / Log token: each side is a row of its own. An absent side is
+/// A Frac / Pow / Root token: each side is a row of its own. An absent side is
 /// zero, except a Root's degree, where it means the square root. A latex rule, when the op
 /// has one, runs on both rows before either is evaluated: evaluating the base is exactly what
 /// would destroy an identity like e^{ln u}.
@@ -643,8 +648,14 @@ Value eval_op(OpId id, std::vector<Value> &stack, const Calculator &c, Calculato
 /// multiplication may be inserted after it. Shared by the implicit-mult rule and the
 /// iterated-body terminator.
 bool ends_operand(const Token &t) {
-    if (t.kind == TokenKind::Latex)
-        return !parser::is_iterated(std::get<parser::LatexToken>(t.data).kind);
+    if (t.kind == TokenKind::Latex) {
+        // An iterated op takes the term after it, and so does a logarithm carrying its base,
+        // so neither closes an operand no implicit multiplication may follow.
+        if (parser::is_iterated(std::get<parser::LatexToken>(t.data).kind))
+            return false;
+        const auto scripted = parser::scripted_op(t);
+        return !scripted || scripted->id != OpId::Log;
+    }
     if (t.kind == TokenKind::Number || t.kind == TokenKind::Char || t.kind == TokenKind::Const)
         return true;
     if (t.kind == TokenKind::Paren)
@@ -858,9 +869,33 @@ Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::Angl
                 stack.push_back(iterate(latex, rpn.subspan(i, 1), c, unit));
                 break;
             }
-            stack.push_back(
-                latex.kind == LatexKind::Subscript ? eval_subscript(tok)
-                                                   : eval_latex(latex, c, unit));
+            if (latex.kind == LatexKind::Subscript) {
+                const auto scripted = parser::scripted_op(tok);
+                if (!scripted || scripted->id != OpId::Log) {
+                    stack.push_back(eval_subscript(tok)); // a name and its index
+                    break;
+                }
+                // A logarithm's script is its base and its value is the next token, which the
+                // shunt leaves right here because this token is an operand to it.
+                const std::vector<Token> &base = *scripted->script;
+                ++i;
+                if (i >= rpn.size())
+                    throw_invalid(errmsg::log_missing_value());
+                // log_b(b^k) = k has to run before either row is evaluated: the value token
+                // right here is exactly what a matching rule reads off, and evaluating it
+                // first is what would turn a power into a float and lose the answer.
+                if (const exact::LatexRule rule = exact::latex_rule(OpId::Log))
+                    if (auto v = rule(base, rpn.subspan(i, 1), c, unit)) {
+                        stack.push_back(*v);
+                        break;
+                    }
+                std::vector<Value> args = args_of(eval_row(rpn.subspan(i, 1), c, unit));
+                if (!base.empty())
+                    args.push_back(eval_row(base, c, unit));
+                stack.push_back(apply(c, OpId::Log, std::move(args), unit));
+                break;
+            }
+            stack.push_back(eval_latex(latex, c, unit));
             break;
         }
         case TokenKind::Paren: {

@@ -68,6 +68,7 @@ class Calculator {
     BigReal mod(const BigReal &a, const BigReal &b) const;
     BigReal sqrt(const BigReal &a) const;
     BigReal log(const BigReal &a) const;
+    BigReal log(const BigReal &a, const BigReal &b) const;
     BigReal ln(const BigReal &a) const;
     BigReal root(const BigReal &a, const BigReal &b) const;
     BigReal trunc(const BigReal &a) const;
@@ -93,6 +94,7 @@ class Calculator {
     Rational sqrt(const Rational &a) const;
     Rational cbrt(const Rational &a) const;
     Rational root(const Rational &a, const Rational &b) const;
+    Rational log(const Rational &a, const Rational &b) const;
 
     /// Which trigonometric function an exact half-turn lookup is for.
     enum class TrigFn : std::uint8_t { Sin, Cos, Tan };
@@ -128,6 +130,7 @@ class Calculator {
     BigComplex sqrt(const BigComplex &a) const;
     BigComplex root(const BigComplex &a, const BigComplex &b) const;
     BigComplex log(const BigComplex &a) const;
+    BigComplex log(const BigComplex &a, const BigComplex &b) const;
     BigComplex ln(const BigComplex &a) const;
 
     // Polar (cis): cos(a) + i*sin(a) using selected angle unit
@@ -180,9 +183,11 @@ class Calculator {
 
     // Log ops
     double log(double a) const;
+    double log(double a, double b) const;
     double ln(double a) const;
 
     Complex log(Complex a) const;
+    Complex log(Complex a, Complex b) const;
     Complex ln(Complex a) const;
 
     // GCD / LCM (variadic fold over a list of integers)

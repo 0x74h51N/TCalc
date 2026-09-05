@@ -80,7 +80,6 @@ void bind_parser(py::module_ &m) {
         .value("Frac", LatexKind::Frac)
         .value("Pow", LatexKind::Pow)
         .value("Root", LatexKind::Root)
-        .value("Log", LatexKind::Log)
         .value("Subscript", LatexKind::Subscript)
         .value("Sum", LatexKind::Sum)
         .value("Prod", LatexKind::Prod);
