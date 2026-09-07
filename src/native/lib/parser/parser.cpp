@@ -1177,17 +1177,12 @@ std::string token_flat_text(const Token &tok) {
             return out;
         }
 
-        // Flat is a display-only form (history's FLAT mode) — never re-tokenized, so
-        // it strips the script braces for readability: 2^{3} -> 2^3, 2_{3} -> 2_3.
-        // Base stays bare-or-braced via wrap_side; the exponent/subscript follows the
-        // sigil directly. (This also sidesteps the generic infix path below, which
-        // would deref a null op_spec for Subscript's OpId::Count sentinel.)
-        if (latex.kind == LatexKind::Pow || latex.kind == LatexKind::Subscript) {
-            std::string out = wrap_side(latex.left);
-            out.push_back(latex.kind == LatexKind::Pow ? '^' : '_');
-            out.append(tokens_to_flat_text(latex.right));
-            return out;
-        }
+        // The braces are what keep a script from running into what follows it, so only the
+        // sides flatten. Own arm also because the generic path below derefs a null op_spec
+        // for Subscript's OpId::Count sentinel.
+        if (latex.kind == LatexKind::Pow || latex.kind == LatexKind::Subscript)
+            return format_expr_str(
+                latex.kind, tokens_to_flat_text(latex.left), tokens_to_flat_text(latex.right));
 
         std::string out;
         out.append(wrap_side(latex.left));

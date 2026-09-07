@@ -2308,26 +2308,29 @@ void unit_parser(TestContext &ctx) {
     });
 
     // =========================================================================
-    // token_flat_text :: Pow/Subscript flat display strips the script braces
+    // token_flat_text :: Pow/Subscript flatten to what they were written as
     // =========================================================================
-    // Flat text is history's FLAT-mode display string (never re-tokenized), so
-    // the 2D {} are dropped: 2^{3} shows as 2^3, 2_{3} as 2_3.
-    test_detail::with_case(ctx, "flat_text :: Pow strips braces to base^exp", [&] {
-        auto branch = p::tokenize("2^{3}");
-        EXPECT_EQ(ctx, p::tokens_to_flat_text(branch.tokens), std::string("2^3"));
-    });
+    // Dropping a script's braces let it run into whatever followed: y_{1/2}8 read as
+    // y_1 ÷ 28. The braces are the delimiter, so a script keeps its written shape and
+    // only its sides flatten, which is what separates this from token_text: a frac in an
+    // exponent shows as a division, not as its macro.
+    const std::vector<std::pair<std::string_view, std::string_view>> flat_script_cases = {
+        {"2^{3}", "2^{3}"},
+        {"2_{3}", "2_{3}"},
+        {"2^{3}^{2}", "2^{3}^{2}"},
+        {"y_{1/2}8", "y_{1 ÷ 2}8"},
+        {"2^{\\frac{2}{3}}", "2^{2 ÷ 3}"},
+        {"x_{\\frac{1}{2}}", "x_{1 ÷ 2}"},
+        {"2^{\\root{8}{3}}", "2^{8 ⌄ 3}"},
+    };
 
-    test_detail::with_case(ctx, "flat_text :: Subscript strips braces to base_sub", [&] {
-        auto branch = p::tokenize("2_{3}");
-        EXPECT_EQ(ctx, p::tokens_to_flat_text(branch.tokens), std::string("2_3"));
-    });
-
-    // A Pow base that is itself a Pow is still grouped by wrap_side, so the flat
-    // display keeps the (2^3)^2 grouping: "2^{3}^{2}" -> "{2^3}^2".
-    test_detail::with_case(ctx, "flat_text :: Pow chain groups the Pow base", [&] {
-        auto branch = p::tokenize("2^{3}^{2}");
-        EXPECT_EQ(ctx, p::tokens_to_flat_text(branch.tokens), std::string("{2^3}^2"));
-    });
+    for (const auto &[input, expected] : flat_script_cases) {
+        test_detail::with_case(
+            ctx, std::string("flat_text :: ") + std::string(input) + " keeps its braces", [&] {
+                auto branch = p::tokenize(input);
+                EXPECT_EQ(ctx, p::tokens_to_flat_text(branch.tokens), std::string(expected));
+            });
+    }
 
     // Sum/Prod always show braced limits (both scripts keep their {}).
     test_detail::with_case(ctx, "flat_text :: sum -> glyph with braced limits", [&] {
