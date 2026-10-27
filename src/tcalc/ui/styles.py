@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from string import Template
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QMetaObject, Qt
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication
 
@@ -75,8 +75,23 @@ def apply_styles(app: QApplication) -> None:
     app.setStyleSheet(_build_stylesheet())
     # Last: setStyle/setStyleSheet reload the platform theme's per-class fonts (menus, labels),
     # and setFont without a class name clears them
+    app.setFont(_app_font())
+
+
+def _app_font() -> QFont:
     fonts = get_theme().fonts
-    app.setFont(QFont(fonts["family_default"], fonts["size_default"]))
+    return QFont(fonts["family_default"], fonts["size_default"])
+
+
+def hold_app_font(app: QApplication) -> QMetaObject.Connection:
+    """Put the fixed app font back whenever something replaces it, e.g. the platform theme
+    restoring the OS font on a theme change."""
+
+    def restore(font: QFont) -> None:
+        if font != _app_font():
+            app.setFont(_app_font())
+
+    return app.fontChanged.connect(restore)
 
 
 def apply_color_scheme(app: QApplication, scheme: Qt.ColorScheme) -> None:

@@ -7,7 +7,8 @@
 from __future__ import annotations
 
 import pytest
-from PySide6.QtGui import QColor, QPalette
+from PySide6.QtCore import QObject
+from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QMenu
 
 from tcalc.theme import get_theme
@@ -54,3 +55,18 @@ def test_app_font_is_fixed_from_config(qapp):
     finally:
         qapp.setFont(old_font)
         qapp.setStyleSheet("")
+
+
+def test_fixed_font_comes_back_when_replaced(qapp):
+    from tcalc.ui.styles import hold_app_font
+
+    old_font = qapp.font()
+    connection = hold_app_font(qapp)
+    try:
+        qapp.setFont(QFont("Monospace", 20))  # what a platform theme change does
+        fonts = get_theme().fonts
+        assert qapp.font().family() == fonts["family_default"]
+        assert qapp.font().pointSize() == fonts["size_default"]
+    finally:
+        QObject.disconnect(connection)
+        qapp.setFont(old_font)
