@@ -4,14 +4,21 @@ base = "light"
 
 [fonts]
 family_default = "Some Time Later"
-size_default = 13
-keypad_min_pt = 10
-keypad_max_pt = 18
+size_default = 18
+keypad_min_pt = 14
+keypad_max_pt = 20
+menu_size = 16
+picker_size = 18
+
+[color_usage]
+picker_text_color = "text_primary"
 
 [spacing]
 radius_small = 5
 radius_medium = 8
 radius_large = 14
+
+btn_radius = 40
 
 # Sponge holes (holes.svg, drawn for TCalc) on the yellow surfaces, the sea floor behind the whole window
 [[pictures]]
