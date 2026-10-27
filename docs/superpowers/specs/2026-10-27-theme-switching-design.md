@@ -141,14 +141,25 @@ The builder may find more; the table is a starting point, not a contract.
 
 ## How the switch reaches widgets
 
-Use Qt's own propagation (user asked for Qt best practice):
-- One central place owns the active theme. Switching loads the new color set,
-  then calls `app.setPalette(...)` and re-applies the app stylesheet.
-- `app.setPalette` makes Qt send `QEvent.ApplicationPaletteChange` to every
-  widget. Each place above re-applies its own style from `changeEvent` on that
-  event, instead of subscribing to a custom "theme changed" signal. A custom
-  signal is acceptable only for non-widget holders (e.g. a `QAction` icon) that
-  receive no such event; the builder picks the cleanest hook there.
+Central management (user requirement): style modules gain no theme code.
+- **State:** the user's choice (`light` / `dark` / `system`) lives in
+  `AppState` (`app_state.py`), persisted in QSettings. Qt is not used to hold
+  it: `QStyleHints.setColorScheme` is only a request to the platform theme and
+  was verified to be ignored on WSLg (scheme stays `Unknown`, no signal), so it
+  cannot be relied on. The OS scheme is read from
+  `QStyleHints.colorScheme()` and followed via `colorSchemeChanged`.
+- **One module owns switching** (e.g. `ui/theming.py`): resolve the variant,
+  load that color set, set the app palette and app stylesheet, then walk
+  `QApplication.allWidgets()` and re-run each widget's existing style function,
+  looked up in one table in that module (widget class -> style function, e.g.
+  `Keypad -> apply_keypad_style`). The existing `apply_*_style` functions are
+  called as they are.
+- **Inline colors:** where a widget computes a color inside its `__init__`
+  (side panel palette, `IconButton` icon, math-rendered `KeyButton` icon,
+  result fraction icon tint), that code is moved into a small function so the
+  table can call it. Moving only; no theme logic is added there.
+- `QAction` icons (menus) are not widgets; the module refreshes them too
+  (e.g. by the icon name stored on the action).
 
 Further constraints:
 - No widget is rebuilt or recreated just to restyle it, and app state
@@ -211,5 +222,5 @@ styling costs:
 - The concrete Light values (within the rules above), and the icon color key.
 - How the active set is stored in `config.toml` (e.g. `[theme.dark.colors]` /
   `[theme.light.colors]`) and how `Theme` / `get_theme()` expose it.
-- Which widget hosts each `changeEvent` hook, and the hook for non-widget icon holders.
+- The exact table entries and how menu action icons are found for refresh.
 - File naming for the light/dark variants of multi-color icons.
