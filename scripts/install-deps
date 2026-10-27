@@ -54,6 +54,8 @@ case $OS in
   check_and_ins "boost-devel"
   check_and_ins "python3-devel"
   check_and_ins "clang-tools-extra"
+  # Qt xcb platform plugin (Qt >= 6.5)
+  check_and_ins "xcb-util-cursor"
   ;;
 "ubuntu")
   check_and_ins "ninja-build"
@@ -62,6 +64,8 @@ case $OS in
   check_and_ins "python3-dev"
   check_and_ins "python3-venv"
   check_and_ins "clang-format"
+  # Qt xcb platform plugin (Qt >= 6.5)
+  check_and_ins "libxcb-cursor0"
   ;;
 "macos")
   if ! xcode-select -p >/dev/null 2>&1; then
