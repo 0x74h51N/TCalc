@@ -150,9 +150,9 @@ Use Qt's own propagation (user asked for Qt best practice):
   signal is acceptable only for non-widget holders (e.g. a `QAction` icon) that
   receive no such event; the builder picks the cleanest hook there.
 
-Further constraints: No widget is
-  rebuilt or recreated just to restyle it, and app state (expression, history,
-  layout, docks) is untouched by a switch.
+Further constraints:
+- No widget is rebuilt or recreated just to restyle it, and app state
+  (expression, history, layout, docks) is untouched by a switch.
 - Code style follows the repo: small, DRY, no special cases per icon name in
   `get_icon` beyond the tint/no-tint rule above.
 
