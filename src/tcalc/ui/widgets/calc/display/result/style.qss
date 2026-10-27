@@ -1,23 +1,23 @@
 QLabel#displayResult {
-    color: $text_primary;
+    color: $result_text_color;
 }
 
 QPushButton#fracToggleBtn {
-    background-color: $control_bg;
+    background-color: $fraction_button_color;
     border: none;
     border-radius: ${btn_radius}px;
 }
 QPushButton#fracToggleBtn:hover {
-    background-color: $control_bg_hover;
+    background-color: $fraction_button_hover_color;
 }
 QPushButton#fracToggleBtn:pressed {
-    background-color: $control_bg_pressed;
+    background-color: $fraction_button_pressed_color;
 }
 
 QLabel#statusLabel {
-    color: $text_secondary;
+    color: $status_text_color;
     font-style: italic;
 }
 QLabel#statusLabel[statusKind="error"] {
-    color: $status_error;
+    color: $status_error_text_color;
 }

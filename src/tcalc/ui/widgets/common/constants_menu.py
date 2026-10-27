@@ -63,6 +63,6 @@ def build_constant_menu(root: QMenu, on_select: Callable[[ConstEntry], None]) ->
         sub.setStyle(style)
         root.addMenu(sub)
         for entry in sorted(CONSTANTS_BY_CATEGORY[category], key=lambda e: e.name.lower()):
-            icon = theme_symbol_icon(entry.symbol, "text_primary")
+            icon = theme_symbol_icon(entry.symbol, "constants_menu_symbol_color")
             action = sub.addAction(icon, entry.name)
             action.triggered.connect(lambda _checked=False, e=entry: on_select(e))

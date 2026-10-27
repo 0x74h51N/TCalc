@@ -22,6 +22,132 @@ size_hint_height = 300
 calc_stretch = 3
 history_stretch = 1
 
+[color_usage]
+# Which theme color each place uses; a theme's [color_usage] can pick another one.
+# Values are color names from the theme's [colors], never colors.
+
+# Qt palette: widgets without a stylesheet (dialogs, scrollbars, line edits...)
+palette_window_color = "background"
+palette_window_text_color = "text_primary"
+palette_base_color = "background_dark"
+palette_text_color = "text_primary"
+palette_button_color = "background_light"
+palette_button_text_color = "text_primary"
+palette_highlight_color = "selection_background"
+palette_highlighted_text_color = "selection_text"
+
+# Icons
+icon_color = "icon"
+fraction_icon_color = "control_accent"
+key_symbol_color = "secondary_text"
+constants_menu_symbol_color = "text_primary"
+
+# Display
+display_background_color = "screen"
+expression_text_color = "text_secondary"
+expression_selection_color = "selection_background"
+expression_selection_text_color = "selection_text"
+expression_slot_focus_color = "background_light"
+radical_line_color = "selection_text"
+radical_symbol_color = "text_primary"
+result_text_color = "text_primary"
+status_text_color = "text_secondary"
+status_error_text_color = "status_error"
+fraction_button_color = "control_bg"
+fraction_button_hover_color = "control_bg_hover"
+fraction_button_pressed_color = "control_bg_pressed"
+
+# Memory buttons
+memory_button_color = "control_bg"
+memory_button_text_color = "control_accent"
+memory_button_hover_color = "control_bg_hover"
+memory_button_pressed_color = "control_bg_pressed"
+memory_button_disabled_color = "control_disabled_bg"
+memory_button_disabled_text_color = "control_disabled_text"
+
+# Keypad keys
+number_key_color = "secondary"
+number_key_text_color = "secondary_text"
+number_key_pressed_color = "secondary_hover"
+operator_key_color = "accent"
+operator_key_text_color = "accent_text"
+operator_key_pressed_color = "accent_hover"
+action_key_color = "action"
+action_key_text_color = "action_text"
+action_key_pressed_color = "action_hover"
+equals_key_color = "primary"
+equals_key_text_color = "primary_text"
+equals_key_pressed_color = "primary_hover"
+equals_key_border_color = "border_focus"
+trig_key_color = "action"
+trig_key_text_color = "action_text"
+trig_key_pressed_color = "action_hover"
+function_key_color = "accent"
+function_key_text_color = "accent_text"
+function_key_pressed_color = "accent_hover"
+power_key_color = "secondary"
+power_key_text_color = "secondary_text"
+power_key_pressed_color = "secondary_hover"
+key_hover_border_color = "accent_text"
+key_checked_color = "action_hover"
+key_disabled_color = "control_disabled_bg"
+key_disabled_text_color = "control_disabled_text"
+
+# Custom pad
+add_key_color = "control"
+add_key_hover_color = "control_hover"
+spinbox_color = "control"
+spinbox_text_color = "text_primary"
+spinbox_focus_border_color = "control_accent"
+pad_toolbar_separator_color = "control"
+pad_menu_background_color = "background_medium"
+pad_menu_text_color = "text_primary"
+pad_menu_border_color = "border_light"
+pad_menu_selected_color = "selection_background"
+pad_menu_separator_color = "control"
+picker_background_color = "background_medium"
+picker_border_color = "border_light"
+picker_list_background_color = "background_dark"
+picker_text_color = "text_primary"
+picker_hover_color = "selection_background"
+
+# Menus
+menu_background_color = "background_medium"
+menu_text_color = "text_primary"
+menu_border_color = "border_light"
+menu_selected_color = "selection_background"
+menu_selected_text_color = "selection_text"
+menu_selected_border_color = "border_focus"
+menu_disabled_text_color = "text_secondary"
+menu_separator_color = "border_light"
+
+# History
+history_background_color = "background_dark"
+history_text_color = "text_secondary"
+history_row_color = "background_dark_alt"
+history_alternate_row_color = "background_dark"
+history_selected_color = "selection_background"
+history_selected_text_color = "selection_text"
+
+# Option groups (Deg/Rad/Grad, Math/Flat/Raw...), icon buttons, tooltips, toasts
+option_text_color = "text_secondary"
+option_hover_color = "option_hover_bg"
+option_checked_color = "option_checked_bg"
+option_checked_text_color = "control_accent"
+icon_button_color = "background_light"
+icon_button_text_color = "text_primary"
+icon_button_hover_color = "selection_background"
+icon_button_pressed_color = "background_dark"
+icon_button_light_color = "selection_background"
+icon_button_shadow_color = "background_dark"
+tooltip_background_color = "background_dark"
+tooltip_border_color = "border_light"
+tooltip_text_color = "text_secondary"
+toast_text_color = "text_primary"
+toast_info_color = "toast_info_bg"
+toast_warn_color = "toast_warn_bg"
+toast_error_color = "toast_error_bg"
+
 [fonts]
 # Fixed app font, independent of the theme and of desktop font settings (e.g. GTK's)
 family_default = "Sans Serif"
@@ -203,7 +329,6 @@ btn_padding = 6
 btn_radius = 4
 
 frac_icon = "frac"
-frac_icon_tint = "control_accent"
 decimal_icon = "decimal"
 
 [calc.topbar]

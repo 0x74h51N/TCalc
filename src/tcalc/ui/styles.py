@@ -21,12 +21,13 @@ def _ints(table: dict[str, object], prefix: str = "") -> dict[str, str]:
 
 
 def _build_subs() -> dict[str, str]:
-    """Template substitutions: the active theme's colors and the layout numbers the stylesheets
-    use (the theme's [spacing] overrides the config's)."""
+    """Template substitutions: the active theme's colors, the color each place uses, and the
+    layout numbers the stylesheets use (the theme's [spacing] overrides the config's)."""
     theme = get_theme()
     og = ui_style["option_group"]
     return {
         **{k: str(v) for k, v in theme.colors.items()},
+        **{place: theme.color(place) for place in theme.color_usage},
         "tooltip_padding": str(int(ui_style["tooltip_padding"])),
         "icon_padding": "4",
         "option_padding_y": str(int(og["padding_y"])),
@@ -55,19 +56,21 @@ def _build_stylesheet() -> str:
 def _build_palette() -> QPalette:
     """Map theme tokens onto Qt palette roles, so un-styled widgets don't fall back to the OS
     scheme (a light OS theme would otherwise leak into dialogs, menus, scrollbars...)."""
-    c = get_theme().colors
+    theme = get_theme()
     role = QPalette.ColorRole
     # (button, window) constructor derives the 3D shades and disabled colors itself
-    palette = QPalette(QColor(c["background_light"]), QColor(c["background"]))
-    for r, token in (
-        (role.WindowText, "text_primary"),
-        (role.Base, "background_dark"),
-        (role.Text, "text_primary"),
-        (role.ButtonText, "text_primary"),
-        (role.Highlight, "selection_background"),
-        (role.HighlightedText, "selection_text"),
+    palette = QPalette(
+        QColor(theme.color("palette_button_color")), QColor(theme.color("palette_window_color"))
+    )
+    for r, place in (
+        (role.WindowText, "palette_window_text_color"),
+        (role.Base, "palette_base_color"),
+        (role.Text, "palette_text_color"),
+        (role.ButtonText, "palette_button_text_color"),
+        (role.Highlight, "palette_highlight_color"),
+        (role.HighlightedText, "palette_highlighted_text_color"),
     ):
-        palette.setColor(r, QColor(c[token]))
+        palette.setColor(r, QColor(theme.color(place)))
     return palette
 
 

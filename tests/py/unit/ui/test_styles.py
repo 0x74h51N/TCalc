@@ -90,6 +90,16 @@ def test_theme_sets_the_picker_font_size(styled, monkeypatch):
     assert view.font().pointSize() == 17
 
 
+def test_theme_picks_which_color_a_place_uses(styled, monkeypatch):
+    monkeypatch.setitem(get_theme().color_usage, "picker_text_color", "accent_text")
+    styled.setStyleSheet(_build_stylesheet())
+    picker = SearchablePicker([("sin", None)])
+    view = picker.findChild(QListView)
+    view.ensurePolished()
+    text = view.palette().color(QPalette.ColorRole.Text)
+    assert text == QColor(get_theme().colors["accent_text"])
+
+
 def test_custom_pad_picker_items_use_the_picker_text_color(styled, monkeypatch, tmp_path):
     monkeypatch.setattr(
         "tcalc.ui.widgets.keypad.custom_pad.QSettings",

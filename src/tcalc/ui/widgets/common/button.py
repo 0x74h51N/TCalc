@@ -33,7 +33,7 @@ class KeyButton(QPushButton):
     def __init__(self, key_def: KeyDef, role: str, parent: QWidget | None = None) -> None:
         if needs_math_render(key_def.label):
             super().__init__("", parent)
-            self.setIcon(theme_symbol_icon(key_def.label, "secondary_text"))
+            self.setIcon(theme_symbol_icon(key_def.label, "key_symbol_color"))
             self.setIconSize(ICON_BOX)
         else:
             super().__init__(key_def.label, parent)

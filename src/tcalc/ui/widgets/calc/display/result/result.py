@@ -83,7 +83,7 @@ class Result(QWidget):
             tooltip=self._frac_btn_tooltip,
             size=btn_size,
             padding=btn_padding,
-            tint_key=self._config["frac_icon_tint"],
+            tint_key="fraction_icon_color",
             parent=self,
         )
         self._frac_btn.setObjectName("fracToggleBtn")

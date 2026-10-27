@@ -1,88 +1,88 @@
 QWidget[uiRole="keypad"] QPushButton[keypadRole] {
-    background-color: $secondary;
-    color: $secondary_text;
+    background-color: $number_key_color;
+    color: $number_key_text_color;
     border-radius: ${radius_small}px;
     padding: ${button_padding}px;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole]:hover {
-    border: 1px solid $accent_text;
+    border: 1px solid $key_hover_border_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole]:pressed,
 QWidget[uiRole="keypad"] QPushButton[keypadRole][pressed="true"] {
-    background-color: $secondary_hover;
+    background-color: $number_key_pressed_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole]:disabled {
-    background-color: $control_disabled_bg;
-    color: $control_disabled_text;
-    border-color: $control_disabled_bg;
+    background-color: $key_disabled_color;
+    color: $key_disabled_text_color;
+    border-color: $key_disabled_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole]:checked {
-    background-color: $action_hover;
+    background-color: $key_checked_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="operator"] {
-    background-color: $accent;
-    color: $accent_text;
+    background-color: $operator_key_color;
+    color: $operator_key_text_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="operator"]:pressed,
 QWidget[uiRole="keypad"] QPushButton[keypadRole="operator"][pressed="true"] {
-    background-color: $accent_hover;
+    background-color: $operator_key_pressed_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="action"] {
-    background-color: $action;
-    color: $action_text;
+    background-color: $action_key_color;
+    color: $action_key_text_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="action"]:pressed,
 QWidget[uiRole="keypad"] QPushButton[keypadRole="action"][pressed="true"] {
-    background-color: $action_hover;
+    background-color: $action_key_pressed_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="equals"] {
-    background-color: $primary;
-    color: $primary_text;
-    border-color: $border_focus;
+    background-color: $equals_key_color;
+    color: $equals_key_text_color;
+    border-color: $equals_key_border_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="equals"]:pressed,
 QWidget[uiRole="keypad"] QPushButton[keypadRole="equals"][pressed="true"] {
-    background-color: $primary_hover;
+    background-color: $equals_key_pressed_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="trig"] {
-    background-color: $action;
-    color: $action_text;
+    background-color: $trig_key_color;
+    color: $trig_key_text_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="trig"]:pressed,
 QWidget[uiRole="keypad"] QPushButton[keypadRole="trig"][pressed="true"] {
-    background-color: $action_hover;
+    background-color: $trig_key_pressed_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="function"] {
-    background-color: $accent;
-    color: $accent_text;
+    background-color: $function_key_color;
+    color: $function_key_text_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="function"]:pressed,
 QWidget[uiRole="keypad"] QPushButton[keypadRole="function"][pressed="true"] {
-    background-color: $accent_hover;
+    background-color: $function_key_pressed_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="power"] {
-    background-color: $secondary;
-    color: $secondary_text;
+    background-color: $power_key_color;
+    color: $power_key_text_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="power"]:pressed,
 QWidget[uiRole="keypad"] QPushButton[keypadRole="power"][pressed="true"] {
-    background-color: $secondary_hover;
+    background-color: $power_key_pressed_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="trig"],
@@ -93,65 +93,65 @@ QWidget[uiRole="keypad"] QPushButton[keypadRole="power"] {
 
 /* Custom pad toolbar */
 KSSpinBox {
-    background-color: $control;
-    color: $text_primary;
+    background-color: $spinbox_color;
+    color: $spinbox_text_color;
     border-radius: ${radius_small}px;
     padding: 1px 2px;
 }
 
 KSSpinBox:hover,
 KSSpinBox:focus {
-    border: 1px solid $control_accent;
+    border: 1px solid $spinbox_focus_border_color;
 }
 
 /* Custom pad context menu */
 QMenu[customPadMenu="true"] {
-    background-color: $background_medium;
-    color: $text_primary;
-    border: 1px solid $border_light;
+    background-color: $pad_menu_background_color;
+    color: $pad_menu_text_color;
+    border: 1px solid $pad_menu_border_color;
 }
 
 QMenu[customPadMenu="true"]::item:selected {
-    background-color: $selection_background;
+    background-color: $pad_menu_selected_color;
 }
 
 /* Searchable picker popup */
 SearchablePicker {
-    background-color: $background_medium;
-    border: 1px solid $border_light;
+    background-color: $picker_background_color;
+    border: 1px solid $picker_border_color;
 }
 
 SearchablePicker QLineEdit {
-    background-color: $background_dark;
-    color: $text_primary;
+    background-color: $picker_list_background_color;
+    color: $picker_text_color;
     font-size: ${picker_font_size}pt;
-    border: 1px solid $border_light;
+    border: 1px solid $picker_border_color;
     padding: 2px 4px;
 }
 
 SearchablePicker QListView {
-    background-color: $background_dark;
-    color: $text_primary;
+    background-color: $picker_list_background_color;
+    color: $picker_text_color;
     font-size: ${picker_font_size}pt;
     border: none;
 }
 
 SearchablePicker QListView::item:hover {
-    background-color: $selection_background;
+    background-color: $picker_hover_color;
 }
 
 QMenu[customPadMenu="true"]::separator {
-    background-color: $control;
+    background-color: $pad_menu_separator_color;
 }
 
 QFrame#toolbarSeparator {
-    color: $control;
+    color: $pad_toolbar_separator_color;
 }
 
 QPushButton[addButton="true"] {
-    background-color: $control;
+    background-color: $add_key_color;
 }
 
 QPushButton[addButton="true"]:hover {
-    background-color: $control_hover;
+    background-color: $add_key_hover_color;
 }

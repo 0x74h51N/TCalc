@@ -74,8 +74,7 @@ def render_symbol(symbol: str, color: QColor, box: QSize) -> QIcon:
     return icon
 
 
-def theme_symbol_icon(symbol: str, color_key: str) -> QIcon:
-    """*symbol* drawn in theme color *color_key*; follows theme switches on its own."""
-    return theme_icon(
-        lambda: render_symbol(symbol, QColor(get_theme().colors[color_key]), ICON_BOX)
-    )
+def theme_symbol_icon(symbol: str, place: str) -> QIcon:
+    """*symbol* drawn in the color *place* uses (a [color_usage] name); follows theme switches
+    on its own."""
+    return theme_icon(lambda: render_symbol(symbol, QColor(get_theme().color(place)), ICON_BOX))

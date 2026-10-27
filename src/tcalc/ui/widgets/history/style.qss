@@ -1,24 +1,24 @@
 QListWidget[uiRole="historyList"] {
-    background: $background_dark;
+    background: $history_background_color;
     border: none;
     outline: none;
-    color: $text_secondary;
+    color: $history_text_color;
 }
 
 QListWidget[uiRole="historyList"]::item {
     border: none;
     padding: 0px;
     text-align: right;
-    background: $background_dark_alt;
+    background: $history_row_color;
 }
 
 QListWidget[uiRole="historyList"]::item:alternate {
-    background: $background_dark;
+    background: $history_alternate_row_color;
 }
 
 QListWidget[uiRole="historyList"]::item:selected {
-    background: $selection_background;
-    color: $selection_text;
+    background: $history_selected_color;
+    color: $history_selected_text_color;
 }
 
 /* HistoryItem expression slot */

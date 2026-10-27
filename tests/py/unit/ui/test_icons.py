@@ -141,10 +141,10 @@ def test_red_icon_stays_red_after_switch():
 @pytest.mark.usefixtures("qapp")
 def test_tint_key_follows_a_switch():
     load_theme("dark")
-    icon = get_icon("frac", tint_key="control_accent")
+    icon = get_icon("frac", tint_key="fraction_icon_color")
     load_theme("light")
     try:
-        assert _opaque_color(icon) == QColor(get_theme().colors["control_accent"])
+        assert _opaque_color(icon) == QColor(get_theme().color("fraction_icon_color"))
     finally:
         load_theme("dark")
 

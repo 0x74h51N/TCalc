@@ -10,6 +10,8 @@ from typing import Any
 import tomllib
 from PySide6.QtCore import Qt
 
+from tcalc.ui.config import color_usage_config
+
 # Built-in themes ship with the package: tcalc/themes/<variant>.toml
 BUILT_IN_DIR = Path(__file__).parent / "themes"
 BUILT_IN_VARIANTS = ("light", "dark")
@@ -154,6 +156,7 @@ class Theme:
     pictures: tuple[ThemePicture, ...]
     fonts: dict[str, Any]
     colors: dict[str, Any]
+    color_usage: dict[str, str]
     spacing: dict[str, Any]
 
     def __init__(self, variant: str = "dark"):
@@ -172,7 +175,17 @@ class Theme:
         # Overrides of the UI config's [fonts]
         self.fonts = {**base.get("fonts", {}), **data.get("fonts", {})}
         self.colors = {**base.get("colors", {}), **data.get("colors", {})}
+        # Which color each place uses: the UI config's [color_usage] with the theme's overrides
+        self.color_usage = {
+            **color_usage_config,
+            **base.get("color_usage", {}),
+            **data.get("color_usage", {}),
+        }
         self.spacing = {**base.get("spacing", {}), **data.get("spacing", {})}
+
+    def color(self, place: str) -> str:
+        """The color *place* uses (a [color_usage] name)."""
+        return self.colors[self.color_usage[place]]
 
     @property
     def scheme(self) -> Qt.ColorScheme:

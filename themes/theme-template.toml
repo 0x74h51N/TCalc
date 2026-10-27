@@ -68,6 +68,17 @@
 # Translucent key colors (rgba with alpha < 100%) let a keypad picture show through.
 
 
+# --- Color usage ----------------------------------------------------------------------
+# Which of the colors below each place uses. Every place and its default color is listed in
+# src/tcalc/ui/config.toml [color_usage]; copy the lines you want here and pick another color
+# name. The value is a color name, not a color.
+
+# [color_usage]
+# picker_text_color = "text_primary"     # Add Operation picker items
+# history_row_color = "background_dark_alt"
+# operator_key_text_color = "accent_text"
+
+
 # --- Colors -----------------------------------------------------------------------------
 
 # [colors]
