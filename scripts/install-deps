@@ -12,62 +12,88 @@ elif [ -f /etc/debian_version ]; then
   OS="ubuntu"
 fi
 
-# --- Helper ---
-check_and_ins() {
-  local cmd=$1
-  local pkg=$2
-  [[ -z "$pkg" ]] && pkg=$cmd
+if [[ "$OS" == "macos" ]] && ! command -v brew >/dev/null 2>&1; then
+  echo "Homebrew not found, install it first: https://brew.sh"
+  exit 1
+fi
 
-  if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "$cmd not installed, installing $pkg..."
+# --- Helper ---
+# Ask the package manager, so packages without a command (headers, python modules) work too
+check_and_ins() {
+  local pkg=$1
+  local installed=1
+  case $OS in
+  "fedora") rpm -q "$pkg" >/dev/null 2>&1 || installed=0 ;;
+  "ubuntu") dpkg -s "$pkg" >/dev/null 2>&1 || installed=0 ;;
+  "macos") brew list "$pkg" >/dev/null 2>&1 || installed=0 ;;
+  esac
+
+  if [[ $installed == 0 ]]; then
+    echo "$pkg not installed, installing..."
     case $OS in
     "fedora") sudo dnf install -y "$pkg" ;;
     "ubuntu") sudo apt update && sudo apt install -y "$pkg" ;;
     "macos") brew install "$pkg" ;;
     esac
   else
-    echo "$cmd ready to use"
+    echo "$pkg ready to use"
   fi
 }
 
+# Python: any python3 >= 3.11 on PATH will do, don't install a second one next to pyenv/system python
+# (macOS ships 3.9 with the Xcode CLI tools, too old for pyproject's requires-python)
+py_ok() { python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' 2>/dev/null; }
+
+if ! py_ok; then
+  case $OS in
+  "macos") check_and_ins "python@3.13" ;;
+  *) check_and_ins "python3" ;;
+  esac
+  hash -r
+  if ! py_ok; then
+    echo "python3 >= 3.11 is required, found: $(python3 --version 2>&1)"
+    exit 1
+  fi
+fi
+echo "python3 ready to use"
+
 # Native deps check
 # -----------------------------
-
 check_and_ins "cmake"
-check_and_ins "ninja"
+check_and_ins "entr"
 
-if [[ "$OS" == "fedora" ]]; then
-  check_and_ins "g++" "gcc-c++"
-elif [[ "$OS" == "ubuntu" ]]; then
-  check_and_ins "g++" "g++"
-elif [[ "$OS" == "macos" ]]; then
+case $OS in
+"fedora")
+  check_and_ins "ninja-build"
+  check_and_ins "gcc-c++"
+  check_and_ins "boost-devel"
+  check_and_ins "python3-devel"
+  check_and_ins "clang-tools-extra"
+  # Qt xcb platform plugin (Qt >= 6.5)
+  check_and_ins "xcb-util-cursor"
+  ;;
+"ubuntu")
+  check_and_ins "ninja-build"
+  check_and_ins "g++"
+  check_and_ins "libboost-dev"
+  check_and_ins "python3-dev"
+  check_and_ins "python3-venv"
+  check_and_ins "clang-format"
+  # Qt xcb platform plugin (Qt >= 6.5)
+  check_and_ins "libxcb-cursor0"
+  ;;
+"macos")
   if ! xcode-select -p >/dev/null 2>&1; then
     echo "Installing Xcode Command Line Tools..."
     xcode-select --install
   else
     echo "Xcode CLI tools ready"
   fi
-fi
-
-# Boost headers
-if [[ "$OS" == "fedora" ]]; then
-  check_and_ins "boost" "boost-devel"
-elif [[ "$OS" == "ubuntu" ]]; then
-  check_and_ins "boost" "libboost-dev"
-elif [[ "$OS" == "macos" ]]; then
+  check_and_ins "ninja"
   check_and_ins "boost"
-fi
-
-check_and_ins "entr"
-
-# Python + devel check
-# -----------------------------
-check_and_ins "python3" "python3"
-if [[ "$OS" == "fedora" ]]; then
-  check_and_ins "python3-config" "python3-devel"
-elif [[ "$OS" == "ubuntu" ]]; then
-  check_and_ins "python3-config" "python3-dev"
-fi
+  check_and_ins "clang-format"
+  ;;
+esac
 
 # venv check
 # -----------------------------
