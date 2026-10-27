@@ -16,7 +16,7 @@ class ThemeMode(Enum):
     LIGHT = "light"
     DARK = "dark"
     SYSTEM = "system"
-    KITTY = "kitty"  # experimental custom theme
+    KITTY = "kitty"  # bundled example custom theme
 
     @property
     def scheme(self) -> Qt.ColorScheme:

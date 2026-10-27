@@ -83,14 +83,15 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
                 fn=lambda ops: ops.set_theme(ThemeMode.SYSTEM),
                 theme=ThemeMode.SYSTEM,
             ),
+            MenuSeparatorItem(),
+            # Bundled example custom theme
             MenuActionItem(
-                text="Hello Kitty (Experimental)",
+                text="Hello Kitty",
                 checkable=True,
                 item_type=MenuActionType.OPS,
                 fn=lambda ops: ops.set_theme(ThemeMode.KITTY),
                 theme=ThemeMode.KITTY,
             ),
-            MenuSeparatorItem(),
             MenuActionItem(
                 text="Add Custom Theme...",
                 enabled=False,

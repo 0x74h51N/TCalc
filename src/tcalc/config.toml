@@ -142,7 +142,7 @@ toast_info_bg = "rgba(220, 223, 230, 90%)"
 toast_warn_bg = "rgba(183, 121, 31, 25%)"
 toast_error_bg = "rgba(198, 40, 40, 20%)"
 
-# Experimental custom theme: Hello Kitty (white, pinks, bow red); light-based
+# Bundled example custom theme: Hello Kitty (white, pinks, bow red); light-based
 [theme.kitty]
 base = "light"
 # Picture behind the main keypad; shown only when the file exists

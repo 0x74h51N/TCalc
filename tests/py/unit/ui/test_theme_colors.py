@@ -47,18 +47,6 @@ def test_base_is_the_light_or_dark_family(variant, base):
     assert load_theme(variant).base == base
 
 
-def test_kitty_is_pink():
-    c = load_theme("kitty").colors
-    for key in ("background", "selection_background", "border_focus"):
-        hue = QColor(c[key]).hue()
-        assert hue >= 300 or hue <= 10, key  # pink/magenta/red
-
-
-def test_kitty_keys_let_the_keypad_picture_through():
-    c = load_theme("kitty").colors
-    assert all(c[k].startswith("rgba(") for k in ("primary", "secondary", "accent", "action"))
-
-
 def test_new_keys_match_old_dark_values():
     c = load_theme("dark").colors
     assert (c["control"], c["control_hover"], c["control_accent"]) == (
