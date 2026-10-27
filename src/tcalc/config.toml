@@ -1,6 +1,6 @@
 # Root config - app-wide settings and theme
 
-[theme.colors]
+[theme.dark.colors]
 # Primary colors
 primary = "#4a4f5a"
 primary_hover = "#3e434d"
@@ -50,6 +50,75 @@ status_success = "#9bdc8c"
 # Selection colors
 selection_background = "#3a3d47"
 selection_text = "#ffffff"
+
+# Non-keypad controls (option groups, separators, memory/frac buttons)
+control = "#343842"
+control_hover = "#2a2c33"
+control_accent = "#f3d199"
+
+# Single-color icon tint
+icon = "#fcfcfc"
+
+
+[theme.light.colors]
+# Keypad button families keep their dark values for now
+# Primary colors
+primary = "#4a4f5a"
+primary_hover = "#3e434d"
+primary_text = "#ffffff"
+
+# Secondary colors
+secondary = "#3f4450"
+secondary_hover = "#2a2c33"
+secondary_text = "#f0f2ff"
+
+# Accent colors
+accent = "#343842"
+accent_hover = "#3f4450"
+accent_text = "#f3d199"
+
+# Action colors
+action = "#2f353d"
+action_hover = "#252a31"
+action_text = "#a6c7ff"
+
+# Background colors
+background_dark = "#FFFFFF"
+background_dark_alt = "#F7F8FA"
+background_medium = "#ECEDF1"
+background_light = "#DCDFE6"
+background = "#F4F5F7"
+foreground = "#1E1F24"
+
+# Text colors
+text_primary = "#1E1F24"
+text_secondary = "#4A4D57"
+text_muted = "#7A7D88"
+text_tertiary = "#7A7D88"
+
+# Border colors
+border_default = "#C4C7CF"
+border_light = "#D5D8DF"
+border_focus = "#8A8F9C"
+border_dark = "#B4B8C2"
+
+# Status colors
+status_warn = "#B7791F"
+status_error = "#C62828"
+status_info = "#2B6CB0"
+status_success = "#2F855A"
+
+# Selection colors
+selection_background = "#D6DEEE"
+selection_text = "#1E1F24"
+
+# Non-keypad controls (option groups, separators, memory/frac buttons)
+control = "#DCDFE6"
+control_hover = "#E6E8ED"
+control_accent = "#9A6B12"
+
+# Single-color icon tint
+icon = "#232629"
 
 
 [theme.spacing]

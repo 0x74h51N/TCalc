@@ -27,9 +27,9 @@ tooltip_padding = 2
 
 # OptionGroup (reusable radio-button group) style
 [style.option_group]
-checked_base = "accent"
+checked_base = "control"
 checked_alpha = 0.25
-hover_base = "secondary_hover"
+hover_base = "control_hover"
 hover_alpha = 0.35
 padding_y = 4
 padding_x = 10
@@ -165,15 +165,15 @@ picker_list_bg = "background_dark"
 picker_list_hover = "selection_background"
 picker_list_text = "text_primary"
 
-spin_bg = "accent"
-spin_text = "secondary_text"
-spin_focus_border = "accent_text"
+spin_bg = "control"
+spin_text = "text_primary"
+spin_focus_border = "control_accent"
 
-separator = "accent"
-toolbar_separator = "accent"
+separator = "control"
+toolbar_separator = "control"
 
-add_button_bg = "accent"
-add_button_hover_bg = "secondary_hover"
+add_button_bg = "control"
+add_button_hover_bg = "control_hover"
 
 key_bg = "secondary"
 key_text = "secondary_text"
@@ -221,8 +221,8 @@ compact_pad_y = 4
 compact_pad_x = 8
 
 [calc.style.colors]
-disabled_bg = ["secondary_hover", 0.1]
-disabled_text = ["accent_text", 0.3]
+disabled_bg = ["control_hover", 0.1]
+disabled_text = ["control_accent", 0.3]
 
 [calc.display]
 margin = 10
@@ -258,10 +258,10 @@ frac_icon = "frac"
 decimal_icon = "decimal"
 
 [calc.display.result.colors]
-frac_bg = ["accent", 0.2]
-frac_bg_hover = ["accent", 0.28]
-frac_bg_pressed = ["accent", 0.38]
-frac_icon = ["accent_text", 1.0]
+frac_bg = ["control", 0.2]
+frac_bg_hover = ["control", 0.28]
+frac_bg_pressed = ["control", 0.38]
+frac_icon = ["control_accent", 1.0]
 status_info = ["text_secondary", 1.0]
 status_error = ["status_error", 1.0]
 
@@ -278,11 +278,11 @@ memory_pad_x = 14
 
 # Memory button colors: [base, alpha] pairs  (base = theme color key)
 [calc.topbar.memory_colors]
-memory_bg = ["accent", 0.2]
-memory_bg_hover = ["accent", 0.28]
-memory_bg_pressed = ["accent", 0.38]
-memory_disabled_bg = ["secondary_hover", 0.1]
-memory_disabled_text = ["accent_text", 0.3]
+memory_bg = ["control", 0.2]
+memory_bg_hover = ["control", 0.28]
+memory_bg_pressed = ["control", 0.38]
+memory_disabled_bg = ["control_hover", 0.1]
+memory_disabled_text = ["control_accent", 0.3]
 
 # ---------------------------------------------------------------------------
 # Menu bar

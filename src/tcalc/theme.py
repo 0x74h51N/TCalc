@@ -11,14 +11,17 @@ import tomllib
 class Theme:
     """Central theme configuration loaded from config.toml."""
 
+    variant: str
     colors: dict[str, Any]
     spacing: dict[str, Any]
     fonts: dict[str, Any]
 
-    def __init__(self):
+    def __init__(self, variant: str = "dark"):
         config = self._load_config()
         theme_data: dict[str, Any] = config["theme"]
-        self.colors = theme_data["colors"]
+        self.variant = variant
+        # Only the active variant's colors are kept
+        self.colors = theme_data[variant]["colors"]
         self.spacing = theme_data["spacing"]
         self.fonts = theme_data["fonts"]
 
@@ -38,4 +41,11 @@ def get_theme() -> Theme:
     global _theme_instance
     if _theme_instance is None:
         _theme_instance = Theme()
+    return _theme_instance
+
+
+def load_theme(variant: str) -> Theme:
+    """Replace the global theme with *variant* ("dark" or "light")."""
+    global _theme_instance
+    _theme_instance = Theme(variant)
     return _theme_instance
