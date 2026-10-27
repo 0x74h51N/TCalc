@@ -15,35 +15,6 @@ from tcalc.theme import get_theme, load_theme
 
 UI_CONFIG = Path(__file__).parents[4] / "src" / "tcalc" / "ui" / "config.toml"
 
-# Non-keypad entries that must not reference the (theme-independent) button families
-REMAPPED = {
-    ("style", "option_group"): ("checked_base", "hover_base"),
-    ("keypad", "custom", "colors"): (
-        "spin_bg",
-        "spin_text",
-        "spin_focus_border",
-        "separator",
-        "toolbar_separator",
-        "add_button_bg",
-        "add_button_hover_bg",
-    ),
-    ("calc", "style", "colors"): ("disabled_bg", "disabled_text"),
-    ("calc", "display", "result", "colors"): (
-        "frac_bg",
-        "frac_bg_hover",
-        "frac_bg_pressed",
-        "frac_icon",
-    ),
-    ("calc", "topbar", "memory_colors"): (
-        "memory_bg",
-        "memory_bg_hover",
-        "memory_bg_pressed",
-        "memory_disabled_bg",
-        "memory_disabled_text",
-    ),
-}
-BUTTON_KEYS = {"accent", "accent_text", "secondary_hover", "secondary_text"}
-
 
 @pytest.fixture(autouse=True)
 def _restore_dark():
@@ -77,14 +48,59 @@ def test_new_keys_match_old_dark_values():
     )
 
 
-def test_non_keypad_entries_use_theme_following_keys():
+def _values(table):
+    for value in table.values():
+        if isinstance(value, dict):
+            yield from _values(value)
+        else:
+            yield value
+
+
+def test_no_alpha_pairs_left_in_ui_config():
     with open(UI_CONFIG, "rb") as f:
         config = tomllib.load(f)
-    for path, keys in REMAPPED.items():
-        section = config
-        for part in path:
-            section = section[part]
-        for key in keys:
-            value = section[key]
-            base = value[0] if isinstance(value, list) else value
-            assert base not in BUTTON_KEYS, f"{'.'.join(path)}.{key} = {base}"
+    pairs = [
+        v
+        for v in _values(config)
+        if isinstance(v, list) and len(v) == 2 and isinstance(v[1], float)
+    ]
+    assert pairs == []
+
+
+def test_alpha_helper_is_gone():
+    import tcalc.ui.utils
+
+    assert not hasattr(tcalc.ui.utils, "rgba")
+
+
+def test_dark_alpha_values_match_old_look():
+    c = load_theme("dark").colors
+    assert c["control_bg"] == "rgba(52, 56, 66, 20%)"
+    assert c["toast_error_bg"] == "rgba(217, 64, 64, 55%)"
+
+
+@pytest.mark.usefixtures("qapp")
+@pytest.mark.parametrize("variant", ["dark", "light"])
+def test_every_qss_placeholder_resolves(variant):
+    from PySide6.QtWidgets import QListWidget, QMenuBar, QWidget
+
+    from tcalc.ui.manubar.style import apply_menu_styles
+    from tcalc.ui.styles import _load_common_qss
+    from tcalc.ui.widgets.calc.display.result.style import apply_style
+    from tcalc.ui.widgets.calc.display.style import apply_display_style
+    from tcalc.ui.widgets.calc.topbar.style import apply_topbar_style
+    from tcalc.ui.widgets.history.style import apply_history_style
+    from tcalc.ui.widgets.keypad.style import apply_keypad_style
+
+    load_theme(variant)
+    sheets = [_load_common_qss()]
+    menubar, history = QMenuBar(), QListWidget()
+    apply_menu_styles(menubar)
+    apply_history_style(history)
+    sheets += [menubar.styleSheet(), history.styleSheet()]
+    for apply in (apply_style, apply_display_style, apply_topbar_style, apply_keypad_style):
+        w = QWidget()
+        apply(w)
+        sheets.append(w.styleSheet())
+    leftovers = [line for sheet in sheets for line in sheet.splitlines() if "$" in line]
+    assert leftovers == []

@@ -9,7 +9,6 @@ from PySide6.QtWidgets import QApplication, QWidget
 
 from ..theme import get_theme, load_theme
 from .config import style as ui_style
-from .utils import rgba
 
 _STYLES_DIR = Path(__file__).parent / "styles"
 
@@ -28,8 +27,6 @@ def build_subs() -> dict[str, str]:
     subs["icon_padding"] = "4"
     subs["option_padding_y"] = str(int(og["padding_y"]))
     subs["option_padding_x"] = str(int(og["padding_x"]))
-    subs["option_checked_bg"] = rgba(c[og["checked_base"]], float(og["checked_alpha"]))
-    subs["option_hover_bg"] = rgba(c[og["hover_base"]], float(og["hover_alpha"]))
 
     return subs
 

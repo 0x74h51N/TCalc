@@ -3,7 +3,6 @@ from __future__ import annotations
 from enum import Enum, auto
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QLabel, QWidget
 
 from tcalc.theme import get_theme
@@ -17,20 +16,11 @@ class ToastLevel(Enum):
     ERROR = auto()
 
 
-_TOAST_ALPHA = 140
-
-
-def _bg_for_level(level: ToastLevel) -> str:
-    """Return an rgba() background string for the given toast level."""
-    theme = get_theme()
-    color_map: dict[ToastLevel, str] = {
-        ToastLevel.INFO: theme.colors["background_light"],
-        ToastLevel.WARN: theme.colors["status_warn"],
-        ToastLevel.ERROR: theme.colors["status_error"],
-    }
-    hex_color = color_map[level]
-    c = QColor(hex_color)
-    return f"rgba({c.red()}, {c.green()}, {c.blue()}, {_TOAST_ALPHA})"
+_BG_KEYS: dict[ToastLevel, str] = {
+    ToastLevel.INFO: "toast_info_bg",
+    ToastLevel.WARN: "toast_warn_bg",
+    ToastLevel.ERROR: "toast_error_bg",
+}
 
 
 class Toaster(QLabel):
@@ -76,7 +66,7 @@ class Toaster(QLabel):
         self._fade_anim.stop()
 
         theme = get_theme()
-        bg = _bg_for_level(level)
+        bg = theme.colors[_BG_KEYS[level]]
         text_color = theme.colors["text_primary"]
 
         self.setText(message)

@@ -78,8 +78,7 @@ class Result(QWidget):
         self._row_layout.addWidget(self._res_slot, 1)
         btn_size = self._config["btn_size"]
         btn_padding = self._config["btn_padding"]
-        icon_base, _ = self._config["colors"]["frac_icon"]
-        icon_tint = get_theme().colors[icon_base]
+        icon_tint = get_theme().colors[self._config["frac_icon_tint"]]
         self._frac_btn_tooltip = "Show as fraction"
         self._decimal_tooltip = "Show as decimal"
         self._frac_btn = IconButton(

@@ -3,19 +3,19 @@ QLabel#displayResult {
 }
 
 QPushButton#fracToggleBtn {
-    background-color: $frac_bg;
+    background-color: $control_bg;
     border: none;
     border-radius: ${btn_radius}px;
 }
 QPushButton#fracToggleBtn:hover {
-    background-color: $frac_bg_hover;
+    background-color: $control_bg_hover;
 }
 QPushButton#fracToggleBtn:pressed {
-    background-color: $frac_bg_pressed;
+    background-color: $control_bg_pressed;
 }
 
 QLabel#statusLabel {
-    color: $status_info;
+    color: $text_secondary;
     font-style: italic;
 }
 QLabel#statusLabel[statusKind="error"] {

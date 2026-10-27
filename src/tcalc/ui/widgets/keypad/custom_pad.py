@@ -10,6 +10,7 @@ import json
 
 import calc_native
 from PySide6.QtCore import QPoint, QSettings, Qt, Signal
+from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractButton,
     QColorDialog,
@@ -446,7 +447,7 @@ class CustomPad(QWidget):
         theme_colors = get_theme().colors
         self._color_picker = self._make_picker(
             [("Custom Color...", None)]
-            + [(name, hex_val) for name, hex_val in theme_colors.items()],
+            + [(name, val) for name, val in theme_colors.items() if QColor.isValidColorName(val)],
             separator_after=0,
         )
         self._color_picker.item_selected.connect(self._on_color_picked)
