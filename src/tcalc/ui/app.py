@@ -23,10 +23,10 @@ from __future__ import annotations
 import logging
 from typing import Optional, Sequence
 
-from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication
 
 from .styles import apply_styles
+from .utils import get_icon
 from .window import MainWindow
 
 
@@ -42,7 +42,7 @@ def run_app(argv: Optional[Sequence[str]] = None, *, debug: bool = False) -> int
         logging.basicConfig(level=logging.DEBUG, format="%(name)s | %(message)s")
     app = QApplication(list(argv) if argv is not None else [])
     app.setApplicationName("TCalc")
-    app.setWindowIcon(QIcon.fromTheme("accessories-calculator"))
+    app.setWindowIcon(get_icon("accessories-calculator"))
     apply_styles(app)
 
     window = MainWindow()

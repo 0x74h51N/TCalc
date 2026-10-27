@@ -12,7 +12,8 @@ from pathlib import Path
 
 from PySide6.QtGui import QColor, QIcon, QPainter
 
-ASSETS_DIR = Path.cwd() / "assets"
+# Every icon the UI shows, by file stem; bundled so no desktop icon theme is needed
+ICONS_DIR = Path.cwd() / "assets" / "icons"
 
 
 def rgba(hex_color: str, alpha: float) -> str:
@@ -41,21 +42,8 @@ def _apply_tint(icon: QIcon, tint: str | None) -> QIcon:
     return QIcon(tinted)
 
 
-def get_icon(icon_ref: str, tint: str | None = None) -> QIcon:
-    if not icon_ref:
+def get_icon(name: str, tint: str | None = None) -> QIcon:
+    """Load ``assets/icons/<name>.svg``, tinted with *tint* if given."""
+    if not name:
         return QIcon()
-
-    if icon_ref.startswith(":/"):
-        icon = QIcon(icon_ref)
-        return _apply_tint(icon, tint) if not icon.isNull() else QIcon()
-
-    path = Path(icon_ref)
-
-    if path.suffix.lower() in {".svg", ".png", ".jpg", ".jpeg", ".ico"}:
-        if not path.is_absolute():
-            path = ASSETS_DIR / path.name
-        icon = QIcon(str(path))
-        return _apply_tint(icon, tint) if not icon.isNull() else QIcon()
-
-    icon = QIcon.fromTheme(icon_ref)
-    return _apply_tint(icon, tint) if not icon.isNull() else QIcon()
+    return _apply_tint(QIcon(str(ICONS_DIR / f"{name}.svg")), tint)
