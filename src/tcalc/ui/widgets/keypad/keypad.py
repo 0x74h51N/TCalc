@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.core.ops import Operation
+from tcalc.theme import PictureTarget
 from tcalc.ui.widgets.keypad.utils import (
     KeyDef,
     add_keys_to_grid,
@@ -33,6 +34,7 @@ from tcalc.ui.widgets.keypad.utils import (
 from ...config import keypad_config
 from ...styles import app_fonts
 from ..common.button import KeyButton
+from ..common.picture_layer import PictureLayer
 from ..utils import apply_scaled_fonts
 
 GridDef = tuple[dict[str, list[KeyDef]], int]
@@ -42,6 +44,8 @@ class Keypad(QWidget):
     """Multi-grid keypad builder. Subclass and override ``grid_defs()``."""
 
     key_pressed = Signal(str, object)
+    # Component name theme pictures can target; None takes none
+    picture_target: PictureTarget | None = None
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -77,6 +81,8 @@ class Keypad(QWidget):
         self._build_grids()
         self._update_button_fonts()
         QTimer.singleShot(0, self._update_button_fonts)
+        if self.picture_target is not None:
+            PictureLayer(self, self.picture_target)
 
     def grid_defs(self) -> list[GridDef]:
         """Return [(key_defs_dict, stretch), ...] for each grid column."""

@@ -9,11 +9,12 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QWidget
 
 from tcalc.app_state import get_app_state
 from tcalc.core.ops import Operation
+from tcalc.theme import PictureTarget
 
 from ...config import keypad_config
 from .keypad import GridDef, Keypad
@@ -28,10 +29,7 @@ from .keypad_defins import (
 class MainKeypad(Keypad):
     """Core keypad: numbers/operators + sidebar (actions)."""
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
-        super().__init__(parent)
-        # A plain QWidget subclass paints its stylesheet background (the theme picture) only so
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
+    picture_target = PictureTarget.MAIN_KEYPAD
 
     def grid_defs(self) -> list[GridDef]:
         cfg = keypad_config
@@ -44,12 +42,16 @@ class MainKeypad(Keypad):
 class FunctionsKeypad(Keypad):
     """Standalone functions panel (no shift, all keys flat)."""
 
+    picture_target = PictureTarget.FUNCTIONS_KEYPAD
+
     def grid_defs(self) -> list[GridDef]:
         return [(FUNCTION_GROUP, 1)]
 
 
 class TrigPowerKeypad(Keypad):
     """Trig + power keys with shift/hyp support."""
+
+    picture_target = PictureTarget.TRIG_KEYPAD
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)

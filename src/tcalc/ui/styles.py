@@ -38,15 +38,7 @@ def _build_subs() -> dict[str, str]:
         **_ints(calc_config["display"]),
         **_ints(calc_config["display"]["result"]),
         **_ints(toast_config, "toast_"),
-        "keypad_background": _picture_url(theme.keypad_image),
     }
-
-
-def _picture_url(path: Path) -> str:
-    """QSS url() of a theme picture; none when the file is missing."""
-    if not path.exists():
-        return "none"
-    return f'url("{path.resolve().as_posix()}")'
 
 
 def _build_stylesheet() -> str:

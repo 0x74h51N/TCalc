@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.app_state import RenderMode, get_app_state
+from tcalc.theme import PictureTarget
 from tcalc.ui.config import history_math
 from tcalc.ui.config import history_style as style
 from tcalc.ui.widgets.common.button import OptionGroup
@@ -33,6 +34,7 @@ from tcalc.ui.widgets.math import MathPainter, PaintCanvas
 from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
 
 from ..common import IconButton, Toaster, ToastLevel
+from ..common.picture_layer import PictureLayer
 from .storage import HistoryEntry, clear_history_file, load_history, save_history
 from .style import apply_history_style
 from .utils import wrap_expression
@@ -67,6 +69,8 @@ class History(QWidget):
 
         self.list = QListWidget()
         apply_history_style(self.list)
+        # The viewport paints the list's background, so pictures go on it
+        PictureLayer(self.list.viewport(), PictureTarget.HISTORY)
 
         self.list.currentItemChanged.connect(self._on_current_changed)
         layout.addWidget(self.list, 1)

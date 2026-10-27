@@ -13,7 +13,7 @@ from shiboken6 import getCppPointer
 
 from tcalc.theme import get_theme, load_theme
 from tcalc.ui.config import fonts_config
-from tcalc.ui.styles import _build_subs, apply_theme, init_styles
+from tcalc.ui.styles import apply_theme, init_styles
 
 
 @pytest.fixture
@@ -68,24 +68,3 @@ def test_scheme_switch_keeps_style_and_fonts(styled):
     apply_theme(styled, "light")
     assert getCppPointer(styled.style()) == style
     _assert_fixed_font(styled)
-
-
-class TestKeypadPicture:
-    @pytest.fixture(autouse=True)
-    def _dark_after(self):
-        yield
-        load_theme("dark")
-
-    def test_plain_themes_have_none(self):
-        load_theme("light")
-        assert _build_subs()["keypad_background"] == "none"
-
-    def test_theme_picture_becomes_a_url(self, tmp_path):
-        picture = tmp_path / "kitty.png"
-        picture.write_bytes(b"")
-        load_theme("kitty").keypad_image = picture
-        assert _build_subs()["keypad_background"] == f'url("{picture.as_posix()}")'
-
-    def test_missing_picture_is_none(self, tmp_path):
-        load_theme("kitty").keypad_image = tmp_path / "missing.png"
-        assert _build_subs()["keypad_background"] == "none"

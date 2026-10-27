@@ -5,10 +5,10 @@ base = "light"
 
 # Overrides of the UI config's [fonts]
 [fonts]
-
-family_default = "Boldins"
+# Caveat[wght].ttf in this folder (OFL-1.1, see OFL-Caveat.txt)
+family_default = "Caveat"
 size_default = 14
-# Keypad key font range (pt); VT323 draws small
+# Keypad key font range (pt)
 keypad_min_pt = 10
 keypad_max_pt = 16
 

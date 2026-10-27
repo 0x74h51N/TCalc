@@ -153,10 +153,3 @@ QPushButton[addButton="true"] {
 QPushButton[addButton="true"]:hover {
     background-color: $control_hover;
 }
-
-/* Theme picture behind the main keypad; none on themes without one */
-MainKeypad {
-    background-image: $keypad_background;
-    background-position: center;
-    background-repeat: no-repeat;
-}
