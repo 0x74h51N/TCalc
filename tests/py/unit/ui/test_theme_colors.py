@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 import tomllib
+from PySide6.QtGui import QColor
 
 from tcalc.theme import get_theme, load_theme
 
@@ -32,7 +33,6 @@ def test_light_loads_only_light():
     t = load_theme("light")
     assert t.variant == "light" and get_theme() is t
     assert t.colors["background"] == "#F4F5F7"
-    assert t.colors["primary"] == load_theme("dark").colors["primary"]  # button family kept
 
 
 def test_sets_have_identical_keys():
@@ -86,3 +86,26 @@ def test_every_qss_placeholder_resolves(variant):
     load_theme(variant)
     leftovers = [line for line in _build_stylesheet().splitlines() if "$" in line]
     assert leftovers == []
+
+
+KEYPAD_FAMILIES = ("primary", "secondary", "accent", "action")
+
+
+def test_light_keypad_colors_are_light():
+    light, dark = load_theme("light").colors, load_theme("dark").colors
+    for family in KEYPAD_FAMILIES:
+        for key in (family, f"{family}_hover", f"{family}_text"):
+            assert light[key] != dark[key], key
+    assert QColor(light["secondary"]).lightness() > QColor(dark["secondary"]).lightness()
+
+
+def test_only_keypad_qss_uses_keypad_colors():
+    ui = UI_CONFIG.parent
+    offenders = [
+        f"{path.relative_to(ui)}:{n}"
+        for path in ui.rglob("*.qss")
+        if path.parent.name != "keypad"
+        for n, line in enumerate(path.read_text().splitlines(), 1)
+        if any(f"${family}" in line for family in KEYPAD_FAMILIES)
+    ]
+    assert offenders == []

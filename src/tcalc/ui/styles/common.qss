@@ -54,5 +54,5 @@ QRadioButton[optionRole="option"]:hover {
 
 QRadioButton[optionRole="option"]:checked {
     background-color: $option_checked_bg;
-    color: $accent_text;
+    color: $control_accent;
 }

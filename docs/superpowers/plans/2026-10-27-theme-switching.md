@@ -270,7 +270,7 @@ def test_user_key_colors_survive_switch(qapp, window): ...  # Review Focus 5
 
 **Files:**
 - Modify: `src/tcalc/ui/utils.py`: `get_icon(name: str, tint_key: str | None = None) -> QIcon` returns `QIcon(_ThemeIconEngine(build))`; `build` loads the variant file and tints it (with `colors[tint_key]`, else `colors["icon"]` unless untinted) as Task 2 does. `_ThemeIconEngine(QIconEngine)` keeps the icon built for the theme object it last saw and rebuilds when `get_theme()` returns another one; `paint`, `pixmap`, `scaledPixmap`, `isNull` delegate to that icon; `clone` copies.
-- Modify: `ui/widgets/common/button.py` (`IconButton(tint_key=...)` instead of a hex `tint`), `ui/widgets/calc/display/result/result.py`, `ui/widgets/common/constants_menu.py` (symbol icons through the same engine, built with `text_primary`).
+- Modify: `ui/widgets/common/button.py` (`IconButton(tint_key=...)` instead of a hex `tint`; `KeyButton` math labels through the same engine, built with `secondary_text`, which differs per theme since the light keypad colors), `ui/widgets/calc/display/result/result.py`, `ui/widgets/common/constants_menu.py` (symbol icons through the same engine, built with `text_primary`).
 - Test: `tests/py/unit/ui/test_icons.py`
 
 - [ ] **Step 1: Write the failing tests**

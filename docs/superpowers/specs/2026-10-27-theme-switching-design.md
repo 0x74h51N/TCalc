@@ -58,11 +58,10 @@ theme that is independent of the OS, plus an option to follow the OS.
 - A **Light** set is added with exactly the same keys. The user wants the
   values written by hand, derived from the existing dark values (not taken from
   an external palette).
-- **First iteration of Light changes only:** backgrounds, text, borders,
-  selection, icon and status colors. The keypad button families (`primary*`,
-  `secondary*`, `accent*`, `action*`) keep their dark values for now. If the
-  colored buttons look bad on a light background, finding lighter values for
-  them is a later step, not this spec.
+- **Light changes every color**, the keypad button families (`primary*`,
+  `secondary*`, `accent*`, `action*`) included. *(First the user kept the
+  keypad families dark; after seeing them on Light they asked for light
+  versions, 2026-10-27.)*
 - **Status colors** (`status_warn`, `status_error`, `status_info`,
   `status_success`) get Light values readable on a light background; the dark
   ones are pale tones picked for a dark background. *(Writer's call.)*
@@ -123,7 +122,8 @@ Agreed approach (see also the bundled icon notes in `assets/icons/README.md`):
 - The window icon (`accessories-calculator`, multi-color app icon) is not
   tinted and stays the same in both themes.
 - Icons already shown (menu actions, toolbar and keypad `IconButton`s, the
-  result area's fraction icon, constant-menu symbols) must follow a switch;
+  result area's fraction icon, constant-menu symbols, math-rendered keypad
+  labels such as x² in `secondary_text`) must follow a switch;
   the icon engine above covers them.
 - Explicitly rejected by the user: recoloring icons by rewriting SVG text at
   load time.
@@ -233,7 +233,6 @@ styling costs:
 
 ## Non-goals
 - Custom themes (only the disabled menu entry exists).
-- Lighter colors for the colored keypad buttons (later, if needed).
 - Changing fonts or spacing per theme.
 
 ## Anti-goals (would count as failure even if it "works")

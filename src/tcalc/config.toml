@@ -72,26 +72,25 @@ toast_warn_bg = "rgba(224, 168, 40, 55%)"
 toast_error_bg = "rgba(217, 64, 64, 55%)"
 
 [theme.light.colors]
-# Keypad button families keep their dark values for now
 # Primary colors
-primary = "#4a4f5a"
-primary_hover = "#3e434d"
-primary_text = "#ffffff"
+primary = "#C9D6EE"
+primary_hover = "#B8C8E6"
+primary_text = "#1E1F24"
 
 # Secondary colors
-secondary = "#3f4450"
-secondary_hover = "#2a2c33"
-secondary_text = "#f0f2ff"
+secondary = "#FFFFFF"
+secondary_hover = "#E6E8ED"
+secondary_text = "#1E1F24"
 
 # Accent colors
-accent = "#343842"
-accent_hover = "#3f4450"
-accent_text = "#f3d199"
+accent = "#E9EBF0"
+accent_hover = "#DCDFE6"
+accent_text = "#9A6B12"
 
 # Action colors
-action = "#2f353d"
-action_hover = "#252a31"
-action_text = "#a6c7ff"
+action = "#E3E9F3"
+action_hover = "#D3DCEB"
+action_text = "#2B6CB0"
 
 # Background colors
 background_dark = "#FFFFFF"

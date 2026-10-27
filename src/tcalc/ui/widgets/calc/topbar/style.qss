@@ -1,6 +1,6 @@
 QPushButton[keypadRole="memory"] {
     background-color: $control_bg;
-    color: $accent_text;
+    color: $control_accent;
     border: none;
     padding: ${memory_pad_y}px ${memory_pad_x}px;
 }
