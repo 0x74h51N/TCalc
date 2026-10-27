@@ -155,6 +155,8 @@ Further constraints:
   (expression, history, layout, docks) is untouched by a switch.
 - Code style follows the repo: small, DRY, no special cases per icon name in
   `get_icon` beyond the tint/no-tint rule above.
+- Prefer Qt's own APIs and recommended patterns over hand-rolled mechanisms;
+  write no code Qt already provides (user requirement).
 
 ## Menu wiring
 
