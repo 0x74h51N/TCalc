@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Sponge holes for the Sponge theme (TCalc, GPL-3.0-or-later) -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <g fill="#B5A114">
+    <ellipse cx="150" cy="40" rx="26" ry="22" transform="rotate(-15 150 40)"/>
+    <ellipse cx="92" cy="28" rx="11" ry="9"/>
+    <ellipse cx="182" cy="96" rx="13" ry="16" transform="rotate(20 182 96)"/>
+    <ellipse cx="118" cy="88" rx="17" ry="14" transform="rotate(10 118 88)"/>
+    <ellipse cx="60" cy="70" rx="7" ry="6"/>
+    <ellipse cx="160" cy="150" rx="22" ry="18" transform="rotate(-25 160 150)"/>
+    <ellipse cx="88" cy="140" rx="10" ry="12"/>
+    <ellipse cx="40" cy="120" rx="15" ry="12" transform="rotate(30 40 120)"/>
+    <ellipse cx="120" cy="185" rx="8" ry="7"/>
+    <ellipse cx="50" cy="178" rx="12" ry="10" transform="rotate(-10 50 178)"/>
+    <ellipse cx="25" cy="30" rx="9" ry="11" transform="rotate(15 25 30)"/>
+    <ellipse cx="190" cy="186" rx="6" ry="5"/>
+  </g>
+  <g fill="#8C7A0A">
+    <ellipse cx="146" cy="44" rx="17" ry="14" transform="rotate(-15 146 44)"/>
+    <ellipse cx="115" cy="91" rx="10" ry="8" transform="rotate(10 115 91)"/>
+    <ellipse cx="156" cy="154" rx="14" ry="11" transform="rotate(-25 156 154)"/>
+    <ellipse cx="37" cy="123" rx="8" ry="6" transform="rotate(30 37 123)"/>
+    <ellipse cx="179" cy="99" rx="7" ry="9" transform="rotate(20 179 99)"/>
+  </g>
+</svg>

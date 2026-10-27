@@ -63,7 +63,12 @@ def test_choice_picks_theme_variant(choice, scheme, variant):
 
 
 def test_custom_themes_come_from_theme_files():
-    assert custom_themes() == {"kitty": "Kitty", "ocean": "Ocean", "retro": "Retro"}
+    assert custom_themes() == {
+        "kitty": "Kitty",
+        "ocean": "Ocean",
+        "retro": "Retro",
+        "sponge": "Sponge",
+    }
 
 
 def test_theme_defaults_to_system(tmp_settings):
