@@ -5,8 +5,8 @@ base = "light"
 
 # Overrides of the UI config's [fonts]
 [fonts]
-# Caveat[wght].ttf in this folder (OFL-1.1, see OFL-Caveat.txt)
-family_default = "Caveat"
+# Miniver-Regular.ttf in this folder (OFL-1.1, see OFL-Miniver.txt)
+family_default = "Miniver"
 size_default = 14
 # Keypad key font range (pt)
 keypad_min_pt = 10
