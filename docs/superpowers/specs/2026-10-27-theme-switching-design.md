@@ -78,6 +78,15 @@ theme that is independent of the OS, plus an option to follow the OS.
   key colors themselves (`key_*`, `operator_*`, `action_*`, `equals_*`,
   `trig_*`, `function_*`, `power_*`, ...) stay on the button families. The
   builder decides the exact mapping per entry.
+- **Alpha colors are fixed values per theme (user decision).** Colors that are
+  today computed in Python from a `[base, alpha]` pair (`rgba()` in
+  `ui/utils.py`, the loops in the `style.py` modules, the toast's
+  `_TOAST_ALPHA`) become plain entries in each color set, written as QSS
+  `rgba(r, g, b, a%)` (the QSS reference documents `#rrggbb` and `rgba()`, not
+  `#AARRGGBB`). Dark values equal what the pairs produce today; Light values
+  are written by hand. The `[base, alpha]` tables and the alpha helpers are
+  deleted. QSS templates name theme keys directly; the indirection tables in
+  `ui/config.toml` that only map a style key to a theme key are removed too.
 - `[theme.spacing]` and `[theme.fonts]` are shared by both themes.
 - Colors the user picked for custom pad keys (stored as hex in QSettings) are
   never changed by a theme switch.
@@ -92,10 +101,15 @@ theme that is independent of the OS, plus an option to follow the OS.
 Agreed approach (see also the bundled icon notes in `assets/icons/README.md`):
 
 - **Single-color icons** (Breeze icons that only use `ColorScheme-Text`, the
-  project's own icons, Material `calculate`) are tinted at load time in
-  `get_icon` (`src/tcalc/ui/utils.py`) with a theme color, using the existing
-  Qt-based `_apply_tint` (QPainter `CompositionMode_SourceIn`). Which theme key
-  is the icon color is left to the builder (a new key such as `icon` is fine).
+  project's own icons, Material `calculate`) are tinted with the theme's `icon`
+  color, using the existing Qt-based `_apply_tint` (QPainter
+  `CompositionMode_SourceIn`).
+- **Icons are drawn for the active theme at paint time.** `get_icon` returns a
+  `QIcon` backed by a `QIconEngine` (Qt's extension point for icon rendering)
+  that builds the icon from the active theme (file variant + tint) and rebuilds
+  it only when the theme changed since its last paint. Widgets repaint after
+  the palette change, so every icon already shown follows a switch with no
+  refresh code in widgets.
 - **Multi-color icons** get separate light and dark files. Today that is only
   `snap-angle-symbolic` (Angle Buttons). Light files come from Breeze's
   `breeze` (light) theme, never drawn by hand.
@@ -109,7 +123,8 @@ Agreed approach (see also the bundled icon notes in `assets/icons/README.md`):
 - The window icon (`accessories-calculator`, multi-color app icon) is not
   tinted and stays the same in both themes.
 - Icons already shown (menu actions, toolbar and keypad `IconButton`s, the
-  result area's fraction icon) must refresh on a theme switch.
+  result area's fraction icon, constant-menu symbols) must follow a switch;
+  the icon engine above covers them.
 - Explicitly rejected by the user: recoloring icons by rewriting SVG text at
   load time.
 
@@ -153,16 +168,37 @@ Qt's own API first (user requirement); no custom theming framework.
   theme (`QT_QPA_PLATFORMTHEME=gtk3`) the request works and the signal fires
   (verified, Qt 6.12). Set it in `scripts/dev` only when running under WSL;
   never in app code, where it would override real desktops' platform themes.
-- Re-applying colors to widgets uses Qt's propagation (`app.setPalette`,
-  `app.setStyleSheet`) wherever possible; widget-local stylesheets that Qt
-  cannot regenerate are re-applied by calling their existing `apply_*_style`
-  functions, without adding theme code to the style modules.
+- **Applying a set uses Qt's propagation only; widgets hold no theme code.**
+  - The app palette (`QApplication.setPalette`) carries the theme to every
+    widget (Qt docs: the application palette is the default for all widgets).
+    Widgets that today copy a theme color into their own palette (side panel,
+    display, result: all `background_dark`) instead use
+    `setBackgroundRole(QPalette.ColorRole.Base)` with `Base` = `background_dark`
+    in the app palette, so propagation reaches them.
+  - All QSS is one **application** stylesheet: `common.qss` plus every
+    component `.qss`, substituted from the active color set and set with
+    `QApplication.setStyleSheet` at startup and on a switch. Qt re-polishes
+    every widget, hidden ones included. No widget sets a color stylesheet of
+    its own; the component `style.py` modules keep only non-color widget setup
+    (fonts, selection modes) or go away.
+  - Qt's styling docs advise against switching themes with style sheets
+    because each change re-polishes all widgets. Accepted here (user
+    decision): a switch is rare and user-initiated, and the app is already
+    styled with QSS throughout.
+  - Selectors that today rely on being set on one widget must be scoped so
+    they don't leak app-wide (`keypad/style.qss`: bare `QSpinBox`, `QFrame`,
+    and `QPushButton[keypadRole]` rules that would also hit the top bar's
+    memory buttons). Rules duplicated across files (e.g. `#radicandSlot`)
+    are kept once.
+  - Icons follow through the icon engine (see Icons).
+  - Toasts use `toaster.qss` (today unused; the toast builds an inline sheet
+    with Python-computed alpha) through the application stylesheet.
 
 Further constraints:
 - No widget is rebuilt or recreated just to restyle it, and app state
   (expression, history, layout, docks) is untouched by a switch.
 - Code style follows the repo: small, DRY, no special cases per icon name in
-  `get_icon` beyond the tint/no-tint rule above.
+  `get_icon` beyond the tint/no-tint rule above. No `Any` in type hints.
 - Prefer Qt's own APIs and recommended patterns over hand-rolled mechanisms;
   write no code Qt already provides (user requirement).
 
@@ -184,8 +220,8 @@ styling costs:
 - On a switch, the new set is read then and replaces the old one (the old
   dict is dropped). No cache of both sets, no pre-rendered icons for the
   inactive theme.
-- Restyling happens only on a switch, by re-running the same style functions
-  that run at widget build time. Icons are re-tinted once per switch.
+- Restyling happens only on a switch: one app palette and one app
+  stylesheet. Each icon is rebuilt at most once per switch, on its next paint.
 - Between switches there is no extra work: no polling, no per-paint color
   lookups beyond today's. System Default reacts only to
   `QStyleHints.colorSchemeChanged`.
@@ -209,8 +245,9 @@ styling costs:
 
 ## Testing
 - Unit tests in the style of `tests/py/unit/ui/` (pytest-qt, offscreen):
-  switching sets the app palette and QSS from the new set, the setting
-  persists, System Default maps OS Light/Dark/Unknown correctly and reacts to
+  switching sets the app palette and QSS from the new set, open and hidden
+  widgets show the new colors without setting stylesheets of their own,
+  shown icons draw in the new tint after a switch, the setting persists, System Default maps OS Light/Dark/Unknown correctly and reacts to
   `colorSchemeChanged`, single-color icons get the theme tint, red and window
   icons do not, `snap-angle-symbolic` uses the right file per theme.
 - Manual check by the user on WSLg with `make dev`.

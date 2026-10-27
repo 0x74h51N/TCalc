@@ -4,7 +4,7 @@
 
 **Goal:** View > Theme with Light, Dark, System Default (live switch, persisted), and a disabled Add Custom Theme entry.
 
-**Architecture:** Qt holds the scheme (`QStyleHints.setColorScheme`), `colorSchemeChanged` is the only trigger. Its handler loads the matching color set (only that one is kept in memory), sets the app palette and app stylesheet, and re-runs the existing per-widget `apply_*_style` functions. `AppState` only persists the user's choice.
+**Architecture:** Qt holds the scheme (`QStyleHints.setColorScheme`), `colorSchemeChanged` is the only trigger. Its handler loads the matching color set (only that one is kept in memory) and sets the app palette and the one application stylesheet (every `.qss` in the UI); Qt propagates both to all widgets. Icons come from a `QIconEngine` that draws for the active theme at paint time. Widgets hold no theme code. `AppState` only persists the user's choice.
 
 **Tech Stack:** Python 3.14, PySide6 6.12 (Qt Widgets), tomllib, pytest + pytest-qt (offscreen).
 
@@ -15,19 +15,21 @@
 - Qt APIs and Qt-recommended patterns first; no custom theming framework, no new module just for theming.
 - Only the active color set is held in memory; the other is read from `config.toml` only on a switch.
 - No polling, no timers; react to `QStyleHints.colorSchemeChanged` only.
-- Style modules (`*/style.py`) gain no theme code; they are re-called as they are.
+- Widgets and style modules hold no theme code: no per-widget color stylesheets or palettes, no refresh hooks. Qt's app palette, app stylesheet and the icon engine carry a switch.
+- Alpha colors are fixed `rgba(r, g, b, a%)` values in each color set; no color is computed in Python. No `Any` in type hints.
 - SVGs: copy from an icon set unmodified; style-only tweaks (color, stroke width) only where this plan says so, path data never touched, every modified file noted in `assets/icons/README.md`.
-- Existing dark look must not change, except `spin_text` (`#f0f2ff` -> `#f6f7fb`, invisible).
+- Existing dark look must not change, except `spin_text` (`#f0f2ff` -> `#f6f7fb`, invisible), the toast alpha (140/255 -> 55%, invisible), and disabled keypad keys, whose disabled colors never applied (`key_disabled_bg = "disabled_bg"` resolved to the literal string `disabled_bg`) and now do.
 - Tests run offscreen (`tests/py/unit/ui/conftest.py`), where `setColorScheme` is ignored: test the scheme handler by calling it with a `Qt.ColorScheme`, and test that the menu requests the right scheme by patching `QStyleHints.setColorScheme`.
 - Every commit: run `make py-lint`, `make typecheck`, `make py-test`; push the branch after committing.
 
 ## Review Focus
 
-1. Theme switched while a hidden dock (e.g. history) is closed: when reopened it must show the new theme. (Task 4 walks `QApplication.allWidgets()`, which includes hidden widgets; test pins it.)
+1. Theme switched while a hidden dock (e.g. history) is closed: when reopened it must show the new theme. (App stylesheet and palette reach hidden widgets; Task 5 test pins it.)
 2. Switching back and forth must not stack stylesheets (`apply_styles` used to append to `app.styleSheet()`). (Task 3 test.)
 3. Stored value from an older or edited config (`"blue"`, empty) must fall back to System Default, not crash. (Task 3 test.)
 4. Under System Default with an OS that reports `Unknown` (WSLg without gtk3), the app must come up Dark. (Task 3 test.)
-5. Custom pad keys with user-picked colors keep those colors across switches. (Task 4 test.)
+5. Custom pad keys with user-picked colors keep those colors across switches. (Task 5 test.)
+6. Moving keypad QSS to app level must not leak onto other widgets: top bar memory buttons (also `keypadRole`), every `QSpinBox`, every `QFrame`. (Task 5 scoping + test.)
 
 ---
 
@@ -192,43 +194,102 @@ def test_reapplying_does_not_stack_stylesheet(qapp):
 - [ ] **Step 4: Run, expect PASS**; full suite green; `bash -n scripts/dev`.
 - [ ] **Step 5: Commit** `feat/theme: follow Qt's color scheme at startup and on change` and push.
 
-### Task 4: Open widgets re-apply their styles
+### Task 4: Fixed alpha colors, QSS names theme keys
 
 **Files:**
-- Modify: `src/tcalc/ui/styles.py` (widget pass inside `apply_color_scheme`)
-- Modify (move inline color code into a method, no new logic): `src/tcalc/ui/widgets/side_panel/side_panel.py` (`apply_palette()`), `src/tcalc/ui/widgets/common/button.py` (`IconButton`: keep `icon_name`, take `tint_key: str | None` (theme key) instead of a hex `tint`, add `refresh_icon()`; `KeyButton.refresh_icon()` for math-rendered labels), `src/tcalc/ui/widgets/calc/display/result/result.py` (pass `tint_key`), `src/tcalc/ui/widgets/calc/topbar/topbar.py` (public `memory_widget` property)
-- Modify: `src/tcalc/ui/manubar/menu_builder.py` (store `"iconName"` property on created actions and submenu actions), `src/tcalc/ui/widgets/common/constants_menu.py` (store `"mathSymbol"` property on symbol actions)
-- Test: `tests/py/unit/ui/test_theme_switch_widgets.py`
+- Modify: `src/tcalc/config.toml` (new keys in both sets, below)
+- Modify: `src/tcalc/ui/config.toml` (delete `checked_base/alpha`, `hover_base/alpha` in `[style.option_group]`; `alpha`, `*_base` in `[toast]`; `[calc.style.colors]`; `[calc.display.result.colors]`; `[calc.topbar.memory_colors]`; `[keypad.custom.colors]`; the color references in `[manubar.style]`; add `frac_icon_tint = "control_accent"` to `[calc.display.result]`)
+- Modify: every `.qss` under `src/tcalc/ui` to name theme keys directly (`$custom_key_bg` -> `$secondary`, `$menu_background` -> `$background_medium`, `$memory_bg` -> `$control_bg`, `$status_info` in result -> `$text_secondary`, ...), using the mappings the deleted tables hold today
+- Modify: `src/tcalc/ui/styles.py`, `ui/widgets/keypad/style.py`, `ui/widgets/calc/topbar/style.py`, `ui/widgets/calc/display/result/style.py`, `ui/manubar/style.py` (drop the alpha loops and indirection loops); `src/tcalc/ui/utils.py` (delete `rgba`); `ui/widgets/calc/display/result/result.py` (tint key from `frac_icon_tint`); `ui/widgets/keypad/custom_pad.py` (color picker lists only values `QColor.isValidColorName` accepts, so `rgba()` entries are skipped)
+- Test: `tests/py/unit/ui/test_theme_colors.py`
 
-**Interfaces:**
-- Consumes: `apply_color_scheme` (Task 3), `get_icon` (Task 2).
-- Produces: in `ui/styles.py`, one table of `(widget type, callable)` pairs, applied with `isinstance` to every widget in `QApplication.allWidgets()` (lazy imports inside the function to avoid import cycles):
-  - `QMenuBar` → `apply_menu_styles`
-  - `QMenu` → refresh each action's icon from its `"iconName"` (via `get_icon`) or `"mathSymbol"` (via `render_symbol(sym, QColor(colors["text_primary"]), ICON_BOX)`)
-  - `Display` → `apply_display_style`; `Result` → result `apply_style`; `Keypad` and `CustomPad` → `apply_keypad_style`; `History` → `apply_history_style(w.list)`; `TopBar` → `apply_topbar_style(w.memory_widget)`; `SidePanel` → `w.apply_palette()`; `IconButton` → `w.refresh_icon()`; `KeyButton` → `w.refresh_icon()`
-- Not refreshed on purpose: custom pad color-picker swatches (they list the colors of the theme active when the pad was built; picked colors are stored as hex anyway).
+New keys (dark = what today's pairs produce; light hand-written):
 
-- [ ] **Step 1: Write the failing tests** (build a `MainWindow` offscreen, or the individual widgets)
+| key | dark | light |
+|---|---|---|
+| control_bg | rgba(52, 56, 66, 20%) | rgba(30, 31, 36, 6%) |
+| control_bg_hover | rgba(52, 56, 66, 28%) | rgba(30, 31, 36, 10%) |
+| control_bg_pressed | rgba(52, 56, 66, 38%) | rgba(30, 31, 36, 16%) |
+| control_disabled_bg | rgba(42, 44, 51, 10%) | rgba(30, 31, 36, 4%) |
+| control_disabled_text | rgba(243, 209, 153, 30%) | rgba(154, 107, 18, 40%) |
+| option_checked_bg | rgba(52, 56, 66, 25%) | rgba(30, 31, 36, 10%) |
+| option_hover_bg | rgba(42, 44, 51, 35%) | rgba(30, 31, 36, 6%) |
+| toast_info_bg | rgba(63, 68, 80, 55%) | rgba(220, 223, 230, 90%) |
+| toast_warn_bg | rgba(224, 168, 40, 55%) | rgba(183, 121, 31, 25%) |
+| toast_error_bg | rgba(217, 64, 64, 55%) | rgba(198, 40, 40, 20%) |
+
+`frac_bg*` and `memory_bg*` were the same pairs and both become `control_bg*`; `disabled_*` and `memory_disabled_*` both become `control_disabled_*`.
+
+- [ ] **Step 1: Write the failing tests**
 
 ```python
-def test_switch_restyles_open_widgets(qapp, main_window):
-    apply_color_scheme(qapp, Qt.ColorScheme.Light)
-    assert "#F4F5F7".lower() in main_window.menuBar().styleSheet().lower() or "#ECEDF1".lower() in ...
-    # keypad, display, history, topbar sheets contain light values; side panel palette background == #FFFFFF
-
-def test_hidden_dock_is_restyled(qapp, main_window): ...   # Review Focus 1
-
-def test_menu_action_icons_refresh(qapp, main_window): ...  # an action with iconName gets a new cacheKey after a switch
-
-def test_custom_key_colors_survive_switch(qapp): ...        # Review Focus 5: a KeyButton styled with a user hex keeps it
+def test_no_alpha_pairs_left_in_ui_config():
+    # no value in ui/config.toml is a [str, float] pair
+def test_alpha_helper_is_gone():
+    assert not hasattr(tcalc.ui.utils, "rgba")
+def test_dark_alpha_values_match_old_look():
+    assert load_theme("dark").colors["control_bg"] == "rgba(52, 56, 66, 20%)"
+def test_every_qss_placeholder_resolves():
+    # for every .qss under src/tcalc/ui: load_qss(path) contains no "$"
 ```
 
 - [ ] **Step 2: Run, expect FAIL.**
-- [ ] **Step 3: Implement** the moves and the table.
+- [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run, expect PASS**; full suite green.
-- [ ] **Step 5: Commit** `feat/theme: open widgets follow a theme switch` and push.
+- [ ] **Step 5: Commit** `refactor/theme: fixed alpha colors, QSS names theme keys` and push.
 
-### Task 5: View > Theme menu
+### Task 5: One application stylesheet, palette roles
+
+**Files:**
+- Modify: `src/tcalc/ui/styles.py`: `apply_styles(app)` sets `app.setStyleSheet` to every `.qss` under `src/tcalc/ui` (sorted by path, `common.qss` first), substituted by `build_subs()`; `build_subs()` returns theme colors + spacing + the scalar config values the templates use; `Base` = `background_dark` stays in `_build_palette`.
+- Modify: `ui/widgets/keypad/style.qss`: scope keypad rules to `QWidget[uiRole="keypad"]` descendants, `QSpinBox` -> `KSSpinBox`, `QFrame` -> `QWidget[uiRole="keypad"] QFrame`; `keypad.py` and `custom_pad.py` set `uiRole="keypad"` on themselves.
+- Modify: remove widget-level color stylesheets and palettes: `manubar/menu.py`, `keypad/keypad.py`, `keypad/custom_pad.py`, `calc/topbar/topbar.py`, `calc/display/display.py`, `calc/display/result/result.py`, `history/history.py` (keeps its non-color setup), `side_panel/side_panel.py`. Display, result and side panel: `setBackgroundRole(QPalette.ColorRole.Base)` + `setAutoFillBackground(True)`. Delete style modules left with nothing to do.
+- Modify: `ui/widgets/common/toaster.py`: set the `toastLevel` property and re-polish; no inline sheet, no `_bg_for_level`, no `_TOAST_ALPHA`; `toaster.qss` gets the toast config scalars via `build_subs`.
+- Remove the duplicate `#radicandSlot` rule.
+- Test: `tests/py/ui/test_theme_switch.py`
+
+- [ ] **Step 1: Write the failing tests** (MainWindow with isolated settings)
+
+```python
+def test_widgets_have_no_color_stylesheets(window):
+    # every widget's own styleSheet() is "" (user-colored custom keys excepted)
+def test_switch_reaches_open_and_hidden_widgets(qapp, window):
+    apply_color_scheme(qapp, Qt.ColorScheme.Light)
+    # side panel / display background == #FFFFFF; a hidden SidePanel too
+    # app stylesheet contains the light background_dark and no "$"
+def test_memory_buttons_get_no_keypad_rules(): ...   # Review Focus 6: keypad rules are scoped
+def test_user_key_colors_survive_switch(qapp, window): ...  # Review Focus 5
+```
+
+- [ ] **Step 2: Run, expect FAIL.**
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run, expect PASS**; full suite green.
+- [ ] **Step 5: Commit** `feat/theme: one application stylesheet, widgets follow the palette` and push.
+
+### Task 6: Icons drawn for the active theme
+
+**Files:**
+- Modify: `src/tcalc/ui/utils.py`: `get_icon(name: str, tint_key: str | None = None) -> QIcon` returns `QIcon(_ThemeIconEngine(build))`; `build` loads the variant file and tints it (with `colors[tint_key]`, else `colors["icon"]` unless untinted) as Task 2 does. `_ThemeIconEngine(QIconEngine)` keeps the icon built for the theme object it last saw and rebuilds when `get_theme()` returns another one; `paint`, `pixmap`, `scaledPixmap`, `isNull` delegate to that icon; `clone` copies.
+- Modify: `ui/widgets/common/button.py` (`IconButton(tint_key=...)` instead of a hex `tint`), `ui/widgets/calc/display/result/result.py`, `ui/widgets/common/constants_menu.py` (symbol icons through the same engine, built with `text_primary`).
+- Test: `tests/py/unit/ui/test_icons.py`
+
+- [ ] **Step 1: Write the failing tests**
+
+```python
+def test_shown_icon_follows_a_switch(qapp):
+    icon = get_icon("edit-copy")          # dark
+    load_theme("light")
+    assert _opaque_color(icon) == QColor("#232629")   # same QIcon object, new tint
+def test_angle_icon_switches_file(qapp): ...
+def test_red_icon_stays_red_after_switch(qapp): ...
+```
+
+- [ ] **Step 2: Run, expect FAIL.**
+- [ ] **Step 3: Implement.**
+- [ ] **Step 4: Run, expect PASS**; full suite green.
+- [ ] **Step 5: Commit** `feat/theme: icons draw for the active theme` and push.
+
+### Task 7: View > Theme menu
 
 **Files:**
 - Modify: `src/tcalc/ui/manubar/defins.py` (Theme submenu first in `VIEW_ACTIONS`, then `MenuSeparatorItem()`, then Keypad Preset)
@@ -264,6 +325,6 @@ def test_choosing_light_requests_qt_scheme_and_persists(main_window, monkeypatch
 - [ ] **Step 4: Run, expect PASS**; full suite green.
 - [ ] **Step 5: Commit** `feat/theme: View > Theme menu` and push.
 
-### Task 6: Manual check
+### Task 8: Manual check
 
 - [ ] `make dev` on WSLg (gtk3 platform theme via `scripts/dev`): switch Light ↔ Dark ↔ System Default; every visible part switches, icons included; restart keeps the choice. Report to the user with what was seen; open items (colored keypad buttons on Light) go to the user, not fixed silently.
