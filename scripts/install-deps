@@ -12,6 +12,11 @@ elif [ -f /etc/debian_version ]; then
   OS="ubuntu"
 fi
 
+if [[ "$OS" == "macos" ]] && ! command -v brew >/dev/null 2>&1; then
+  echo "Homebrew not found, install it first: https://brew.sh"
+  exit 1
+fi
+
 # --- Helper ---
 # Ask the package manager, so packages without a command (headers, python modules) work too
 check_and_ins() {
@@ -35,12 +40,22 @@ check_and_ins() {
   fi
 }
 
-# Python: any python3 on PATH will do, don't install a second one next to pyenv/system python
-if ! command -v python3 >/dev/null 2>&1; then
-  check_and_ins "python3"
-else
-  echo "python3 ready to use"
+# Python: any python3 >= 3.11 on PATH will do, don't install a second one next to pyenv/system python
+# (macOS ships 3.9 with the Xcode CLI tools, too old for pyproject's requires-python)
+py_ok() { python3 -c 'import sys; sys.exit(sys.version_info < (3, 11))' 2>/dev/null; }
+
+if ! py_ok; then
+  case $OS in
+  "macos") check_and_ins "python@3.13" ;;
+  *) check_and_ins "python3" ;;
+  esac
+  hash -r
+  if ! py_ok; then
+    echo "python3 >= 3.11 is required, found: $(python3 --version 2>&1)"
+    exit 1
+  fi
 fi
+echo "python3 ready to use"
 
 # Native deps check
 # -----------------------------
