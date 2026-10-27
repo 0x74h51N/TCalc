@@ -48,8 +48,8 @@
 
 # [[pictures]]
 # file = "picture.svg"      # in this folder; SVG or PNG
-# target = "display"        # display | history | main_keypad | functions_keypad | trig_keypad |
-#                           # custom_pad
+# target = "display"        # window (the whole window, behind keypads and docks) | display |
+#                           # history | main_keypad | functions_keypad | trig_keypad | custom_pad
 # position = "top-right"    # center | top-left | top | top-right | left | right |
 #                           # bottom-left | bottom | bottom-right
 # size = 0.5                # box size as a fraction of the component's width and height (0-1)

@@ -56,6 +56,7 @@ class ThemeChoice:
 class PictureTarget(Enum):
     """Component a theme picture is painted behind."""
 
+    WINDOW = "window"  # the whole window, behind every component
     DISPLAY = "display"
     HISTORY = "history"
     MAIN_KEYPAD = "main_keypad"
