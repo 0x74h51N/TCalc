@@ -141,25 +141,24 @@ The builder may find more; the table is a starting point, not a contract.
 
 ## How the switch reaches widgets
 
-Central management (user requirement): style modules gain no theme code.
-- **State:** the user's choice (`light` / `dark` / `system`) lives in
-  `AppState` (`app_state.py`), persisted in QSettings. Qt is not used to hold
-  it: `QStyleHints.setColorScheme` is only a request to the platform theme and
-  was verified to be ignored on WSLg (scheme stays `Unknown`, no signal), so it
-  cannot be relied on. The OS scheme is read from
-  `QStyleHints.colorScheme()` and followed via `colorSchemeChanged`.
-- **One module owns switching** (e.g. `ui/theming.py`): resolve the variant,
-  load that color set, set the app palette and app stylesheet, then walk
-  `QApplication.allWidgets()` and re-run each widget's existing style function,
-  looked up in one table in that module (widget class -> style function, e.g.
-  `Keypad -> apply_keypad_style`). The existing `apply_*_style` functions are
-  called as they are.
-- **Inline colors:** where a widget computes a color inside its `__init__`
-  (side panel palette, `IconButton` icon, math-rendered `KeyButton` icon,
-  result fraction icon tint), that code is moved into a small function so the
-  table can call it. Moving only; no theme logic is added there.
-- `QAction` icons (menus) are not widgets; the module refreshes them too
-  (e.g. by the icon name stored on the action).
+Qt's own API first (user requirement); no custom theming framework.
+- **State is held by Qt:** Light -> `QStyleHints.setColorScheme(Qt.ColorScheme.Light)`,
+  Dark -> `Qt.ColorScheme.Dark`, System Default -> `Qt.ColorScheme.Unknown`
+  (Qt's "follow the system").
+- **One trigger:** `QStyleHints.colorSchemeChanged` fires both for the user's
+  choice and for OS changes under System Default. Its handler reads
+  `QStyleHints.colorScheme()` (Light -> Light set, anything else -> Dark set),
+  loads that color set and applies it.
+- **Persistence only in `AppState`:** the user's choice is saved in QSettings
+  and re-requested from Qt at startup; Qt does not persist it.
+- **Known risk, first thing to resolve:** a quick check on WSLg (Qt 6.12,
+  wayland and xcb) showed `setColorScheme` not taking effect (scheme stayed
+  `Unknown`, no signal). Find the Qt-side cause and its fix or workaround
+  first; only if there is none, fall back to driving the switch directly.
+- Re-applying colors to widgets uses Qt's propagation (`app.setPalette`,
+  `app.setStyleSheet`) wherever possible; widget-local stylesheets that Qt
+  cannot regenerate are re-applied by calling their existing `apply_*_style`
+  functions, without adding theme code to the style modules.
 
 Further constraints:
 - No widget is rebuilt or recreated just to restyle it, and app state
