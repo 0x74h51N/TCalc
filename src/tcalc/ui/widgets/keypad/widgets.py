@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QWidget
 
 from tcalc.app_state import get_app_state
@@ -27,6 +27,11 @@ from .keypad_defins import (
 
 class MainKeypad(Keypad):
     """Core keypad: numbers/operators + sidebar (actions)."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        # A plain QWidget subclass paints its stylesheet background (the theme picture) only so
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
 
     def grid_defs(self) -> list[GridDef]:
         cfg = keypad_config

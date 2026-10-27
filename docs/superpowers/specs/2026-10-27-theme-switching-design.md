@@ -263,3 +263,9 @@ styling costs:
   `[theme.light.colors]`) and how `Theme` / `get_theme()` expose it.
 - The exact table entries and how menu action icons are found for refresh.
 - File naming for the light/dark variants of multi-color icons.
+
+## Experimental: Hello Kitty theme
+
+- `ThemeMode.KITTY` ("Hello Kitty (Experimental)" in View > Theme) loads the `[theme.kitty]` variant; Qt's scheme is Light (`base = "light"`, so variant icon files come from `assets/icons/light/`).
+- `apply_theme(app, variant)` replaces the scheme-only switch: Qt's `colorSchemeChanged` maps the scheme to a variant through `ThemeMode.variant(scheme)`, and `set_theme` restyles itself when the scheme does not change (Light <-> Hello Kitty).
+- `keypad_image` puts a picture behind the main keypad (`MainKeypad` QSS `background-image`, `WA_StyledBackground`); keypad key colors are translucent so it shows through. The picture is user-supplied at `assets/themes/kitty/keypad.png` (git-ignored, third-party artwork); without it there is no picture.

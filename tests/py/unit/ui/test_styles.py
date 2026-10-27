@@ -7,20 +7,19 @@
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QMenu
 from shiboken6 import getCppPointer
 
 from tcalc.theme import get_theme, load_theme
 from tcalc.ui.config import fonts_config
-from tcalc.ui.styles import apply_color_scheme, init_styles
+from tcalc.ui.styles import _build_subs, apply_theme, init_styles
 
 
 @pytest.fixture
 def styled(qapp):
     old_palette, old_font = qapp.palette(), qapp.font()
-    init_styles(qapp, Qt.ColorScheme.Dark)
+    init_styles(qapp, "dark")
     yield qapp
     load_theme("dark")
     qapp.setPalette(old_palette)
@@ -66,6 +65,27 @@ def test_app_font_is_fixed_from_config(styled):
 def test_scheme_switch_keeps_style_and_fonts(styled):
     """A switch only re-polishes: replacing the style would reload the platform's fonts."""
     style = getCppPointer(styled.style())
-    apply_color_scheme(styled, Qt.ColorScheme.Light)
+    apply_theme(styled, "light")
     assert getCppPointer(styled.style()) == style
     _assert_fixed_font(styled)
+
+
+class TestKeypadPicture:
+    @pytest.fixture(autouse=True)
+    def _dark_after(self):
+        yield
+        load_theme("dark")
+
+    def test_plain_themes_have_none(self):
+        load_theme("light")
+        assert _build_subs()["keypad_background"] == "none"
+
+    def test_theme_picture_becomes_a_url(self, tmp_path):
+        picture = tmp_path / "kitty.png"
+        picture.write_bytes(b"")
+        load_theme("kitty").keypad_image = str(picture)
+        assert _build_subs()["keypad_background"] == f'url("{picture.as_posix()}")'
+
+    def test_missing_picture_is_none(self, tmp_path):
+        load_theme("kitty").keypad_image = str(tmp_path / "missing.png")
+        assert _build_subs()["keypad_background"] == "none"

@@ -142,6 +142,83 @@ toast_info_bg = "rgba(220, 223, 230, 90%)"
 toast_warn_bg = "rgba(183, 121, 31, 25%)"
 toast_error_bg = "rgba(198, 40, 40, 20%)"
 
+# Experimental custom theme: Hello Kitty (white, pinks, bow red); light-based
+[theme.kitty]
+base = "light"
+# Picture behind the main keypad; shown only when the file exists
+keypad_image = "assets/themes/kitty/keypad.png"
+
+[theme.kitty.colors]
+# Primary colors (translucent keys let the keypad picture through)
+primary = "rgba(255, 255, 255, 80%)"
+primary_hover = "rgba(255, 214, 231, 90%)"
+primary_text = "#3A1F2B"
+
+# Secondary colors
+secondary = "rgba(255, 192, 217, 75%)"
+secondary_hover = "rgba(255, 160, 199, 85%)"
+secondary_text = "#3A1F2B"
+
+# Accent colors
+accent = "rgba(255, 141, 184, 80%)"
+accent_hover = "rgba(255, 110, 165, 90%)"
+accent_text = "#B00028"
+
+# Action colors
+action = "rgba(230, 0, 51, 75%)"
+action_hover = "rgba(200, 0, 45, 85%)"
+action_text = "#FFFFFF"
+
+# Background colors
+background_dark = "#FFF5F9"
+background_dark_alt = "#FFEAF2"
+background_medium = "#FFD6E7"
+background_light = "#FFC2DA"
+background = "#FFE4EF"
+foreground = "#3A1F2B"
+
+# Text colors
+text_primary = "#3A1F2B"
+text_secondary = "#7A3E5A"
+text_muted = "#B07A93"
+text_tertiary = "#B07A93"
+
+# Border colors
+border_default = "#F4A6C6"
+border_light = "#F8C3D9"
+border_focus = "#E60033"
+border_dark = "#E58AB0"
+
+# Status colors
+status_warn = "#C98A00"
+status_error = "#D0002E"
+status_info = "#C2185B"
+status_success = "#2F855A"
+
+# Selection colors
+selection_background = "#FF9CC2"
+selection_text = "#3A1F2B"
+
+# Non-keypad controls (option groups, separators, memory/frac buttons)
+control = "#FFC2DA"
+control_hover = "#FFD6E7"
+control_accent = "#E60033"
+
+# Single-color icon tint
+icon = "#7A3E5A"
+
+# Translucent overlays (QSS rgba, alpha in %)
+control_bg = "rgba(230, 0, 51, 6%)"
+control_bg_hover = "rgba(230, 0, 51, 10%)"
+control_bg_pressed = "rgba(230, 0, 51, 16%)"
+control_disabled_bg = "rgba(230, 0, 51, 4%)"
+control_disabled_text = "rgba(230, 0, 51, 40%)"
+option_checked_bg = "rgba(230, 0, 51, 10%)"
+option_hover_bg = "rgba(230, 0, 51, 6%)"
+toast_info_bg = "rgba(255, 214, 231, 90%)"
+toast_warn_bg = "rgba(255, 212, 0, 30%)"
+toast_error_bg = "rgba(208, 0, 46, 20%)"
+
 [theme.spacing]
 radius_small = 2
 radius_medium = 6

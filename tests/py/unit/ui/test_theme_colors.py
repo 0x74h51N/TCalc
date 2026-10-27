@@ -35,8 +35,28 @@ def test_light_loads_only_light():
     assert t.colors["background"] == "#F4F5F7"
 
 
-def test_sets_have_identical_keys():
-    assert load_theme("light").colors.keys() == load_theme("dark").colors.keys()
+@pytest.mark.parametrize("variant", ["light", "kitty"])
+def test_sets_have_identical_keys(variant):
+    assert load_theme(variant).colors.keys() == load_theme("dark").colors.keys()
+
+
+@pytest.mark.parametrize(
+    ("variant", "base"), [("dark", "dark"), ("light", "light"), ("kitty", "light")]
+)
+def test_base_is_the_light_or_dark_family(variant, base):
+    assert load_theme(variant).base == base
+
+
+def test_kitty_is_pink():
+    c = load_theme("kitty").colors
+    for key in ("background", "selection_background", "border_focus"):
+        hue = QColor(c[key]).hue()
+        assert hue >= 300 or hue <= 10, key  # pink/magenta/red
+
+
+def test_kitty_keys_let_the_keypad_picture_through():
+    c = load_theme("kitty").colors
+    assert all(c[k].startswith("rgba(") for k in ("primary", "secondary", "accent", "action"))
 
 
 def test_new_keys_match_old_dark_values():
@@ -79,7 +99,7 @@ def test_dark_alpha_values_match_old_look():
     assert c["toast_error_bg"] == "rgba(217, 64, 64, 55%)"
 
 
-@pytest.mark.parametrize("variant", ["dark", "light"])
+@pytest.mark.parametrize("variant", ["dark", "light", "kitty"])
 def test_every_qss_placeholder_resolves(variant):
     from tcalc.ui.styles import _build_stylesheet
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from string import Template
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication
 
@@ -38,7 +37,15 @@ def _build_subs() -> dict[str, str]:
         **_ints(calc_config["display"]),
         **_ints(calc_config["display"]["result"]),
         **_ints(toast_config, "toast_"),
+        "keypad_background": _picture_url(theme.keypad_image),
     }
+
+
+def _picture_url(path: str | None) -> str:
+    """QSS url() of a theme picture; none when the theme has none or the file is missing."""
+    if path is None or not Path(path).exists():
+        return "none"
+    return f'url("{Path(path).resolve().as_posix()}")'
 
 
 def _build_stylesheet() -> str:
@@ -67,11 +74,11 @@ def _build_palette() -> QPalette:
     return palette
 
 
-def init_styles(app: QApplication, scheme: Qt.ColorScheme) -> None:
-    """One-time app styling: the style, the first color scheme and the fixed app font."""
+def init_styles(app: QApplication, variant: str) -> None:
+    """One-time app styling: the style, the first theme and the fixed app font."""
     # Fusion honours the palette fully on every platform; native styles may ignore it
     app.setStyle("Fusion")
-    apply_color_scheme(app, scheme)
+    apply_theme(app, variant)
     # Last: setStyle and the first setStyleSheet load the platform theme's per-class fonts
     # (menus, labels...), and setFont without a class name clears them
     app.setFont(_app_font())
@@ -81,10 +88,10 @@ def _app_font() -> QFont:
     return QFont(fonts_config["family_default"], fonts_config["size_default"])
 
 
-def apply_color_scheme(app: QApplication, scheme: Qt.ColorScheme) -> None:
-    """Switch to the color set for Qt's *scheme* (anything but Light is Dark): a new palette,
-    and the app stylesheet re-polishes every widget, hidden ones included. The style stays,
-    since replacing it would reload the platform theme's fonts."""
-    load_theme("light" if scheme == Qt.ColorScheme.Light else "dark")
+def apply_theme(app: QApplication, variant: str) -> None:
+    """Switch to theme *variant*: a new palette, and the app stylesheet re-polishes every
+    widget, hidden ones included. The style stays, since replacing it would reload the
+    platform theme's fonts."""
+    load_theme(variant)
     app.setPalette(_build_palette())
     app.setStyleSheet(_build_stylesheet())

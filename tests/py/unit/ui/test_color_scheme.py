@@ -11,8 +11,8 @@ from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QColor, QPalette
 
 from tcalc.app_state import AppState
-from tcalc.theme import ThemeMode, get_theme, load_theme
-from tcalc.ui.styles import apply_color_scheme
+from tcalc.theme import ThemeMode, load_theme
+from tcalc.ui.styles import apply_theme
 
 
 @pytest.fixture
@@ -38,7 +38,23 @@ def test_mode_maps_to_qt_scheme():
         Qt.ColorScheme.Light,
         Qt.ColorScheme.Dark,
         Qt.ColorScheme.Unknown,
+        Qt.ColorScheme.Light,  # Hello Kitty is a light theme
     ]
+
+
+@pytest.mark.parametrize(
+    ("mode", "scheme", "variant"),
+    [
+        (ThemeMode.SYSTEM, Qt.ColorScheme.Light, "light"),
+        (ThemeMode.SYSTEM, Qt.ColorScheme.Dark, "dark"),
+        (ThemeMode.SYSTEM, Qt.ColorScheme.Unknown, "dark"),
+        (ThemeMode.LIGHT, Qt.ColorScheme.Light, "light"),
+        (ThemeMode.KITTY, Qt.ColorScheme.Light, "kitty"),
+        (ThemeMode.KITTY, Qt.ColorScheme.Dark, "kitty"),
+    ],
+)
+def test_mode_picks_theme_variant(mode, scheme, variant):
+    assert mode.variant(scheme) == variant
 
 
 def test_theme_mode_defaults_to_system(tmp_settings):
@@ -57,21 +73,14 @@ def test_bad_stored_theme_falls_back_to_system(tmp_settings):
 
 @pytest.mark.usefixtures("restore")
 def test_light_scheme_sets_light_palette(qapp):
-    apply_color_scheme(qapp, Qt.ColorScheme.Light)
+    apply_theme(qapp, "light")
     assert qapp.palette().color(QPalette.ColorRole.Window) == QColor("#F4F5F7")
 
 
 @pytest.mark.usefixtures("restore")
-def test_unknown_scheme_is_dark(qapp):
-    apply_color_scheme(qapp, Qt.ColorScheme.Light)
-    apply_color_scheme(qapp, Qt.ColorScheme.Unknown)
-    assert get_theme().variant == "dark"
-
-
-@pytest.mark.usefixtures("restore")
 def test_reapplying_does_not_stack_stylesheet(qapp):
-    apply_color_scheme(qapp, Qt.ColorScheme.Light)
+    apply_theme(qapp, "light")
     n = len(qapp.styleSheet())
-    apply_color_scheme(qapp, Qt.ColorScheme.Dark)
-    apply_color_scheme(qapp, Qt.ColorScheme.Light)
+    apply_theme(qapp, "dark")
+    apply_theme(qapp, "light")
     assert len(qapp.styleSheet()) == n

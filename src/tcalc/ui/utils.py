@@ -90,7 +90,7 @@ def theme_icon(build: Callable[[], QIcon]) -> QIcon:
 
 def _load_icon(name: str, tint_key: str | None) -> QIcon:
     theme = get_theme()
-    path = ICONS_DIR / theme.variant / f"{name}.svg"
+    path = ICONS_DIR / theme.base / f"{name}.svg"
     if not path.exists():
         path = ICONS_DIR / f"{name}.svg"
     if tint_key is None and name not in icons_config["untinted"]:
@@ -101,7 +101,7 @@ def _load_icon(name: str, tint_key: str | None) -> QIcon:
 def get_icon(name: str, tint_key: str | None = None) -> QIcon:
     """Icon *name* for the active theme, tinted with theme color *tint_key* or the icon color.
 
-    ``assets/icons/<variant>/<name>.svg`` wins over ``assets/icons/<name>.svg``;
+    ``assets/icons/<base>/<name>.svg`` (the theme's light/dark family) wins over ``assets/icons/<name>.svg``;
     icons in ``[icons].untinted`` keep their own colors unless *tint_key* is given.
     """
     if not name:

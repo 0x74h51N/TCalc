@@ -13,8 +13,8 @@ from PySide6.QtWidgets import QMenu, QWidget
 
 import tcalc.app_state as app_state_mod
 from tcalc.app_state import get_app_state
-from tcalc.theme import ThemeMode, load_theme
-from tcalc.ui.styles import apply_color_scheme
+from tcalc.theme import ThemeMode, get_theme, load_theme
+from tcalc.ui.styles import apply_theme
 from tcalc.ui.widgets.calc.display.display import Display
 from tcalc.ui.widgets.common.toaster import Toaster, ToastLevel
 from tcalc.ui.widgets.side_panel.side_panel import SidePanel
@@ -40,7 +40,7 @@ def window(qapp, monkeypatch, tmp_path):
     from tcalc.ui.window import MainWindow
 
     old_palette, old_sheet = qapp.palette(), qapp.styleSheet()
-    apply_color_scheme(qapp, Qt.ColorScheme.Dark)
+    apply_theme(qapp, "dark")
     win = MainWindow()
     win.show()
     qapp.processEvents()
@@ -65,7 +65,7 @@ def test_widgets_have_no_color_stylesheets(window):
 
 
 def test_switch_reaches_open_widgets(qapp, window):
-    apply_color_scheme(qapp, Qt.ColorScheme.Light)
+    apply_theme(qapp, "light")
     assert _background(window.findChild(SidePanel)) == LIGHT_BASE
     assert _background(window.findChild(Display)) == LIGHT_BASE
     assert "$" not in qapp.styleSheet()
@@ -74,7 +74,7 @@ def test_switch_reaches_open_widgets(qapp, window):
 def test_switch_reaches_hidden_widgets(qapp, window):
     panel = window.findChild(SidePanel)
     panel.hide()
-    apply_color_scheme(qapp, Qt.ColorScheme.Light)
+    apply_theme(qapp, "light")
     panel.show()
     qapp.processEvents()
     assert _background(panel) == LIGHT_BASE
@@ -97,7 +97,7 @@ def test_keypad_rules_are_scoped(qapp, window):
 def test_user_key_colors_survive_switch(qapp, window):
     key = QWidget(window)
     key.setStyleSheet("background: #123456;")
-    apply_color_scheme(qapp, Qt.ColorScheme.Light)
+    apply_theme(qapp, "light")
     assert key.styleSheet() == "background: #123456;"
 
 
@@ -126,8 +126,14 @@ def test_theme_is_first_in_view_menu(window):
 def test_theme_items(window):
     theme_menu = _view_menu(window).actions()[0].menu()
     texts = [a.text() for a in theme_menu.actions() if not a.isSeparator()]
-    assert texts == ["Light", "Dark", "System Default", "Add Custom Theme..."]
-    assert theme_menu.actions()[3].isSeparator()
+    assert texts == [
+        "Light",
+        "Dark",
+        "System Default",
+        "Hello Kitty (Experimental)",
+        "Add Custom Theme...",
+    ]
+    assert theme_menu.actions()[4].isSeparator()
     assert not _theme_action(window, "Add Custom Theme...").isEnabled()
 
 
@@ -143,3 +149,11 @@ def test_choosing_light_requests_qt_scheme_and_persists(window, monkeypatch):
     assert get_app_state().theme_mode is ThemeMode.LIGHT
     assert _theme_action(window, "Light").isChecked()
     assert not _theme_action(window, "System Default").isChecked()
+
+
+def test_choosing_kitty_restyles_without_a_scheme_change(window, monkeypatch):
+    # Kitty and Light share Qt's Light scheme, so Qt may send no colorSchemeChanged
+    monkeypatch.setattr(QStyleHints, "setColorScheme", lambda self, s: None)
+    _theme_action(window, "Hello Kitty (Experimental)").trigger()
+    assert get_theme().variant == "kitty"
+    assert get_app_state().theme_mode is ThemeMode.KITTY

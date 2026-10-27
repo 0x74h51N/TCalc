@@ -147,3 +147,13 @@ def test_tint_key_follows_a_switch():
         assert _opaque_color(icon) == QColor(get_theme().colors["control_accent"])
     finally:
         load_theme("dark")
+
+
+@pytest.mark.usefixtures("qapp")
+def test_kitty_uses_its_base_variant_files():
+    load_theme("kitty")
+    try:
+        icon = get_icon("snap-angle-symbolic")
+        assert _same_image(icon, QIcon(str(ICONS_DIR / "light" / "snap-angle-symbolic.svg")))
+    finally:
+        load_theme("dark")
