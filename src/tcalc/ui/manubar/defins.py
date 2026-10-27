@@ -60,11 +60,11 @@ EDIT_MENU_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
 VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     SubmenuItem(
         text="Keypad Preset",
-        icon="applications-system",
+        icon="applications-system-symbolic",
         items=(
             MenuActionItem(
                 text="Simple",
-                icon="accessories-calculator",
+                icon="calculate",
                 checkable=True,
                 item_type=MenuActionType.OPS,
                 fn=lambda ops: ops.set_preset(KeypadPreset.SIMPLE),
@@ -72,7 +72,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             ),
             MenuActionItem(
                 text="Science",
-                icon="applications-science",
+                icon="applications-science-symbolic",
                 checkable=True,
                 item_type=MenuActionType.OPS,
                 fn=lambda ops: ops.set_preset(KeypadPreset.SCIENCE),
@@ -90,7 +90,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             MenuSeparatorItem(),
             MenuActionItem(
                 text="Add Custom...",
-                icon="./assets/custom_pad.svg",
+                icon="custom_pad",
                 item_type=MenuActionType.OPS,
                 fn=ViewOperations.add_custom_preset,
             ),
@@ -98,7 +98,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     ),
     MenuActionItem(
         text="Angle Buttons",
-        icon="object-rotate-right",
+        icon="snap-angle-symbolic",
         checkable=True,
         item_type=MenuActionType.TOGGLE,
         checked_getter=lambda s: s.angle_visible,
@@ -107,11 +107,11 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     MenuSeparatorItem(),
     SubmenuItem(
         text="Keypads",
-        icon="./assets/keypads.svg",
+        icon="keypads",
         items=(
             MenuActionItem(
                 text="Numpad",
-                icon="./assets/numpad.svg",
+                icon="numpad",
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
                 checked_getter=lambda s: s.is_dock_open(DockKind.NUMPAD),
@@ -119,7 +119,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             ),
             MenuActionItem(
                 text="Functions Pad",
-                icon="./assets/func.svg",
+                icon="func",
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
                 checked_getter=lambda s: s.is_dock_open(DockKind.FUNCPAD),
@@ -127,7 +127,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             ),
             MenuActionItem(
                 text="Trig / Power Pad",
-                icon="./assets/trig.svg",
+                icon="trig",
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
                 checked_getter=lambda s: s.is_dock_open(DockKind.TRIGPAD),
@@ -145,7 +145,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             MenuSeparatorItem(),
             MenuActionItem(
                 text="Add Custom Pad",
-                icon="./assets/custom_pad.svg",
+                icon="custom_pad",
                 item_type=MenuActionType.OPS,
                 fn=ViewOperations.add_custom_pad,
             ),

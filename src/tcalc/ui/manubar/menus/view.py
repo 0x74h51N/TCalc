@@ -91,7 +91,7 @@ class ViewMenu:
             return
         actions = []
         for _, (pad, dock) in getattr(self.window, "_custom_pads", {}).items():
-            act = QAction(get_icon("./assets/custom_pad.svg"), pad.label, menu)
+            act = QAction(get_icon("custom_pad"), pad.label, menu)
             act.setCheckable(True)
             act.setChecked(dock.isVisible())
             act.toggled.connect(dock.setVisible)
