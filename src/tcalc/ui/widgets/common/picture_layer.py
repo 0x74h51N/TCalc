@@ -9,11 +9,14 @@ from __future__ import annotations
 from functools import cache
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QObject, QRect, QSize, Qt
+from PySide6.QtCore import QEvent, QObject, QRect, QSize, Qt, QTimer
 from PySide6.QtGui import QColor, QImage, QImageReader, QPainter, QPaintEvent
 from PySide6.QtWidgets import QStyle, QWidget
 
 from tcalc.theme import PictureTarget, ThemePicture, get_theme
+
+# Pause in resizing after which pictures are rendered again at the new size
+SETTLE_MS = 150
 
 
 def picture_rects(picture: ThemePicture, area: QRect, natural: QSize) -> tuple[QRect, QRect]:
@@ -57,7 +60,12 @@ class PictureLayer(QWidget):
         super().__init__(parent)
         self._target = target
         self._owner = parent
-        self._cache: dict[tuple[ThemePicture, int, int], QImage] = {}
+        self._cache: dict[ThemePicture, QImage] = {}
+        # Rendering an SVG is slow; while resizing, the last image is stretched instead
+        self._settle = QTimer(self)
+        self._settle.setSingleShot(True)
+        self._settle.setInterval(SETTLE_MS)
+        self._settle.timeout.connect(self.update)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.setGeometry(parent.rect())
         self.lower()
@@ -66,6 +74,7 @@ class PictureLayer(QWidget):
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if watched is self._owner and event.type() == QEvent.Type.Resize:
             self.setGeometry(self._owner.rect())
+            self._settle.start()
         return False
 
     def paintEvent(self, event: QPaintEvent) -> None:
@@ -74,18 +83,20 @@ class PictureLayer(QWidget):
             self._cache.clear()
             return
         painter = QPainter(self)
-        images: dict[tuple[ThemePicture, int, int], QImage] = {}
+        images: dict[ThemePicture, QImage] = {}
         for picture in pictures:
             natural = _natural_size(picture.file)
             if not natural.isValid():
                 continue
             box, rect = picture_rects(picture, self.rect(), natural)
-            key = (picture, rect.width(), rect.height())
-            images[key] = self._cache.get(key) or _render(picture, rect.size())
+            image = self._cache.get(picture)
+            if image is None or (image.size() != rect.size() and not self._settle.isActive()):
+                image = _render(picture, rect.size())
+            images[picture] = image
             painter.save()
             painter.setClipRect(box)
             painter.setOpacity(picture.opacity)
-            painter.drawImage(rect, images[key])
+            painter.drawImage(rect, image)
             painter.restore()
         # Only the images in use stay cached
         self._cache = images

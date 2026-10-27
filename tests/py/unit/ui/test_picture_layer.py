@@ -8,10 +8,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from PySide6.QtCore import QRect, QSize
+from PySide6.QtWidgets import QWidget
 
-from tcalc.theme import PictureFit, PicturePosition, PictureTarget, ThemePicture
-from tcalc.ui.widgets.common.picture_layer import picture_rects
+from tcalc.theme import PictureFit, PicturePosition, PictureTarget, ThemePicture, load_theme
+from tcalc.ui.widgets.common import picture_layer
+from tcalc.ui.widgets.common.picture_layer import PictureLayer, picture_rects
 
 
 def test_config_defaults():
@@ -32,3 +35,31 @@ def test_cover_overflows_its_box():
     picture = ThemePicture(Path("a.svg"), PictureTarget.DISPLAY, fit=PictureFit.COVER)
     box, rect = picture_rects(picture, QRect(0, 0, 200, 100), QSize(100, 100))
     assert box == QRect(0, 0, 200, 100) and rect.size() == QSize(200, 200)
+
+
+@pytest.fixture
+def sponge():
+    load_theme("sponge")
+    yield
+    load_theme("dark")
+
+
+@pytest.mark.usefixtures("sponge")
+def test_resizing_renders_the_picture_again_only_once_it_settles(qtbot, monkeypatch):
+    sizes = []
+    render = picture_layer._render
+    monkeypatch.setattr(
+        picture_layer, "_render", lambda p, s: sizes.append(s.toTuple()) or render(p, s)
+    )
+    window = QWidget()
+    qtbot.addWidget(window)
+    window.resize(400, 200)
+    layer = PictureLayer(window, PictureTarget.WINDOW)
+    layer.grab()
+    for width in (420, 440, 460):
+        window.resize(width, 200)
+        layer.grab()
+    assert len(sizes) == 1  # stretched while resizing
+    qtbot.wait(300)
+    layer.grab()
+    assert sizes[-1][0] == 460
