@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import pytest
 from PySide6.QtGui import QColor, QPalette
+from PySide6.QtWidgets import QMenu
 
 from tcalc.theme import get_theme
 from tcalc.ui.styles import apply_styles
@@ -48,6 +49,8 @@ def test_app_font_is_fixed_from_config(qapp):
         fonts = get_theme().fonts
         assert qapp.font().family() == fonts["family_default"]
         assert qapp.font().pointSize() == fonts["size_default"]
+        menu = QMenu()  # platform themes give menus a font of their own
+        assert qapp.font(menu).family() == fonts["family_default"]
     finally:
         qapp.setFont(old_font)
         qapp.setStyleSheet("")

@@ -70,11 +70,13 @@ def _build_palette() -> QPalette:
 def apply_styles(app: QApplication) -> None:
     # Fusion honours the palette fully on every platform; native styles may ignore it
     app.setStyle("Fusion")
-    fonts = get_theme().fonts
-    app.setFont(QFont(fonts["family_default"], fonts["size_default"]))
     app.setPalette(_build_palette())
     # Qt re-polishes every widget, hidden ones included
     app.setStyleSheet(_build_stylesheet())
+    # Last: setStyle/setStyleSheet reload the platform theme's per-class fonts (menus, labels),
+    # and setFont without a class name clears them
+    fonts = get_theme().fonts
+    app.setFont(QFont(fonts["family_default"], fonts["size_default"]))
 
 
 def apply_color_scheme(app: QApplication, scheme: Qt.ColorScheme) -> None:
