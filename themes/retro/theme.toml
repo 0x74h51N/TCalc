@@ -7,9 +7,9 @@ base = "dark"
 [fonts]
 # VT323-Regular.ttf in this folder (OFL-1.1, see OFL-VT323.txt)
 family_default = "VT323"
-size_default = 16
+size_default = 18
 # Keypad key font range (pt); VT323 draws small
-keypad_min_pt = 13
+keypad_min_pt = 14
 keypad_max_pt = 24
 
 # Square corners
@@ -20,14 +20,14 @@ radius_large = 0
 
 [colors]
 # Green CRT glass with scanlines (the gradient repeats every 0.8% of the height)
-screen = "qlineargradient(spread:repeat, x1:0, y1:0, x2:0, y2:0.008, stop:0 #0C4A0C, stop:0.5 #0C4A0C, stop:0.51 #063006, stop:1 #063006)"
+screen = "qlineargradient(spread:repeat, x1:0, y1:0, x2:0, y2:0.01, stop:0 #0C4A0C, stop:0.5 #0C4A0C, stop:0.51 #083b08, stop:1 #063006)"
 primary = "#33FF33"
 primary_hover = "#66FF66"
 primary_text = "#000000"
 secondary = "#000000"
 secondary_hover = "#0A2A0A"
 secondary_text = "#33FF33"
-accent = "#000000"
+accent = "#000"
 accent_hover = "#0A2A0A"
 accent_text = "#7CFF7C"
 action = "#000000"
@@ -37,8 +37,8 @@ background_dark = "#000000"
 background_dark_alt = "#000A00"
 background_medium = "#001000"
 background_light = "#002000"
-background = "#021A02"
-foreground = "#33FF33"
+background = "#070707"
+foreground = "#050505"
 text_primary = "#33FF33"
 text_secondary = "#22B822"
 text_muted = "#167A16"
@@ -46,7 +46,7 @@ text_tertiary = "#167A16"
 border_default = "#0F5A0F"
 border_light = "#1A8A1A"
 border_focus = "#33FF33"
-border_dark = "#0F5A0F"
+border_dark = "#000000"
 status_warn = "#FFB000"
 status_error = "#FF3B3B"
 status_info = "#33FF33"
