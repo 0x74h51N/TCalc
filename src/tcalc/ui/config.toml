@@ -119,8 +119,8 @@ science_grid_stretch = 4
 
 column_split = 3
 
-min_pt = 8
-max_pt = 14
+min_pt = 9
+max_pt = 16
 
 keypad_stretch = 5
 
