@@ -43,6 +43,8 @@
 # radius_small = 2    # keys, icon buttons, tooltips
 # radius_medium = 6
 # radius_large = 12
+# Any number from src/tcalc/ui/config.toml's style tables can be overridden here by name,
+# e.g. btn_radius = 4 (the fraction button)
 
 
 # --- Pictures ---------------------------------------------------------------------------

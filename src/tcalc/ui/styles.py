@@ -21,12 +21,12 @@ def _ints(table: dict[str, object], prefix: str = "") -> dict[str, str]:
 
 
 def _build_subs() -> dict[str, str]:
-    """Template substitutions: the active theme's colors and spacing plus the layout numbers
-    the stylesheets use."""
+    """Template substitutions: the active theme's colors and the layout numbers the stylesheets
+    use (the theme's [spacing] overrides the config's)."""
     theme = get_theme()
     og = ui_style["option_group"]
     return {
-        **{k: str(v) for k, v in {**theme.colors, **theme.spacing}.items()},
+        **{k: str(v) for k, v in theme.colors.items()},
         "tooltip_padding": str(int(ui_style["tooltip_padding"])),
         "icon_padding": "4",
         "option_padding_y": str(int(og["padding_y"])),
@@ -40,6 +40,8 @@ def _build_subs() -> dict[str, str]:
         **_ints(calc_config["display"]),
         **_ints(calc_config["display"]["result"]),
         **_ints(toast_config, "toast_"),
+        # Last, so a theme can override any of the config numbers above by name
+        **{k: str(v) for k, v in theme.spacing.items()},
     }
 
 

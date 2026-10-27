@@ -99,3 +99,8 @@ def test_custom_pad_picker_items_use_the_picker_text_color(styled, monkeypatch, 
     view.ensurePolished()
     text = view.palette().color(QPalette.ColorRole.Text)
     assert text == QColor(get_theme().colors["text_primary"])
+
+
+def test_theme_spacing_overrides_config_numbers(styled, monkeypatch):
+    monkeypatch.setitem(get_theme().spacing, "btn_radius", 40)
+    assert "border-radius: 40px" in _build_stylesheet()
