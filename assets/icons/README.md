@@ -33,3 +33,11 @@ From Material Symbols (outlined, weight 400, `@material-symbols/svg-400` 0.31.0)
 Apache-2.0, see `LICENSE-MATERIAL-SYMBOLS`:
 
 - calculate.svg (modified: fill set to #fcfcfc; paths unchanged)
+
+## light/
+
+Light theme versions of icons, loaded instead of the top-level file while the Light
+theme is active. From the KDE Breeze icon theme (breeze, 6.24), LGPL-3.0-or-later, see
+`COPYING-BREEZE`:
+
+- snap-angle-symbolic.svg (modified: accent recolored to #4A4D57, 1px stroke added; paths unchanged)

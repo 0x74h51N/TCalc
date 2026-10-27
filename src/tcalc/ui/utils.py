@@ -12,6 +12,10 @@ from pathlib import Path
 
 from PySide6.QtGui import QColor, QIcon, QPainter
 
+from tcalc.theme import get_theme
+
+from .config import icons_config
+
 # Every icon the UI shows, by file stem; bundled so no desktop icon theme is needed
 ICONS_DIR = Path.cwd() / "assets" / "icons"
 
@@ -43,7 +47,17 @@ def _apply_tint(icon: QIcon, tint: str | None) -> QIcon:
 
 
 def get_icon(name: str, tint: str | None = None) -> QIcon:
-    """Load ``assets/icons/<name>.svg``, tinted with *tint* if given."""
+    """Load *name* for the active theme, tinted with *tint* or the theme's icon color.
+
+    ``assets/icons/<variant>/<name>.svg`` wins over ``assets/icons/<name>.svg``;
+    icons in ``[icons].untinted`` keep their own colors unless *tint* is given.
+    """
     if not name:
         return QIcon()
-    return _apply_tint(QIcon(str(ICONS_DIR / f"{name}.svg")), tint)
+    theme = get_theme()
+    path = ICONS_DIR / theme.variant / f"{name}.svg"
+    if not path.exists():
+        path = ICONS_DIR / f"{name}.svg"
+    if tint is None and name not in icons_config["untinted"]:
+        tint = theme.colors["icon"]
+    return _apply_tint(QIcon(str(path)), tint)

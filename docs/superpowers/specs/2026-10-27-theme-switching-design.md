@@ -96,19 +96,16 @@ Agreed approach (see also the bundled icon notes in `assets/icons/README.md`):
   `get_icon` (`src/tcalc/ui/utils.py`) with a theme color, using the existing
   Qt-based `_apply_tint` (QPainter `CompositionMode_SourceIn`). Which theme key
   is the icon color is left to the builder (a new key such as `icon` is fine).
-- **Multi-color icons** get separate light and dark files. Today that is
-  `snap-angle-symbolic` (Angle Buttons) and `application-exit` (red plus a
-  `ColorScheme-Text` white part that would vanish on light; *writer's call*).
-  Light files come from Breeze's `breeze` (light) theme, never drawn by hand.
+- **Multi-color icons** get separate light and dark files. Today that is only
+  `snap-angle-symbolic` (Angle Buttons). Light files come from Breeze's
+  `breeze` (light) theme, never drawn by hand.
   - `snap-angle-symbolic` light version (user approved): take Breeze light's
     `snap-angle-symbolic.svg` and apply the same style-only tweak as the dark
     one: 1px stroke added, accent recolored to a grey that fits Light (use the
     Light set's secondary text value). Path data untouched; diff the paths
     against the original and mark it "modified" in `assets/icons/README.md`.
-  - `application-exit` light version: Breeze light's file, unmodified; its red
-    part stays red.
-- **Red icons** (`edit-delete`, `edit-delete-shred`) are single-color red, stay
-  as they are in both themes and are not tinted.
+- **Red icons** (`edit-delete`, `edit-delete-shred`, `application-exit`) stay
+  as they are in both themes: one file, not tinted (user decision).
 - The window icon (`accessories-calculator`, multi-color app icon) is not
   tinted and stays the same in both themes.
 - Icons already shown (menu actions, toolbar and keypad `IconButton`s, the

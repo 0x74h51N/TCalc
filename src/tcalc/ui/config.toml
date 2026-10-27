@@ -35,6 +35,19 @@ padding_y = 4
 padding_x = 10
 
 # ---------------------------------------------------------------------------
+# Icons
+# ---------------------------------------------------------------------------
+[icons]
+# Multi-color and red icons keep their own colors; all others take the theme's icon color
+untinted = [
+    "accessories-calculator",
+    "application-exit",
+    "edit-delete",
+    "edit-delete-shred",
+    "snap-angle-symbolic",
+]
+
+# ---------------------------------------------------------------------------
 # Toast notifications
 # ---------------------------------------------------------------------------
 [toast]

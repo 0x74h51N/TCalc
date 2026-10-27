@@ -27,6 +27,9 @@ _memory = _config.get("memory", {})
 memory_style = _memory.get("style", {})
 
 
+# Icons
+icons_config = _config["icons"]
+
 # Toast
 toast_config = _config["toast"]
 
