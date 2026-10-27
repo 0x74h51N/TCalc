@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QMenu, QWidget
 
 import tcalc.app_state as app_state_mod
 from tcalc.app_state import get_app_state
-from tcalc.theme import ThemeMode, get_theme, load_theme
+from tcalc.theme import ThemeChoice, ThemeMode, get_theme, load_theme
 from tcalc.ui.styles import apply_theme
 from tcalc.ui.widgets.calc.display.display import Display
 from tcalc.ui.widgets.common.toaster import Toaster, ToastLevel
@@ -148,7 +148,7 @@ def test_choosing_light_requests_qt_scheme_and_persists(window, monkeypatch):
     monkeypatch.setattr(QStyleHints, "setColorScheme", lambda self, s: calls.append(s))
     _theme_action(window, "Light").trigger()
     assert calls == [Qt.ColorScheme.Light]
-    assert get_app_state().theme_mode is ThemeMode.LIGHT
+    assert get_app_state().theme == ThemeChoice(ThemeMode.LIGHT)
     assert _theme_action(window, "Light").isChecked()
     assert not _theme_action(window, "System Default").isChecked()
 
@@ -158,4 +158,4 @@ def test_choosing_kitty_restyles_without_a_scheme_change(window, monkeypatch):
     monkeypatch.setattr(QStyleHints, "setColorScheme", lambda self, s: None)
     _theme_action(window, "Kitty").trigger()
     assert get_theme().variant == "kitty"
-    assert get_app_state().theme_mode is ThemeMode.KITTY
+    assert get_app_state().theme == ThemeChoice(ThemeMode.CUSTOM, "kitty")

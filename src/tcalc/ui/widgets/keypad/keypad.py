@@ -10,7 +10,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Optional
 
-from PySide6.QtCore import QTimer, Signal
+from PySide6.QtCore import QEvent, QTimer, Signal
 from PySide6.QtWidgets import (
     QAbstractButton,
     QButtonGroup,
@@ -31,6 +31,7 @@ from tcalc.ui.widgets.keypad.utils import (
 )
 
 from ...config import keypad_config
+from ...styles import app_fonts
 from ..common.button import KeyButton
 from ..utils import apply_scaled_fonts
 
@@ -188,13 +189,16 @@ class Keypad(QWidget):
     # ------------------------------------------------------------------
 
     def _update_button_fonts(self) -> None:
-        apply_scaled_fonts(
-            self,
-            self._buttons.values(),
-            int(keypad_config["min_pt"]),
-            int(keypad_config["max_pt"]),
-        )
+        # A theme may set its own key font range
+        fonts = app_fonts()
+        apply_scaled_fonts(self, self._buttons.values(), fonts.keypad_min_pt, fonts.keypad_max_pt)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         self._update_button_fonts()
+
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        # A theme switch sets a new app font; rescale the keys in it
+        if event.type() == QEvent.Type.FontChange:
+            self._update_button_fonts()

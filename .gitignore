@@ -29,4 +29,4 @@ stubs/
 tests/benchmark/.fixtures/
 
 # User-supplied theme pictures (third-party artwork stays local)
-assets/themes/
+themes/*/*.png

@@ -1,18 +1,17 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from string import Template
 
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QApplication
 
-from ..theme import get_theme, load_theme
+from ..theme import CUSTOM_THEMES_DIR, get_theme, load_theme
 from .config import calc_config, fonts_config, keypad_config, manubar_style, toast_config
 from .config import style as ui_style
 
 _UI_DIR = Path(__file__).parent
-# Bundled fonts a theme can name (e.g. VT323 for Retro)
-_FONTS_DIR = Path.cwd() / "assets" / "fonts"
 # common.qss first, then every component sheet; together they form the one app stylesheet
 _QSS_FILES = sorted(_UI_DIR.rglob("*.qss"), key=lambda p: (p.name != "common.qss", p))
 
@@ -77,8 +76,9 @@ def _build_palette() -> QPalette:
 
 
 def init_styles(app: QApplication, variant: str) -> None:
-    """One-time app styling: bundled fonts, the style and the first theme."""
-    for path in sorted(_FONTS_DIR.glob("*.ttf")):
+    """One-time app styling: custom themes' fonts, the style and the first theme."""
+    # A custom theme brings its fonts in its own folder (e.g. themes/retro/VT323-Regular.ttf)
+    for path in sorted(CUSTOM_THEMES_DIR.glob("*/*.[ot]tf")):
         QFontDatabase.addApplicationFont(str(path))
     # Fusion honours the palette fully on every platform; native styles may ignore it
     app.setStyle("Fusion")
@@ -88,12 +88,33 @@ def init_styles(app: QApplication, variant: str) -> None:
     app.setFont(_app_font())
 
 
-def _app_font() -> QFont:
-    theme = get_theme()
-    return QFont(
-        theme.font_family or fonts_config["family_default"],
-        theme.font_size or fonts_config["size_default"],
+@dataclass(frozen=True, slots=True)
+class AppFonts:
+    family: str
+    size: int
+    keypad_min_pt: int
+    keypad_max_pt: int
+
+
+def app_fonts() -> AppFonts:
+    """The UI config's [fonts] and keypad font range, with the active theme's overrides."""
+    fonts = {
+        **fonts_config,
+        "keypad_min_pt": keypad_config["min_pt"],
+        "keypad_max_pt": keypad_config["max_pt"],
+        **get_theme().fonts,
+    }
+    return AppFonts(
+        fonts["family_default"],
+        fonts["size_default"],
+        fonts["keypad_min_pt"],
+        fonts["keypad_max_pt"],
     )
+
+
+def _app_font() -> QFont:
+    fonts = app_fonts()
+    return QFont(fonts.family, fonts.size)
 
 
 def apply_theme(app: QApplication, variant: str) -> None:

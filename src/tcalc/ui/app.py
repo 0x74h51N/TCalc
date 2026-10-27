@@ -47,12 +47,12 @@ def run_app(argv: Optional[Sequence[str]] = None, *, debug: bool = False) -> int
     app.setWindowIcon(get_icon("accessories-calculator"))
 
     hints = app.styleHints()
-    mode = get_app_state().theme_mode
-    hints.setColorScheme(mode.scheme)
-    init_styles(app, mode.variant(hints.colorScheme()))
+    choice = get_app_state().theme
+    hints.setColorScheme(choice.scheme)
+    init_styles(app, choice.variant(hints.colorScheme()))
     # Qt holds the scheme: the user's choice and OS changes (System Default) both arrive here
     hints.colorSchemeChanged.connect(
-        lambda scheme: apply_theme(app, get_app_state().theme_mode.variant(scheme))
+        lambda scheme: apply_theme(app, get_app_state().theme.variant(scheme))
     )
 
     window = MainWindow()

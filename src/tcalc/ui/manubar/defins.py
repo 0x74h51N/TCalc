@@ -5,7 +5,7 @@ from typing import Tuple
 from PySide6.QtWidgets import QMessageBox
 
 from tcalc.app_state import DockKind, KeypadPreset
-from tcalc.theme import ThemeMode
+from tcalc.theme import ThemeChoice, ThemeMode, custom_themes
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, ViewOperations
 
 from .menu_builder import MenuActionItem, MenuActionType, MenuSeparatorItem, SubmenuItem
@@ -58,6 +58,21 @@ EDIT_MENU_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
     ),
 )
 
+
+def _custom_theme_item(variant: str, name: str) -> MenuActionItem:
+    choice = ThemeChoice(ThemeMode.CUSTOM, variant)
+    return MenuActionItem(
+        text=name,
+        icon="brush",
+        checkable=True,
+        item_type=MenuActionType.OPS,
+        fn=lambda ops: ops.set_theme(choice),
+        theme=choice,
+    )
+
+
+_CUSTOM_THEME_ITEMS = tuple(_custom_theme_item(v, name) for v, name in custom_themes().items())
+
 VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     SubmenuItem(
         text="Theme",
@@ -68,51 +83,28 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
                 icon="light_mode",
                 checkable=True,
                 item_type=MenuActionType.OPS,
-                fn=lambda ops: ops.set_theme(ThemeMode.LIGHT),
-                theme=ThemeMode.LIGHT,
+                fn=lambda ops: ops.set_theme(ThemeChoice(ThemeMode.LIGHT)),
+                theme=ThemeChoice(ThemeMode.LIGHT),
             ),
             MenuActionItem(
                 text="Dark",
                 icon="dark_mode",
                 checkable=True,
                 item_type=MenuActionType.OPS,
-                fn=lambda ops: ops.set_theme(ThemeMode.DARK),
-                theme=ThemeMode.DARK,
+                fn=lambda ops: ops.set_theme(ThemeChoice(ThemeMode.DARK)),
+                theme=ThemeChoice(ThemeMode.DARK),
             ),
             MenuActionItem(
                 text="System Default",
                 icon="computer",
                 checkable=True,
                 item_type=MenuActionType.OPS,
-                fn=lambda ops: ops.set_theme(ThemeMode.SYSTEM),
-                theme=ThemeMode.SYSTEM,
+                fn=lambda ops: ops.set_theme(ThemeChoice(ThemeMode.SYSTEM)),
+                theme=ThemeChoice(ThemeMode.SYSTEM),
             ),
             MenuSeparatorItem(),
-            # Bundled example custom themes
-            MenuActionItem(
-                text="Kitty",
-                icon="brush",
-                checkable=True,
-                item_type=MenuActionType.OPS,
-                fn=lambda ops: ops.set_theme(ThemeMode.KITTY),
-                theme=ThemeMode.KITTY,
-            ),
-            MenuActionItem(
-                text="Ocean",
-                icon="brush",
-                checkable=True,
-                item_type=MenuActionType.OPS,
-                fn=lambda ops: ops.set_theme(ThemeMode.OCEAN),
-                theme=ThemeMode.OCEAN,
-            ),
-            MenuActionItem(
-                text="Retro",
-                icon="brush",
-                checkable=True,
-                item_type=MenuActionType.OPS,
-                fn=lambda ops: ops.set_theme(ThemeMode.RETRO),
-                theme=ThemeMode.RETRO,
-            ),
+            # Custom themes: one per folder in themes/
+            *_CUSTOM_THEME_ITEMS,
             MenuActionItem(
                 text="Add Custom Theme...",
                 enabled=False,

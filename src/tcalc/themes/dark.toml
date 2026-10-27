@@ -1,0 +1,81 @@
+# Built-in dark theme
+name = "Dark"
+
+[spacing]
+radius_small = 2
+radius_medium = 6
+radius_large = 12
+
+[colors]
+# Primary colors
+primary = "#4a4f5a"
+primary_hover = "#3e434d"
+primary_text = "#ffffff"
+
+# Secondary colors
+secondary = "#3f4450"
+secondary_hover = "#2a2c33"
+secondary_text = "#f0f2ff"
+
+# Accent colors
+accent = "#343842"
+accent_hover = "#3f4450"
+accent_text = "#f3d199"
+
+# Action colors
+action = "#2f353d"
+action_hover = "#252a31"
+action_text = "#a6c7ff"
+
+# Background colors
+background_dark = "#1E1E1E"
+background_dark_alt = "#242424"
+background_medium = "#2a2c33"
+background_light = "#3f4450"
+background = "#1E1E1E"
+foreground = "#f6f7fb"
+
+# Text colors
+text_primary = "#f6f7fb"
+text_secondary = "#b6b8c9"
+text_muted = "#808290"
+text_tertiary = "#808290"
+
+# Border colors
+border_default = "#111111"
+border_light = "#444957"
+border_focus = "#5a606d"
+border_dark = "#111111"
+
+# Status colors
+status_warn = "#e0a828"
+status_error = "#d94040"
+status_info = "#a6c7ff"
+status_success = "#9bdc8c"
+
+# Selection colors
+selection_background = "#3a3d47"
+selection_text = "#ffffff"
+
+# Non-keypad controls (option groups, separators, memory/frac buttons)
+control = "#343842"
+control_hover = "#2a2c33"
+control_accent = "#f3d199"
+
+# Single-color icon tint
+icon = "#fcfcfc"
+
+# Translucent overlays (QSS rgba, alpha in %)
+control_bg = "rgba(52, 56, 66, 20%)"
+control_bg_hover = "rgba(52, 56, 66, 28%)"
+control_bg_pressed = "rgba(52, 56, 66, 38%)"
+control_disabled_bg = "rgba(42, 44, 51, 10%)"
+control_disabled_text = "rgba(243, 209, 153, 30%)"
+option_checked_bg = "rgba(52, 56, 66, 25%)"
+option_hover_bg = "rgba(42, 44, 51, 35%)"
+toast_info_bg = "rgba(63, 68, 80, 55%)"
+toast_warn_bg = "rgba(224, 168, 40, 55%)"
+toast_error_bg = "rgba(217, 64, 64, 55%)"
+
+# Display (calculator screen) background: a QSS color or gradient
+screen = "#1E1E1E"

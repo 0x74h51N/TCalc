@@ -21,10 +21,16 @@ QWidget#radicandSlot, QWidget#radicandSlot:focus {
     border-top: ${root_border_width}px solid $selection_text;
 }
 
+/* The calculator screen: the theme's screen brush on the whole display, its parts see through */
+QWidget#displayWidget {
+    background: $screen;
+}
+
 QScrollArea#displayExpression,
 QScrollArea#displayExpression QWidget#qt_scrollarea_viewport,
-QWidget#displayExpressionEditor {
-    background-color: $background_dark;
+QWidget#displayExpressionEditor,
+Result {
+    background: transparent;
 }
 QFrame#displayDivider {
     min-height: ${divider_height}px;

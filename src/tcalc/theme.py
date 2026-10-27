@@ -1,7 +1,8 @@
 #
-# Central theme configuration
+# Central theme configuration: one config file per theme
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -9,71 +10,95 @@ from typing import Any
 import tomllib
 from PySide6.QtCore import Qt
 
-# Theme pictures: assets/themes/<theme name>/
-THEMES_DIR = Path.cwd() / "assets" / "themes"
+# Built-in themes ship with the package: tcalc/themes/<variant>.toml
+BUILT_IN_DIR = Path(__file__).parent / "themes"
+BUILT_IN_VARIANTS = ("light", "dark")
+# Custom themes live outside the package, one folder each: themes/<variant>/theme.toml plus
+# its pictures (keypad.png)
+CUSTOM_THEMES_DIR = Path.cwd() / "themes"
 
 
 class ThemeMode(Enum):
-    """User's theme choice; Qt holds it as a color scheme (Unknown = follow the OS)."""
+    """Kind of theme the user chose; Qt holds built-in ones as a color scheme."""
 
     LIGHT = "light"
     DARK = "dark"
     SYSTEM = "system"
-    # Bundled example custom themes
-    KITTY = "kitty"
-    OCEAN = "ocean"
-    RETRO = "retro"
+    CUSTOM = "custom"
+
+
+@dataclass(frozen=True, slots=True)
+class ThemeChoice:
+    """The user's theme: a built-in mode, or a custom theme file (*custom*, mode CUSTOM)."""
+
+    mode: ThemeMode = ThemeMode.SYSTEM
+    custom: str = ""
 
     @property
     def scheme(self) -> Qt.ColorScheme:
-        return {
-            ThemeMode.LIGHT: Qt.ColorScheme.Light,
-            ThemeMode.DARK: Qt.ColorScheme.Dark,
-            ThemeMode.KITTY: Qt.ColorScheme.Light,
-            ThemeMode.OCEAN: Qt.ColorScheme.Dark,
-            ThemeMode.RETRO: Qt.ColorScheme.Dark,
-        }.get(self, Qt.ColorScheme.Unknown)
+        """The color scheme to ask Qt for (Unknown = follow the OS)."""
+        match self.mode:
+            case ThemeMode.LIGHT:
+                return Qt.ColorScheme.Light
+            case ThemeMode.DARK:
+                return Qt.ColorScheme.Dark
+            case ThemeMode.CUSTOM:
+                return Theme(self.custom).scheme
+        return Qt.ColorScheme.Unknown
 
     def variant(self, scheme: Qt.ColorScheme) -> str:
         """The theme variant to show while Qt's color scheme is *scheme*."""
-        if self in (ThemeMode.LIGHT, ThemeMode.DARK, ThemeMode.SYSTEM):
-            return "light" if scheme == Qt.ColorScheme.Light else "dark"
-        return self.value  # a custom theme is its own variant
+        if self.mode is ThemeMode.CUSTOM:
+            return self.custom
+        return "light" if scheme == Qt.ColorScheme.Light else "dark"
+
+
+def custom_themes() -> dict[str, str]:
+    """Custom theme variants found in themes/, mapped to their display names."""
+    return {
+        path.parent.name: Theme(path.parent.name).name
+        for path in sorted(CUSTOM_THEMES_DIR.glob("*/theme.toml"))
+    }
 
 
 class Theme:
-    """Central theme configuration loaded from config.toml."""
+    """A theme: colors, spacing (corner radii...) and font overrides from its config file."""
 
     variant: str
+    name: str
     base: str
     keypad_image: Path
-    font_family: str | None
-    font_size: int | None
+    fonts: dict[str, Any]
     colors: dict[str, Any]
     spacing: dict[str, Any]
 
     def __init__(self, variant: str = "dark"):
-        config = self._load_config()
-        theme_data: dict[str, Any] = config["theme"]
-        variant_data: dict[str, Any] = theme_data[variant]
+        data = _read(variant)
         self.variant = variant
-        # The light/dark family a custom variant builds on (variant icon files follow it)
-        self.base = variant_data.get("base", variant)
+        self.name = data["name"]
+        # A custom theme builds on a built-in one (Qt's color scheme, variant icon files) and
+        # its file holds only what differs from it
+        self.base = data.get("base", variant)
+        base = _read(self.base) if self.base != variant else {}
         # Shown behind the main keypad when the file exists
-        self.keypad_image = THEMES_DIR / variant / "keypad.png"
-        # App font overrides; unset keys keep the UI config's [fonts]
-        self.font_family = variant_data.get("font_family")
-        self.font_size = variant_data.get("font_size")
-        # Only the active variant's colors are kept
-        self.colors = variant_data["colors"]
-        # Shared spacing (corner radii...), overridden per variant by [theme.<variant>.spacing]
-        self.spacing = {**theme_data["spacing"], **variant_data.get("spacing", {})}
+        self.keypad_image = CUSTOM_THEMES_DIR / variant / "keypad.png"
+        # Overrides of the UI config's [fonts]
+        self.fonts = {**base.get("fonts", {}), **data.get("fonts", {})}
+        self.colors = {**base.get("colors", {}), **data.get("colors", {})}
+        self.spacing = {**base.get("spacing", {}), **data.get("spacing", {})}
 
-    @staticmethod
-    def _load_config() -> dict[str, Any]:
-        config_path = Path(__file__).parent / "config.toml"
-        with open(config_path, "rb") as f:
-            return tomllib.load(f)
+    @property
+    def scheme(self) -> Qt.ColorScheme:
+        return Qt.ColorScheme.Light if self.base == "light" else Qt.ColorScheme.Dark
+
+
+def _read(variant: str) -> dict[str, Any]:
+    if variant in BUILT_IN_VARIANTS:
+        path = BUILT_IN_DIR / f"{variant}.toml"
+    else:
+        path = CUSTOM_THEMES_DIR / variant / "theme.toml"
+    with open(path, "rb") as f:
+        return tomllib.load(f)
 
 
 # Singleton instance
@@ -89,7 +114,7 @@ def get_theme() -> Theme:
 
 
 def load_theme(variant: str) -> Theme:
-    """Replace the global theme with *variant* (a ``[theme.<variant>]`` table)."""
+    """Replace the global theme with *variant* (a built-in or custom theme)."""
     global _theme_instance
     _theme_instance = Theme(variant)
     return _theme_instance

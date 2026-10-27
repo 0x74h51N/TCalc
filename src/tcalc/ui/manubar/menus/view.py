@@ -50,7 +50,7 @@ class ViewMenu:
             for defn, action in item.add_to(self._view_menu, ctx):
                 if defn.theme is not None:
                     theme_group.addAction(action)
-                    action.setChecked(defn.theme is self.app_state.theme_mode)
+                    action.setChecked(defn.theme == self.app_state.theme)
                 if defn.preset:
                     self._preset_actions[defn.preset] = action
                     action.triggered.connect(self._update_preset_selection)

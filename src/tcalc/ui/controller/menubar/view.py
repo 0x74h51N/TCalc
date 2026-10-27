@@ -3,7 +3,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QApplication, QInputDialog
 
 from tcalc.app_state import DockKind, KeypadPreset, get_app_state
-from tcalc.theme import ThemeMode, get_theme
+from tcalc.theme import ThemeChoice, get_theme
 from tcalc.ui.layout_presets import LayoutPreset
 from tcalc.ui.styles import apply_theme
 
@@ -19,13 +19,13 @@ class ViewOperations:
         self._app_state.history_index = -1
         self._window.apply_preset_layout(preset)
 
-    def set_theme(self, mode: ThemeMode) -> None:
-        self._app_state.theme_mode = mode
+    def set_theme(self, choice: ThemeChoice) -> None:
+        self._app_state.theme = choice
         # Qt holds the scheme; colorSchemeChanged applies it (see run_app)
         hints = QApplication.styleHints()
-        hints.setColorScheme(mode.scheme)
+        hints.setColorScheme(choice.scheme)
         # No signal comes when the scheme stays the same, e.g. Light <-> Kitty
-        variant = mode.variant(hints.colorScheme())
+        variant = choice.variant(hints.colorScheme())
         app = QApplication.instance()
         if variant != get_theme().variant and isinstance(app, QApplication):
             apply_theme(app, variant)

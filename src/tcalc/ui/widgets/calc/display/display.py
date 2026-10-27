@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer, Signal
-from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
     QFrame,
     QLineEdit,
@@ -88,8 +87,8 @@ class Display(QWidget):
         self.result = Result(self, self._config["result"])
         self._layout.addWidget(self.result)
 
-        self.setBackgroundRole(QPalette.ColorRole.Base)
-        self.setAutoFillBackground(True)
+        # The app stylesheet paints the theme's screen brush (QWidget#displayWidget)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
 
         QTimer.singleShot(0, self._update_fonts)
 

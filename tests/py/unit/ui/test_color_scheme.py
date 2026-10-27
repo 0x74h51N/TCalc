@@ -11,7 +11,7 @@ from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QColor, QPalette
 
 from tcalc.app_state import AppState
-from tcalc.theme import ThemeMode, load_theme
+from tcalc.theme import ThemeChoice, ThemeMode, custom_themes, load_theme
 from tcalc.ui.styles import apply_theme
 
 
@@ -33,45 +33,56 @@ def restore(qapp):
     qapp.setStyleSheet(old_sheet)
 
 
-def test_mode_maps_to_qt_scheme():
-    assert [m.scheme for m in ThemeMode] == [
-        Qt.ColorScheme.Light,
-        Qt.ColorScheme.Dark,
-        Qt.ColorScheme.Unknown,
-        Qt.ColorScheme.Light,  # Kitty is a light theme
-        Qt.ColorScheme.Dark,  # Ocean is a dark theme
-        Qt.ColorScheme.Dark,  # Retro is a dark theme
-    ]
+@pytest.mark.parametrize(
+    ("choice", "scheme"),
+    [
+        (ThemeChoice(ThemeMode.LIGHT), Qt.ColorScheme.Light),
+        (ThemeChoice(ThemeMode.DARK), Qt.ColorScheme.Dark),
+        (ThemeChoice(ThemeMode.SYSTEM), Qt.ColorScheme.Unknown),
+        # A custom theme asks for its base theme's scheme
+        (ThemeChoice(ThemeMode.CUSTOM, "kitty"), Qt.ColorScheme.Light),
+        (ThemeChoice(ThemeMode.CUSTOM, "retro"), Qt.ColorScheme.Dark),
+    ],
+)
+def test_choice_maps_to_qt_scheme(choice, scheme):
+    assert choice.scheme == scheme
 
 
 @pytest.mark.parametrize(
-    ("mode", "scheme", "variant"),
+    ("choice", "scheme", "variant"),
     [
-        (ThemeMode.SYSTEM, Qt.ColorScheme.Light, "light"),
-        (ThemeMode.SYSTEM, Qt.ColorScheme.Dark, "dark"),
-        (ThemeMode.SYSTEM, Qt.ColorScheme.Unknown, "dark"),
-        (ThemeMode.LIGHT, Qt.ColorScheme.Light, "light"),
-        (ThemeMode.KITTY, Qt.ColorScheme.Light, "kitty"),
-        (ThemeMode.KITTY, Qt.ColorScheme.Dark, "kitty"),
-        (ThemeMode.OCEAN, Qt.ColorScheme.Light, "ocean"),
+        (ThemeChoice(ThemeMode.SYSTEM), Qt.ColorScheme.Light, "light"),
+        (ThemeChoice(ThemeMode.SYSTEM), Qt.ColorScheme.Dark, "dark"),
+        (ThemeChoice(ThemeMode.SYSTEM), Qt.ColorScheme.Unknown, "dark"),
+        (ThemeChoice(ThemeMode.LIGHT), Qt.ColorScheme.Light, "light"),
+        (ThemeChoice(ThemeMode.CUSTOM, "kitty"), Qt.ColorScheme.Dark, "kitty"),
     ],
 )
-def test_mode_picks_theme_variant(mode, scheme, variant):
-    assert mode.variant(scheme) == variant
+def test_choice_picks_theme_variant(choice, scheme, variant):
+    assert choice.variant(scheme) == variant
 
 
-def test_theme_mode_defaults_to_system(tmp_settings):
-    assert AppState().theme_mode is ThemeMode.SYSTEM
+def test_custom_themes_come_from_theme_files():
+    assert custom_themes() == {"kitty": "Kitty", "ocean": "Ocean", "retro": "Retro"}
 
 
-def test_theme_mode_persists(tmp_settings):
-    AppState().theme_mode = ThemeMode.LIGHT
-    assert AppState().theme_mode is ThemeMode.LIGHT
+def test_theme_defaults_to_system(tmp_settings):
+    assert AppState().theme == ThemeChoice()
+
+
+def test_theme_persists(tmp_settings):
+    AppState().theme = ThemeChoice(ThemeMode.CUSTOM, "ocean")
+    assert AppState().theme == ThemeChoice(ThemeMode.CUSTOM, "ocean")
 
 
 def test_bad_stored_theme_falls_back_to_system(tmp_settings):
     QSettings(tmp_settings, QSettings.Format.IniFormat).setValue("theme", "blue")
-    assert AppState().theme_mode is ThemeMode.SYSTEM
+    assert AppState().theme == ThemeChoice()
+
+
+def test_deleted_custom_theme_falls_back_to_system(tmp_settings):
+    AppState().theme = ThemeChoice(ThemeMode.CUSTOM, "gone")
+    assert AppState().theme == ThemeChoice()
 
 
 @pytest.mark.usefixtures("restore")
