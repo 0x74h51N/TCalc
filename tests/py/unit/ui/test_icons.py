@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from PySide6.QtGui import QColor, QIcon
 
-from tcalc.theme import load_theme
+from tcalc.theme import get_theme, load_theme
 from tcalc.ui.manubar import defins
 from tcalc.ui.manubar.menu_builder import SubmenuItem
 from tcalc.ui.utils import ICONS_DIR, get_icon
@@ -144,6 +144,6 @@ def test_tint_key_follows_a_switch():
     icon = get_icon("frac", tint_key="control_accent")
     load_theme("light")
     try:
-        assert _opaque_color(icon) == QColor("#9A6B12")
+        assert _opaque_color(icon) == QColor(get_theme().colors["control_accent"])
     finally:
         load_theme("dark")

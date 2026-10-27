@@ -85,7 +85,7 @@ secondary_text = "#1E1F24"
 # Accent colors
 accent = "#E9EBF0"
 accent_hover = "#DCDFE6"
-accent_text = "#9A6B12"
+accent_text = "#E0A000"
 
 # Action colors
 action = "#E3E9F3"
@@ -125,7 +125,7 @@ selection_text = "#1E1F24"
 # Non-keypad controls (option groups, separators, memory/frac buttons)
 control = "#DCDFE6"
 control_hover = "#E6E8ED"
-control_accent = "#9A6B12"
+control_accent = "#E0A000"
 
 # Single-color icon tint
 icon = "#232629"
@@ -135,7 +135,7 @@ control_bg = "rgba(30, 31, 36, 6%)"
 control_bg_hover = "rgba(30, 31, 36, 10%)"
 control_bg_pressed = "rgba(30, 31, 36, 16%)"
 control_disabled_bg = "rgba(30, 31, 36, 4%)"
-control_disabled_text = "rgba(154, 107, 18, 40%)"
+control_disabled_text = "rgba(224, 160, 0, 40%)"
 option_checked_bg = "rgba(30, 31, 36, 10%)"
 option_hover_bg = "rgba(30, 31, 36, 6%)"
 toast_info_bg = "rgba(220, 223, 230, 90%)"

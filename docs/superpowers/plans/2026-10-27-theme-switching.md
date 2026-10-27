@@ -71,7 +71,7 @@ Light values (hand-written from the dark ones; button families copied from dark 
 | selection_text | #ffffff | #1E1F24 |
 | control (new) | #343842 | #DCDFE6 |
 | control_hover (new) | #2a2c33 | #E6E8ED |
-| control_accent (new) | #f3d199 | #9A6B12 |
+| control_accent (new) | #f3d199 | #E0A000 |
 | icon (new) | #fcfcfc | #232629 |
 
 Remaps in `src/tcalc/ui/config.toml` (non-keypad uses of button colors, spec 1a; dark values are identical, so dark doesn't change):
@@ -211,7 +211,7 @@ New keys (dark = what today's pairs produce; light hand-written):
 | control_bg_hover | rgba(52, 56, 66, 28%) | rgba(30, 31, 36, 10%) |
 | control_bg_pressed | rgba(52, 56, 66, 38%) | rgba(30, 31, 36, 16%) |
 | control_disabled_bg | rgba(42, 44, 51, 10%) | rgba(30, 31, 36, 4%) |
-| control_disabled_text | rgba(243, 209, 153, 30%) | rgba(154, 107, 18, 40%) |
+| control_disabled_text | rgba(243, 209, 153, 30%) | rgba(224, 160, 0, 40%) |
 | option_checked_bg | rgba(52, 56, 66, 25%) | rgba(30, 31, 36, 10%) |
 | option_hover_bg | rgba(42, 44, 51, 35%) | rgba(30, 31, 36, 6%) |
 | toast_info_bg | rgba(63, 68, 80, 55%) | rgba(220, 223, 230, 90%) |
