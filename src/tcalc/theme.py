@@ -31,7 +31,6 @@ class Theme:
     variant: str
     colors: dict[str, Any]
     spacing: dict[str, Any]
-    fonts: dict[str, Any]
 
     def __init__(self, variant: str = "dark"):
         config = self._load_config()
@@ -40,7 +39,6 @@ class Theme:
         # Only the active variant's colors are kept
         self.colors = theme_data[variant]["colors"]
         self.spacing = theme_data["spacing"]
-        self.fonts = theme_data["fonts"]
 
     @staticmethod
     def _load_config() -> dict[str, Any]:

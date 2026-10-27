@@ -115,3 +115,7 @@ def test_light_accent_is_orange():
     c = load_theme("light").colors
     for key in ("accent_text", "control_accent"):
         assert 15 <= QColor(c[key]).hue() <= 30, key
+
+
+def test_fonts_are_not_part_of_a_theme():
+    assert not hasattr(load_theme("light"), "fonts")

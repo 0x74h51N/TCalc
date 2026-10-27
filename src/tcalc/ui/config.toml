@@ -22,6 +22,12 @@ size_hint_height = 300
 calc_stretch = 3
 history_stretch = 1
 
+[fonts]
+# Fixed app font, independent of the theme and of desktop font settings (e.g. GTK's)
+family_default = "Sans Serif"
+size_default = 9
+family_monospace = "Monospace"
+
 [style]
 tooltip_padding = 2
 

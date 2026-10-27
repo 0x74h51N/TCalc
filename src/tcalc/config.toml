@@ -146,9 +146,3 @@ toast_error_bg = "rgba(198, 40, 40, 20%)"
 radius_small = 2
 radius_medium = 6
 radius_large = 12
-
-[theme.fonts]
-# Fixed app font, so desktop font settings (e.g. GTK's) don't resize the layout
-family_default = "Sans Serif"
-size_default = 9
-family_monospace = "Monospace"

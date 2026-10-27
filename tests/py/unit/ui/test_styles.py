@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QMenu
 from shiboken6 import getCppPointer
 
 from tcalc.theme import get_theme, load_theme
+from tcalc.ui.config import fonts_config
 from tcalc.ui.styles import apply_color_scheme, init_styles
 
 
@@ -52,11 +53,10 @@ class TestAppPalette:
 
 
 def _assert_fixed_font(qapp):
-    fonts = get_theme().fonts
-    assert qapp.font().family() == fonts["family_default"]
-    assert qapp.font().pointSize() == fonts["size_default"]
+    assert qapp.font().family() == fonts_config["family_default"]
+    assert qapp.font().pointSize() == fonts_config["size_default"]
     menu = QMenu()  # platform themes give menus a font of their own
-    assert qapp.font(menu).family() == fonts["family_default"]
+    assert qapp.font(menu).family() == fonts_config["family_default"]
 
 
 def test_app_font_is_fixed_from_config(styled):

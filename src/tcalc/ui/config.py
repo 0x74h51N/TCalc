@@ -12,6 +12,7 @@ def _load_config():
 _config = _load_config()
 window = _config["window"]
 style = _config["style"]
+fonts_config = _config["fonts"]
 
 # Side panel layout
 side_panel_config = _config["side_panel"]

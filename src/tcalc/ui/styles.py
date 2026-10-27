@@ -8,7 +8,7 @@ from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication
 
 from ..theme import get_theme, load_theme
-from .config import calc_config, keypad_config, manubar_style, toast_config
+from .config import calc_config, fonts_config, keypad_config, manubar_style, toast_config
 from .config import style as ui_style
 
 _UI_DIR = Path(__file__).parent
@@ -78,8 +78,7 @@ def init_styles(app: QApplication, scheme: Qt.ColorScheme) -> None:
 
 
 def _app_font() -> QFont:
-    fonts = get_theme().fonts
-    return QFont(fonts["family_default"], fonts["size_default"])
+    return QFont(fonts_config["family_default"], fonts_config["size_default"])
 
 
 def apply_color_scheme(app: QApplication, scheme: Qt.ColorScheme) -> None:
