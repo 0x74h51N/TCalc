@@ -4,7 +4,7 @@ from pathlib import Path
 from string import Template
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QPalette
+from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication
 
 from ..theme import get_theme, load_theme
@@ -70,6 +70,8 @@ def _build_palette() -> QPalette:
 def apply_styles(app: QApplication) -> None:
     # Fusion honours the palette fully on every platform; native styles may ignore it
     app.setStyle("Fusion")
+    fonts = get_theme().fonts
+    app.setFont(QFont(fonts["family_default"], fonts["size_default"]))
     app.setPalette(_build_palette())
     # Qt re-polishes every widget, hidden ones included
     app.setStyleSheet(_build_stylesheet())

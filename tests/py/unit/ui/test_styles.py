@@ -39,3 +39,15 @@ class TestAppPalette:
     )
     def test_role_follows_theme(self, palette, role, token):
         assert palette.color(role) == QColor(get_theme().colors[token])
+
+
+def test_app_font_is_fixed_from_config(qapp):
+    old_font = qapp.font()
+    apply_styles(qapp)
+    try:
+        fonts = get_theme().fonts
+        assert qapp.font().family() == fonts["family_default"]
+        assert qapp.font().pointSize() == fonts["size_default"]
+    finally:
+        qapp.setFont(old_font)
+        qapp.setStyleSheet("")

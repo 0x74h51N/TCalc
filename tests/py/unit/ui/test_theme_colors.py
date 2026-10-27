@@ -109,3 +109,9 @@ def test_only_keypad_qss_uses_keypad_colors():
         if any(f"${family}" in line for family in KEYPAD_FAMILIES)
     ]
     assert offenders == []
+
+
+def test_light_accent_is_orange():
+    c = load_theme("light").colors
+    for key in ("accent_text", "control_accent"):
+        assert 15 <= QColor(c[key]).hue() <= 30, key

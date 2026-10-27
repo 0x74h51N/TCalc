@@ -168,6 +168,12 @@ Qt's own API first (user requirement); no custom theming framework.
   theme (`QT_QPA_PLATFORMTHEME=gtk3`) the request works and the signal fires
   (verified, Qt 6.12). Set it in `scripts/dev` only when running under WSL;
   never in app code, where it would override real desktops' platform themes.
+- **App font is fixed (user decision).** The gtk3 platform theme also hands
+  the GTK font to Qt (Adwaita Sans 11 instead of the generic Sans Serif 9),
+  which enlarged every text without an explicit size and changed the family
+  of the ones with one. `[theme.fonts]` `family_default` / `size_default`
+  (Sans Serif, 9) are set with `QApplication.setFont`, so desktop font
+  settings don't resize the layout.
 - **Applying a set uses Qt's propagation only; widgets hold no theme code.**
   - The app palette (`QApplication.setPalette`) carries the theme to every
     widget (Qt docs: the application palette is the default for all widgets).
