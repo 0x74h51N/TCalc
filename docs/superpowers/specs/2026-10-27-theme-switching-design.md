@@ -151,10 +151,11 @@ Qt's own API first (user requirement); no custom theming framework.
   loads that color set and applies it.
 - **Persistence only in `AppState`:** the user's choice is saved in QSettings
   and re-requested from Qt at startup; Qt does not persist it.
-- **Known risk, first thing to resolve:** a quick check on WSLg (Qt 6.12,
-  wayland and xcb) showed `setColorScheme` not taking effect (scheme stayed
-  `Unknown`, no signal). Find the Qt-side cause and its fix or workaround
-  first; only if there is none, fall back to driving the switch directly.
+- **WSLg (resolved):** without a desktop, Qt falls back to the generic platform
+  theme, which ignores `setColorScheme`. With the bundled `gtk3` platform
+  theme (`QT_QPA_PLATFORMTHEME=gtk3`) the request works and the signal fires
+  (verified, Qt 6.12). Set it in `scripts/dev` only when running under WSL;
+  never in app code, where it would override real desktops' platform themes.
 - Re-applying colors to widgets uses Qt's propagation (`app.setPalette`,
   `app.setStyleSheet`) wherever possible; widget-local stylesheets that Qt
   cannot regenerate are re-applied by calling their existing `apply_*_style`
