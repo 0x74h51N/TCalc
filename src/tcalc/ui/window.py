@@ -32,6 +32,7 @@ from tcalc.theme import PictureTarget
 from tcalc.ui.controller.menubar import ViewOperations
 from tcalc.ui.keyboard import KeyboardHandler
 from tcalc.ui.layout_presets import LayoutPreset, LayoutPresetStore
+from tcalc.ui.widgets.common.dock_title_bar import DockTitleBar
 from tcalc.ui.widgets.common.picture_layer import PictureLayer
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad
 
@@ -101,6 +102,7 @@ class MainWindow(QMainWindow):
     ) -> QDockWidget:
         app_state = get_app_state()
         dock = QDockWidget(title, self)
+        dock.setTitleBarWidget(DockTitleBar(dock))
         dock.setObjectName(object_name)
         dock.setWidget(widget)
         dock.setAllowedAreas(self._DOCK_ALLOWED)
@@ -382,6 +384,7 @@ class MainWindow(QMainWindow):
         """Create a CustomPad + dock, wire signals, register internally."""
         pad = CustomPad(pad_id=pad_id, parent=self)
         dock = QDockWidget(pad.label, self)
+        dock.setTitleBarWidget(DockTitleBar(dock))
         dock.setObjectName(f"customPad_{pad_id}")
         dock.setWidget(pad)
         dock.setAllowedAreas(
