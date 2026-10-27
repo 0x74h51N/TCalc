@@ -27,11 +27,12 @@ from PySide6.QtWidgets import (
 
 from tcalc.core.constants import CONST_BY_ID
 from tcalc.core.ops import Operation
-from tcalc.theme import get_theme
+from tcalc.theme import PictureTarget, get_theme
 from tcalc.ui.utils import split_camel
 from tcalc.ui.widgets.common.button import IconButton, KeyButton, KSSpinBox
 from tcalc.ui.widgets.common.constants_menu import ConstEntry, build_constant_menu
 from tcalc.ui.widgets.common.picker import SearchablePicker
+from tcalc.ui.widgets.common.picture_layer import PictureLayer
 from tcalc.ui.widgets.common.toolbar import Toolbar
 from tcalc.ui.widgets.common.types import KeyDef
 
@@ -416,6 +417,7 @@ class CustomPad(QWidget):
         self._pad_id = pad_id
         # Scopes the keypad rules of the app stylesheet
         self.setProperty("uiRole", "keypad")
+        PictureLayer(self, PictureTarget.CUSTOM_PAD)
         self._settings_key = f"custom_pad/{pad_id}/layout"
         self._label = f"CustomPad {pad_id}"
         self._editing = False

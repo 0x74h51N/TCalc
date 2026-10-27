@@ -61,6 +61,7 @@ class PictureTarget(Enum):
     MAIN_KEYPAD = "main_keypad"
     FUNCTIONS_KEYPAD = "functions_keypad"
     TRIG_KEYPAD = "trig_keypad"
+    CUSTOM_PAD = "custom_pad"
 
 
 class PicturePosition(Enum):
