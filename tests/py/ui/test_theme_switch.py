@@ -130,7 +130,8 @@ def test_theme_items(window):
         "Light",
         "Dark",
         "System Default",
-        "Hello Kitty",
+        "Kitty",
+        "Ocean",
         "Add Custom Theme...",
     ]
     assert theme_menu.actions()[3].isSeparator()
@@ -154,6 +155,6 @@ def test_choosing_light_requests_qt_scheme_and_persists(window, monkeypatch):
 def test_choosing_kitty_restyles_without_a_scheme_change(window, monkeypatch):
     # Kitty and Light share Qt's Light scheme, so Qt may send no colorSchemeChanged
     monkeypatch.setattr(QStyleHints, "setColorScheme", lambda self, s: None)
-    _theme_action(window, "Hello Kitty").trigger()
+    _theme_action(window, "Kitty").trigger()
     assert get_theme().variant == "kitty"
     assert get_app_state().theme_mode is ThemeMode.KITTY

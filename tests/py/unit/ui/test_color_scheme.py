@@ -38,7 +38,8 @@ def test_mode_maps_to_qt_scheme():
         Qt.ColorScheme.Light,
         Qt.ColorScheme.Dark,
         Qt.ColorScheme.Unknown,
-        Qt.ColorScheme.Light,  # Hello Kitty is a light theme
+        Qt.ColorScheme.Light,  # Kitty is a light theme
+        Qt.ColorScheme.Dark,  # Ocean is a dark theme
     ]
 
 
@@ -51,6 +52,7 @@ def test_mode_maps_to_qt_scheme():
         (ThemeMode.LIGHT, Qt.ColorScheme.Light, "light"),
         (ThemeMode.KITTY, Qt.ColorScheme.Light, "kitty"),
         (ThemeMode.KITTY, Qt.ColorScheme.Dark, "kitty"),
+        (ThemeMode.OCEAN, Qt.ColorScheme.Light, "ocean"),
     ],
 )
 def test_mode_picks_theme_variant(mode, scheme, variant):

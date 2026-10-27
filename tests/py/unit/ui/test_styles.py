@@ -83,9 +83,9 @@ class TestKeypadPicture:
     def test_theme_picture_becomes_a_url(self, tmp_path):
         picture = tmp_path / "kitty.png"
         picture.write_bytes(b"")
-        load_theme("kitty").keypad_image = str(picture)
+        load_theme("kitty").keypad_image = picture
         assert _build_subs()["keypad_background"] == f'url("{picture.as_posix()}")'
 
     def test_missing_picture_is_none(self, tmp_path):
-        load_theme("kitty").keypad_image = str(tmp_path / "missing.png")
+        load_theme("kitty").keypad_image = tmp_path / "missing.png"
         assert _build_subs()["keypad_background"] == "none"

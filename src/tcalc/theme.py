@@ -9,6 +9,9 @@ from typing import Any
 import tomllib
 from PySide6.QtCore import Qt
 
+# Theme pictures: assets/themes/<theme name>/
+THEMES_DIR = Path.cwd() / "assets" / "themes"
+
 
 class ThemeMode(Enum):
     """User's theme choice; Qt holds it as a color scheme (Unknown = follow the OS)."""
@@ -16,7 +19,9 @@ class ThemeMode(Enum):
     LIGHT = "light"
     DARK = "dark"
     SYSTEM = "system"
-    KITTY = "kitty"  # bundled example custom theme
+    # Bundled example custom themes
+    KITTY = "kitty"
+    OCEAN = "ocean"
 
     @property
     def scheme(self) -> Qt.ColorScheme:
@@ -24,13 +29,14 @@ class ThemeMode(Enum):
             ThemeMode.LIGHT: Qt.ColorScheme.Light,
             ThemeMode.DARK: Qt.ColorScheme.Dark,
             ThemeMode.KITTY: Qt.ColorScheme.Light,
+            ThemeMode.OCEAN: Qt.ColorScheme.Dark,
         }.get(self, Qt.ColorScheme.Unknown)
 
     def variant(self, scheme: Qt.ColorScheme) -> str:
         """The theme variant to show while Qt's color scheme is *scheme*."""
-        if self is ThemeMode.KITTY:
-            return self.value
-        return "light" if scheme == Qt.ColorScheme.Light else "dark"
+        if self in (ThemeMode.LIGHT, ThemeMode.DARK, ThemeMode.SYSTEM):
+            return "light" if scheme == Qt.ColorScheme.Light else "dark"
+        return self.value  # a custom theme is its own variant
 
 
 class Theme:
@@ -38,7 +44,7 @@ class Theme:
 
     variant: str
     base: str
-    keypad_image: str | None
+    keypad_image: Path
     colors: dict[str, Any]
     spacing: dict[str, Any]
 
@@ -49,7 +55,8 @@ class Theme:
         self.variant = variant
         # The light/dark family a custom variant builds on (variant icon files follow it)
         self.base = variant_data.get("base", variant)
-        self.keypad_image = variant_data.get("keypad_image")
+        # Shown behind the main keypad when the file exists
+        self.keypad_image = THEMES_DIR / variant / "keypad.png"
         # Only the active variant's colors are kept
         self.colors = variant_data["colors"]
         self.spacing = theme_data["spacing"]

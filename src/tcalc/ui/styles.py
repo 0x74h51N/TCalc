@@ -41,11 +41,11 @@ def _build_subs() -> dict[str, str]:
     }
 
 
-def _picture_url(path: str | None) -> str:
-    """QSS url() of a theme picture; none when the theme has none or the file is missing."""
-    if path is None or not Path(path).exists():
+def _picture_url(path: Path) -> str:
+    """QSS url() of a theme picture; none when the file is missing."""
+    if not path.exists():
         return "none"
-    return f'url("{Path(path).resolve().as_posix()}")'
+    return f'url("{path.resolve().as_posix()}")'
 
 
 def _build_stylesheet() -> str:

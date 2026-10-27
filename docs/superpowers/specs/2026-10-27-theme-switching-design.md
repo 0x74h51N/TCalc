@@ -264,8 +264,8 @@ styling costs:
 - The exact table entries and how menu action icons are found for refresh.
 - File naming for the light/dark variants of multi-color icons.
 
-## Bundled example custom theme: Hello Kitty
+## Bundled example custom themes: Kitty and Ocean
 
-- `ThemeMode.KITTY` ("Hello Kitty" in View > Theme, in the custom theme section above "Add Custom Theme..."; once custom themes exist the user can delete it) loads the `[theme.kitty]` variant; Qt's scheme is Light (`base = "light"`, so variant icon files come from `assets/icons/light/`).
-- `apply_theme(app, variant)` replaces the scheme-only switch: Qt's `colorSchemeChanged` maps the scheme to a variant through `ThemeMode.variant(scheme)`, and `set_theme` restyles itself when the scheme does not change (Light <-> Hello Kitty).
-- `keypad_image` puts a picture behind the main keypad (`MainKeypad` QSS `background-image`, `WA_StyledBackground`); keypad key colors are translucent so it shows through. The picture is user-supplied at `assets/themes/kitty/keypad.png` (git-ignored, third-party artwork); without it there is no picture.
+- `ThemeMode.KITTY` ("Kitty": white, pinks, bow red; Light scheme, `base = "light"`) and `ThemeMode.OCEAN` ("Ocean": navy, teal, coral; Dark scheme) sit in the custom theme section above "Add Custom Theme..." with the `brush` icon; once custom themes exist the user can delete them. A custom mode loads its own `[theme.<name>]` variant; `base` picks the variant icon files (`assets/icons/<base>/`).
+- `apply_theme(app, variant)` replaces the scheme-only switch: Qt's `colorSchemeChanged` maps the scheme to a variant through `ThemeMode.variant(scheme)`, and `set_theme` restyles itself when the scheme does not change (Light <-> Kitty).
+- `keypad_image` puts a picture behind the main keypad (`MainKeypad` QSS `background-image`, `WA_StyledBackground`); keypad key colors are translucent so it shows through. Theme pictures live in a folder named after the theme, `assets/themes/<theme name>/keypad.png` (git-ignored, user-supplied artwork); without the file there is no picture.

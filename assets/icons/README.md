@@ -33,6 +33,11 @@ From Material Symbols (outlined, weight 400, `@material-symbols/svg-400` 0.31.0)
 Apache-2.0, see `LICENSE-MATERIAL-SYMBOLS`:
 
 - calculate.svg (modified: fill set to #fcfcfc; paths unchanged)
+- brush.svg
+- computer.svg
+- dark_mode.svg
+- light_mode.svg
+- palette.svg
 
 ## light/
 

@@ -61,9 +61,11 @@ EDIT_MENU_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
 VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     SubmenuItem(
         text="Theme",
+        icon="palette",
         items=(
             MenuActionItem(
                 text="Light",
+                icon="light_mode",
                 checkable=True,
                 item_type=MenuActionType.OPS,
                 fn=lambda ops: ops.set_theme(ThemeMode.LIGHT),
@@ -71,6 +73,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             ),
             MenuActionItem(
                 text="Dark",
+                icon="dark_mode",
                 checkable=True,
                 item_type=MenuActionType.OPS,
                 fn=lambda ops: ops.set_theme(ThemeMode.DARK),
@@ -78,19 +81,29 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             ),
             MenuActionItem(
                 text="System Default",
+                icon="computer",
                 checkable=True,
                 item_type=MenuActionType.OPS,
                 fn=lambda ops: ops.set_theme(ThemeMode.SYSTEM),
                 theme=ThemeMode.SYSTEM,
             ),
             MenuSeparatorItem(),
-            # Bundled example custom theme
+            # Bundled example custom themes
             MenuActionItem(
-                text="Hello Kitty",
+                text="Kitty",
+                icon="brush",
                 checkable=True,
                 item_type=MenuActionType.OPS,
                 fn=lambda ops: ops.set_theme(ThemeMode.KITTY),
                 theme=ThemeMode.KITTY,
+            ),
+            MenuActionItem(
+                text="Ocean",
+                icon="brush",
+                checkable=True,
+                item_type=MenuActionType.OPS,
+                fn=lambda ops: ops.set_theme(ThemeMode.OCEAN),
+                theme=ThemeMode.OCEAN,
             ),
             MenuActionItem(
                 text="Add Custom Theme...",

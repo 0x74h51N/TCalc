@@ -24,7 +24,7 @@ class ViewOperations:
         # Qt holds the scheme; colorSchemeChanged applies it (see run_app)
         hints = QApplication.styleHints()
         hints.setColorScheme(mode.scheme)
-        # No signal comes when the scheme stays the same, e.g. Light <-> Hello Kitty
+        # No signal comes when the scheme stays the same, e.g. Light <-> Kitty
         variant = mode.variant(hints.colorScheme())
         app = QApplication.instance()
         if variant != get_theme().variant and isinstance(app, QApplication):
