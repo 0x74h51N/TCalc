@@ -13,7 +13,7 @@ radius_small = 5
 radius_medium = 8
 radius_large = 14
 
-# Sponge holes (holes.svg, drawn for TCalc) on the yellow surfaces, coral on the sea
+# Sponge holes (holes.svg, drawn for TCalc) on the yellow surfaces, the sea floor behind the whole window
 [[pictures]]
 file = "holes.svg"
 target = "display"
@@ -31,12 +31,11 @@ opacity = 0.35
 margin = 6
 
 [[pictures]]
-file = "coral.svg"
-target = "custom_pad"
+file = "undersea.svg"
+target = "window"
 position = "bottom"
-size = 0.7
-opacity = 0.45
-margin = 4
+fit = "cover"
+opacity = 0.7
 
 [colors]
 # Display: the sponge itself

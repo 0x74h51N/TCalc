@@ -1,8 +1,8 @@
 holes.svg
     Drawn for TCalc (GPL-3.0-or-later).
 
-coral.svg
-    "Coral 2" by Firkin, Openclipart (https://openclipart.org/detail/276080),
+undersea.svg
+    "Undersea-OpenGameArt" by yamachem, Openclipart (https://openclipart.org/detail/226355),
     released into the public domain (CC0 1.0,
     https://creativecommons.org/publicdomain/zero/1.0/). Unmodified.
 
