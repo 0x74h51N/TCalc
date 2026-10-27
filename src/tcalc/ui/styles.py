@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from string import Template
 
+from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication, QWidget
 
 from ..theme import get_theme
@@ -60,7 +61,30 @@ def _load_common_qss() -> str:
     return load_qss(common)
 
 
+def _build_palette() -> QPalette:
+    """Map theme tokens onto Qt palette roles, so un-styled widgets don't fall back to the OS
+    scheme (a light OS theme would otherwise leak into dialogs, menus, scrollbars...)."""
+    c = get_theme().colors
+    role = QPalette.ColorRole
+    # (button, window) constructor derives the 3D shades and disabled colors itself
+    palette = QPalette(QColor(c["background_light"]), QColor(c["background"]))
+    for r, token in (
+        (role.WindowText, "text_primary"),
+        (role.Base, "background_dark"),
+        (role.Text, "text_primary"),
+        (role.ButtonText, "text_primary"),
+        (role.Highlight, "selection_background"),
+        (role.HighlightedText, "selection_text"),
+    ):
+        palette.setColor(r, QColor(c[token]))
+    return palette
+
+
 def apply_styles(app: QApplication) -> None:
+    # Fusion honours the palette fully on every platform; native styles may ignore it
+    app.setStyle("Fusion")
+    app.setPalette(_build_palette())
+
     base = app.styleSheet()
     sheet = _load_common_qss()
     if sheet:
