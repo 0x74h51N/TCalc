@@ -132,6 +132,7 @@ def test_theme_items(window):
         "System Default",
         "Kitty",
         "Ocean",
+        "Retro",
         "Add Custom Theme...",
     ]
     assert theme_menu.actions()[3].isSeparator()

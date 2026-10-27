@@ -106,6 +106,14 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
                 theme=ThemeMode.OCEAN,
             ),
             MenuActionItem(
+                text="Retro",
+                icon="brush",
+                checkable=True,
+                item_type=MenuActionType.OPS,
+                fn=lambda ops: ops.set_theme(ThemeMode.RETRO),
+                theme=ThemeMode.RETRO,
+            ),
+            MenuActionItem(
                 text="Add Custom Theme...",
                 enabled=False,
                 item_type=MenuActionType.OPS,

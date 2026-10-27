@@ -40,6 +40,7 @@ def test_mode_maps_to_qt_scheme():
         Qt.ColorScheme.Unknown,
         Qt.ColorScheme.Light,  # Kitty is a light theme
         Qt.ColorScheme.Dark,  # Ocean is a dark theme
+        Qt.ColorScheme.Dark,  # Retro is a dark theme
     ]
 
 

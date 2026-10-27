@@ -22,6 +22,7 @@ class ThemeMode(Enum):
     # Bundled example custom themes
     KITTY = "kitty"
     OCEAN = "ocean"
+    RETRO = "retro"
 
     @property
     def scheme(self) -> Qt.ColorScheme:
@@ -30,6 +31,7 @@ class ThemeMode(Enum):
             ThemeMode.DARK: Qt.ColorScheme.Dark,
             ThemeMode.KITTY: Qt.ColorScheme.Light,
             ThemeMode.OCEAN: Qt.ColorScheme.Dark,
+            ThemeMode.RETRO: Qt.ColorScheme.Dark,
         }.get(self, Qt.ColorScheme.Unknown)
 
     def variant(self, scheme: Qt.ColorScheme) -> str:
@@ -45,6 +47,8 @@ class Theme:
     variant: str
     base: str
     keypad_image: Path
+    font_family: str | None
+    font_size: int | None
     colors: dict[str, Any]
     spacing: dict[str, Any]
 
@@ -57,9 +61,13 @@ class Theme:
         self.base = variant_data.get("base", variant)
         # Shown behind the main keypad when the file exists
         self.keypad_image = THEMES_DIR / variant / "keypad.png"
+        # App font overrides; unset keys keep the UI config's [fonts]
+        self.font_family = variant_data.get("font_family")
+        self.font_size = variant_data.get("font_size")
         # Only the active variant's colors are kept
         self.colors = variant_data["colors"]
-        self.spacing = theme_data["spacing"]
+        # Shared spacing (corner radii...), overridden per variant by [theme.<variant>.spacing]
+        self.spacing = {**theme_data["spacing"], **variant_data.get("spacing", {})}
 
     @staticmethod
     def _load_config() -> dict[str, Any]:

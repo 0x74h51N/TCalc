@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from string import Template
 
-from PySide6.QtGui import QColor, QFont, QPalette
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QApplication
 
 from ..theme import get_theme, load_theme
@@ -11,6 +11,8 @@ from .config import calc_config, fonts_config, keypad_config, manubar_style, toa
 from .config import style as ui_style
 
 _UI_DIR = Path(__file__).parent
+# Bundled fonts a theme can name (e.g. VT323 for Retro)
+_FONTS_DIR = Path.cwd() / "assets" / "fonts"
 # common.qss first, then every component sheet; together they form the one app stylesheet
 _QSS_FILES = sorted(_UI_DIR.rglob("*.qss"), key=lambda p: (p.name != "common.qss", p))
 
@@ -75,17 +77,23 @@ def _build_palette() -> QPalette:
 
 
 def init_styles(app: QApplication, variant: str) -> None:
-    """One-time app styling: the style, the first theme and the fixed app font."""
+    """One-time app styling: bundled fonts, the style and the first theme."""
+    for path in sorted(_FONTS_DIR.glob("*.ttf")):
+        QFontDatabase.addApplicationFont(str(path))
     # Fusion honours the palette fully on every platform; native styles may ignore it
     app.setStyle("Fusion")
     apply_theme(app, variant)
-    # Last: setStyle and the first setStyleSheet load the platform theme's per-class fonts
-    # (menus, labels...), and setFont without a class name clears them
+    # setStyle and the first setStyleSheet load the platform theme's per-class fonts (menus,
+    # labels...); setFont without a class name clears them. Later switches only re-polish
     app.setFont(_app_font())
 
 
 def _app_font() -> QFont:
-    return QFont(fonts_config["family_default"], fonts_config["size_default"])
+    theme = get_theme()
+    return QFont(
+        theme.font_family or fonts_config["family_default"],
+        theme.font_size or fonts_config["size_default"],
+    )
 
 
 def apply_theme(app: QApplication, variant: str) -> None:
@@ -94,4 +102,6 @@ def apply_theme(app: QApplication, variant: str) -> None:
     platform theme's fonts."""
     load_theme(variant)
     app.setPalette(_build_palette())
+    # Before the stylesheet: its re-polish hands each widget its parent's font as it is then
+    app.setFont(_app_font())
     app.setStyleSheet(_build_stylesheet())

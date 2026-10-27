@@ -35,7 +35,7 @@ def test_light_loads_only_light():
     assert t.colors["background"] == "#F4F5F7"
 
 
-@pytest.mark.parametrize("variant", ["light", "kitty", "ocean"])
+@pytest.mark.parametrize("variant", ["light", "kitty", "ocean", "retro"])
 def test_sets_have_identical_keys(variant):
     assert load_theme(variant).colors.keys() == load_theme("dark").colors.keys()
 
@@ -88,7 +88,7 @@ def test_dark_alpha_values_match_old_look():
     assert c["toast_error_bg"] == "rgba(217, 64, 64, 55%)"
 
 
-@pytest.mark.parametrize("variant", ["dark", "light", "kitty", "ocean"])
+@pytest.mark.parametrize("variant", ["dark", "light", "kitty", "ocean", "retro"])
 def test_every_qss_placeholder_resolves(variant):
     from tcalc.ui.styles import _build_stylesheet
 
@@ -124,7 +124,3 @@ def test_light_accent_is_orange():
     c = load_theme("light").colors
     for key in ("accent_text", "control_accent"):
         assert 15 <= QColor(c[key]).hue() <= 30, key
-
-
-def test_fonts_are_not_part_of_a_theme():
-    assert not hasattr(load_theme("light"), "fonts")

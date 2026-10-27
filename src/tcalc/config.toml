@@ -222,25 +222,25 @@ toast_error_bg = "rgba(208, 0, 46, 20%)"
 base = "dark"
 
 [theme.ocean.colors]
-# Primary colors
-primary = "#173A55"
-primary_hover = "#1E4868"
-primary_text = "#E6F4F1"
+# Primary colors (equals)
+primary = "#1B6FA8"
+primary_hover = "#1F7FC0"
+primary_text = "#FFFFFF"
 
-# Secondary colors
-secondary = "#12304A"
-secondary_hover = "#0E2539"
-secondary_text = "#E6F4F1"
+# Secondary colors (numbers)
+secondary = "#2A5F8A"
+secondary_hover = "#23517A"
+secondary_text = "#F0FAFF"
 
-# Accent colors
-accent = "#0F2A40"
-accent_hover = "#16364F"
-accent_text = "#3DD6C6"
+# Accent colors (operators)
+accent = "#0E5A6E"
+accent_hover = "#126C83"
+accent_text = "#7FE9DF"
 
 # Action colors
-action = "#3A2B3A"
-action_hover = "#4A3343"
-action_text = "#FF8C78"
+action = "#24407A"
+action_hover = "#2D4D90"
+action_text = "#A8C7FF"
 
 # Background colors
 background_dark = "#071521"
@@ -291,6 +291,88 @@ option_hover_bg = "rgba(23, 58, 85, 35%)"
 toast_info_bg = "rgba(29, 80, 104, 60%)"
 toast_warn_bg = "rgba(242, 193, 78, 45%)"
 toast_error_bg = "rgba(255, 107, 91, 45%)"
+
+# Bundled example custom theme: Retro (green phosphor CRT terminal); dark-based
+[theme.retro]
+base = "dark"
+font_family = "VT323"
+font_size = 13
+
+[theme.retro.spacing]
+radius_small = 0
+radius_medium = 0
+radius_large = 0
+
+[theme.retro.colors]
+# Primary colors (equals: inverse video)
+primary = "#33FF33"
+primary_hover = "#66FF66"
+primary_text = "#000000"
+
+# Secondary colors (numbers)
+secondary = "#001400"
+secondary_hover = "#002A00"
+secondary_text = "#33FF33"
+
+# Accent colors (operators)
+accent = "#002000"
+accent_hover = "#003800"
+accent_text = "#7CFF7C"
+
+# Action colors
+action = "#0A2E0A"
+action_hover = "#104010"
+action_text = "#B6FFB6"
+
+# Background colors
+background_dark = "#000000"
+background_dark_alt = "#000A00"
+background_medium = "#001000"
+background_light = "#002000"
+background = "#000500"
+foreground = "#33FF33"
+
+# Text colors
+text_primary = "#33FF33"
+text_secondary = "#22B822"
+text_muted = "#167A16"
+text_tertiary = "#167A16"
+
+# Border colors
+border_default = "#0F5A0F"
+border_light = "#1A8A1A"
+border_focus = "#33FF33"
+border_dark = "#0F5A0F"
+
+# Status colors
+status_warn = "#FFB000"
+status_error = "#FF3B3B"
+status_info = "#33FF33"
+status_success = "#33FF33"
+
+# Selection colors (inverse video)
+selection_background = "#33FF33"
+selection_text = "#000000"
+
+# Non-keypad controls (option groups, separators, memory/frac buttons)
+control = "#002000"
+control_hover = "#003800"
+control_accent = "#7CFF7C"
+
+# Single-color icon tint
+icon = "#33FF33"
+
+# Translucent overlays (QSS rgba, alpha in %)
+control_bg = "rgba(51, 255, 51, 8%)"
+control_bg_hover = "rgba(51, 255, 51, 14%)"
+control_bg_pressed = "rgba(51, 255, 51, 22%)"
+control_disabled_bg = "rgba(51, 255, 51, 4%)"
+control_disabled_text = "rgba(51, 255, 51, 30%)"
+option_checked_bg = "rgba(51, 255, 51, 18%)"
+option_hover_bg = "rgba(51, 255, 51, 10%)"
+toast_info_bg = "rgba(0, 32, 0, 90%)"
+toast_warn_bg = "rgba(255, 176, 0, 35%)"
+toast_error_bg = "rgba(255, 59, 59, 35%)"
 
 [theme.spacing]
 radius_small = 2
