@@ -135,7 +135,7 @@ read theme colors and therefore need to re-apply on a switch:
 
 | Place | What it sets |
 |---|---|
-| `ui/styles.py` `apply_styles` (from `ui/app.py`) | Fusion style, app `QPalette`, app-wide `common.qss` |
+| `ui/styles.py` `init_styles` (once, from `ui/app.py`); `apply_color_scheme` (each switch) | Fusion style and fixed app font once; each switch only sets the app `QPalette` and app stylesheet (replacing the style would reload the platform theme fonts) |
 | `ui/manubar/style.py` `apply_menu_styles` | menu bar QSS |
 | `ui/widgets/calc/topbar/style.py` `apply_topbar_style` | top bar QSS |
 | `ui/widgets/calc/display/style.py` `apply_display_style` | display palette + QSS |

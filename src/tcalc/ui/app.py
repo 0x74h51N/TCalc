@@ -27,7 +27,7 @@ from PySide6.QtWidgets import QApplication
 
 from tcalc.app_state import get_app_state
 
-from .styles import apply_color_scheme, hold_app_font
+from .styles import apply_color_scheme, init_styles
 from .utils import get_icon
 from .window import MainWindow
 
@@ -46,13 +46,11 @@ def run_app(argv: Optional[Sequence[str]] = None, *, debug: bool = False) -> int
     app.setApplicationName("TCalc")
     app.setWindowIcon(get_icon("accessories-calculator"))
 
-    # Qt holds the scheme: the user's choice and OS changes (System Default) both arrive here
-    hold_app_font(app)
     hints = app.styleHints()
-    hints.colorSchemeChanged.connect(lambda scheme: apply_color_scheme(app, scheme))
     hints.setColorScheme(get_app_state().theme_mode.scheme)
-    # No signal fires when the requested scheme is already active
-    apply_color_scheme(app, hints.colorScheme())
+    init_styles(app, hints.colorScheme())
+    # Qt holds the scheme: the user's choice and OS changes (System Default) both arrive here
+    hints.colorSchemeChanged.connect(lambda scheme: apply_color_scheme(app, scheme))
 
     window = MainWindow()
 
