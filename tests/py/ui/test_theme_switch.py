@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import pytest
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtGui import QColor
-from PySide6.QtWidgets import QWidget
+from PySide6.QtGui import QAction, QColor, QStyleHints
+from PySide6.QtWidgets import QMenu, QWidget
 
 import tcalc.app_state as app_state_mod
-from tcalc.theme import load_theme
+from tcalc.app_state import get_app_state
+from tcalc.theme import ThemeMode, load_theme
 from tcalc.ui.styles import apply_color_scheme
 from tcalc.ui.widgets.calc.display.display import Display
 from tcalc.ui.widgets.common.toaster import Toaster, ToastLevel
@@ -104,3 +105,41 @@ def test_toast_is_styled_by_level_not_inline(qapp, window):
     toaster = Toaster(window)
     toaster.show_toast("x", ToastLevel.ERROR)
     assert toaster.styleSheet() == "" and toaster.property("toastLevel") == "error"
+
+
+def _view_menu(window) -> QMenu:
+    return next(a.menu() for a in window.menuBar().actions() if a.text() == "View")
+
+
+def _theme_action(window, text: str) -> QAction:
+    theme_menu = _view_menu(window).actions()[0].menu()
+    return next(a for a in theme_menu.actions() if a.text() == text)
+
+
+def test_theme_is_first_in_view_menu(window):
+    actions = _view_menu(window).actions()
+    assert actions[0].text() == "Theme"
+    assert actions[1].isSeparator()
+    assert actions[2].text() == "Keypad Preset"
+
+
+def test_theme_items(window):
+    theme_menu = _view_menu(window).actions()[0].menu()
+    texts = [a.text() for a in theme_menu.actions() if not a.isSeparator()]
+    assert texts == ["Light", "Dark", "System Default", "Add Custom Theme..."]
+    assert theme_menu.actions()[3].isSeparator()
+    assert not _theme_action(window, "Add Custom Theme...").isEnabled()
+
+
+def test_stored_choice_is_checked(window):
+    assert _theme_action(window, "System Default").isChecked()
+
+
+def test_choosing_light_requests_qt_scheme_and_persists(window, monkeypatch):
+    calls = []
+    monkeypatch.setattr(QStyleHints, "setColorScheme", lambda self, s: calls.append(s))
+    _theme_action(window, "Light").trigger()
+    assert calls == [Qt.ColorScheme.Light]
+    assert get_app_state().theme_mode is ThemeMode.LIGHT
+    assert _theme_action(window, "Light").isChecked()
+    assert not _theme_action(window, "System Default").isChecked()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
 
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import QInputDialog, QMenu, QMenuBar, QMessageBox
 
 from tcalc.app_state import get_app_state
@@ -44,8 +44,13 @@ class ViewMenu:
             app_state=self.app_state,
         )
 
+        # Exclusive check marks for the theme choices
+        theme_group = QActionGroup(self._view_menu)
         for item in VIEW_ACTIONS:
             for defn, action in item.add_to(self._view_menu, ctx):
+                if defn.theme is not None:
+                    theme_group.addAction(action)
+                    action.setChecked(defn.theme is self.app_state.theme_mode)
                 if defn.preset:
                     self._preset_actions[defn.preset] = action
                     action.triggered.connect(self._update_preset_selection)
