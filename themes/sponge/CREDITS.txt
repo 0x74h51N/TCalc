@@ -4,7 +4,7 @@ holes.svg
 undersea.svg
     "Undersea-OpenGameArt" by yamachem, Openclipart (https://openclipart.org/detail/226355),
     released into the public domain (CC0 1.0,
-    https://creativecommons.org/publicdomain/zero/1.0/). Unmodified.
+    https://creativecommons.org/publicdomain/zero/1.0/). Modified: the white sky layer removed.
 
 SomeTimeLater.otf
     Some Time Later by Fredrick R Brennan, SIL Open Font License 1.1
