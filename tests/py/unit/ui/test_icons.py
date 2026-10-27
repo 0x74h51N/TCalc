@@ -102,3 +102,48 @@ def test_dark_has_no_variant_dir_and_falls_back():
     assert not (ICONS_DIR / "dark").exists()
     icon = get_icon("snap-angle-symbolic")
     assert _same_image(icon, QIcon(str(ICONS_DIR / "snap-angle-symbolic.svg")))
+
+
+@pytest.mark.usefixtures("qapp")
+def test_shown_icon_follows_a_switch():
+    load_theme("dark")
+    icon = get_icon("edit-copy")
+    assert _opaque_color(icon) == QColor("#fcfcfc")
+    load_theme("light")
+    try:
+        assert _opaque_color(icon) == QColor("#232629")  # same QIcon, new tint
+    finally:
+        load_theme("dark")
+
+
+@pytest.mark.usefixtures("qapp")
+def test_angle_icon_switches_file():
+    load_theme("dark")
+    icon = get_icon("snap-angle-symbolic")
+    load_theme("light")
+    try:
+        assert _same_image(icon, QIcon(str(ICONS_DIR / "light" / "snap-angle-symbolic.svg")))
+    finally:
+        load_theme("dark")
+
+
+@pytest.mark.usefixtures("qapp")
+def test_red_icon_stays_red_after_switch():
+    load_theme("dark")
+    icon = get_icon("edit-delete")
+    load_theme("light")
+    try:
+        assert _opaque_color(icon) == QColor("#da4453")
+    finally:
+        load_theme("dark")
+
+
+@pytest.mark.usefixtures("qapp")
+def test_tint_key_follows_a_switch():
+    load_theme("dark")
+    icon = get_icon("frac", tint_key="control_accent")
+    load_theme("light")
+    try:
+        assert _opaque_color(icon) == QColor("#9A6B12")
+    finally:
+        load_theme("dark")

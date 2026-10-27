@@ -20,7 +20,6 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.core.utils import CalcValue
-from tcalc.theme import get_theme
 from tcalc.ui.config import calc_config
 from tcalc.ui.widgets.common.button import IconButton
 from tcalc.ui.widgets.history.utils import wrap_expression
@@ -77,7 +76,6 @@ class Result(QWidget):
         self._row_layout.addWidget(self._res_slot, 1)
         btn_size = self._config["btn_size"]
         btn_padding = self._config["btn_padding"]
-        icon_tint = get_theme().colors[self._config["frac_icon_tint"]]
         self._frac_btn_tooltip = "Show as fraction"
         self._decimal_tooltip = "Show as decimal"
         self._frac_btn = IconButton(
@@ -85,7 +83,7 @@ class Result(QWidget):
             tooltip=self._frac_btn_tooltip,
             size=btn_size,
             padding=btn_padding,
-            tint=icon_tint,
+            tint_key=self._config["frac_icon_tint"],
             parent=self,
         )
         self._frac_btn.setObjectName("fracToggleBtn")

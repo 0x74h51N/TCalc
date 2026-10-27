@@ -10,7 +10,6 @@ from __future__ import annotations
 from typing import Mapping, Sequence
 
 from PySide6.QtCore import QSize, Signal
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QButtonGroup,
     QGridLayout,
@@ -22,9 +21,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from tcalc.theme import get_theme
 from tcalc.ui.utils import get_icon
-from tcalc.ui.widgets.math.painter.symbol_icon import ICON_BOX, needs_math_render, render_symbol
+from tcalc.ui.widgets.math.painter.symbol_icon import ICON_BOX, needs_math_render, theme_symbol_icon
 
 from .types import KeyDef
 
@@ -35,8 +33,7 @@ class KeyButton(QPushButton):
     def __init__(self, key_def: KeyDef, role: str, parent: QWidget | None = None) -> None:
         if needs_math_render(key_def.label):
             super().__init__("", parent)
-            color = QColor(get_theme().colors["secondary_text"])
-            self.setIcon(render_symbol(key_def.label, color, ICON_BOX))
+            self.setIcon(theme_symbol_icon(key_def.label, "secondary_text"))
             self.setIconSize(ICON_BOX)
         else:
             super().__init__(key_def.label, parent)
@@ -69,11 +66,11 @@ class IconButton(QPushButton):
         size: int | None = None,
         parent: QWidget | None = None,
         padding: int = 4,
-        tint: str | None = None,
+        tint_key: str | None = None,
     ) -> None:
         super().__init__(text, parent)
-        self._tint = tint
-        self.setIcon(get_icon(icon_name, tint=self._tint))
+        self._tint_key = tint_key
+        self.setIcon(get_icon(icon_name, self._tint_key))
 
         if tooltip:
             self.setToolTip(tooltip)
@@ -88,7 +85,7 @@ class IconButton(QPushButton):
             self.setContentsMargins(padding, padding, padding, padding)
 
     def update_icon(self, icon_name: str) -> None:
-        self.setIcon(get_icon(icon_name, tint=self._tint))
+        self.setIcon(get_icon(icon_name, self._tint_key))
 
     def update_tooltip(self, tooltip: str) -> None:
         self.setToolTip(tooltip)

@@ -8,11 +8,14 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 
-from PySide6.QtGui import QColor, QIcon, QPainter
+from PySide6.QtCore import QRect, QSize, Qt
+from PySide6.QtGui import QColor, QIcon, QIconEngine, QPainter, QPixmap
 
-from tcalc.theme import get_theme
+from tcalc.theme import Theme, get_theme
 
 from .config import icons_config
 
@@ -39,18 +42,68 @@ def _apply_tint(icon: QIcon, tint: str | None) -> QIcon:
     return QIcon(tinted)
 
 
-def get_icon(name: str, tint: str | None = None) -> QIcon:
-    """Load *name* for the active theme, tinted with *tint* or the theme's icon color.
+class _ThemeIconEngine(QIconEngine):
+    """Draws the icon *build* makes from the active theme, rebuilt once after each switch."""
 
-    ``assets/icons/<variant>/<name>.svg`` wins over ``assets/icons/<name>.svg``;
-    icons in ``[icons].untinted`` keep their own colors unless *tint* is given.
-    """
-    if not name:
-        return QIcon()
+    def __init__(self, build: Callable[[], QIcon]) -> None:
+        super().__init__()
+        self._build = build
+        self._theme: Theme | None = None
+        self._icon = QIcon()
+
+    def _current(self) -> QIcon:
+        theme = get_theme()
+        if theme is not self._theme:
+            self._theme, self._icon = theme, self._build()
+        return self._icon
+
+    def paint(self, painter: QPainter, rect: QRect, mode: QIcon.Mode, state: QIcon.State) -> None:
+        self._current().paint(painter, rect, Qt.AlignmentFlag.AlignCenter, mode, state)
+
+    def pixmap(self, size: QSize, mode: QIcon.Mode, state: QIcon.State) -> QPixmap:
+        return self._current().pixmap(size, mode, state)
+
+    def scaledPixmap(
+        self, size: QSize, mode: QIcon.Mode, state: QIcon.State, scale: float
+    ) -> QPixmap:
+        return self._current().pixmap(size, scale, mode, state)
+
+    def actualSize(self, size: QSize, mode: QIcon.Mode, state: QIcon.State) -> QSize:
+        return self._current().actualSize(size, mode, state)
+
+    def availableSizes(
+        self, mode: QIcon.Mode = QIcon.Mode.Normal, state: QIcon.State = QIcon.State.Off
+    ) -> list[QSize]:
+        return self._current().availableSizes(mode, state)
+
+    def isNull(self) -> bool:
+        return self._current().isNull()
+
+    def clone(self) -> QIconEngine:
+        return _ThemeIconEngine(self._build)
+
+
+def theme_icon(build: Callable[[], QIcon]) -> QIcon:
+    """An icon *build* makes from the active theme; it follows theme switches on its own."""
+    return QIcon(_ThemeIconEngine(build))
+
+
+def _load_icon(name: str, tint_key: str | None) -> QIcon:
     theme = get_theme()
     path = ICONS_DIR / theme.variant / f"{name}.svg"
     if not path.exists():
         path = ICONS_DIR / f"{name}.svg"
-    if tint is None and name not in icons_config["untinted"]:
-        tint = theme.colors["icon"]
-    return _apply_tint(QIcon(str(path)), tint)
+    if tint_key is None and name not in icons_config["untinted"]:
+        tint_key = "icon"
+    return _apply_tint(QIcon(str(path)), theme.colors[tint_key] if tint_key else None)
+
+
+def get_icon(name: str, tint_key: str | None = None) -> QIcon:
+    """Icon *name* for the active theme, tinted with theme color *tint_key* or the icon color.
+
+    ``assets/icons/<variant>/<name>.svg`` wins over ``assets/icons/<name>.svg``;
+    icons in ``[icons].untinted`` keep their own colors unless *tint_key* is given.
+    """
+    if not name:
+        return QIcon()
+    return theme_icon(partial(_load_icon, name, tint_key))
