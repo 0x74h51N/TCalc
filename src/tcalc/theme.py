@@ -2,7 +2,7 @@
 # Central theme configuration
 from __future__ import annotations
 
-from enum import StrEnum
+from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +10,7 @@ import tomllib
 from PySide6.QtCore import Qt
 
 
-class ThemeMode(StrEnum):
+class ThemeMode(Enum):
     """User's theme choice; Qt holds it as a color scheme (Unknown = follow the OS)."""
 
     LIGHT = "light"

@@ -80,7 +80,7 @@ class AppState:
 
         stored_theme = self._settings.value("theme", ThemeMode.SYSTEM.value)
         try:
-            self._theme_mode = ThemeMode(str(stored_theme))
+            self._theme_mode = ThemeMode(stored_theme)
         except ValueError:
             self._theme_mode = ThemeMode.SYSTEM
 
