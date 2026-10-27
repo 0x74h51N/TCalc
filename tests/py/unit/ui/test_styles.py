@@ -7,13 +7,15 @@
 from __future__ import annotations
 
 import pytest
+from PySide6.QtCore import QSettings
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QMenu
+from PySide6.QtWidgets import QListView, QMenu
 from shiboken6 import getCppPointer
 
 from tcalc.theme import get_theme, load_theme
 from tcalc.ui.config import fonts_config
 from tcalc.ui.styles import apply_theme, init_styles
+from tcalc.ui.widgets.keypad.custom_pad import CustomPad
 
 
 @pytest.fixture
@@ -68,3 +70,14 @@ def test_scheme_switch_keeps_style_and_fonts(styled):
     apply_theme(styled, "light")
     assert getCppPointer(styled.style()) == style
     _assert_fixed_font(styled)
+
+
+def test_custom_pad_picker_items_use_the_picker_text_color(styled, monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "tcalc.ui.widgets.keypad.custom_pad.QSettings",
+        lambda *_: QSettings(str(tmp_path / "t.ini"), QSettings.Format.IniFormat),
+    )
+    view = CustomPad(1)._op_picker.findChild(QListView)
+    view.ensurePolished()
+    text = view.palette().color(QPalette.ColorRole.Text)
+    assert text == QColor(get_theme().colors["text_primary"])

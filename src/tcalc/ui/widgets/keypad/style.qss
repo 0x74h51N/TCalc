@@ -142,7 +142,7 @@ QMenu[customPadMenu="true"]::separator {
     background-color: $control;
 }
 
-QWidget[uiRole="keypad"] QFrame {
+QFrame#toolbarSeparator {
     color: $control;
 }
 

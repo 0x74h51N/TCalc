@@ -559,6 +559,7 @@ class CustomPad(QWidget):
         self._toolbar.addWidget(remove_pad_btn)
 
         self._toolbar_sep = QFrame(self)
+        self._toolbar_sep.setObjectName("toolbarSeparator")
         self._toolbar_sep.setFrameShape(QFrame.Shape.HLine)
         self._toolbar_sep.hide()
 
