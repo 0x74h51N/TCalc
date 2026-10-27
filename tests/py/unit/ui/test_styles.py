@@ -14,7 +14,8 @@ from shiboken6 import getCppPointer
 
 from tcalc.theme import get_theme, load_theme
 from tcalc.ui.config import fonts_config
-from tcalc.ui.styles import apply_theme, init_styles
+from tcalc.ui.styles import _build_stylesheet, apply_theme, init_styles
+from tcalc.ui.widgets.common.picker import SearchablePicker
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad
 
 
@@ -70,6 +71,23 @@ def test_scheme_switch_keeps_style_and_fonts(styled):
     apply_theme(styled, "light")
     assert getCppPointer(styled.style()) == style
     _assert_fixed_font(styled)
+
+
+def test_theme_sets_the_menu_font_size(styled, monkeypatch):
+    monkeypatch.setitem(get_theme().fonts, "menu_size", 21)
+    styled.setStyleSheet(_build_stylesheet())
+    menu = QMenu()
+    menu.ensurePolished()
+    assert menu.font().pixelSize() == 21
+
+
+def test_theme_sets_the_picker_font_size(styled, monkeypatch):
+    monkeypatch.setitem(get_theme().fonts, "picker_size", 17)
+    styled.setStyleSheet(_build_stylesheet())
+    picker = SearchablePicker([("sin", None)])
+    view = picker.findChild(QListView)
+    view.ensurePolished()
+    assert view.font().pointSize() == 17
 
 
 def test_custom_pad_picker_items_use_the_picker_text_color(styled, monkeypatch, tmp_path):

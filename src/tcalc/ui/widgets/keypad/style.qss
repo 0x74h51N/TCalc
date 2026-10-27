@@ -124,6 +124,7 @@ SearchablePicker {
 SearchablePicker QLineEdit {
     background-color: $background_dark;
     color: $text_primary;
+    font-size: ${picker_font_size}pt;
     border: 1px solid $border_light;
     padding: 2px 4px;
 }
@@ -131,6 +132,7 @@ SearchablePicker QLineEdit {
 SearchablePicker QListView {
     background-color: $background_dark;
     color: $text_primary;
+    font-size: ${picker_font_size}pt;
     border: none;
 }
 

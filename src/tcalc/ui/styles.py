@@ -33,6 +33,8 @@ def _build_subs() -> dict[str, str]:
         "option_padding_x": str(int(og["padding_x"])),
         "button_padding": str(int(keypad_config["button_padding"])),
         **_ints(manubar_style),
+        "menu_font_size": str(app_fonts().menu_size),
+        "picker_font_size": str(app_fonts().picker_size),
         **_ints(calc_config["style"]),
         **_ints(calc_config["topbar"]),
         **_ints(calc_config["display"]),
@@ -86,6 +88,8 @@ class AppFonts:
     size: int
     keypad_min_pt: int
     keypad_max_pt: int
+    menu_size: int  # px
+    picker_size: int  # pt
 
 
 def app_fonts() -> AppFonts:
@@ -94,6 +98,7 @@ def app_fonts() -> AppFonts:
         **fonts_config,
         "keypad_min_pt": keypad_config["min_pt"],
         "keypad_max_pt": keypad_config["max_pt"],
+        "menu_size": manubar_style["menu_font_size"],
         **get_theme().fonts,
     }
     return AppFonts(
@@ -101,6 +106,8 @@ def app_fonts() -> AppFonts:
         fonts["size_default"],
         fonts["keypad_min_pt"],
         fonts["keypad_max_pt"],
+        fonts["menu_size"],
+        fonts.get("picker_size", fonts["size_default"]),
     )
 
 

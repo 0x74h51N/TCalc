@@ -32,6 +32,8 @@
 # family_monospace = "Monospace"  # history list font
 # keypad_min_pt = 8               # smallest key label size (pt); keys scale with the keypad
 # keypad_max_pt = 16              # largest key label size (pt)
+# menu_size = 14                  # menu item size (px): View, Settings... dropdowns
+# picker_size = 9                 # searchable picker size (pt); defaults to size_default
 
 
 # --- Spacing ----------------------------------------------------------------------------
