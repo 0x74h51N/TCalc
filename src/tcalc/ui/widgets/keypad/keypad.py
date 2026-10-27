@@ -33,7 +33,6 @@ from tcalc.ui.widgets.keypad.utils import (
 from ...config import keypad_config
 from ..common.button import KeyButton
 from ..utils import apply_scaled_fonts
-from .style import apply_keypad_style
 
 GridDef = tuple[dict[str, list[KeyDef]], int]
 
@@ -58,6 +57,8 @@ class Keypad(QWidget):
         self._key_def_by_button: dict[QAbstractButton, KeyDef] = {}
 
         self._grid_widgets: list[QWidget] = []
+        # Scopes the keypad rules of the app stylesheet
+        self.setProperty("uiRole", "keypad")
 
         cfg = keypad_config
         margin = int(cfg["side_margin"])
@@ -75,7 +76,6 @@ class Keypad(QWidget):
         self._build_grids()
         self._update_button_fonts()
         QTimer.singleShot(0, self._update_button_fonts)
-        apply_keypad_style(self)
 
     def grid_defs(self) -> list[GridDef]:
         """Return [(key_defs_dict, stretch), ...] for each grid column."""

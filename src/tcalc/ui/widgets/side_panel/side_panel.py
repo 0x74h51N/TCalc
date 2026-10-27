@@ -10,10 +10,9 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 
 from PySide6.QtCore import QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget
 
-from tcalc.theme import get_theme
 from tcalc.ui.config import side_panel_config
 from tcalc.ui.widgets.utils import apply_scaled_fonts
 
@@ -29,11 +28,8 @@ class SidePanel(QWidget):
         self._parent = parent
         self._font_targets: list[tuple[_FontTargets, int, int, Callable[[], None] | None]] = []
 
-        theme = get_theme()
-        palette = self.palette()
-        palette.setColor(self.backgroundRole(), QColor(theme.colors["background_dark"]))
+        self.setBackgroundRole(QPalette.ColorRole.Base)
         self.setAutoFillBackground(True)
-        self.setPalette(palette)
 
         margin = side_panel_config["margin"]
         self._layout = QVBoxLayout(self)

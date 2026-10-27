@@ -5,8 +5,6 @@ from enum import Enum, auto
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QLabel, QWidget
 
-from tcalc.theme import get_theme
-
 from .utils import Align, reposition, setup_fade, start_fade_out
 
 
@@ -14,13 +12,6 @@ class ToastLevel(Enum):
     INFO = auto()
     WARN = auto()
     ERROR = auto()
-
-
-_BG_KEYS: dict[ToastLevel, str] = {
-    ToastLevel.INFO: "toast_info_bg",
-    ToastLevel.WARN: "toast_warn_bg",
-    ToastLevel.ERROR: "toast_error_bg",
-}
 
 
 class Toaster(QLabel):
@@ -31,9 +22,6 @@ class Toaster(QLabel):
         parent: QWidget,
         duration_ms: int = 1500,
         fade_ms: int = 400,
-        padding: str = "6px 10px",
-        border_radius: int = 4,
-        font_size: int = 13,
         horizontal: Align = Align.CENTER,
         vertical: Align = Align.BOTTOM,
         x_offset: int = 0,
@@ -41,9 +29,6 @@ class Toaster(QLabel):
     ) -> None:
         super().__init__(parent)
         self._duration_ms = duration_ms
-        self._padding = padding
-        self._border_radius = border_radius
-        self._font_size = font_size
         self._horizontal = horizontal
         self._vertical = vertical
         self._x_offset = x_offset
@@ -65,18 +50,11 @@ class Toaster(QLabel):
         self._hide_timer.stop()
         self._fade_anim.stop()
 
-        theme = get_theme()
-        bg = theme.colors[_BG_KEYS[level]]
-        text_color = theme.colors["text_primary"]
-
         self.setText(message)
-        self.setStyleSheet(
-            f"background: {bg};"
-            f"color: {text_color};"
-            f"padding: {self._padding};"
-            f"border-radius: {self._border_radius}px;"
-            f"font-size: {self._font_size}px;"
-        )
+        # toaster.qss styles each level through this property
+        self.setProperty("toastLevel", level.name.lower())
+        self.style().unpolish(self)
+        self.style().polish(self)
         self.adjustSize()
         reposition(self, self._horizontal, self._vertical)
         if self._x_offset or self._y_offset:

@@ -79,28 +79,10 @@ def test_dark_alpha_values_match_old_look():
     assert c["toast_error_bg"] == "rgba(217, 64, 64, 55%)"
 
 
-@pytest.mark.usefixtures("qapp")
 @pytest.mark.parametrize("variant", ["dark", "light"])
 def test_every_qss_placeholder_resolves(variant):
-    from PySide6.QtWidgets import QListWidget, QMenuBar, QWidget
-
-    from tcalc.ui.manubar.style import apply_menu_styles
-    from tcalc.ui.styles import _load_common_qss
-    from tcalc.ui.widgets.calc.display.result.style import apply_style
-    from tcalc.ui.widgets.calc.display.style import apply_display_style
-    from tcalc.ui.widgets.calc.topbar.style import apply_topbar_style
-    from tcalc.ui.widgets.history.style import apply_history_style
-    from tcalc.ui.widgets.keypad.style import apply_keypad_style
+    from tcalc.ui.styles import _build_stylesheet
 
     load_theme(variant)
-    sheets = [_load_common_qss()]
-    menubar, history = QMenuBar(), QListWidget()
-    apply_menu_styles(menubar)
-    apply_history_style(history)
-    sheets += [menubar.styleSheet(), history.styleSheet()]
-    for apply in (apply_style, apply_display_style, apply_topbar_style, apply_keypad_style):
-        w = QWidget()
-        apply(w)
-        sheets.append(w.styleSheet())
-    leftovers = [line for sheet in sheets for line in sheet.splitlines() if "$" in line]
+    leftovers = [line for line in _build_stylesheet().splitlines() if "$" in line]
     assert leftovers == []

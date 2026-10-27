@@ -6,13 +6,13 @@ Toaster {
 }
 
 Toaster[toastLevel="info"] {
-    background: $toast_bg_info;
+    background: $toast_info_bg;
 }
 
 Toaster[toastLevel="warn"] {
-    background: $toast_bg_warn;
+    background: $toast_warn_bg;
 }
 
 Toaster[toastLevel="error"] {
-    background: $toast_bg_error;
+    background: $toast_error_bg;
 }

@@ -36,7 +36,6 @@ from tcalc.ui.widgets.common.toolbar import Toolbar
 from tcalc.ui.widgets.common.types import KeyDef
 
 from ...config import custom_pad_config, keypad_config
-from .style import apply_keypad_style
 
 _cfg = custom_pad_config
 _ALL_KEYS = (-1, -1)
@@ -415,6 +414,8 @@ class CustomPad(QWidget):
     def __init__(self, pad_id: int = 0, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._pad_id = pad_id
+        # Scopes the keypad rules of the app stylesheet
+        self.setProperty("uiRole", "keypad")
         self._settings_key = f"custom_pad/{pad_id}/layout"
         self._label = f"CustomPad {pad_id}"
         self._editing = False
@@ -452,7 +453,6 @@ class CustomPad(QWidget):
         )
         self._color_picker.item_selected.connect(self._on_color_picked)
         self._insert_toolbar()
-        apply_keypad_style(self)
 
     # -- Properties --------------------------------------------------------
     @property

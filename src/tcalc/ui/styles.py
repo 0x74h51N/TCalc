@@ -5,58 +5,47 @@ from string import Template
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtWidgets import QApplication
 
 from ..theme import get_theme, load_theme
+from .config import calc_config, keypad_config, manubar_style, toast_config
 from .config import style as ui_style
 
-_STYLES_DIR = Path(__file__).parent / "styles"
+_UI_DIR = Path(__file__).parent
+# common.qss first, then every component sheet; together they form the one app stylesheet
+_QSS_FILES = sorted(_UI_DIR.rglob("*.qss"), key=lambda p: (p.name != "common.qss", p))
 
 
-def build_subs() -> dict[str, str]:
-    """Build the base template-substitution dictionary from theme tokens."""
+def _ints(table: dict[str, object], prefix: str = "") -> dict[str, str]:
+    return {f"{prefix}{k}": str(v) for k, v in table.items() if isinstance(v, int)}
+
+
+def _build_subs() -> dict[str, str]:
+    """Template substitutions: the active theme's colors and spacing plus the layout numbers
+    the stylesheets use."""
     theme = get_theme()
-    c = theme.colors
-    s = theme.spacing
     og = ui_style["option_group"]
-
-    subs: dict[str, str] = {k: str(v) for k, v in {**c, **s}.items()}
-
-    # -- common.qss needs --
-    subs["tooltip_padding"] = str(int(ui_style["tooltip_padding"]))
-    subs["icon_padding"] = "4"
-    subs["option_padding_y"] = str(int(og["padding_y"]))
-    subs["option_padding_x"] = str(int(og["padding_x"]))
-
-    return subs
-
-
-def load_qss(qss_path: Path, subs: dict[str, str] | None = None) -> str:
-    """Read a ``.qss`` template and return the substituted stylesheet string."""
-    if subs is None:
-        subs = build_subs()
-    template = Template(qss_path.read_text(encoding="utf-8"))
-    return template.safe_substitute(subs)
+    return {
+        **{k: str(v) for k, v in {**theme.colors, **theme.spacing}.items()},
+        "tooltip_padding": str(int(ui_style["tooltip_padding"])),
+        "icon_padding": "4",
+        "option_padding_y": str(int(og["padding_y"])),
+        "option_padding_x": str(int(og["padding_x"])),
+        "button_padding": str(int(keypad_config["button_padding"])),
+        **_ints(manubar_style),
+        **_ints(calc_config["style"]),
+        **_ints(calc_config["topbar"]),
+        **_ints(calc_config["display"]),
+        **_ints(calc_config["display"]["result"]),
+        **_ints(toast_config, "toast_"),
+    }
 
 
-def apply_widget_qss(widget: QWidget, qss_path: Path, subs: dict[str, str] | None = None) -> None:
-    """Load a QSS template and apply it to *widget* via ``setStyleSheet``."""
-    sheet = load_qss(qss_path, subs)
-    base = widget.styleSheet()
-    merged = sheet if not base else f"{base}\n{sheet}"
-    widget.setStyleSheet(merged)
-
-
-# ---------------------------------------------------------------------------
-# App-level styles
-# ---------------------------------------------------------------------------
-
-
-def _load_common_qss() -> str:
-    common = _STYLES_DIR / "common.qss"
-    if not common.exists():
-        return ""
-    return load_qss(common)
+def _build_stylesheet() -> str:
+    subs = _build_subs()
+    return "\n".join(
+        Template(path.read_text(encoding="utf-8")).safe_substitute(subs) for path in _QSS_FILES
+    )
 
 
 def _build_palette() -> QPalette:
@@ -82,7 +71,8 @@ def apply_styles(app: QApplication) -> None:
     # Fusion honours the palette fully on every platform; native styles may ignore it
     app.setStyle("Fusion")
     app.setPalette(_build_palette())
-    app.setStyleSheet(_load_common_qss())
+    # Qt re-polishes every widget, hidden ones included
+    app.setStyleSheet(_build_stylesheet())
 
 
 def apply_color_scheme(app: QApplication, scheme: Qt.ColorScheme) -> None:

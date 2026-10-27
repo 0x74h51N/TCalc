@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer, Signal
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import (
     QFrame,
     QLineEdit,
@@ -20,9 +21,10 @@ from PySide6.QtWidgets import (
 )
 from shiboken6 import isValid
 
+from tcalc.ui.config import calc_config
+
 from .expression import Expression
 from .result.result import Result
-from .style import apply_display_style, calc_config
 
 
 class Display(QWidget):
@@ -86,7 +88,8 @@ class Display(QWidget):
         self.result = Result(self, self._config["result"])
         self._layout.addWidget(self.result)
 
-        apply_display_style(self)
+        self.setBackgroundRole(QPalette.ColorRole.Base)
+        self.setAutoFillBackground(True)
 
         QTimer.singleShot(0, self._update_fonts)
 

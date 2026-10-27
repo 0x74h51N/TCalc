@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
 from ...config import calc_config
@@ -47,5 +48,5 @@ class CalcWidget(QWidget):
         # Top bar (angle + memory)
         self.topbar = TopBar(parent=self)
         self.topbar.setAutoFillBackground(True)
-        self.topbar.setPalette(self.display.palette())
+        self.topbar.setBackgroundRole(QPalette.ColorRole.Base)
         layout.addWidget(self.topbar)
