@@ -65,7 +65,6 @@ def test_choice_picks_theme_variant(choice, scheme, variant):
 def test_custom_themes_come_from_theme_files():
     assert custom_themes() == {
         "kitty": "Kitty",
-        "ocean": "Ocean",
         "retro": "Retro",
         "sponge": "Sponge",
     }
@@ -76,8 +75,8 @@ def test_theme_defaults_to_system(tmp_settings):
 
 
 def test_theme_persists(tmp_settings):
-    AppState().theme = ThemeChoice(ThemeMode.CUSTOM, "ocean")
-    assert AppState().theme == ThemeChoice(ThemeMode.CUSTOM, "ocean")
+    AppState().theme = ThemeChoice(ThemeMode.CUSTOM, "retro")
+    assert AppState().theme == ThemeChoice(ThemeMode.CUSTOM, "retro")
 
 
 def test_bad_stored_theme_falls_back_to_system(tmp_settings):

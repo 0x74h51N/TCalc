@@ -131,7 +131,6 @@ def test_theme_items(window):
         "Dark",
         "System Default",
         "Kitty",
-        "Ocean",
         "Retro",
         "Sponge",
         "Add Custom Theme...",
