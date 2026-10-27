@@ -12,6 +12,28 @@ size_default = 14
 keypad_min_pt = 10
 keypad_max_pt = 16
 
+# Line-art kitty in the display's top right corner (kitty.svg, CC0, see CREDITS.txt)
+[[pictures]]
+file = "kitty.svg"
+target = "display"
+position = "top-right"
+size = 0.55
+fit = "contain"
+opacity = 0.35
+margin = 10
+tint = "accent_text"
+
+# Line-art cat at the bottom of the history list (kitty-history.svg, CC0, see CREDITS.txt)
+[[pictures]]
+file = "kitty-history.svg"
+target = "history"
+position = "bottom"
+size = 0.45
+fit = "contain"
+opacity = 0.25
+margin = 10
+tint = "accent_text"
+
 [colors]
 # Translucent keys let the keypad picture through
 primary = "rgba(255, 255, 255, 80%)"

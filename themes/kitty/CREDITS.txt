@@ -1,0 +1,13 @@
+kitty.svg
+    "Cat In A Cup By Claudette Gallant Line Art" by GDJ, Openclipart
+    (https://openclipart.org/detail/331648),
+    released into the public domain (CC0 1.0,
+    https://creativecommons.org/publicdomain/zero/1.0/). Unmodified.
+
+kitty-history.svg
+    "Cat By Linnaea Mallette Vectorized Line Art" by GDJ, Openclipart
+    (https://openclipart.org/detail/337558), released into the public domain (CC0 1.0,
+    https://creativecommons.org/publicdomain/zero/1.0/). Unmodified.
+
+Miniver-Regular.ttf
+    Miniver by Open Window, SIL Open Font License 1.1 (see OFL-Miniver.txt).
