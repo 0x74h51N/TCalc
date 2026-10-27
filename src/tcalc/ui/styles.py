@@ -3,10 +3,11 @@ from __future__ import annotations
 from pathlib import Path
 from string import Template
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication, QWidget
 
-from ..theme import get_theme
+from ..theme import get_theme, load_theme
 from .config import style as ui_style
 from .utils import rgba
 
@@ -84,9 +85,10 @@ def apply_styles(app: QApplication) -> None:
     # Fusion honours the palette fully on every platform; native styles may ignore it
     app.setStyle("Fusion")
     app.setPalette(_build_palette())
+    app.setStyleSheet(_load_common_qss())
 
-    base = app.styleSheet()
-    sheet = _load_common_qss()
-    if sheet:
-        combined = sheet if not base else f"{base}\n{sheet}"
-        app.setStyleSheet(combined)
+
+def apply_color_scheme(app: QApplication, scheme: Qt.ColorScheme) -> None:
+    """Switch to the color set for Qt's *scheme* (anything but Light is Dark) and restyle."""
+    load_theme("light" if scheme == Qt.ColorScheme.Light else "dark")
+    apply_styles(app)

@@ -2,10 +2,27 @@
 # Central theme configuration
 from __future__ import annotations
 
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
 import tomllib
+from PySide6.QtCore import Qt
+
+
+class ThemeMode(StrEnum):
+    """User's theme choice; Qt holds it as a color scheme (Unknown = follow the OS)."""
+
+    LIGHT = "light"
+    DARK = "dark"
+    SYSTEM = "system"
+
+    @property
+    def scheme(self) -> Qt.ColorScheme:
+        return {
+            ThemeMode.LIGHT: Qt.ColorScheme.Light,
+            ThemeMode.DARK: Qt.ColorScheme.Dark,
+        }.get(self, Qt.ColorScheme.Unknown)
 
 
 class Theme:

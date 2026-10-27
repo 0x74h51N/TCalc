@@ -14,6 +14,7 @@ import calc_native
 from PySide6.QtCore import QSettings
 
 from tcalc.core.utils import CalcValue
+from tcalc.theme import ThemeMode
 
 
 class KeypadPreset(Enum):
@@ -77,6 +78,12 @@ class AppState:
         except ValueError:
             self._keypad_preset = KeypadPreset.SIMPLE
 
+        stored_theme = self._settings.value("theme", ThemeMode.SYSTEM.value)
+        try:
+            self._theme_mode = ThemeMode(str(stored_theme))
+        except ValueError:
+            self._theme_mode = ThemeMode.SYSTEM
+
         stored_custom = self._settings.value("active_custom_id", None)
         self._active_custom_id: int | None = (
             int(str(stored_custom)) if stored_custom not in (None, "") else None
@@ -120,6 +127,15 @@ class AppState:
     def keypad_preset(self, value: KeypadPreset) -> None:
         self._keypad_preset = value
         self._settings.setValue("keypad_preset", value.value)
+
+    @property
+    def theme_mode(self) -> ThemeMode:
+        return self._theme_mode
+
+    @theme_mode.setter
+    def theme_mode(self, value: ThemeMode) -> None:
+        self._theme_mode = value
+        self._settings.setValue("theme", value.value)
 
     @property
     def angle_visible(self) -> bool:

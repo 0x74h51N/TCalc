@@ -14,6 +14,11 @@ make native-test NATIVE_TEST_ARGS=""
 echo "Generating ops stubs"
 python scripts/stubgen/main.py
 
+# WSLg has no desktop platform theme, so Qt ignores color scheme requests; gtk3's honours them
+if grep -qi microsoft /proc/version; then
+  export QT_QPA_PLATFORMTHEME="${QT_QPA_PLATFORMTHEME:-gtk3}"
+fi
+
 echo "Auto-restart enabled"
 
 # Hot reload
