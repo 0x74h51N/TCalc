@@ -110,6 +110,16 @@ def test_side_panel_fonts_stay_scaled_after_switch(qapp, window, monkeypatch):
     assert window.history.clear_button.font().pointSize() <= 10
 
 
+def test_history_takes_the_theme_monospace_font(qapp, window, monkeypatch, tmp_path):
+    (tmp_path / "mono").mkdir()
+    (tmp_path / "mono" / "theme.toml").write_text(
+        'name = "Mono"\nbase = "dark"\n[fonts]\nfamily_monospace = "VT323"'
+    )
+    monkeypatch.setattr("tcalc.theme.CUSTOM_THEMES_DIR", tmp_path)
+    apply_theme(qapp, "mono")
+    assert window.history.list.font().family() == "VT323"
+
+
 def test_toast_is_styled_by_level_not_inline(qapp, window):
     toaster = Toaster(window)
     toaster.show_toast("x", ToastLevel.ERROR)

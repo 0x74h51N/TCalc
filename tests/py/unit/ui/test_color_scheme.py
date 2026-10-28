@@ -12,7 +12,7 @@ from PySide6.QtGui import QColor, QPalette
 
 from tcalc.app_state import AppState
 from tcalc.theme import ThemeChoice, ThemeMode, custom_themes, load_theme
-from tcalc.ui.styles import apply_theme
+from tcalc.ui.styles import app_fonts, apply_theme
 
 
 @pytest.fixture
@@ -92,6 +92,19 @@ def test_broken_custom_theme_is_skipped(tmp_path, monkeypatch, toml):
         (tmp_path / variant / "theme.toml").write_text(text)
     monkeypatch.setattr("tcalc.theme.CUSTOM_THEMES_DIR", tmp_path)
     assert custom_themes() == {"good": "Good"}
+
+
+def test_theme_sets_the_monospace_font(tmp_path, monkeypatch):
+    (tmp_path / "mono").mkdir()
+    (tmp_path / "mono" / "theme.toml").write_text(
+        'name = "Mono"\nbase = "dark"\n[fonts]\nfamily_monospace = "VT323"'
+    )
+    monkeypatch.setattr("tcalc.theme.CUSTOM_THEMES_DIR", tmp_path)
+    load_theme("mono")
+    try:
+        assert app_fonts().monospace == "VT323"
+    finally:
+        load_theme("dark")
 
 
 def test_theme_defaults_to_system(tmp_settings):

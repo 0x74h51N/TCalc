@@ -98,6 +98,7 @@ def init_styles(app: QApplication, variant: str) -> None:
 class AppFonts:
     family: str
     size: int
+    monospace: str  # history list
     keypad_min_pt: int
     keypad_max_pt: int
     menu_size: int  # px
@@ -116,6 +117,7 @@ def app_fonts() -> AppFonts:
     return AppFonts(
         fonts["family_default"],
         fonts["size_default"],
+        fonts["family_monospace"],
         fonts["keypad_min_pt"],
         fonts["keypad_max_pt"],
         fonts["menu_size"],
