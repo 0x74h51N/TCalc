@@ -26,6 +26,8 @@ dev = [
   "pre-commit>=4.7,<4.8",
   "pybind11-stubgen>=3.0,<3.1",
   "ruff==0.15.0",
+  "clang-format>=21.1,<21.2",
+  "clang-tidy>=21.1,<21.2",
   "pytest>=9.1,<9.2",
   "pytest-benchmark>=5.3,<5.4",
   "pytest-qt>=4.5,<4.6",

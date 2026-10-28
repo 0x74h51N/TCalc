@@ -15,11 +15,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # Same pin as pyproject's dev extra
       - name: Install clang-format
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-format-20
-          sudo ln -sf /usr/bin/clang-format-20 /usr/bin/clang-format
+          python -m venv .venv
+          .venv/bin/python -m pip install "pip>=26.2,<26.3"
+          .venv/bin/pip install "clang-format>=21.1,<21.2"
 
       - name: Run format check
         run: make cpp-format-check
@@ -104,7 +109,8 @@ jobs:
           python -m venv .venv
           . .venv/bin/activate
           python -m pip install "pip>=26.2,<26.3"
-          pip install "pybind11>=3.1,<3.2"
+          # Same pins as pyproject; run-clang-tidy comes from the apt clang-tidy
+          pip install "pybind11>=3.1,<3.2" "clang-tidy>=21.1,<21.2"
 
       - name: Download native build artifact (for compile_commands.json)
         uses: actions/download-artifact@v4
