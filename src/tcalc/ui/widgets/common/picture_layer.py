@@ -23,7 +23,10 @@ def picture_rects(picture: ThemePicture, area: QRect, natural: QSize) -> tuple[Q
     """The box *picture* takes in *area*, and where its image of *natural* size is drawn
     (larger than the box when it covers it)."""
     inner = area.adjusted(picture.margin, picture.margin, -picture.margin, -picture.margin)
-    box_size = QSize(int(inner.width() * picture.size), int(inner.height() * picture.size))
+    # A component smaller than its margins gets an empty box, never a negative one
+    box_size = QSize(
+        max(0, int(inner.width() * picture.size)), max(0, int(inner.height() * picture.size))
+    )
     align = picture.position.alignment
     box = QStyle.alignedRect(Qt.LayoutDirection.LeftToRight, align, box_size, inner)
     image_size = natural.scaled(box_size, picture.fit.aspect_mode)
@@ -77,6 +80,9 @@ class PicturePainter:
             if not natural.isValid():
                 continue
             box, rect = picture_rects(picture, self._widget.rect(), natural)
+            # The reader ignores an empty scaled size and renders the file's own (huge) size
+            if rect.isEmpty():
+                continue
             image = self._cache.get(picture)
             if image is None or (image.size() != rect.size() and not self._settle.isActive()):
                 image = _render(picture, rect.size())

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from PySide6.QtCore import QRect, QSize
@@ -35,6 +36,25 @@ def test_cover_overflows_its_box():
     picture = ThemePicture(Path("a.svg"), PictureTarget.DISPLAY, fit=PictureFit.COVER)
     box, rect = picture_rects(picture, QRect(0, 0, 200, 100), QSize(100, 100))
     assert box == QRect(0, 0, 200, 100) and rect.size() == QSize(200, 200)
+
+
+def test_component_smaller_than_the_margins_gives_an_empty_box():
+    picture = ThemePicture(Path("a.svg"), PictureTarget.DISPLAY, margin=10)
+    box, rect = picture_rects(picture, QRect(0, 0, 15, 15), QSize(100, 100))
+    assert box.size() == QSize(0, 0) and rect.size() == QSize(0, 0)
+
+
+def test_empty_box_is_not_rendered(qtbot, monkeypatch):
+    svg = Path(__file__).parents[4] / "assets" / "icons" / "accessories-calculator.svg"
+    picture = ThemePicture(svg, PictureTarget.DISPLAY, margin=10)
+    monkeypatch.setattr(picture_layer, "get_theme", lambda: SimpleNamespace(pictures=(picture,)))
+    rendered = []
+    monkeypatch.setattr(picture_layer, "_render", lambda p, s: rendered.append(s))
+    widget = QWidget()
+    qtbot.addWidget(widget)
+    widget.resize(15, 15)
+    PictureLayer(widget, PictureTarget.DISPLAY).grab()
+    assert rendered == []
 
 
 @pytest.fixture
