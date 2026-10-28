@@ -9,11 +9,12 @@ from __future__ import annotations
 import pytest
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction, QColor, QFont, QStyleHints
-from PySide6.QtWidgets import QMenu, QWidget
+from PySide6.QtWidgets import QApplication, QMenu, QWidget
 
 import tcalc.app_state as app_state_mod
 from tcalc.app_state import get_app_state
 from tcalc.theme import ThemeChoice, ThemeMode, get_theme, load_theme
+from tcalc.ui.app import _follow_scheme
 from tcalc.ui.styles import apply_theme
 from tcalc.ui.widgets.calc.display.display import Display
 from tcalc.ui.widgets.common.toaster import Toaster, ToastLevel
@@ -167,3 +168,11 @@ def test_choosing_kitty_restyles_without_a_scheme_change(window, monkeypatch):
     _theme_action(window, "Kitty").trigger()
     assert get_theme().variant == "kitty"
     assert get_app_state().theme == ThemeChoice(ThemeMode.CUSTOM, "kitty")
+
+
+def test_late_scheme_signal_does_not_reapply(window, monkeypatch):
+    calls = []
+    monkeypatch.setattr("tcalc.ui.app.apply_theme", lambda app, v: calls.append(v))
+    get_app_state().theme = ThemeChoice(ThemeMode.DARK)
+    _follow_scheme(QApplication.instance(), Qt.ColorScheme.Dark)
+    assert calls == []

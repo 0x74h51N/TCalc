@@ -23,9 +23,11 @@ from __future__ import annotations
 import logging
 from typing import Optional, Sequence
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
 from tcalc.app_state import get_app_state
+from tcalc.theme import get_theme
 
 from .styles import apply_theme, init_styles
 from .utils import get_icon
@@ -51,9 +53,7 @@ def run_app(argv: Optional[Sequence[str]] = None, *, debug: bool = False) -> int
     hints.setColorScheme(choice.scheme)
     init_styles(app, choice.variant(hints.colorScheme()))
     # Qt holds the scheme: the user's choice and OS changes (System Default) both arrive here
-    hints.colorSchemeChanged.connect(
-        lambda scheme: apply_theme(app, get_app_state().theme.variant(scheme))
-    )
+    hints.colorSchemeChanged.connect(lambda scheme: _follow_scheme(app, scheme))
 
     window = MainWindow()
 
@@ -63,6 +63,13 @@ def run_app(argv: Optional[Sequence[str]] = None, *, debug: bool = False) -> int
     window.show()
 
     return int(app.exec())
+
+
+def _follow_scheme(app: QApplication, scheme: Qt.ColorScheme) -> None:
+    variant = get_app_state().theme.variant(scheme)
+    # The menu applies a choice at once; Qt's late signal for it changes nothing
+    if variant != get_theme().variant:
+        apply_theme(app, variant)
 
 
 def _attach_debug_hooks(window: MainWindow) -> None:

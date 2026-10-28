@@ -50,8 +50,11 @@ class ThemeChoice:
 
     def variant(self, scheme: Qt.ColorScheme) -> str:
         """The theme variant to show while Qt's color scheme is *scheme*."""
-        if self.mode is ThemeMode.CUSTOM:
-            return self.custom
+        match self.mode:
+            case ThemeMode.LIGHT | ThemeMode.DARK:
+                return self.mode.value
+            case ThemeMode.CUSTOM:
+                return self.custom
         return "light" if scheme == Qt.ColorScheme.Light else "dark"
 
 

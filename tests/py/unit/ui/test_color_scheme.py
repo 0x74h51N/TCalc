@@ -55,6 +55,9 @@ def test_choice_maps_to_qt_scheme(choice, scheme):
         (ThemeChoice(ThemeMode.SYSTEM), Qt.ColorScheme.Dark, "dark"),
         (ThemeChoice(ThemeMode.SYSTEM), Qt.ColorScheme.Unknown, "dark"),
         (ThemeChoice(ThemeMode.LIGHT), Qt.ColorScheme.Light, "light"),
+        # Right after setColorScheme Qt may still report the old scheme
+        (ThemeChoice(ThemeMode.LIGHT), Qt.ColorScheme.Dark, "light"),
+        (ThemeChoice(ThemeMode.DARK), Qt.ColorScheme.Light, "dark"),
         (ThemeChoice(ThemeMode.CUSTOM, "kitty"), Qt.ColorScheme.Dark, "kitty"),
     ],
 )
