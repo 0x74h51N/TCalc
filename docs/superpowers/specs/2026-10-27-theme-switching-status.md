@@ -66,6 +66,17 @@ and the original plan is in [../plans/2026-10-27-theme-switching.md](../plans/20
   - Measured on 150 MATH items: a scroll step costs the same as before (3.46 ms against 3.50 ms); Qt already repaints every visible item on each step.
 - Docks could not be dragged, and 5 theme tests failed with "Internal C++ object (QMenu) already deleted": both came from PySide6 6.10.2 and are gone on 6.12, now pinned (see [2026-10-28-dependency-pins.md](2026-10-28-dependency-pins.md)). Dock dragging was checked on Fedora; WSL is not retested.
 - CI used an unpinned ruff: fixed on `master` (ruff pinned in CI, then every dependency pinned) and merged into this branch.
+- The history items and the Clear History button showed the app font size after a switch (and on the first open), until the next resize:
+  - The cause: the app stylesheet's re-polish drops every font a widget got from `setFont`, so the side panel's scaled fonts went back to the app font.
+  - The fix: `apply_theme` emits `theme_events.applied` right after `setStyleSheet`, inside the same call; `SidePanel` rescales its targets on it, before anything repaints.
+- A menu switch applied the theme twice, the first time the wrong one:
+  - The cause: right after `setColorScheme`, Qt still reports the old scheme (the change arrives later), and Light and Dark asked the scheme for their variant.
+  - The fix: Light and Dark name their own variant; only System Default follows the scheme. Qt's late signal for a theme that is already on changes nothing.
+
+### Performance
+- `tests/benchmark/perf/test_theme_switch.py` measures one switch on a full window with 5, 50 and 150 history items. It has no threshold for now.
+- Measured on 150 items: about 400 ms, almost all of it the stylesheet re-polish. Any app stylesheet change re-polishes every widget, and 92% of the 2111 widgets are history rows (13 per row). A one-rule stylesheet still costs 264 ms, so the stylesheet's content is not the lever; moving colors to the palette would not help either (91 colors in the qss against about 20 palette roles).
+- The way under 100 ms is a history without row widgets (a delegate that measures and paints from the data). It goes on its own branch, and the threshold comes back with it.
 
 ## Left
 
@@ -76,4 +87,5 @@ and the original plan is in [../plans/2026-10-27-theme-switching.md](../plans/20
 5. Some Time Later font: the ÷ − · glyphs are small.
 6. `radius_medium` and `radius_large` are unused.
 7. Display, keypads and custom pads still use the `PictureLayer` child widget; it is fine while nothing reorders or scrolls their children.
-8. Final whole-branch review before merge.
+8. History delegate (own branch): rows painted from the data, no row widgets; brings the theme switch and the history load under 100 ms.
+9. Final whole-branch review before merge.
