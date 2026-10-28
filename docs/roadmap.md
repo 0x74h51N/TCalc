@@ -136,7 +136,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 - [x] Basic Science Functions
   - [x] Logarithmic & Reciprocal
     - [x] log, ln
-    - [x] Logarithm with custom base - log_{base} value
+    - [x] Logarithm with custom base - log\_{base} value
     - [x] 1/x
   - [x] Combinatorics - x! (factorial), nPr (permutation), nCr (combination)
   - [x] Number theory - gcd, lcm, mod, intdiv
@@ -226,6 +226,10 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
         - [ ] Per-expression render policy toggles (fraction, root, etc.)
     - [ ] Fonts
     - [ ] Themes
+      - [x] Add Light, Dark and System Default themes
+      - [ ] Add custom themes
+        - [x] Add example custom themes
+        - [ ] Add a custom theme settings panel
     - [ ] Constants
   - [ ] Configure keyboard shortcuts
   - [ ] Calc Modes
@@ -282,6 +286,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 - [ ] Improve styles and layout design
   - [x] Add dock layout
   - [x] Split keypads (e.g. num, func, etc.) into dock widgets
+  - [x] Themes with their own colors, fonts and pictures
   - [ ] Add custom pad
     - [x] Allow creating multiple custom pads
     - [x] Operation key assignment
