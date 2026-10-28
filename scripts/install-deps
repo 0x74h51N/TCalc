@@ -23,7 +23,7 @@ check_and_ins() {
   local pkg=$1
   local installed=1
   case $OS in
-  "fedora") rpm -q "$pkg" >/dev/null 2>&1 || installed=0 ;;
+  "fedora") rpm -q --whatprovides "$pkg" >/dev/null 2>&1 || installed=0 ;;
   "ubuntu") dpkg -s "$pkg" >/dev/null 2>&1 || installed=0 ;;
   "macos") brew list "$pkg" >/dev/null 2>&1 || installed=0 ;;
   esac
@@ -40,22 +40,31 @@ check_and_ins() {
   fi
 }
 
-# Python: python3 3.14 on PATH will do, don't install a second one next to pyenv/system python
-# (macOS ships 3.9 with the Xcode CLI tools, too old for pyproject's requires-python)
-py_ok() { python3 -c 'import sys; sys.exit(sys.version_info[:2] != (3, 14))' 2>/dev/null; }
+# Python: the venv runs on python3.14. A system python3 that is already 3.14 is used as is,
+# otherwise 3.14 is installed next to it; the system's default python3 is never changed
+PY=python3.14
+py_ok() { "$1" -c 'import sys; sys.exit(sys.version_info[:2] != (3, 14))' >/dev/null 2>&1; }
 
-if ! py_ok; then
+if ! py_ok "$PY"; then
   case $OS in
+  "ubuntu")
+    # Ubuntu releases without 3.14 get it from the deadsnakes PPA
+    if ! apt-cache show python3.14 >/dev/null 2>&1; then
+      check_and_ins "software-properties-common"
+      sudo add-apt-repository -y ppa:deadsnakes/ppa
+    fi
+    check_and_ins "python3.14"
+    ;;
   "macos") check_and_ins "python@3.14" ;;
-  *) check_and_ins "python3" ;;
+  *) check_and_ins "python3.14" ;;
   esac
   hash -r
-  if ! py_ok; then
-    echo "python3 3.14 is required, found: $(python3 --version 2>&1)"
+  if ! py_ok "$PY"; then
+    echo "python3.14 is required and could not be installed"
     exit 1
   fi
 fi
-echo "python3 ready to use"
+echo "$PY ready to use"
 
 # Native deps check
 # -----------------------------
@@ -67,7 +76,7 @@ case $OS in
   check_and_ins "ninja-build"
   check_and_ins "gcc-c++"
   check_and_ins "boost-devel"
-  check_and_ins "python3-devel"
+  check_and_ins "python3.14-devel"
   check_and_ins "clang-tools-extra"
   # Qt xcb platform plugin (Qt >= 6.5)
   check_and_ins "xcb-util-cursor"
@@ -76,8 +85,8 @@ case $OS in
   check_and_ins "ninja-build"
   check_and_ins "g++"
   check_and_ins "libboost-dev"
-  check_and_ins "python3-dev"
-  check_and_ins "python3-venv"
+  check_and_ins "python3.14-dev"
+  check_and_ins "python3.14-venv"
   check_and_ins "clang-format"
   # Qt xcb platform plugin (Qt >= 6.5)
   check_and_ins "libxcb-cursor0"
@@ -97,9 +106,14 @@ esac
 
 # venv check
 # -----------------------------
+# A venv made by another python (the old python3 one) is made again with python3.14
+if [ -d ".venv" ] && ! py_ok .venv/bin/python; then
+  echo "venv is not on Python 3.14, recreating..."
+  rm -rf .venv
+fi
 if [ ! -d ".venv" ]; then
   echo "Creating venv..."
-  python3 -m venv .venv
+  "$PY" -m venv .venv
 else
   echo "venv ready"
 fi
