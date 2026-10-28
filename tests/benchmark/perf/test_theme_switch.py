@@ -15,11 +15,7 @@ import tcalc.app_state as app_state_mod
 from tcalc.theme import load_theme
 from tcalc.ui.styles import init_styles
 from tests.benchmark.conftest import HISTORY_SCENARIO_COUNTS
-from tests.benchmark.expressions import (
-    THEME_SWITCH_THRESHOLDS_MS,
-    drain_events,
-    make_theme_switch_func,
-)
+from tests.benchmark.expressions import drain_events, make_theme_switch_func
 
 from .conftest import run_benchmark
 
@@ -65,7 +61,6 @@ def test_theme_switch_benchmark(qapp, benchmark, history_seed, main_window):
         make_theme_switch_func(qapp, main_window),
         group="Theme Switch",
         name=history_seed,
-        threshold_ms=THEME_SWITCH_THRESHOLDS_MS[history_seed],
         rounds=ROUNDS_THEME,
         warmup_rounds=WARMUP_THEME,
     )

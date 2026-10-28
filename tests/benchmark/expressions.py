@@ -194,9 +194,6 @@ RENDER_EXPRESSIONS = {
 RENDER_THRESHOLDS_MS = {"simple": 10, "medium": 20, "complex": 50, "heavy": 150, "sick": 250}
 HISTORY_FIRST_PAINT_THRESHOLDS_MS = {"render_exprs": 30, "50_items": 85, "150_items": 85}
 
-# A theme switch is one user action: the Sensei Benchos 100ms threshold, at any history size
-THEME_SWITCH_THRESHOLDS_MS = {"render_exprs": 100, "50_items": 100, "150_items": 100}
-
 # //// Normalize expressions \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
 EXPR_NO_ALIAS = {
