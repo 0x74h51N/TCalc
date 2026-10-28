@@ -5,7 +5,7 @@ from pathlib import Path
 from string import Template
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
+from PySide6.QtGui import QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QApplication
 
 from ..theme import CUSTOM_THEMES_DIR, get_theme, load_theme
@@ -68,9 +68,7 @@ def _build_palette() -> QPalette:
     theme = get_theme()
     role = QPalette.ColorRole
     # (button, window) constructor derives the 3D shades and disabled colors itself
-    palette = QPalette(
-        QColor(theme.color("palette_button_color")), QColor(theme.color("palette_window_color"))
-    )
+    palette = QPalette(theme.qcolor("palette_button_color"), theme.qcolor("palette_window_color"))
     for r, place in (
         (role.WindowText, "palette_window_text_color"),
         (role.Base, "palette_base_color"),
@@ -79,7 +77,7 @@ def _build_palette() -> QPalette:
         (role.Highlight, "palette_highlight_color"),
         (role.HighlightedText, "palette_highlighted_text_color"),
     ):
-        palette.setColor(r, QColor(theme.color(place)))
+        palette.setColor(r, theme.qcolor(place))
     return palette
 
 

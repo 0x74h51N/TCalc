@@ -13,9 +13,9 @@ from functools import partial
 from pathlib import Path
 
 from PySide6.QtCore import QRect, QSize, Qt
-from PySide6.QtGui import QColor, QIcon, QIconEngine, QPainter, QPixmap
+from PySide6.QtGui import QIcon, QIconEngine, QPainter, QPixmap
 
-from tcalc.theme import Theme, get_theme
+from tcalc.theme import Theme, get_theme, qcolor
 
 from .config import icons_config
 
@@ -37,7 +37,7 @@ def _apply_tint(icon: QIcon, tint: str | None) -> QIcon:
     tinted = pm.copy()
     painter = QPainter(tinted)
     painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-    painter.fillRect(tinted.rect(), QColor(tint))
+    painter.fillRect(tinted.rect(), qcolor(tint))
     painter.end()
     return QIcon(tinted)
 

@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtGui import QColor
 
-from tcalc.theme import get_theme, load_theme
+from tcalc.theme import get_theme, load_theme, qcolor
 
 UI_CONFIG = Path(__file__).parents[4] / "src" / "tcalc" / "ui" / "config.toml"
 
@@ -124,3 +124,18 @@ def test_light_accent_is_orange():
     c = load_theme("light").colors
     for key in ("accent_text", "control_accent"):
         assert 15 <= QColor(c[key]).hue() <= 30, key
+
+
+@pytest.mark.parametrize(
+    ("value", "rgba"),
+    [
+        ("#123456", (0x12, 0x34, 0x56, 255)),
+        ("#80123456", (0x12, 0x34, 0x56, 0x80)),
+        ("red", (255, 0, 0, 255)),
+        ("rgba(246, 247, 251, 90%)", (246, 247, 251, 230)),
+        ("rgba(10,20,30,128)", (10, 20, 30, 128)),
+        ("rgb(10, 20, 30)", (10, 20, 30, 255)),
+    ],
+)
+def test_theme_color_values_read_as_qss_does(value, rgba):
+    assert qcolor(value).getRgb() == rgba

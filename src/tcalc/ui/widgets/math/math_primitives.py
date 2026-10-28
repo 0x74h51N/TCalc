@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen, QTransform
+from PySide6.QtGui import QPainter, QPainterPath, QPen, QTransform
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from tcalc.theme import get_theme
@@ -101,7 +101,7 @@ class MathPrimitive(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor(get_theme().color("radical_symbol_color")))
+        pen = QPen(get_theme().qcolor("radical_symbol_color"))
         pen.setWidthF(self._pen_width)
         painter.setPen(pen)
         path = self.build_path(float(self.width()), float(self.height()))

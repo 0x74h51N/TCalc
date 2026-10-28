@@ -10,8 +10,10 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import QSortFilterProxyModel, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QStandardItem, QStandardItemModel
+from PySide6.QtGui import QBrush, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import QLineEdit, QListView, QVBoxLayout, QWidget
+
+from tcalc.theme import qcolor
 
 _MISSING = object()  # sentinel for "no data at this row"
 
@@ -51,7 +53,7 @@ class SearchablePicker(QWidget):
             item.setEditable(False)
             # Show color swatch for hex color values
             if isinstance(data, str) and data.startswith("#"):
-                item.setBackground(QBrush(QColor(data)))
+                item.setBackground(QBrush(qcolor(data)))
             self._model.appendRow(item)
             self._data_by_row[row] = data
             row += 1

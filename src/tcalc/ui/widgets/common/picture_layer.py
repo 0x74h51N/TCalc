@@ -10,10 +10,10 @@ from functools import cache
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QImage, QImageReader, QMoveEvent, QPainter, QPaintEvent
+from PySide6.QtGui import QImage, QImageReader, QMoveEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import QStyle, QWidget
 
-from tcalc.theme import PictureTarget, ThemePicture, get_theme
+from tcalc.theme import PictureTarget, ThemePicture, get_theme, qcolor
 
 # Pause in resizing after which pictures are rendered again at the new size
 SETTLE_MS = 150
@@ -47,7 +47,7 @@ def _render(picture: ThemePicture, size: QSize) -> QImage:
         # Keep the picture's shape, take the theme color
         painter = QPainter(image)
         painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-        painter.fillRect(image.rect(), QColor(get_theme().colors[picture.tint]))
+        painter.fillRect(image.rect(), qcolor(get_theme().colors[picture.tint]))
         painter.end()
     return image
 

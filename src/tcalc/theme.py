@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import tomllib
 from dataclasses import dataclass
 from enum import Enum
@@ -10,10 +11,24 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QColor
 
 from tcalc.ui.config import color_usage_config
 
 _log = logging.getLogger(__name__)
+
+_QSS_RGBA = re.compile(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*(%?)\s*)?\)")
+
+
+def qcolor(value: str) -> QColor:
+    """A theme color value as a QColor; QColor reads names and #hex but not QSS rgba()."""
+    m = _QSS_RGBA.fullmatch(value.strip())
+    if m is None:
+        return QColor(value)
+    r, g, b, a, percent = m.groups()
+    alpha = 255 if a is None else int(float(a) * 255 / 100 + 0.5) if percent else int(a)
+    return QColor(int(r), int(g), int(b), alpha)
+
 
 # Built-in themes ship with the package: tcalc/themes/<variant>.toml
 BUILT_IN_DIR = Path(__file__).parent / "themes"
@@ -210,6 +225,9 @@ class Theme:
     def color(self, place: str) -> str:
         """The color *place* uses (a [color_usage] name)."""
         return self.colors[self.color_usage[place]]
+
+    def qcolor(self, place: str) -> QColor:
+        return qcolor(self.color(place))
 
     @property
     def scheme(self) -> Qt.ColorScheme:

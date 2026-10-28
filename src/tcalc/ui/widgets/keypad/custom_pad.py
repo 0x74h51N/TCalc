@@ -10,7 +10,6 @@ import json
 
 import calc_native
 from PySide6.QtCore import QPoint, QSettings, Qt, Signal
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractButton,
     QColorDialog,
@@ -27,7 +26,7 @@ from PySide6.QtWidgets import (
 
 from tcalc.core.constants import CONST_BY_ID
 from tcalc.core.ops import Operation
-from tcalc.theme import PictureTarget, get_theme
+from tcalc.theme import PictureTarget, get_theme, qcolor
 from tcalc.ui.utils import split_camel
 from tcalc.ui.widgets.common.button import IconButton, KeyButton, KSSpinBox
 from tcalc.ui.widgets.common.constants_menu import ConstEntry, build_constant_menu
@@ -450,7 +449,7 @@ class CustomPad(QWidget):
         theme_colors = get_theme().colors
         self._color_picker = self._make_picker(
             [("Custom Color...", None)]
-            + [(name, val) for name, val in theme_colors.items() if QColor.isValidColorName(val)],
+            + [(name, val) for name, val in theme_colors.items() if qcolor(val).isValid()],
             separator_after=0,
         )
         self._color_picker.item_selected.connect(self._on_color_picked)
