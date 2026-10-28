@@ -46,7 +46,6 @@ and the original plan is in [../plans/2026-10-27-theme-switching.md](../plans/20
 - **Retro** (dark): green phosphor CRT, VT323 font, square corners.
 - **Sponge** (light):
   - Sponge-yellow display with holes.
-  - Coral on the custom pads.
   - Sea floor behind the whole window, with the white sky layer removed.
   - Some Time Later font.
 - Ocean was dropped.
