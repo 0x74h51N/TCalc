@@ -6,10 +6,24 @@ set -e
 # -----------------------------
 if [[ "$OSTYPE" == "darwin"* ]]; then
   OS="macos"
+  PKG_CHECK="brew list"
+  PKG_INSTALL="brew install"
 elif [ -f /etc/fedora-release ]; then
   OS="fedora"
+  # --whatprovides also finds names a package provides (python3.14 is python3 on Fedora 43)
+  PKG_CHECK="rpm -q --whatprovides"
+  PKG_INSTALL="sudo dnf install -y"
 elif [ -f /etc/debian_version ]; then
   OS="ubuntu"
+  PKG_CHECK="dpkg -s"
+  PKG_INSTALL="sudo apt-get install -y"
+  sudo apt-get update
+else
+  # Other systems install their own packages
+  OS=""
+  echo "Unsupported OS: system packages are not installed. Install these yourself:"
+  echo "  python3.14 with its headers and venv, cmake, ninja, a C++20 compiler,"
+  echo "  Boost >= 1.83, entr, clang-format"
 fi
 
 if [[ "$OS" == "macos" ]] && ! command -v brew >/dev/null 2>&1; then
@@ -21,22 +35,12 @@ fi
 # Ask the package manager, so packages without a command (headers, python modules) work too
 check_and_ins() {
   local pkg=$1
-  local installed=1
-  case $OS in
-  "fedora") rpm -q --whatprovides "$pkg" >/dev/null 2>&1 || installed=0 ;;
-  "ubuntu") dpkg -s "$pkg" >/dev/null 2>&1 || installed=0 ;;
-  "macos") brew list "$pkg" >/dev/null 2>&1 || installed=0 ;;
-  esac
-
-  if [[ $installed == 0 ]]; then
-    echo "$pkg not installed, installing..."
-    case $OS in
-    "fedora") sudo dnf install -y "$pkg" ;;
-    "ubuntu") sudo apt update && sudo apt install -y "$pkg" ;;
-    "macos") brew install "$pkg" ;;
-    esac
-  else
+  [ -n "$OS" ] || return 0
+  if $PKG_CHECK "$pkg" >/dev/null 2>&1; then
     echo "$pkg ready to use"
+  else
+    echo "$pkg not installed, installing..."
+    $PKG_INSTALL "$pkg"
   fi
 }
 
@@ -60,7 +64,7 @@ if ! py_ok "$PY"; then
   esac
   hash -r
   if ! py_ok "$PY"; then
-    echo "python3.14 is required and could not be installed"
+    echo "$PY is required and was not found"
     exit 1
   fi
 fi
