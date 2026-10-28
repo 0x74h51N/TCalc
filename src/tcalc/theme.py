@@ -2,6 +2,7 @@
 # Central theme configuration: one config file per theme
 from __future__ import annotations
 
+import logging
 import tomllib
 from dataclasses import dataclass
 from enum import Enum
@@ -11,6 +12,8 @@ from typing import Any
 from PySide6.QtCore import Qt
 
 from tcalc.ui.config import color_usage_config
+
+_log = logging.getLogger(__name__)
 
 # Built-in themes ship with the package: tcalc/themes/<variant>.toml
 BUILT_IN_DIR = Path(__file__).parent / "themes"
@@ -142,12 +145,20 @@ class ThemePicture:
         )
 
 
+class ThemeError(Exception):
+    """A theme file that cannot be used."""
+
+
 def custom_themes() -> dict[str, str]:
-    """Custom theme variants found in themes/, mapped to their display names."""
-    return {
-        path.parent.name: Theme(path.parent.name).name
-        for path in sorted(CUSTOM_THEMES_DIR.glob("*/theme.toml"))
-    }
+    """Custom theme variants found in themes/, mapped to their display names; a broken
+    theme is left out so it cannot stop the app."""
+    themes: dict[str, str] = {}
+    for path in sorted(CUSTOM_THEMES_DIR.glob("*/theme.toml")):
+        try:
+            themes[path.parent.name] = Theme(path.parent.name).name
+        except ThemeError as e:
+            _log.warning("Skipping theme %s: %s", path.parent.name, e)
+    return themes
 
 
 class Theme:
@@ -165,16 +176,23 @@ class Theme:
     def __init__(self, variant: str = "dark"):
         data = _read(variant)
         self.variant = variant
+        if "name" not in data:
+            raise ThemeError("no name")
         self.name = data["name"]
         # A custom theme builds on a built-in one (Qt's color scheme, variant icon files) and
         # its file holds only what differs from it
-        self.base = data.get("base", variant)
+        self.base = data.get("base", variant if variant in BUILT_IN_VARIANTS else "")
+        if self.base not in BUILT_IN_VARIANTS:
+            raise ThemeError(f"base must be one of {BUILT_IN_VARIANTS}, not {self.base!r}")
         base = _read(self.base) if self.base != variant else {}
         # Pictures behind components, from files in the theme's folder
-        self.pictures = tuple(
-            ThemePicture.from_config(CUSTOM_THEMES_DIR / variant, table)
-            for table in data.get("pictures", [])
-        )
+        try:
+            self.pictures = tuple(
+                ThemePicture.from_config(CUSTOM_THEMES_DIR / variant, table)
+                for table in data.get("pictures", [])
+            )
+        except (KeyError, ValueError, TypeError) as e:
+            raise ThemeError(f"bad [[pictures]] entry: {e}") from e
         # Overrides of the UI config's [fonts]
         self.fonts = {**base.get("fonts", {}), **data.get("fonts", {})}
         self.colors = {**base.get("colors", {}), **data.get("colors", {})}
@@ -185,6 +203,9 @@ class Theme:
             **data.get("color_usage", {}),
         }
         self.spacing = {**base.get("spacing", {}), **data.get("spacing", {})}
+        for picture in self.pictures:
+            if picture.tint and picture.tint not in self.colors:
+                raise ThemeError(f"picture tint {picture.tint!r} is not one of its colors")
 
     def color(self, place: str) -> str:
         """The color *place* uses (a [color_usage] name)."""
@@ -200,8 +221,11 @@ def _read(variant: str) -> dict[str, Any]:
         path = BUILT_IN_DIR / f"{variant}.toml"
     else:
         path = CUSTOM_THEMES_DIR / variant / "theme.toml"
-    with open(path, "rb") as f:
-        return tomllib.load(f)
+    try:
+        with open(path, "rb") as f:
+            return tomllib.load(f)
+    except (OSError, tomllib.TOMLDecodeError) as e:
+        raise ThemeError(f"{path}: {e}") from e
 
 
 # Singleton instance

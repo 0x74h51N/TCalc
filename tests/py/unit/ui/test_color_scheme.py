@@ -73,6 +73,27 @@ def test_custom_themes_come_from_theme_files():
     }
 
 
+@pytest.mark.parametrize(
+    "toml",
+    [
+        'name = "Broken"',
+        'name = "Broken"\nbase = "blue"',
+        'name = "Broken"\nbase = "dark"\n[fonts',
+        'base = "dark"',
+        'name = "Broken"\nbase = "dark"\n[[pictures]]\nfile = "a.svg"\ntarget = "roof"',
+        'name = "Broken"\nbase = "dark"\n[[pictures]]\nfile = "a.svg"\ntarget = "display"\n'
+        'tint = "no_such_color"',
+    ],
+    ids=["no-base", "bad-base", "bad-toml", "no-name", "bad-target", "bad-tint"],
+)
+def test_broken_custom_theme_is_skipped(tmp_path, monkeypatch, toml):
+    for variant, text in (("good", 'name = "Good"\nbase = "light"'), ("broken", toml)):
+        (tmp_path / variant).mkdir()
+        (tmp_path / variant / "theme.toml").write_text(text)
+    monkeypatch.setattr("tcalc.theme.CUSTOM_THEMES_DIR", tmp_path)
+    assert custom_themes() == {"good": "Good"}
+
+
 def test_theme_defaults_to_system(tmp_settings):
     assert AppState().theme == ThemeChoice()
 
