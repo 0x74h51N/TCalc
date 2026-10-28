@@ -10,8 +10,11 @@ fi
 : "${BUILD_DIR:?missing BUILD_DIR}"
 : "${ROOT:?missing ROOT}"
 : "${CPP_TIDY_WARNS:?missing CPP_TIDY_WARNS}"
+: "${CLANG_TIDY:?missing CLANG_TIDY}"
 
+# run-clang-tidy is the system's driver script; the clang-tidy it runs is the pinned one
 command -v run-clang-tidy >/dev/null || { echo "run-clang-tidy not found"; exit 1; }
+[ -x "$CLANG_TIDY" ] || { echo "clang-tidy not found in .venv, run make install"; exit 1; }
 
 HEADER_FILTER='.*/src/native/(lib|python)/.*'
 
@@ -47,6 +50,7 @@ echo "clang-tidy mode: $MODE"
 echo "$FILES"
 
 run-clang-tidy -p "$BUILD_DIR" -j "$(nproc)" -quiet \
+  -clang-tidy-binary "$CLANG_TIDY" \
   -extra-arg=-w \
   -header-filter="$HEADER_FILTER" \
   $CPP_TIDY_WARNS \
