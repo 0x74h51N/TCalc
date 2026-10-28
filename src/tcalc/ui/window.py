@@ -24,7 +24,7 @@ from typing import Callable
 
 from calc_native import Calculator
 from PySide6.QtCore import QByteArray, QSettings, QSize, QTimer
-from PySide6.QtGui import Qt
+from PySide6.QtGui import QPaintEvent, QResizeEvent, Qt
 from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
 
 from tcalc.app_state import DockKind, KeypadPreset, get_app_state
@@ -33,7 +33,7 @@ from tcalc.ui.controller.menubar import ViewOperations
 from tcalc.ui.keyboard import KeyboardHandler
 from tcalc.ui.layout_presets import LayoutPreset, LayoutPresetStore
 from tcalc.ui.widgets.common.dock_title_bar import DockTitleBar
-from tcalc.ui.widgets.common.picture_layer import PictureLayer
+from tcalc.ui.widgets.common.picture_layer import PicturePainter
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad
 
 from .config import history_style, memory_style, window
@@ -59,7 +59,8 @@ class MainWindow(QMainWindow):
 
         self.calculator: Calculator = Calculator()
         self.setWindowTitle("TCalc")
-        PictureLayer(self, PictureTarget.WINDOW)
+        # Painted by the window itself: tabbing or re-docking lowers docks below any child layer
+        self._pictures = PicturePainter(self, PictureTarget.WINDOW)
 
         self.calc_widget = CalcWidget(parent=self)
         self.setCentralWidget(self.calc_widget)
@@ -74,6 +75,14 @@ class MainWindow(QMainWindow):
 
         self.update_layout()
         self._restore_window_state()
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._pictures.resized()
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        super().paintEvent(event)
+        self._pictures.paint()
 
     # ------------------------------------------------------------------
     # Setup helpers

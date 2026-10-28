@@ -49,46 +49,34 @@ def _render(picture: ThemePicture, size: QSize) -> QImage:
     return image
 
 
-class PictureLayer(QWidget):
-    """Paints the active theme's pictures for *target* behind *parent*'s other children.
+class PicturePainter:
+    """Paints the active theme's pictures for *target* on *widget*, from its paint event."""
 
-    One line in a component adds it; the theme's ``[[pictures]]`` decide what it shows. A
-    theme switch re-polishes every widget, which repaints the layer with the new theme.
-    """
-
-    def __init__(self, parent: QWidget, target: PictureTarget) -> None:
-        super().__init__(parent)
+    def __init__(self, widget: QWidget, target: PictureTarget) -> None:
+        self._widget = widget
         self._target = target
-        self._owner = parent
         self._cache: dict[ThemePicture, QImage] = {}
         # Rendering an SVG is slow; while resizing, the last image is stretched instead
-        self._settle = QTimer(self)
+        self._settle = QTimer(widget)
         self._settle.setSingleShot(True)
         self._settle.setInterval(SETTLE_MS)
-        self._settle.timeout.connect(self.update)
-        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.setGeometry(parent.rect())
-        self.lower()
-        parent.installEventFilter(self)
+        self._settle.timeout.connect(widget.update)
 
-    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        if watched is self._owner and event.type() == QEvent.Type.Resize:
-            self.setGeometry(self._owner.rect())
-            self._settle.start()
-        return False
+    def resized(self) -> None:
+        self._settle.start()
 
-    def paintEvent(self, event: QPaintEvent) -> None:
+    def paint(self) -> None:
         pictures = [p for p in get_theme().pictures if p.target is self._target]
         if not pictures:
             self._cache.clear()
             return
-        painter = QPainter(self)
+        painter = QPainter(self._widget)
         images: dict[ThemePicture, QImage] = {}
         for picture in pictures:
             natural = _natural_size(picture.file)
             if not natural.isValid():
                 continue
-            box, rect = picture_rects(picture, self.rect(), natural)
+            box, rect = picture_rects(picture, self._widget.rect(), natural)
             image = self._cache.get(picture)
             if image is None or (image.size() != rect.size() and not self._settle.isActive()):
                 image = _render(picture, rect.size())
@@ -100,3 +88,30 @@ class PictureLayer(QWidget):
             painter.restore()
         # Only the images in use stay cached
         self._cache = images
+
+
+class PictureLayer(QWidget):
+    """Paints the active theme's pictures for *target* behind *parent*'s other children.
+
+    One line in a component adds it; the theme's ``[[pictures]]`` decide what it shows. A
+    theme switch re-polishes every widget, which repaints the layer with the new theme.
+    Not for a QMainWindow: its dock layout lowers docks below the layer.
+    """
+
+    def __init__(self, parent: QWidget, target: PictureTarget) -> None:
+        super().__init__(parent)
+        self._owner = parent
+        self._pictures = PicturePainter(self, target)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setGeometry(parent.rect())
+        self.lower()
+        parent.installEventFilter(self)
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        if watched is self._owner and event.type() == QEvent.Type.Resize:
+            self.setGeometry(self._owner.rect())
+            self._pictures.resized()
+        return False
+
+    def paintEvent(self, event: QPaintEvent) -> None:
+        self._pictures.paint()
