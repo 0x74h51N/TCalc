@@ -8,7 +8,7 @@ from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QApplication
 
-from ..theme import CUSTOM_THEMES_DIR, get_theme, load_theme
+from ..theme import custom_theme_folders, get_theme, load_theme
 from .config import calc_config, fonts_config, keypad_config, manubar_style, toast_config
 from .config import style as ui_style
 
@@ -83,9 +83,10 @@ def _build_palette() -> QPalette:
 
 def init_styles(app: QApplication, variant: str) -> None:
     """One-time app styling: custom themes' fonts, the style and the first theme."""
-    # A custom theme brings its fonts in its own folder (e.g. themes/retro/VT323-Regular.ttf)
-    for path in sorted(CUSTOM_THEMES_DIR.glob("*/*.[ot]tf")):
-        QFontDatabase.addApplicationFont(str(path))
+    # A custom theme brings its fonts in its own folder (e.g. retro/VT323-Regular.ttf)
+    for folder in custom_theme_folders().values():
+        for path in sorted(folder.glob("*.[ot]tf")):
+            QFontDatabase.addApplicationFont(str(path))
     # Fusion honours the palette fully on every platform; native styles may ignore it
     app.setStyle("Fusion")
     apply_theme(app, variant)

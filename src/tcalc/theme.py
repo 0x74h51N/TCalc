@@ -10,7 +10,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QStandardPaths, Qt
 from PySide6.QtGui import QColor
 
 from tcalc.ui.config import color_usage_config
@@ -30,12 +30,25 @@ def qcolor(value: str) -> QColor:
     return QColor(int(r), int(g), int(b), alpha)
 
 
-# Built-in themes ship with the package: tcalc/themes/<variant>.toml
+# Themes that ship with the package: Light and Dark as tcalc/themes/<variant>.toml, and the
+# example custom themes as tcalc/themes/<variant>/theme.toml with their own assets
 BUILT_IN_DIR = Path(__file__).parent / "themes"
 BUILT_IN_VARIANTS = ("light", "dark")
-# Custom themes live outside the package, one folder each: themes/<variant>/theme.toml plus
-# its own assets (pictures, fonts)
-CUSTOM_THEMES_DIR = Path.cwd() / "themes"
+
+
+def user_themes_dir() -> Path:
+    """The user's own custom themes, one folder each, next to the app's other data."""
+    location = QStandardPaths.StandardLocation.AppDataLocation
+    return Path(QStandardPaths.writableLocation(location)) / "themes"
+
+
+def custom_theme_folders() -> dict[str, Path]:
+    """Every custom theme's folder by variant; a user theme replaces a bundled one."""
+    folders: dict[str, Path] = {}
+    for root in (BUILT_IN_DIR, user_themes_dir()):
+        for path in root.glob("*/theme.toml"):
+            folders[path.parent.name] = path.parent
+    return dict(sorted(folders.items()))
 
 
 class ThemeMode(Enum):
@@ -165,14 +178,14 @@ class ThemeError(Exception):
 
 
 def custom_themes() -> dict[str, str]:
-    """Custom theme variants found in themes/, mapped to their display names; a broken
-    theme is left out so it cannot stop the app."""
+    """Custom theme variants mapped to their display names; a broken theme is left out so
+    it cannot stop the app."""
     themes: dict[str, str] = {}
-    for path in sorted(CUSTOM_THEMES_DIR.glob("*/theme.toml")):
+    for variant in custom_theme_folders():
         try:
-            themes[path.parent.name] = Theme(path.parent.name).name
+            themes[variant] = Theme(variant).name
         except ThemeError as e:
-            _log.warning("Skipping theme %s: %s", path.parent.name, e)
+            _log.warning("Skipping theme %s: %s", variant, e)
     return themes
 
 
@@ -203,7 +216,7 @@ class Theme:
         # Pictures behind components, from files in the theme's folder
         try:
             self.pictures = tuple(
-                ThemePicture.from_config(CUSTOM_THEMES_DIR / variant, table)
+                ThemePicture.from_config(_folder(variant), table)
                 for table in data.get("pictures", [])
             )
         except (KeyError, ValueError, TypeError) as e:
@@ -234,11 +247,16 @@ class Theme:
         return Qt.ColorScheme.Light if self.base == "light" else Qt.ColorScheme.Dark
 
 
+def _folder(variant: str) -> Path:
+    user = user_themes_dir() / variant
+    return user if (user / "theme.toml").exists() else BUILT_IN_DIR / variant
+
+
 def _read(variant: str) -> dict[str, Any]:
     if variant in BUILT_IN_VARIANTS:
         path = BUILT_IN_DIR / f"{variant}.toml"
     else:
-        path = CUSTOM_THEMES_DIR / variant / "theme.toml"
+        path = _folder(variant) / "theme.toml"
     try:
         with open(path, "rb") as f:
             return tomllib.load(f)

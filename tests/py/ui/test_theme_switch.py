@@ -110,12 +110,11 @@ def test_side_panel_fonts_stay_scaled_after_switch(qapp, window, monkeypatch):
     assert window.history.clear_button.font().pointSize() <= 10
 
 
-def test_history_takes_the_theme_monospace_font(qapp, window, monkeypatch, tmp_path):
-    (tmp_path / "mono").mkdir()
-    (tmp_path / "mono" / "theme.toml").write_text(
+def test_history_takes_the_theme_monospace_font(qapp, window, _user_themes):
+    (_user_themes / "mono").mkdir(parents=True)
+    (_user_themes / "mono" / "theme.toml").write_text(
         'name = "Mono"\nbase = "dark"\n[fonts]\nfamily_monospace = "VT323"'
     )
-    monkeypatch.setattr("tcalc.theme.CUSTOM_THEMES_DIR", tmp_path)
     apply_theme(qapp, "mono")
     assert window.history.list.font().family() == "VT323"
 
@@ -156,6 +155,13 @@ def test_theme_items(window):
     ]
     assert theme_menu.actions()[3].isSeparator()
     assert not _theme_action(window, "Add Custom Theme...").isEnabled()
+
+
+def test_theme_added_while_running_shows_when_the_menu_opens(window, _user_themes):
+    (_user_themes / "sunset").mkdir(parents=True)
+    (_user_themes / "sunset" / "theme.toml").write_text('name = "Sunset"\nbase = "dark"')
+    _view_menu(window).actions()[0].menu().aboutToShow.emit()
+    assert _theme_action(window, "Sunset").isCheckable()
 
 
 def test_stored_choice_is_checked(window):

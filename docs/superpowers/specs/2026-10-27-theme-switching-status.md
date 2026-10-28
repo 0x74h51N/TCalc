@@ -18,10 +18,12 @@ and the original plan is in [../plans/2026-10-27-theme-switching.md](../plans/20
 
 ### Theme files
 - Every theme is a TOML file:
-  - Built-ins live in `src/tcalc/themes/`.
-  - Custom themes live in `themes/<name>/theme.toml` with their own assets.
+  - Light and Dark ship in the package as `src/tcalc/themes/<variant>.toml`.
+  - The example custom themes ship in the package too, one folder each: `src/tcalc/themes/<name>/theme.toml` with their own assets.
+  - The user's own themes live in TCalc's data folder, `QStandardPaths.AppDataLocation/themes/<name>/` (Linux `~/.local/share/TCalc/themes/`), next to the history. A user theme with a bundled theme's name replaces it.
+  - The custom themes in View > Theme are listed each time the menu opens, like the custom pads and presets, so a new theme folder shows up without a restart (its fonts load at startup).
 - A custom theme names a `base` and overrides only what differs.
-- `themes/theme-template.toml` documents every key.
+- `src/tcalc/themes/theme-template.toml` documents every key and where a user theme goes.
 - `[fonts]` sets:
   - the app font;
   - the keypad key range (`keypad_min_pt`, `keypad_max_pt`);
@@ -82,7 +84,7 @@ and the original plan is in [../plans/2026-10-27-theme-switching.md](../plans/20
 1. "Add Custom Theme..." is still a disabled stub and needs its own spec.
 2. Retro: the animated screen-effect idea is not started.
 3. The window minimum size bug belongs on a separate branch.
-4. Decide whether to drop the `themes/*/*.png` line from `.gitignore`.
+4. Decide whether to drop the `src/tcalc/themes/*/*.png` line from `.gitignore`.
 5. Some Time Later font: the ÷ − · glyphs are small.
 6. `radius_medium` and `radius_large` are unused.
 7. Display, keypads and custom pads still use the `PictureLayer` child widget; it is fine while nothing reorders or scrolls their children.

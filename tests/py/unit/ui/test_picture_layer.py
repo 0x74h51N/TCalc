@@ -14,6 +14,7 @@ from PySide6.QtCore import QRect, QSize
 from PySide6.QtWidgets import QListWidget, QWidget
 
 from tcalc.theme import PictureFit, PicturePosition, PictureTarget, ThemePicture, load_theme
+from tcalc.ui.utils import ICONS_DIR
 from tcalc.ui.widgets.common import picture_layer
 from tcalc.ui.widgets.common.picture_layer import PictureLayer, picture_rects
 
@@ -45,7 +46,7 @@ def test_component_smaller_than_the_margins_gives_an_empty_box():
 
 
 def test_empty_box_is_not_rendered(qtbot, monkeypatch):
-    svg = Path(__file__).parents[4] / "assets" / "icons" / "accessories-calculator.svg"
+    svg = ICONS_DIR / "accessories-calculator.svg"
     picture = ThemePicture(svg, PictureTarget.DISPLAY, margin=10)
     monkeypatch.setattr(picture_layer, "get_theme", lambda: SimpleNamespace(pictures=(picture,)))
     rendered = []

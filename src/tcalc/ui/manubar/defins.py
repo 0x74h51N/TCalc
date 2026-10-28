@@ -5,7 +5,7 @@ from typing import Tuple
 from PySide6.QtWidgets import QMessageBox
 
 from tcalc.app_state import DockKind, KeypadPreset
-from tcalc.theme import ThemeChoice, ThemeMode, custom_themes
+from tcalc.theme import ThemeChoice, ThemeMode
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, ViewOperations
 
 from .menu_builder import MenuActionItem, MenuActionType, MenuSeparatorItem, SubmenuItem
@@ -59,20 +59,6 @@ EDIT_MENU_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
 )
 
 
-def _custom_theme_item(variant: str, name: str) -> MenuActionItem:
-    choice = ThemeChoice(ThemeMode.CUSTOM, variant)
-    return MenuActionItem(
-        text=name,
-        icon="brush",
-        checkable=True,
-        item_type=MenuActionType.OPS,
-        fn=lambda ops: ops.set_theme(choice),
-        theme=choice,
-    )
-
-
-_CUSTOM_THEME_ITEMS = tuple(_custom_theme_item(v, name) for v, name in custom_themes().items())
-
 VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     SubmenuItem(
         text="Theme",
@@ -102,9 +88,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
                 fn=lambda ops: ops.set_theme(ThemeChoice(ThemeMode.SYSTEM)),
                 theme=ThemeChoice(ThemeMode.SYSTEM),
             ),
-            MenuSeparatorItem(),
-            # Custom themes: one per folder in themes/
-            *_CUSTOM_THEME_ITEMS,
+            # Custom themes go here, listed each time the menu opens (see menus/view.py)
             MenuActionItem(
                 text="Add Custom Theme...",
                 enabled=False,

@@ -20,7 +20,7 @@ from tcalc.theme import Theme, get_theme, qcolor
 from .config import icons_config
 
 # Every icon the UI shows, by file stem; bundled so no desktop icon theme is needed
-ICONS_DIR = Path.cwd() / "assets" / "icons"
+ICONS_DIR = Path(__file__).parents[1] / "assets" / "icons"
 
 
 def split_camel(camel: str) -> str:

@@ -2,11 +2,17 @@
 # ===========================
 #
 # Make a theme:
-#   1. Create a folder in themes/, e.g. themes/sunset/. The folder name is the theme's id.
+#   1. Create a folder in TCalc's themes folder, e.g. themes/sunset/. The folder name is the
+#      theme's id. The themes folder is in TCalc's data folder:
+#        Linux    ~/.local/share/TCalc/themes/
+#        Windows  %APPDATA%\TCalc\themes\
+#        macOS    ~/Library/Application Support/TCalc/themes/
 #   2. Copy this file into it as theme.toml.
 #   3. Uncomment and change only what you want; everything you leave out comes from `base`.
 #   4. Put the theme's own files (pictures, fonts) in the same folder.
-#   5. Restart TCalc; the theme shows up in View > Theme.
+#   5. Open View > Theme; the theme shows up there. Its fonts load when TCalc starts, so
+#      restart once after adding a font.
+# A theme folder with the same name as a bundled one (kitty, retro, sponge) replaces it.
 #
 # Every key below is optional except `name` and `base`.
 # Colors take any QSS color: "#RRGGBB", "#AARRGGBB", "rgba(r, g, b, a%)" or a color name.

@@ -13,6 +13,7 @@ from PySide6.QtGui import QColor, QPalette
 from tcalc.app_state import AppState
 from tcalc.theme import ThemeChoice, ThemeMode, custom_themes, load_theme
 from tcalc.ui.styles import app_fonts, apply_theme
+from tcalc.ui.utils import ICONS_DIR
 
 
 @pytest.fixture
@@ -86,20 +87,37 @@ def test_custom_themes_come_from_theme_files():
     ],
     ids=["no-base", "bad-base", "bad-toml", "no-name", "bad-target", "bad-tint"],
 )
-def test_broken_custom_theme_is_skipped(tmp_path, monkeypatch, toml):
+def test_broken_custom_theme_is_skipped(_user_themes, toml):
     for variant, text in (("good", 'name = "Good"\nbase = "light"'), ("broken", toml)):
-        (tmp_path / variant).mkdir()
-        (tmp_path / variant / "theme.toml").write_text(text)
-    monkeypatch.setattr("tcalc.theme.CUSTOM_THEMES_DIR", tmp_path)
-    assert custom_themes() == {"good": "Good"}
+        (_user_themes / variant).mkdir(parents=True)
+        (_user_themes / variant / "theme.toml").write_text(text)
+    themes = custom_themes()
+    assert themes["good"] == "Good" and "broken" not in themes
 
 
-def test_theme_sets_the_monospace_font(tmp_path, monkeypatch):
-    (tmp_path / "mono").mkdir()
-    (tmp_path / "mono" / "theme.toml").write_text(
+def test_user_theme_is_listed_and_replaces_a_bundled_one(_user_themes):
+    for variant, name in (("sunset", "Sunset"), ("retro", "My Retro")):
+        (_user_themes / variant).mkdir(parents=True)
+        (_user_themes / variant / "theme.toml").write_text(f'name = "{name}"\nbase = "dark"')
+    assert custom_themes() == {
+        "kitty": "Kitty",
+        "retro": "My Retro",
+        "sponge": "Sponge",
+        "sunset": "Sunset",
+    }
+
+
+def test_themes_and_icons_do_not_depend_on_the_working_directory(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert list(custom_themes()) == ["kitty", "retro", "sponge"]
+    assert (ICONS_DIR / "palette.svg").is_file()
+
+
+def test_theme_sets_the_monospace_font(_user_themes):
+    (_user_themes / "mono").mkdir(parents=True)
+    (_user_themes / "mono" / "theme.toml").write_text(
         'name = "Mono"\nbase = "dark"\n[fonts]\nfamily_monospace = "VT323"'
     )
-    monkeypatch.setattr("tcalc.theme.CUSTOM_THEMES_DIR", tmp_path)
     load_theme("mono")
     try:
         assert app_fonts().monospace == "VT323"
