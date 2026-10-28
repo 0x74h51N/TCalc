@@ -27,7 +27,7 @@ dev = [
   "pre-commit>=4.7,<5",
   "pybind11-stubgen>=3.0.0,<3.1",
   "ruff==0.15.0",
-  "pytest>=9.2,<10",
+  "pytest>=9.1,<9.2",
   "pytest-benchmark>=5.3,<6",
   "pytest-qt>=4.5,<5",
   "pytest-memray>=1.11,<2",
