@@ -4,10 +4,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from string import Template
 
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QApplication
 
+from ..app_state import get_app_state
 from ..theme import custom_theme_folders, get_theme, load_theme
 from .config import calc_config, fonts_config, keypad_config, manubar_style, toast_config
 from .config import style as ui_style
@@ -141,3 +142,11 @@ def apply_theme(app: QApplication, variant: str) -> None:
     app.setFont(_app_font())
     app.setStyleSheet(_build_stylesheet())
     theme_events.applied.emit()
+
+
+def sync_theme(app: QApplication, scheme: Qt.ColorScheme) -> None:
+    """Apply the user's theme choice for Qt's *scheme*, unless it is already on. The menu
+    applies a choice at once, and Qt's later scheme signal for it then changes nothing."""
+    variant = get_app_state().theme.variant(scheme)
+    if variant != get_theme().variant:
+        apply_theme(app, variant)

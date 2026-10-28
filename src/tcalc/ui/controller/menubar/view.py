@@ -3,9 +3,9 @@ from __future__ import annotations
 from PySide6.QtWidgets import QApplication, QInputDialog
 
 from tcalc.app_state import DockKind, KeypadPreset, get_app_state
-from tcalc.theme import ThemeChoice, get_theme
+from tcalc.theme import ThemeChoice
 from tcalc.ui.layout_presets import LayoutPreset
-from tcalc.ui.styles import apply_theme
+from tcalc.ui.styles import sync_theme
 
 
 class ViewOperations:
@@ -25,10 +25,9 @@ class ViewOperations:
         hints = QApplication.styleHints()
         hints.setColorScheme(choice.scheme)
         # No signal comes when the scheme stays the same, e.g. Light <-> Kitty
-        variant = choice.variant(hints.colorScheme())
         app = QApplication.instance()
-        if variant != get_theme().variant and isinstance(app, QApplication):
-            apply_theme(app, variant)
+        if isinstance(app, QApplication):
+            sync_theme(app, hints.colorScheme())
 
     def toggle_history(self, checked: bool) -> None:
         self._window.sync_dock(DockKind.HISTORY, checked)

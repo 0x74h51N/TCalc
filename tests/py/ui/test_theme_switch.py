@@ -14,8 +14,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QWidget
 import tcalc.app_state as app_state_mod
 from tcalc.app_state import get_app_state
 from tcalc.theme import ThemeChoice, ThemeMode, get_theme, load_theme
-from tcalc.ui.app import _follow_scheme
-from tcalc.ui.styles import apply_theme
+from tcalc.ui.styles import apply_theme, sync_theme
 from tcalc.ui.widgets.calc.display.display import Display
 from tcalc.ui.widgets.common.toaster import Toaster, ToastLevel
 from tcalc.ui.widgets.side_panel.side_panel import SidePanel
@@ -188,7 +187,7 @@ def test_choosing_kitty_restyles_without_a_scheme_change(window, monkeypatch):
 
 def test_late_scheme_signal_does_not_reapply(window, monkeypatch):
     calls = []
-    monkeypatch.setattr("tcalc.ui.app.apply_theme", lambda app, v: calls.append(v))
+    monkeypatch.setattr("tcalc.ui.styles.apply_theme", lambda app, v: calls.append(v))
     get_app_state().theme = ThemeChoice(ThemeMode.DARK)
-    _follow_scheme(QApplication.instance(), Qt.ColorScheme.Dark)
+    sync_theme(QApplication.instance(), Qt.ColorScheme.Dark)
     assert calls == []
