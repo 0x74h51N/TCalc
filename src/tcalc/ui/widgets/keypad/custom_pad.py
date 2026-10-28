@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from tcalc.core.constants import CONST_BY_ID
 from tcalc.core.ops import Operation
 from tcalc.theme import PictureTarget, get_theme, qcolor
+from tcalc.ui.styles import theme_events
 from tcalc.ui.utils import split_camel
 from tcalc.ui.widgets.common.button import IconButton, KeyButton, KSSpinBox
 from tcalc.ui.widgets.common.constants_menu import ConstEntry, build_constant_menu
@@ -87,6 +88,13 @@ def _remove_key(keys: list[KeyDef], index: int, max_rows: int) -> None:
         return
     keys.pop(index)
     _recalc_positions(keys, max_rows)
+
+
+def _key_color(value: str) -> str:
+    """A key's stored color as QSS: "$name" is the active theme's color of that name."""
+    if value.startswith("$"):
+        return get_theme().colors.get(value[1:], "")
+    return value
 
 
 def _set_key_color(
@@ -369,6 +377,11 @@ class KSGrid(QWidget):
             kd = self._keys[key_index]
             self._style_button(self._buttons[key_index], kd.bg_color, kd.text_color)
 
+    def restyle(self) -> None:
+        for kd, btn in zip(self._keys, self._buttons):
+            if kd.bg_color or kd.text_color:
+                self._style_button(btn, kd.bg_color, kd.text_color)
+
     def apply_color_all(self, bg: str | None = None, text: str | None = None) -> None:
         """Update color on data + button for all keys."""
         for i in range(len(self._keys)):
@@ -377,9 +390,9 @@ class KSGrid(QWidget):
     def _style_button(self, btn: QPushButton, bg: str, text: str) -> None:
         btn.setProperty("padKey", True)
         parts = ['QPushButton[padKey="true"] {']
-        if bg:
+        if bg := _key_color(bg):
             parts.append(f"background-color: {bg};")
-        if text:
+        if text := _key_color(text):
             parts.append(f"color: {text};")
         parts.append("}")
         btn.setStyleSheet(" ".join(parts))
@@ -446,13 +459,9 @@ class CustomPad(QWidget):
             [(f"{op.symbol}  ({op.name.lower()})", op) for op in Operation],
         )
         self._op_picker.item_selected.connect(self._on_operation_picked)
-        theme_colors = get_theme().colors
-        self._color_picker = self._make_picker(
-            [("Custom Color...", None)]
-            + [(name, val) for name, val in theme_colors.items() if qcolor(val).isValid()],
-            separator_after=0,
-        )
-        self._color_picker.item_selected.connect(self._on_color_picked)
+        self._color_picker: SearchablePicker | None = None
+        # A key colored by name follows the theme
+        theme_events.applied.connect(self._restyle_keys)
         self._insert_toolbar()
 
     # -- Properties --------------------------------------------------------
@@ -685,7 +694,21 @@ class CustomPad(QWidget):
     def _open_color_picker(self, loc: tuple[int, int], target: str, global_pos: QPoint) -> None:
         self._pending_edit = loc
         self._pending_color_target = target
+        # Built on open, so it lists the active theme's colors
+        if self._color_picker is not None:
+            self._color_picker.deleteLater()
+        colors = [(name, qcolor(value)) for name, value in get_theme().colors.items()]
+        self._color_picker = self._make_picker(
+            [("Custom Color...", None)]
+            + [(name, f"${name}", color) for name, color in colors if color.isValid()],
+            separator_after=0,
+        )
+        self._color_picker.item_selected.connect(self._on_color_picked)
         self._color_picker.popup(global_pos)
+
+    def _restyle_keys(self) -> None:
+        for grid in self._grids:
+            grid.restyle()
 
     def _on_operation_picked(self, op: Operation) -> None:
         if self._pending_edit is not None:

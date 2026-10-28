@@ -7,15 +7,17 @@
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QPoint, QSettings
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QListView, QMenu
 from shiboken6 import getCppPointer
 
+from tcalc.core.ops import Operation
 from tcalc.theme import get_theme, load_theme
 from tcalc.ui.config import fonts_config
 from tcalc.ui.styles import _build_stylesheet, apply_theme, init_styles
 from tcalc.ui.widgets.common.picker import SearchablePicker
+from tcalc.ui.widgets.keypad import custom_pad
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad
 
 
@@ -109,6 +111,44 @@ def test_custom_pad_picker_items_use_the_picker_text_color(styled, monkeypatch, 
     view.ensurePolished()
     text = view.palette().color(QPalette.ColorRole.Text)
     assert text == QColor(get_theme().colors["text_primary"])
+
+
+@pytest.fixture
+def pad(styled, monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "tcalc.ui.widgets.keypad.custom_pad.QSettings",
+        lambda *_: QSettings(str(tmp_path / "t.ini"), QSettings.Format.IniFormat),
+    )
+    pad = CustomPad(1)
+    grid = pad._grids[0]
+    custom_pad._add_operation(grid.keys, Operation.ADD, grid.max_rows)
+    grid.rebuild()
+    return pad
+
+
+def _pick_color(pad: CustomPad, value: str) -> None:
+    pad._open_color_picker((0, 0), "bg", QPoint(0, 0))
+    pad._color_picker.item_selected.emit(value)
+
+
+def test_key_with_a_theme_color_follows_the_theme(styled, pad):
+    _pick_color(pad, "$accent")
+    button = pad._grids[0]._buttons[0]
+    assert get_theme().colors["accent"] in button.styleSheet()
+    apply_theme(styled, "light")
+    assert get_theme().colors["accent"] in button.styleSheet()
+
+
+def test_key_with_a_custom_color_keeps_it(styled, pad):
+    _pick_color(pad, "#123456")
+    apply_theme(styled, "light")
+    assert "#123456" in pad._grids[0]._buttons[0].styleSheet()
+
+
+def test_color_picker_lists_every_theme_color(styled, pad):
+    pad._open_color_picker((0, 0), "bg", QPoint(0, 0))
+    values = set(pad._color_picker._data_by_row.values())
+    assert {f"${name}" for name in get_theme().colors} <= values
 
 
 def test_theme_spacing_overrides_config_numbers(styled, monkeypatch):
