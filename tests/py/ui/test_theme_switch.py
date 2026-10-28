@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 from PySide6.QtCore import QSettings, Qt
-from PySide6.QtGui import QAction, QColor, QStyleHints
+from PySide6.QtGui import QAction, QColor, QFont, QStyleHints
 from PySide6.QtWidgets import QMenu, QWidget
 
 import tcalc.app_state as app_state_mod
@@ -99,6 +99,14 @@ def test_user_key_colors_survive_switch(qapp, window):
     key.setStyleSheet("background: #123456;")
     apply_theme(qapp, "light")
     assert key.styleSheet() == "background: #123456;"
+
+
+def test_side_panel_fonts_stay_scaled_after_switch(qapp, window, monkeypatch):
+    # An app font above the clear button's range (7-10pt)
+    monkeypatch.setattr("tcalc.ui.styles._app_font", lambda: QFont(qapp.font().family(), 18))
+    apply_theme(qapp, "dark")
+    qapp.processEvents()
+    assert window.history.clear_button.font().pointSize() <= 10
 
 
 def test_toast_is_styled_by_level_not_inline(qapp, window):

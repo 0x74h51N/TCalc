@@ -4,12 +4,21 @@ from dataclasses import dataclass
 from pathlib import Path
 from string import Template
 
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QApplication
 
 from ..theme import CUSTOM_THEMES_DIR, get_theme, load_theme
 from .config import calc_config, fonts_config, keypad_config, manubar_style, toast_config
 from .config import style as ui_style
+
+
+class _ThemeEvents(QObject):
+    # Emitted inside apply_theme, before any repaint: the re-polish dropped widget-set fonts
+    applied = Signal()
+
+
+theme_events = _ThemeEvents()
 
 _UI_DIR = Path(__file__).parent
 # common.qss first, then every component sheet; together they form the one app stylesheet
@@ -130,3 +139,4 @@ def apply_theme(app: QApplication, variant: str) -> None:
     # Before the stylesheet: its re-polish hands each widget its parent's font as it is then
     app.setFont(_app_font())
     app.setStyleSheet(_build_stylesheet())
+    theme_events.applied.emit()
