@@ -9,8 +9,8 @@ from __future__ import annotations
 from functools import cache
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QObject, QRect, QSize, Qt, QTimer
-from PySide6.QtGui import QColor, QImage, QImageReader, QPainter, QPaintEvent
+from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QSize, Qt, QTimer
+from PySide6.QtGui import QColor, QImage, QImageReader, QMoveEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import QStyle, QWidget
 
 from tcalc.theme import PictureTarget, ThemePicture, get_theme
@@ -112,6 +112,11 @@ class PictureLayer(QWidget):
             self.setGeometry(self._owner.rect())
             self._pictures.resized()
         return False
+
+    def moveEvent(self, event: QMoveEvent) -> None:
+        # A scrolling owner (a list's viewport) moves its children; the pictures stay put
+        if self.pos() != QPoint(0, 0):
+            self.move(0, 0)
 
     def paintEvent(self, event: QPaintEvent) -> None:
         self._pictures.paint()

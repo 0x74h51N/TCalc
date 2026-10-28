@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QRect, QSize
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QListWidget, QWidget
 
 from tcalc.theme import PictureFit, PicturePosition, PictureTarget, ThemePicture, load_theme
 from tcalc.ui.widgets.common import picture_layer
@@ -63,3 +63,14 @@ def test_resizing_renders_the_picture_again_only_once_it_settles(qtbot, monkeypa
     qtbot.wait(300)
     layer.grab()
     assert sizes[-1][0] == 460
+
+
+def test_layer_stays_in_place_while_its_owner_scrolls(qtbot):
+    lst = QListWidget()
+    qtbot.addWidget(lst)
+    lst.addItems([str(i) for i in range(100)])
+    lst.resize(200, 200)
+    layer = PictureLayer(lst.viewport(), PictureTarget.HISTORY)
+    lst.show()
+    lst.verticalScrollBar().setValue(20)
+    assert layer.geometry() == lst.viewport().rect()
