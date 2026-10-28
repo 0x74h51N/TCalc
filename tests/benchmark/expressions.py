@@ -17,6 +17,7 @@ from PySide6.QtWidgets import QVBoxLayout, QWidget
 from tcalc.app_state import RenderMode, get_app_state
 from tcalc.core.native_eval import evaluate_branch
 from tcalc.core.parser import tokenize, tokenize_string
+from tcalc.ui.styles import apply_theme
 from tcalc.ui.widgets.calc.display.expression.expression import Expression
 from tcalc.ui.widgets.history.history import History
 from tcalc.ui.widgets.math.painter.math_painter import MathPainter, PaintCanvas
@@ -192,6 +193,9 @@ RENDER_EXPRESSIONS = {
 
 RENDER_THRESHOLDS_MS = {"simple": 10, "medium": 20, "complex": 50, "heavy": 150, "sick": 250}
 HISTORY_FIRST_PAINT_THRESHOLDS_MS = {"render_exprs": 30, "50_items": 85, "150_items": 85}
+
+# A theme switch is one user action: the Sensei Benchos 100ms threshold, at any history size
+THEME_SWITCH_THRESHOLDS_MS = {"render_exprs": 100, "50_items": 100, "150_items": 100}
 
 # //// Normalize expressions \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
 
@@ -472,3 +476,16 @@ def make_scalar_collection_expr(n: int) -> str:
 def make_calc_collection_expr(n: int) -> str:
     """List of n single-op elements with decimal operands: '[0+1.5,1+2.5,...]'."""
     return "[" + ",".join(f"{i}+{i + 1.5}" for i in range(n)) + "]"
+
+
+def make_theme_switch_func(qapp, window: QWidget):
+    variants = ["light", "dark"]
+    step = [0]
+
+    def switch_theme():
+        apply_theme(qapp, variants[step[0] % 2])
+        step[0] += 1
+        drain_events(qapp)
+        window.repaint()
+
+    return switch_theme
