@@ -135,6 +135,8 @@ echo "Installing git hooks"
 HOOKS_PATH=$(git config --get core.hooksPath || true)
 if [ -n "$HOOKS_PATH" ]; then
   echo "Skipping hooks install (core.hooksPath is set: $HOOKS_PATH)"
+else
+  make hooks
 fi
 
 
