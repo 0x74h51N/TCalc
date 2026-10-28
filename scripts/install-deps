@@ -40,9 +40,9 @@ check_and_ins() {
   fi
 }
 
-# Python: any python3 >= 3.12 on PATH will do, don't install a second one next to pyenv/system python
+# Python: python3 3.14 on PATH will do, don't install a second one next to pyenv/system python
 # (macOS ships 3.9 with the Xcode CLI tools, too old for pyproject's requires-python)
-py_ok() { python3 -c 'import sys; sys.exit(sys.version_info < (3, 12))' 2>/dev/null; }
+py_ok() { python3 -c 'import sys; sys.exit(sys.version_info[:2] != (3, 14))' 2>/dev/null; }
 
 if ! py_ok; then
   case $OS in
@@ -51,7 +51,7 @@ if ! py_ok; then
   esac
   hash -r
   if ! py_ok; then
-    echo "python3 >= 3.12 is required, found: $(python3 --version 2>&1)"
+    echo "python3 3.14 is required, found: $(python3 --version 2>&1)"
     exit 1
   fi
 fi

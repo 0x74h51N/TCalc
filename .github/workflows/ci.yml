@@ -49,18 +49,14 @@ jobs:
           make py-lint
 
   native-build:
-    name: Native Build (Python ${{ matrix.python }})
+    name: Native Build
     runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        # Ubuntu 24.04 system Python and PYTHON_VERSION
-        python: ["3.12", "3.14.5"]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python }}
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
           cache-dependency-path: "pyproject.toml"
 
@@ -80,7 +76,7 @@ jobs:
       - name: Upload native build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: native-build-debug-py${{ matrix.python }}
+          name: native-build-debug
           path: |
             src/native/build/native
             stubs
@@ -113,7 +109,7 @@ jobs:
       - name: Download native build artifact (for compile_commands.json)
         uses: actions/download-artifact@v4
         with:
-          name: native-build-debug-py${{ env.PYTHON_VERSION }}
+          name: native-build-debug
 
       - name: Run clang-tidy (diff only)
         run: |
@@ -145,7 +141,7 @@ jobs:
       - name: Download native build artifact
         uses: actions/download-artifact@v4
         with:
-          name: native-build-debug-py${{ env.PYTHON_VERSION }}
+          name: native-build-debug
 
       - name: Run mypy
         run: |
@@ -162,7 +158,7 @@ jobs:
       - name: Download native build artifact
         uses: actions/download-artifact@v4
         with:
-          name: native-build-debug-py${{ env.PYTHON_VERSION }}
+          name: native-build-debug
 
       - name: Fix native test permissions
         run: |
@@ -172,19 +168,15 @@ jobs:
         run: make native-ctest NATIVE_TEST_ARGS=--verbose
 
   py-test:
-    name: Python Tests (Python ${{ matrix.python }})
+    name: Python Tests
     runs-on: ubuntu-24.04
     needs: native-build
-    strategy:
-      matrix:
-        # Ubuntu 24.04 system Python and PYTHON_VERSION
-        python: ["3.12", "3.14.5"]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python }}
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
           cache-dependency-path: "pyproject.toml"
 
@@ -217,7 +209,7 @@ jobs:
       - name: Download native build artifact
         uses: actions/download-artifact@v4
         with:
-          name: native-build-debug-py${{ matrix.python }}
+          name: native-build-debug
 
       - name: Run py-tests
         run: |
@@ -259,7 +251,7 @@ jobs:
       - name: Download native build artifact
         uses: actions/download-artifact@v4
         with:
-          name: native-build-debug-py${{ env.PYTHON_VERSION }}
+          name: native-build-debug
 
       - name: Seed benchmark history storage
         run: |

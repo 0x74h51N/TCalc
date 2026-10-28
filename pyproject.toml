@@ -7,14 +7,13 @@ name = "TCalc"
 version = "0.6.3"
 description = "Advanced calculator with expression parsing"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.14,<3.15"
 license = { text = "MIT" }
 authors = [{ name = "Tahsin Önemli", email = "tahsin.onemli90@gmail.com" }]
 keywords = ["calculator", "parser", "shunting-yard", "rpn", "gui"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "License :: OSI Approved :: MIT License",
-  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Mathematics",
 ]
@@ -45,7 +44,7 @@ where = ["src"]
 include = ["tcalc*"]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py314"
 line-length = 100
 extend-exclude = ["build", "stubs", "venv", "src/native", "src/calc_native*.so"]
 
@@ -75,7 +74,7 @@ ignore_missing_imports = true
 
 [tool.pyright]
 stubPath = "stubs"
-pythonVersion = "3.12"
+pythonVersion = "3.14"
 venvPath = "."
 venv = ".venv"
 extraPaths = ["src"]
