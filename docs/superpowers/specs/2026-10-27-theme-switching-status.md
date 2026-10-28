@@ -57,26 +57,23 @@ and the original plan is in [../plans/2026-10-27-theme-switching.md](../plans/20
 - Dock titles kept the old theme's font after a switch:
   - The cause: QDockWidget saves `QApplication::font("QDockWidgetTitle")` once and paints its native title with it.
   - The fix: every dock gets a `DockTitleBar` (a QLabel with Qt's own float/close buttons).
+- The window picture was drawn over the keys after a dock tab switch or a re-dock (Sponge's sea floor):
+  - The cause: the picture was a child widget lowered once at startup, and QMainWindow's dock layout lowers a dock below it.
+  - The fix: `MainWindow` paints its pictures in its own `paintEvent` through `PicturePainter` (the cache, settle timer and drawing moved out of `PictureLayer`).
+- The history picture scrolled with the items and only came back on a resize:
+  - The cause: the list scrolls its viewport by moving the viewport's children, the picture layer included.
+  - The fix: `PictureLayer` moves itself back to (0, 0) when it is moved. Display, keypads and custom pads never move it, so they pay nothing.
+  - Measured on 150 MATH items: a scroll step costs the same as before (3.46 ms against 3.50 ms); Qt already repaints every visible item on each step.
+- Docks could not be dragged, and 5 theme tests failed with "Internal C++ object (QMenu) already deleted": both came from PySide6 6.10.2 and are gone on 6.12, now pinned (see [2026-10-28-dependency-pins.md](2026-10-28-dependency-pins.md)). Dock dragging was checked on Fedora; WSL is not retested.
+- CI used an unpinned ruff: fixed on `master` (ruff pinned in CI, then every dependency pinned) and merged into this branch.
 
 ## Left
 
-1. **Docks cannot be dragged by the title bar.**
-   - In the current WSL environment, a docked dock can't be dragged; with xcb, only the first drag works.
-   - This also happens on `master` and on `fix/ubuntu-install-deps`, so the theme code is not proven to be the cause.
-   - Plan: install the project fresh on Fedora, test `master` first and then this branch, and bisect if it still happens.
-   - Check there whether `DockTitleBar` changes drag behavior. If it does, the alternatives for the dock title font are:
-     - leave the native title (its font goes stale after a switch);
-     - recreate the docks from `saveState`;
-     - find another way to make Qt pick up the new title font.
-2. **CI format check fails on this PR.**
-   - CI installs ruff unpinned (`pip install ruff` in `.github/workflows/ci.yml`), while `pyproject.toml` pins `ruff==0.15.0`.
-   - The newer ruff also formats Python blocks inside Markdown and flags `docs/superpowers/plans/2026-10-27-theme-switching.md`.
-   - Local `make py-lint` doesn't show it.
-   - To be fixed on its own branch so CI uses the pinned version, merged to `master`, then this branch is rebased.
-3. "Add Custom Theme..." is still a disabled stub and needs its own spec.
-4. Retro: the animated screen-effect idea is not started.
-5. The window minimum size bug belongs on a separate branch.
-6. Decide whether to drop the `themes/*/*.png` line from `.gitignore`.
-7. Some Time Later font: the ÷ − · glyphs are small.
-8. `radius_medium` and `radius_large` are unused.
-9. Final whole-branch review before merge.
+1. "Add Custom Theme..." is still a disabled stub and needs its own spec.
+2. Retro: the animated screen-effect idea is not started.
+3. The window minimum size bug belongs on a separate branch.
+4. Decide whether to drop the `themes/*/*.png` line from `.gitignore`.
+5. Some Time Later font: the ÷ − · glyphs are small.
+6. `radius_medium` and `radius_large` are unused.
+7. Display, keypads and custom pads still use the `PictureLayer` child widget; it is fine while nothing reorders or scrolls their children.
+8. Final whole-branch review before merge.
