@@ -6,10 +6,10 @@
 #
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 import pytest
-import tomllib
 from PySide6.QtGui import QColor
 
 from tcalc.theme import get_theme, load_theme

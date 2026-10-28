@@ -2,12 +2,12 @@
 # Central theme configuration: one config file per theme
 from __future__ import annotations
 
+import tomllib
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
-import tomllib
 from PySide6.QtCore import Qt
 
 from tcalc.ui.config import color_usage_config

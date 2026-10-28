@@ -818,7 +818,7 @@ class CustomPad(QWidget):
 
         try:
             data = json.loads(str(raw))
-        except (json.JSONDecodeError, TypeError):
+        except json.JSONDecodeError, TypeError:
             return
 
         self._label = data.get("label", self._label)

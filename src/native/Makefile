@@ -5,6 +5,9 @@ ROOT := ../..
 BUILD_DIR := build/native
 BUILD_TYPE ?= Debug
 PYTHON := $(ROOT)/.venv/bin/python
+# clang-format and clang-tidy come pinned with the venv (pyproject dev extra), same as CI
+CLANG_FORMAT := $(ROOT)/.venv/bin/clang-format
+CLANG_TIDY := $(ROOT)/.venv/bin/clang-tidy
 TEST_ARGS ?= --quiet
 STUBS_DIR := $(ROOT)/stubs
 
@@ -46,12 +49,12 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 cpp-format:
-	@command -v clang-format >/dev/null || (echo "clang-format not found"; exit 1)
-	clang-format -i $(CPP_FORMAT_FILES)
+	@[ -x $(CLANG_FORMAT) ] || (echo "clang-format not found in .venv, run make install"; exit 1)
+	$(CLANG_FORMAT) -i $(CPP_FORMAT_FILES)
 
 cpp-format-check:
-	@command -v clang-format >/dev/null || (echo "clang-format not found"; exit 1)
-	@clang-format --dry-run --Werror $(CPP_FORMAT_FILES)
+	@[ -x $(CLANG_FORMAT) ] || (echo "clang-format not found in .venv, run make install"; exit 1)
+	@$(CLANG_FORMAT) --dry-run --Werror $(CPP_FORMAT_FILES)
 
 BASE_REF ?= origin/master
 
@@ -59,13 +62,13 @@ cpp-tidy:
 	@if [ ! -f "$(BUILD_DIR)/compile_commands.json" ]; then \
 	  $(MAKE) configure; \
 	fi
-	@BUILD_DIR="$(CURDIR)/$(BUILD_DIR)" ROOT="$(ROOT)" CPP_TIDY_WARNS="$(CPP_TIDY_WARNS)" bash "$(ROOT)/scripts/cpp_tidy"
+	@BUILD_DIR="$(CURDIR)/$(BUILD_DIR)" ROOT="$(ROOT)" CLANG_TIDY="$(abspath $(CLANG_TIDY))" CPP_TIDY_WARNS="$(CPP_TIDY_WARNS)" bash "$(ROOT)/scripts/cpp_tidy"
 
 cpp-tidy-diff:
 	@if [ ! -f "$(BUILD_DIR)/compile_commands.json" ]; then \
 	  $(MAKE) configure; \
 	fi
-	@BUILD_DIR="$(CURDIR)/$(BUILD_DIR)" ROOT="$(ROOT)" CPP_TIDY_WARNS="$(CPP_TIDY_WARNS)" BASE_REF="$(BASE_REF)" bash "$(ROOT)/scripts/cpp_tidy" --diff
+	@BUILD_DIR="$(CURDIR)/$(BUILD_DIR)" ROOT="$(ROOT)" CLANG_TIDY="$(abspath $(CLANG_TIDY))" CPP_TIDY_WARNS="$(CPP_TIDY_WARNS)" BASE_REF="$(BASE_REF)" bash "$(ROOT)/scripts/cpp_tidy" --diff
 
 
 stub-gen: $(SO_FILE)

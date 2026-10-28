@@ -19,12 +19,11 @@
 
 Liny & Formatter:
 
-- `clang-format`
-- `clang-tidy`y
-
-- Debian/Ubuntu: `sudo apt-get install clang-format clang-tidy`
-- Fedora: `sudo dnf install clang-tools-extra`
-- macOS (Homebrew): `brew install clang-format llvm`
+- `clang-format` and `clang-tidy` come pinned in the venv (pyproject's dev extra), the same versions CI uses
+- `run-clang-tidy`, the driver script, comes from the system:
+  - Debian/Ubuntu: `sudo apt-get install clang-tidy`
+  - Fedora: `sudo dnf install clang-tools-extra`
+  - macOS (Homebrew): `brew install llvm`
 
 ## Build
 

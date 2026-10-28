@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel", "pybind11>=2.6.0"]
+requires = ["setuptools>=84.2,<84.3", "wheel>=0.48,<0.49", "pybind11>=3.1,<3.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,30 +7,32 @@ name = "TCalc"
 version = "0.6.3"
 description = "Advanced calculator with expression parsing"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14,<3.15"
 license = { text = "MIT" }
 authors = [{ name = "Tahsin Önemli", email = "tahsin.onemli90@gmail.com" }]
 keywords = ["calculator", "parser", "shunting-yard", "rpn", "gui"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "License :: OSI Approved :: MIT License",
-  "Programming Language :: Python :: 3.10+",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Mathematics",
 ]
 
-dependencies = ["PySide6>=6.0.0", "pybind11>=2.6.0"]
+dependencies = ["PySide6>=6.12,<6.13", "pybind11>=3.1,<3.2"]
 
 [project.optional-dependencies]
 dev = [
-  "mypy>=1.10.0",
-  "pre-commit>=3.7.0",
-  "pybind11-stubgen>=2.5.0",
+  "mypy>=2.4,<2.5",
+  "pre-commit>=4.7,<4.8",
+  "pybind11-stubgen>=3.0,<3.1",
   "ruff==0.15.0",
-  "pytest>=8.2.0",
-  "pytest-benchmark>=4.0.0",
-  "pytest-qt>=4.4.0",
-  "pytest-memray>=1.7.0",
-  "pyinstrument>=4.1.0",
+  "clang-format>=21.1,<21.2",
+  "clang-tidy>=21.1,<21.2",
+  "pytest>=9.1,<9.2",
+  "pytest-benchmark>=5.3,<5.4",
+  "pytest-qt>=4.5,<4.6",
+  "pytest-memray>=1.11,<1.12",
+  "pyinstrument>=5.1,<5.2",
 ]
 
 [project.scripts]
@@ -44,7 +46,7 @@ where = ["src"]
 include = ["tcalc*"]
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py314"
 line-length = 100
 extend-exclude = ["build", "stubs", "venv", "src/native", "src/calc_native*.so"]
 
@@ -74,7 +76,7 @@ ignore_missing_imports = true
 
 [tool.pyright]
 stubPath = "stubs"
-pythonVersion = "3.11"
+pythonVersion = "3.14"
 venvPath = "."
 venv = ".venv"
 extraPaths = ["src"]
