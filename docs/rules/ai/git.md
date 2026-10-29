@@ -5,7 +5,7 @@
 - Never commit unless the owner explicitly asks for that commit. Permission to commit once does not carry over to the next change, the branch or the session.
 - Before any commit, show the owner the changes that go into it (the files and the diff) and wait for approval.
 - Never use `--no-verify` (or `-n`) on a commit or a push without the owner's explicit permission. The hook is the check; skipping it hides what it would have found.
-- Before commits are pushed, `make cpp-tidy-diff` must have passed. The owner runs it: give the command, wait for the result, and do not push until the owner confirms it is clean.
+- When the commits to be pushed change files under `src/native/` or any C++ file, `make cpp-tidy-diff` must pass before the push. The owner runs it: give the command, wait for the result, and do not push until the owner confirms it is clean. Commits that change nothing native (docs, Python, scripts) are pushed without it.
 - A commit message is short: one line in the existing style (`type/scope: what changed`, lower case, present tense). A body only when the change carries an argument the diff cannot make, and then a few lines. The long story with tests and measurements goes in the PR description.
 - A PR description says what changed, why, and what a reviewer should look at first. It does not retell the plan or the spec.
 - Before writing an external repository's issue or PR (`owner/repo#N`, a GitHub issue link) into a PR, an issue, a commit message or any text that goes to GitHub, ask the owner. It sends a cross-reference notification to that repository. Without approval, describe the problem without the reference.
