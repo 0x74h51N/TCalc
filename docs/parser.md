@@ -185,7 +185,7 @@ Because the compound operands are atomic here, their inner token vectors (a LaTe
 token's `left` / `right`, a paren's `elements`, a call's `args`) stay infix. They are
 shunting-yarded again, recursively, only when the evaluator reaches them. That
 recursive re-shunt is shown in the eval-path diagrams in
-[architecture.md](./architecture.md).
+[data-flow.md](./data-flow.md).
 
 ## build_math_nodes (render tree)
 
