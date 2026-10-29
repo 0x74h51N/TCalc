@@ -23,7 +23,7 @@ else
   OS=""
   echo "Unsupported OS: system packages are not installed. Install these yourself:"
   echo "  python3.14 with its headers and venv, cmake, ninja, a C++20 compiler,"
-  echo "  Boost 1.83 or 1.84, entr, run-clang-tidy"
+  echo "  Boost 1.83 or newer, entr, run-clang-tidy"
 fi
 
 if [[ "$OS" == "macos" ]] && ! command -v brew >/dev/null 2>&1; then
