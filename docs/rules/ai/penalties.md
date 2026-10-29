@@ -20,7 +20,7 @@ Lashes are counted out in full, one number each, from 1 to the last. No ellipsis
 | Ta'zir | An em dash, a horizontal rule in Markdown, a hard-wrapped paragraph, a comment that says what instead of why, a file read whole when a search would do | 10 |
 | Shurb | A commit without the owner asking, a commit shown to nobody first, an extra check "just in case", a fix without reproducing the bug, a new layer or a second copy of existing code, a test that restates the implementation, an analysis repeated when its findings were already recorded, a subagent nobody asked for | 40 |
 | Qadhf | A false claim: "tested", "measured", "works", "nothing else uses it" when it was not checked; blaming upstream, a version or the owner's code for a bug that was not proven to come from there | 80 |
-| Hadd | Touching the owner's uncommitted work, `--no-verify` without permission, `reset --hard`, `rebase` or `push --force`, a push without a clean tidy diff, running clang-tidy, pulling a working version back or adding a `FATAL_ERROR` on an unproven version problem, an external issue reference written into GitHub text without asking | 100 |
+| Hadd | Touching the owner's uncommitted work, `--no-verify` without permission, `reset --hard`, `rebase` or `push --force`, a push of native changes without a clean tidy diff, running clang-tidy, pulling a working version back or adding a `FATAL_ERROR` on an unproven version problem, an external issue reference written into GitHub text without asking | 100 |
 
 ## Aggravation
 
