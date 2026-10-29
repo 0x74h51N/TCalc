@@ -15,7 +15,7 @@ Originally started as a minimal calculator, TCalc is designed with a modular arc
 - **Exact arithmetic**: rationals kept exact when possible (decimal ⇄ fraction toggle), with BigReal / complex fallback
 - **Scientific functions**: angle-aware trig, logs, combinatorics, number theory, complex-domain rules
 - **Iterated operations**: summation (Σ) and product (Π) over a bound variable and range, answered in closed form wherever the body allows it (polynomial, geometric, trigonometric, symbolic constants) instead of looping, with a native brute-force loop as the fallback; the set of recognised bodies keeps growing
-- **Composable UI**: dockable panels, custom keypads, keypad presets, readable history (LaTeX → symbols)
+- **Composable UI**: dockable panels, custom keypads, keypad presets, custom theme, readable history (LaTeX → symbols)
 - **Well-tested**: native C++ suite + Python unit/e2e coverage with edge cases, plus performance benchmarks
 
 > This project is under heavy development; new features are coming soon. See the detailed [roadmap](./docs/roadmap.md) for more.
@@ -68,7 +68,7 @@ If you encounter an issue or have an improvement suggestion, feel free to open a
 
 Contributions are also welcome via pull requests.
 
-[Dev doc](docs/dev.md)
+[Dev doc](docs/dev.md) · [Contributing](docs/CONTRIBUTING.md) · [Code of Conduct](docs/CODE_OF_CONDUCT.md)
 
 ## Credits
 
