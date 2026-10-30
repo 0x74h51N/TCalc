@@ -90,3 +90,4 @@ and the original plan is in [../plans/2026-10-27-theme-switching.md](../plans/20
 7. Display, keypads and custom pads still use the `PictureLayer` child widget; it is fine while nothing reorders or scrolls their children.
 8. History delegate (own branch): rows painted from the data, no row widgets; brings the theme switch and the history load under 100 ms.
 9. Final whole-branch review before merge.
+10. Distribution (when packaging starts, not on this branch): a wheel built from `pyproject.toml` does not ship the themes, the template or the icons (measured 2026-10-30: 0 files under `tcalc/themes/` and `tcalc/assets/`, no `calc_native` either), because setuptools has no `package-data` entry, no `MANIFEST.in` and no native build step. A Fedora package or an installer also has to decide where the bundled themes and the template land and that user themes stay in `~/.local/share/TCalc/themes/`.
