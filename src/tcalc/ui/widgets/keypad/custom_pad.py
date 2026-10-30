@@ -35,6 +35,7 @@ from tcalc.ui.widgets.common.picker import SearchablePicker
 from tcalc.ui.widgets.common.picture_layer import PictureLayer
 from tcalc.ui.widgets.common.toolbar import Toolbar
 from tcalc.ui.widgets.common.types import KeyDef
+from tcalc.ui.widgets.utils import apply_key_radius
 
 from ...config import custom_pad_config, keypad_config
 
@@ -318,6 +319,8 @@ class KSGrid(QWidget):
             self._add_button = None
 
         self._build()
+        self._grid.activate()
+        apply_key_radius(self, self._buttons)
 
     # -- Add button management ---------------------------------------------
 
@@ -381,6 +384,11 @@ class KSGrid(QWidget):
         for kd, btn in zip(self._keys, self._buttons):
             if kd.bg_color or kd.text_color:
                 self._style_button(btn, kd.bg_color, kd.text_color)
+        apply_key_radius(self, self._buttons)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        apply_key_radius(self, self._buttons)
 
     def apply_color_all(self, bg: str | None = None, text: str | None = None) -> None:
         """Update color on data + button for all keys."""
