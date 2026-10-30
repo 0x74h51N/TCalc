@@ -4,14 +4,82 @@ on:
   pull_request:
     branches:
       - master
+  workflow_dispatch:
 
 env:
   PYTHON_VERSION: "3.14.5"
 
 jobs:
+  # The one place that decides which job a PR needs; every other job reads its flag.
+  changes:
+    name: Changed Paths
+    runs-on: ubuntu-24.04
+    outputs:
+      cpp-format-check: ${{ steps.rules.outputs.cpp-format-check }}
+      py-format-check: ${{ steps.rules.outputs.py-format-check }}
+      native-build: ${{ steps.rules.outputs.native-build }}
+      cpp-code-check: ${{ steps.rules.outputs.cpp-code-check }}
+      py-typecheck: ${{ steps.rules.outputs.py-typecheck }}
+      native-test: ${{ steps.rules.outputs.native-test }}
+      py-test: ${{ steps.rules.outputs.py-test }}
+      py-test-benchmark: ${{ steps.rules.outputs.py-test-benchmark }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Map changed paths to jobs
+        id: rules
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          all="" native_tests="" native_src="" py_src="" py_tests="" bench="" py_files=""
+          if [ "$EVENT" = workflow_dispatch ]; then
+            echo "Manual run: every job runs."
+            all=1
+          else
+            # Each changed file marks its group; the first matching pattern wins.
+            while read -r f; do
+              echo "$f"
+              case "$f" in
+                .github/workflows/*|makefile|pyproject.toml|scripts/install-deps) all=1 ;;
+                # Native tests are not linked into calc_native, so they cannot change Python results or stubs.
+                src/native/tests/*) native_tests=1 ;;
+                src/native/*) native_src=1 ;;
+                # Example themes and icons rarely break a check; a change to them is checked with a manual run.
+                src/tcalc/assets/*|src/tcalc/themes/*) ;;
+                # stubgen writes the stubs mypy reads.
+                src/tcalc/*|scripts/stubgen/*) py_src=1 ;;
+                tests/py/*) py_tests=1 ;;
+                tests/benchmark/*|scripts/seed_history.py|scripts/malloc) bench=1 ;;
+              esac
+              case "$f" in *.py) py_files=1 ;; esac
+            done < <(git diff --name-only "$BASE_SHA...$HEAD_SHA")
+          fi
+
+          # A job runs when any of the groups listed for it changed, or when "all" is set.
+          cpp="$native_src$native_tests"
+          typecheck="$native_src$py_src"
+          pytest="$native_src$py_src$py_tests"
+          benchmark="$native_src$py_src$bench"
+          job() { [ -n "$all$2" ] && v=true || v=false; echo "$1=$v" | tee -a "$GITHUB_OUTPUT"; }
+          job cpp-format-check "$cpp"
+          job cpp-code-check "$cpp"
+          job native-test "$cpp"
+          job py-format-check "$py_files"
+          job py-typecheck "$typecheck"
+          job py-test "$pytest"
+          job py-test-benchmark "$benchmark"
+          job native-build "$cpp$typecheck$pytest$benchmark"
+
   cpp-format-check:
     name: C++ Format Check (clang-format)
     runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.cpp-format-check == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -32,6 +100,8 @@ jobs:
   py-format-check:
     name: Python Format Check (ruff)
     runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.py-format-check == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -56,6 +126,8 @@ jobs:
   native-build:
     name: Native Build
     runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.native-build == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -90,7 +162,8 @@ jobs:
   cpp-code-check:
     name: C++ Code Quality (clang-tidy)
     runs-on: ubuntu-24.04
-    needs: native-build
+    needs: [changes, native-build]
+    if: needs.changes.outputs.cpp-code-check == 'true'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -118,16 +191,20 @@ jobs:
           name: native-build-debug
 
       - name: Run clang-tidy (diff only)
+        env:
+          # A manual run has no PR base, so it diffs against the default branch.
+          BASE: ${{ github.base_ref || github.event.repository.default_branch }}
         run: |
           set -euo pipefail
-          git fetch origin ${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
+          git fetch origin "$BASE:refs/remotes/origin/$BASE"
           . .venv/bin/activate
-          make cpp-tidy-diff BASE_REF=origin/${{ github.base_ref }}
+          make cpp-tidy-diff BASE_REF="origin/$BASE"
 
   py-typecheck:
     name: Python Type Check (mypy)
     runs-on: ubuntu-24.04
-    needs: native-build
+    needs: [changes, native-build]
+    if: needs.changes.outputs.py-typecheck == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -157,7 +234,8 @@ jobs:
   native-test:
     name: Native Tests
     runs-on: ubuntu-24.04
-    needs: native-build
+    needs: [changes, native-build]
+    if: needs.changes.outputs.native-test == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -176,7 +254,8 @@ jobs:
   py-test:
     name: Python Tests
     runs-on: ubuntu-24.04
-    needs: native-build
+    needs: [changes, native-build]
+    if: needs.changes.outputs.py-test == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -226,11 +305,14 @@ jobs:
     name: Benchmark Tests
     runs-on: ubuntu-24.04
     needs:
+      - changes
       - py-test
       - native-test
       - py-typecheck
       - cpp-code-check
       - native-build
+    # The test jobs it waits for may be skipped; only a failure stops it.
+    if: ${{ !failure() && !cancelled() && needs.changes.outputs.py-test-benchmark == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -273,3 +355,23 @@ jobs:
         run: |
           . .venv/bin/activate
           xvfb-run --auto-servernum make py-mem-profile PYTEST_ARGS="-q --tb=line"
+
+  # The one required check: a skipped job passes, a failed or cancelled one does not.
+  ci-ok:
+    name: CI OK
+    runs-on: ubuntu-24.04
+    if: always()
+    needs:
+      - changes
+      - cpp-format-check
+      - py-format-check
+      - native-build
+      - cpp-code-check
+      - py-typecheck
+      - native-test
+      - py-test
+      - py-test-benchmark
+    steps:
+      - name: Fail on a failed or cancelled job
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: exit 1
