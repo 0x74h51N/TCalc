@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 
 import calc_native
-from PySide6.QtCore import QPoint, QSettings, Qt, QTimer, Signal
+from PySide6.QtCore import QPoint, QSettings, Qt, Signal
 from PySide6.QtWidgets import (
     QAbstractButton,
     QColorDialog,
@@ -35,7 +35,7 @@ from tcalc.ui.widgets.common.picker import SearchablePicker
 from tcalc.ui.widgets.common.picture_layer import PictureLayer
 from tcalc.ui.widgets.common.toolbar import Toolbar
 from tcalc.ui.widgets.common.types import KeyDef
-from tcalc.ui.widgets.utils import apply_key_radius, shrink_key_radius
+from tcalc.ui.widgets.utils import apply_key_radius, key_fit_timer, shrink_key_radius
 
 from ...config import custom_pad_config, keypad_config
 
@@ -191,11 +191,7 @@ class KSGrid(QWidget):
         self._insert_toolbar(root, max_rows, editing)
 
         self._build()
-        # Keys reach their size after the layout runs, and a drag resizes many times
-        self._resize_timer = QTimer(self)
-        self._resize_timer.setSingleShot(True)
-        self._resize_timer.setInterval(int(keypad_config["resize_debounce_ms"]))
-        self._resize_timer.timeout.connect(lambda: apply_key_radius(self, self._buttons))
+        self._resize_timer = key_fit_timer(self, lambda: apply_key_radius(self, self._buttons))
 
     # -- Properties --------------------------------------------------------
 
@@ -268,6 +264,8 @@ class KSGrid(QWidget):
             self._place_add_button()
         else:
             self._remove_add_button()
+        # The toolbar and the add button resize the keys inside a grid that keeps its size
+        self._resize_timer.start()
 
     # -- Build / Rebuild ---------------------------------------------------
 
@@ -324,8 +322,8 @@ class KSGrid(QWidget):
             self._add_button = None
 
         self._build()
-        self._grid.activate()
-        apply_key_radius(self, self._buttons)
+        # The new keys get their size once the layout shows them
+        self._resize_timer.start()
 
     # -- Add button management ---------------------------------------------
 

@@ -35,7 +35,7 @@ from ...config import keypad_config
 from ...styles import app_fonts, theme_events
 from ..common.button import KeyButton
 from ..common.picture_layer import PictureLayer
-from ..utils import apply_key_radius, apply_scaled_fonts, shrink_key_radius
+from ..utils import apply_key_radius, apply_scaled_fonts, key_fit_timer, shrink_key_radius
 
 GridDef = tuple[dict[str, list[KeyDef]], int]
 
@@ -67,11 +67,7 @@ class Keypad(QWidget):
         theme_events.applied.connect(self._update_key_radius)
 
         cfg = keypad_config
-        # Keys reach their size after the layout runs, and a drag resizes many times
-        self._resize_timer = QTimer(self)
-        self._resize_timer.setSingleShot(True)
-        self._resize_timer.setInterval(int(cfg["resize_debounce_ms"]))
-        self._resize_timer.timeout.connect(self._fit_keys)
+        self._resize_timer = key_fit_timer(self, self._fit_keys)
         margin = int(cfg["side_margin"])
         grid_spacing = int(cfg["grid_spacing"])
         gap = int(cfg["hbox_spacing"])
