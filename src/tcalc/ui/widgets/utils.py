@@ -47,15 +47,31 @@ def apply_scaled_fonts(
         targets.setFont(font)
 
 
-def apply_key_radius(container: QWidget, keys: Iterable[QWidget]) -> None:
+def _fitted_key_radius(keys: Iterable[QWidget]) -> int | None:
     """Theme key radius, capped at half the shortest key side: Qt squares a larger one."""
     sides = [min(key.width(), key.height()) for key in keys if not key.isHidden()]
     if not sides:  # a custom grid with no keys yet
-        return
-    radius = min(int(get_theme().spacing["radius_small"]), min(sides) // 2)
-    sheet = f"QPushButton[keypadRole] {{ border-radius: {radius}px; }}"
-    if container.styleSheet() != sheet:
-        container.setStyleSheet(sheet)
+        return None
+    return min(int(get_theme().spacing["radius_small"]), min(sides) // 2)
+
+
+def _set_key_radius(container: QWidget, radius: int) -> None:
+    container.setProperty("keyRadius", radius)
+    container.setStyleSheet(f"QPushButton[keypadRole] {{ border-radius: {radius}px; }}")
+
+
+def apply_key_radius(container: QWidget, keys: Iterable[QWidget]) -> None:
+    radius = _fitted_key_radius(keys)
+    if radius is not None and radius != container.property("keyRadius"):
+        _set_key_radius(container, radius)
+
+
+def shrink_key_radius(container: QWidget, keys: Iterable[QWidget]) -> None:
+    """Refits at once only a radius the keys shrank below, which Qt squares until the next fit."""
+    radius = _fitted_key_radius(keys)
+    applied = container.property("keyRadius")
+    if radius is not None and applied is not None and radius < applied:  # None before launch fit
+        _set_key_radius(container, radius)
 
 
 class InputAlign(Enum):
