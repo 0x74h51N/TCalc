@@ -12,12 +12,6 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
 find_package(Boost 1.83 REQUIRED CONFIG)
-# Boost 1.85+ fmod returns the Euclidean remainder for a negative dividend, so mod gives wrong
-# results (boostorg/multiprecision#764)
-if(Boost_VERSION VERSION_GREATER_EQUAL 1.85)
-  message(FATAL_ERROR "Boost ${Boost_VERSION} found, TCalc needs Boost 1.83 or 1.84: 1.85+ "
-                      "breaks fmod for negative numbers (boostorg/multiprecision#764)")
-endif()
 
 # Prefer the pybind11 that is installed into the active Python environment (venv).
 execute_process(
