@@ -8,6 +8,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from tcalc.theme import get_theme
+
 # Widget size range for font interpolation
 MIN_DIM = 100
 MAX_DIM = 500
@@ -43,6 +45,17 @@ def apply_scaled_fonts(
         font = targets.font()
         font.setPointSize(point_size)
         targets.setFont(font)
+
+
+def apply_key_radius(container: QWidget, keys: Iterable[QWidget]) -> None:
+    """Theme key radius, capped at half the shortest key side: Qt squares a larger one."""
+    sides = [min(key.width(), key.height()) for key in keys if not key.isHidden()]
+    if not sides:  # a custom grid with no keys yet
+        return
+    radius = min(int(get_theme().spacing["radius_small"]), min(sides) // 2)
+    sheet = f"QPushButton[keypadRole] {{ border-radius: {radius}px; }}"
+    if container.styleSheet() != sheet:
+        container.setStyleSheet(sheet)
 
 
 class InputAlign(Enum):
