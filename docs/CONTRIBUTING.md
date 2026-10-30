@@ -4,6 +4,7 @@ Bug reports, feature requests and pull requests are welcome. By taking part you 
 
 ## Issues
 
+- The title starts with its type, as branches do: `bug: ...`, `feat: ...`, `docs: ...`, `chore: ...`, `perf: ...`, `refactor: ...`. The issue templates fill it in.
 - A bug report says what you typed, what you expected and what you got, plus your OS and how you installed TCalc. A screenshot helps for anything visual.
 - Search the existing issues first; a duplicate is closed in favor of the older one.
 
