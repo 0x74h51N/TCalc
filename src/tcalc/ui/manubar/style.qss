@@ -1,7 +1,7 @@
 QMenu {
-    background: $menu_background;
-    color: $menu_text;
-    border: 1px solid $menu_border;
+    background: $menu_background_color;
+    color: $menu_text_color;
+    border: 1px solid $menu_border_color;
     padding: ${menu_padding}px;
     font-size: ${menu_font_size}px;
 }
@@ -22,7 +22,7 @@ QMenu::item {
 
 QPushButton[presetRow="true"] {
     background: transparent;
-    color: $menu_text;
+    color: $menu_text_color;
     text-align: left;
 }
 
@@ -30,13 +30,13 @@ QMenu::item:selected,
 QMenu::item:checked,
 QPushButton[presetRow="true"]:hover,
 QPushButton[presetRow="true"][active="true"] {
-    background: $selected_background;
-    color: $selected_text;
-    border: 1px solid $selected_border;
+    background: $menu_selected_color;
+    color: $menu_selected_text_color;
+    border: 1px solid $menu_selected_border_color;
 }
 
 QMenu::item:disabled {
-    color: $disabled_text;
+    color: $menu_disabled_text_color;
 }
 
 QMenu::icon {
@@ -46,6 +46,6 @@ QMenu::icon {
 
 QMenu::separator {
     height: ${separator_height}px;
-    background: $separator_color;
+    background: $menu_separator_color;
     margin: ${separator_margin_vertical}px ${separator_margin_horizontal}px;
 }

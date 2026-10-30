@@ -27,3 +27,6 @@ stubs/
 *flamegraph*
 
 tests/benchmark/.fixtures/
+
+# User-supplied theme pictures (third-party artwork stays local)
+src/tcalc/themes/*/*.png

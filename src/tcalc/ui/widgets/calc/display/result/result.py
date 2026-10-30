@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import calc_native
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QPalette
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -20,13 +20,11 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.core.utils import CalcValue
-from tcalc.theme import get_theme
+from tcalc.ui.config import calc_config
 from tcalc.ui.widgets.common.button import IconButton
 from tcalc.ui.widgets.history.utils import wrap_expression
 from tcalc.ui.widgets.math import ExpressionSlot, InputKind, MathRender
 from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
-
-from .style import apply_style, calc_config
 
 
 class Result(QWidget):
@@ -78,8 +76,6 @@ class Result(QWidget):
         self._row_layout.addWidget(self._res_slot, 1)
         btn_size = self._config["btn_size"]
         btn_padding = self._config["btn_padding"]
-        icon_base, _ = self._config["colors"]["frac_icon"]
-        icon_tint = get_theme().colors[icon_base]
         self._frac_btn_tooltip = "Show as fraction"
         self._decimal_tooltip = "Show as decimal"
         self._frac_btn = IconButton(
@@ -87,7 +83,7 @@ class Result(QWidget):
             tooltip=self._frac_btn_tooltip,
             size=btn_size,
             padding=btn_padding,
-            tint=icon_tint,
+            tint_key="fraction_icon_color",
             parent=self,
         )
         self._frac_btn.setObjectName("fracToggleBtn")
@@ -108,7 +104,8 @@ class Result(QWidget):
 
         self._frac_visible = False
 
-        apply_style(self)
+        self.setBackgroundRole(QPalette.ColorRole.Base)
+        self.setAutoFillBackground(True)
         QTimer.singleShot(0, self._update_fonts)
 
     def update_res(

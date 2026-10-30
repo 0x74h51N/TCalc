@@ -11,6 +11,8 @@ def _load_config():
 _config = _load_config()
 window = _config["window"]
 style = _config["style"]
+fonts_config = _config["fonts"]
+color_usage_config = _config["color_usage"]
 
 # Side panel layout
 side_panel_config = _config["side_panel"]
@@ -25,6 +27,9 @@ history_math = _history["math"]
 _memory = _config.get("memory", {})
 memory_style = _memory.get("style", {})
 
+
+# Icons
+icons_config = _config["icons"]
 
 # Toast
 toast_config = _config["toast"]

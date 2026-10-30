@@ -1,0 +1,150 @@
+# TCalc custom theme template
+# ===========================
+#
+# Make a theme:
+#   1. Create a folder in TCalc's themes folder, e.g. themes/sunset/. The folder name is the
+#      theme's id. The themes folder is in TCalc's data folder:
+#        Linux    ~/.local/share/TCalc/themes/
+#        Windows  %APPDATA%\TCalc\themes\
+#        macOS    ~/Library/Application Support/TCalc/themes/
+#   2. Copy this file into it as theme.toml.
+#   3. Uncomment and change only what you want; everything you leave out comes from `base`.
+#   4. Put the theme's own files (pictures, fonts) in the same folder.
+#   5. Open View > Theme; the theme shows up there. Its fonts load when TCalc starts, so
+#      restart once after adding a font.
+# A theme folder with the same name as a bundled one (kitty, retro, sponge) replaces it.
+#
+# Every key below is optional except `name` and `base`.
+# Colors take any QSS color: "#RRGGBB", "#AARRGGBB", "rgba(r, g, b, a%)" or a color name.
+
+
+# --- Identity ---------------------------------------------------------------------------
+
+# Name shown in View > Theme
+# name = "Sunset"
+
+# Built-in theme this one builds on: "light" or "dark". It gives every value this file does
+# not set, Qt's color scheme (dialogs, scrollbars...) and the light/dark icon files.
+# base = "dark"
+
+
+# --- Fonts ------------------------------------------------------------------------------
+# Font files (.ttf/.otf) in the theme folder are loaded at startup; use their family name.
+# Unset keys keep the app defaults (src/tcalc/ui/config.toml [fonts] and [keypad]).
+
+# [fonts]
+# family_default = "Sans Serif"   # app font: menus, labels, keys, display
+# size_default = 9                # app font size (pt)
+# family_monospace = "Monospace"  # history list font
+# keypad_min_pt = 8               # smallest key label size (pt); keys scale with the keypad
+# keypad_max_pt = 16              # largest key label size (pt)
+# menu_size = 14                  # menu item size (px): View, Settings... dropdowns
+# picker_size = 9                 # searchable picker size (pt); defaults to size_default
+
+
+# --- Spacing ----------------------------------------------------------------------------
+# Corner radii (px); 0 gives square corners.
+
+# [spacing]
+# radius_small = 2    # keys, icon buttons, tooltips
+# radius_medium = 6
+# radius_large = 12
+# Any number from src/tcalc/ui/config.toml's style tables can be overridden here by name,
+# e.g. btn_radius = 4 (the fraction button)
+
+
+# --- Pictures ---------------------------------------------------------------------------
+# Pictures painted behind a component. Add one [[pictures]] table per picture.
+
+# [[pictures]]
+# file = "picture.svg"      # in this folder; SVG or PNG
+# target = "display"        # window (the whole window, behind keypads and docks) | display |
+#                           # history | main_keypad | functions_keypad | trig_keypad | custom_pad
+# position = "top-right"    # center | top-left | top | top-right | left | right |
+#                           # bottom-left | bottom | bottom-right
+# size = 0.5                # box size as a fraction of the component's width and height (0-1)
+# fit = "contain"           # contain: whole picture, aspect kept
+#                           # cover: fills the box, aspect kept, overflow cropped
+#                           # stretch: fills the box exactly
+# opacity = 0.35            # 0 (invisible) to 1 (solid)
+# margin = 10               # px kept free from the component's edges
+# tint = "accent_text"      # optional: repaint the picture in one of the colors below
+#                           # (handy for line art); leave out to keep its own colors
+#
+# Translucent key colors (rgba with alpha < 100%) let a keypad picture show through.
+
+
+# --- Color usage ----------------------------------------------------------------------
+# Which of the colors below each place uses. Every place and its default color is listed in
+# src/tcalc/ui/config.toml [color_usage]; copy the lines you want here and pick another color
+# name. The value is a color name, not a color.
+
+# [color_usage]
+# picker_text_color = "text_primary"     # Add Operation picker items
+# history_row_color = "background_dark_alt"
+# operator_key_text_color = "accent_text"
+
+
+# --- Colors -----------------------------------------------------------------------------
+
+# [colors]
+
+# Calculator screen
+# screen = "#1E1E1E"               # display background; a color or a QSS gradient, e.g. scanlines:
+#                                  # "qlineargradient(spread:repeat, x1:0, y1:0, x2:0, y2:0.01,
+#                                  #  stop:0 #0C4A0C, stop:0.5 #0C4A0C, stop:0.51 #063006,
+#                                  #  stop:1 #063006)"
+
+# Keypad keys (background / pressed background / label)
+# secondary = "#3f4450"            # numbers and power keys
+# secondary_hover = "#2a2c33"
+# secondary_text = "#f0f2ff"       # also: math symbols drawn on keys
+# accent = "#343842"               # operators and function keys
+# accent_hover = "#3f4450"
+# accent_text = "#f3d199"          # also: key hover border
+# action = "#2f353d"               # ⌫ C +/- ↵ and trig keys
+# action_hover = "#252a31"
+# action_text = "#a6c7ff"
+# primary = "#4a4f5a"              # equals key
+# primary_hover = "#3e434d"
+# primary_text = "#ffffff"
+
+# Surfaces
+# background = "#1E1E1E"           # window background: menu bar, behind keypads, dock titles
+# background_dark = "#1E1E1E"      # history list, tooltips, memory bar strip, text fields
+# background_dark_alt = "#242424"  # alternate history rows
+# background_medium = "#2a2c33"    # menus, keypad option rows
+# background_light = "#3f4450"     # icon buttons, expression slot focus, Qt button color
+
+# Text
+# text_primary = "#f6f7fb"         # main text: result, menus, labels
+# text_secondary = "#b6b8c9"       # expression line, history, secondary labels, tooltips
+
+# Lines and selection
+# border_light = "#444957"         # menu borders and separators, keypad borders
+# border_focus = "#5a606d"         # focus outline, checked menu item border, equals key border
+# selection_background = "#3a3d47" # selected text and items, menu hover/checked
+# selection_text = "#ffffff"
+
+# Other controls (option groups, memory and fraction buttons, angle toggle)
+# control = "#343842"
+# control_hover = "#2a2c33"
+# control_accent = "#f3d199"       # active/accent mark on controls
+# control_bg = "rgba(52, 56, 66, 20%)"          # memory bar and fraction button
+# control_bg_hover = "rgba(52, 56, 66, 28%)"
+# control_bg_pressed = "rgba(52, 56, 66, 38%)"
+# control_disabled_bg = "rgba(42, 44, 51, 10%)" # disabled keys and controls
+# control_disabled_text = "rgba(243, 209, 153, 30%)"
+# option_checked_bg = "rgba(52, 56, 66, 25%)"   # checked option in option groups
+# option_hover_bg = "rgba(42, 44, 51, 35%)"
+
+# Icons and messages
+# icon = "#fcfcfc"                 # single-color icons (colored icons keep their colors)
+# status_error = "#d94040"         # error message under the result
+# toast_info_bg = "rgba(63, 68, 80, 55%)"       # notification backgrounds
+# toast_warn_bg = "rgba(224, 168, 40, 55%)"
+# toast_error_bg = "rgba(217, 64, 64, 55%)"
+
+# Not used by the UI yet (kept for future use):
+# foreground, text_muted, text_tertiary, border_default, border_dark,
+# status_warn, status_info, status_success

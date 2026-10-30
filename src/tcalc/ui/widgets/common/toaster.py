@@ -3,10 +3,7 @@ from __future__ import annotations
 from enum import Enum, auto
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QLabel, QWidget
-
-from tcalc.theme import get_theme
 
 from .utils import Align, reposition, setup_fade, start_fade_out
 
@@ -17,22 +14,6 @@ class ToastLevel(Enum):
     ERROR = auto()
 
 
-_TOAST_ALPHA = 140
-
-
-def _bg_for_level(level: ToastLevel) -> str:
-    """Return an rgba() background string for the given toast level."""
-    theme = get_theme()
-    color_map: dict[ToastLevel, str] = {
-        ToastLevel.INFO: theme.colors["background_light"],
-        ToastLevel.WARN: theme.colors["status_warn"],
-        ToastLevel.ERROR: theme.colors["status_error"],
-    }
-    hex_color = color_map[level]
-    c = QColor(hex_color)
-    return f"rgba({c.red()}, {c.green()}, {c.blue()}, {_TOAST_ALPHA})"
-
-
 class Toaster(QLabel):
     """Lightweight toast notification that overlays on a parent widget."""
 
@@ -41,9 +22,6 @@ class Toaster(QLabel):
         parent: QWidget,
         duration_ms: int = 1500,
         fade_ms: int = 400,
-        padding: str = "6px 10px",
-        border_radius: int = 4,
-        font_size: int = 13,
         horizontal: Align = Align.CENTER,
         vertical: Align = Align.BOTTOM,
         x_offset: int = 0,
@@ -51,9 +29,6 @@ class Toaster(QLabel):
     ) -> None:
         super().__init__(parent)
         self._duration_ms = duration_ms
-        self._padding = padding
-        self._border_radius = border_radius
-        self._font_size = font_size
         self._horizontal = horizontal
         self._vertical = vertical
         self._x_offset = x_offset
@@ -75,18 +50,11 @@ class Toaster(QLabel):
         self._hide_timer.stop()
         self._fade_anim.stop()
 
-        theme = get_theme()
-        bg = _bg_for_level(level)
-        text_color = theme.colors["text_primary"]
-
         self.setText(message)
-        self.setStyleSheet(
-            f"background: {bg};"
-            f"color: {text_color};"
-            f"padding: {self._padding};"
-            f"border-radius: {self._border_radius}px;"
-            f"font-size: {self._font_size}px;"
-        )
+        # toaster.qss styles each level through this property
+        self.setProperty("toastLevel", level.name.lower())
+        self.style().unpolish(self)
+        self.style().polish(self)
         self.adjustSize()
         reposition(self, self._horizontal, self._vertical)
         if self._x_offset or self._y_offset:

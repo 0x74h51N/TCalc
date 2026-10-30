@@ -30,6 +30,14 @@ def qapp():
     yield app
 
 
+@pytest.fixture(autouse=True)
+def _user_themes(tmp_path, monkeypatch):
+    """The user's own themes folder, empty, so tests never read the real one."""
+    folder = tmp_path / "user-themes"
+    monkeypatch.setattr("tcalc.theme.user_themes_dir", lambda: folder)
+    return folder
+
+
 @pytest.fixture
 def expression_widget(qapp) -> "Expression":
     """Create a fresh Expression widget for testing."""

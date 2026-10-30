@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import QSortFilterProxyModel, Qt, Signal
-from PySide6.QtGui import QBrush, QColor, QStandardItem, QStandardItemModel
+from PySide6.QtGui import QBrush, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import QLineEdit, QListView, QVBoxLayout, QWidget
 
 _MISSING = object()  # sentinel for "no data at this row"
@@ -23,7 +23,7 @@ class SearchablePicker(QWidget):
 
     def __init__(
         self,
-        items: list[tuple[str, Any]],
+        items: list[tuple[Any, ...]],  # (text, data) or (text, data, swatch QColor)
         separator_after: int | None = None,
         min_width: int = 200,
         margin: int = 4,
@@ -46,12 +46,11 @@ class SearchablePicker(QWidget):
         self._model = QStandardItemModel(self)
         self._data_by_row: dict[int, Any] = {}
         row = 0
-        for i, (text, data) in enumerate(items):
+        for i, (text, data, *swatch) in enumerate(items):
             item = QStandardItem(text)
             item.setEditable(False)
-            # Show color swatch for hex color values
-            if isinstance(data, str) and data.startswith("#"):
-                item.setBackground(QBrush(QColor(data)))
+            if swatch:
+                item.setBackground(QBrush(swatch[0]))
             self._model.appendRow(item)
             self._data_by_row[row] = data
             row += 1

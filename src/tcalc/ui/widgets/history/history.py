@@ -25,14 +25,17 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.app_state import RenderMode, get_app_state
+from tcalc.theme import PictureTarget
 from tcalc.ui.config import history_math
 from tcalc.ui.config import history_style as style
+from tcalc.ui.styles import app_fonts, theme_events
 from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.common.utils import Align
 from tcalc.ui.widgets.math import MathPainter, PaintCanvas
 from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
 
 from ..common import IconButton, Toaster, ToastLevel
+from ..common.picture_layer import PictureLayer
 from .storage import HistoryEntry, clear_history_file, load_history, save_history
 from .style import apply_history_style
 from .utils import wrap_expression
@@ -67,8 +70,11 @@ class History(QWidget):
 
         self.list = QListWidget()
         apply_history_style(self.list)
+        # The viewport paints the list's background, so pictures go on it
+        PictureLayer(self.list.viewport(), PictureTarget.HISTORY)
 
         self.list.currentItemChanged.connect(self._on_current_changed)
+        theme_events.applied.connect(self._apply_theme_font)
         layout.addWidget(self.list, 1)
 
         btn_container = QHBoxLayout()
@@ -107,6 +113,12 @@ class History(QWidget):
         layout.addLayout(btn_container)
 
         self.reload_from_storage()
+
+    def _apply_theme_font(self) -> None:
+        # Only the family: the side panel scales the size
+        font = self.list.font()
+        font.setFamily(app_fonts().monospace)
+        self.list.setFont(font)
 
     def set_mode(self, mode: RenderMode):
         self._history_modes.set_current(mode)
