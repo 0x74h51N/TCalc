@@ -1,0 +1,7 @@
+# A test-only theme with values at the edges, so tests never depend on a bundled theme that may change
+name = "Extreme"
+base = "light"
+
+[spacing]
+# Larger than half of any key: Qt draws a radius above that as square corners
+key_radius = 500

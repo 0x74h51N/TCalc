@@ -35,6 +35,7 @@ from tcalc.ui.widgets.common.picker import SearchablePicker
 from tcalc.ui.widgets.common.picture_layer import PictureLayer
 from tcalc.ui.widgets.common.toolbar import Toolbar
 from tcalc.ui.widgets.common.types import KeyDef
+from tcalc.ui.widgets.utils import apply_key_radius, key_fit_timer, shrink_key_radius
 
 from ...config import custom_pad_config, keypad_config
 
@@ -190,6 +191,7 @@ class KSGrid(QWidget):
         self._insert_toolbar(root, max_rows, editing)
 
         self._build()
+        self._resize_timer = key_fit_timer(self, lambda: apply_key_radius(self, self._buttons))
 
     # -- Properties --------------------------------------------------------
 
@@ -262,6 +264,8 @@ class KSGrid(QWidget):
             self._place_add_button()
         else:
             self._remove_add_button()
+        # The toolbar and the add button resize the keys inside a grid that keeps its size
+        self._resize_timer.start()
 
     # -- Build / Rebuild ---------------------------------------------------
 
@@ -318,6 +322,8 @@ class KSGrid(QWidget):
             self._add_button = None
 
         self._build()
+        # The new keys get their size once the layout shows them
+        self._resize_timer.start()
 
     # -- Add button management ---------------------------------------------
 
@@ -381,6 +387,12 @@ class KSGrid(QWidget):
         for kd, btn in zip(self._keys, self._buttons):
             if kd.bg_color or kd.text_color:
                 self._style_button(btn, kd.bg_color, kd.text_color)
+        apply_key_radius(self, self._buttons)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        shrink_key_radius(self, self._buttons)
+        self._resize_timer.start()
 
     def apply_color_all(self, bg: str | None = None, text: str | None = None) -> None:
         """Update color on data + button for all keys."""
