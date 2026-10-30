@@ -14,11 +14,13 @@ picker_size = 18
 picker_text_color = "text_primary"
 
 [spacing]
-radius_small = 5
-radius_medium = 8
-radius_large = 14
+key_radius = 5
+icon_button_radius = 5
+tooltip_radius = 5
+option_radius = 5
+spinbox_radius = 5
 
-btn_radius = 40
+frac_toggle_radius = 40
 
 # Sponge holes (holes.svg, drawn for TCalc) on the yellow surfaces, the sea floor behind the whole window
 [[pictures]]

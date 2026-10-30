@@ -6,27 +6,38 @@
 #
 from __future__ import annotations
 
+import json
 import re
 
 import pytest
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction, QColor, QFont, QStyleHints
-from PySide6.QtWidgets import QApplication, QMenu, QWidget
+from PySide6.QtWidgets import QApplication, QDockWidget, QMenu, QWidget
 
 import tcalc.app_state as app_state_mod
+import tcalc.ui.widgets.keypad.keypad as keypad_mod
 from tcalc.app_state import get_app_state
+from tcalc.core.ops import Operation
 from tcalc.theme import ThemeChoice, ThemeMode, get_theme, load_theme
 from tcalc.ui.styles import apply_theme, sync_theme
 from tcalc.ui.widgets.calc.display.display import Display
+from tcalc.ui.widgets.common.button import KeyButton
 from tcalc.ui.widgets.common.toaster import Toaster, ToastLevel
+from tcalc.ui.widgets.common.types import KeyDef
+from tcalc.ui.widgets.keypad.custom_pad import CustomPad, KSGrid, _add_operation
+from tcalc.ui.widgets.keypad.widgets import MainKeypad
 from tcalc.ui.widgets.side_panel.side_panel import SidePanel
+
+param = pytest.param
 
 LIGHT_BASE = QColor("#FFFFFF")  # light background_dark
 
 
 @pytest.fixture
-def window(qapp, monkeypatch, tmp_path):
+def window(request, qapp, monkeypatch, tmp_path):
     """A MainWindow with isolated settings; the app is back on Dark afterwards."""
+    # An indirect {"theme", "custom_keys"} param starts it like a relaunch with a saved pad
+    start = getattr(request, "param", {})
     ini = str(tmp_path / "t.ini")
 
     def factory(*a, **k):
@@ -35,15 +46,26 @@ def window(qapp, monkeypatch, tmp_path):
     monkeypatch.setattr("tcalc.app_state.QSettings", factory)
     monkeypatch.setattr("tcalc.ui.window.QSettings", factory)
     monkeypatch.setattr("tcalc.ui.layout_presets.QSettings", factory)
+    monkeypatch.setattr("tcalc.ui.widgets.keypad.custom_pad.QSettings", factory)
     monkeypatch.setattr("tcalc.ui.widgets.history.history.load_history", lambda: [])
     monkeypatch.setattr("tcalc.ui.widgets.history.history.save_history", lambda _i: None)
     monkeypatch.setattr(app_state_mod, "_app_state", None)
+    if keys := start.get("custom_keys"):
+        grid = {"max_rows": 6, "keys": [{"operation": op} for op in keys]}
+        settings = factory()
+        settings.setValue("custom_pads/ids", [0])
+        settings.setValue("custom_pad/0/layout", json.dumps({"grids": [grid]}))
+        settings.sync()
 
     from tcalc.ui.window import MainWindow
 
     old_palette, old_sheet = qapp.palette(), qapp.styleSheet()
-    apply_theme(qapp, "dark")
+    apply_theme(qapp, start.get("theme", "dark"))
     win = MainWindow()
+    # The default preset hides custom pads; a saved window state shows them before the window
+    for dock in win.findChildren(QDockWidget):
+        if isinstance(dock.widget(), CustomPad):
+            dock.setVisible(True)
     win.show()
     qapp.processEvents()
     yield win
@@ -201,3 +223,109 @@ def test_late_scheme_signal_does_not_reapply(window, monkeypatch):
     get_app_state().theme = ThemeChoice(ThemeMode.DARK)
     sync_theme(QApplication.instance(), Qt.ColorScheme.Dark)
     assert calls == []
+
+
+KEY_SETTLE_MS = 100  # longer than the keypad's resize debounce
+
+
+def _corner_is_background(key: QWidget, inset: int) -> bool:
+    """The pixel *inset* px in from the key's top-left corner is not the key's own color."""
+    top = key.window()
+    image = top.grab().toImage()
+    origin = key.mapTo(top, key.rect().topLeft())
+    corner = image.pixelColor(origin.x() + inset, origin.y() + inset)
+    top_edge = image.pixelColor(origin.x() + key.width() // 2, origin.y() + inset)
+    return corner != top_edge
+
+
+def _square(key: QWidget) -> bool:
+    """Qt dropped the key's radius."""
+    return not _corner_is_background(key, 2)
+
+
+def _fully_round(key: QWidget) -> bool:
+    """A radius below about 85% of half the short side leaves this pixel inside the key."""
+    return _corner_is_background(key, min(key.width(), key.height()) // 2 // 4)
+
+
+CUSTOM_KEYS = ["ADD", "SUB", "MUL", "DIV", "POW", "SIN", "COS", "TAN", "LOG", "LN", "MOD"]
+
+
+@pytest.mark.parametrize(
+    "window", [{"theme": "extreme", "custom_keys": CUSTOM_KEYS}], indirect=True
+)
+@pytest.mark.parametrize("grow", [param(0, id="launch"), param(20, id="resized")])
+@pytest.mark.parametrize("pad", [MainKeypad, KSGrid])
+def test_keys_are_as_round_as_they_fit(qtbot, extreme_theme, window, pad, grow):
+    window.resize(window.width() + grow, window.height() + grow)
+    qtbot.wait(KEY_SETTLE_MS)
+    keys = [k for p in window.findChildren(pad) for k in p.findChildren(KeyButton)]
+    keys = [k for k in keys if k.isVisible()]
+    assert keys
+    assert [k.text() for k in keys if _square(k)] == []
+    assert _fully_round(min(keys, key=lambda k: min(k.width(), k.height())))
+
+
+@pytest.mark.parametrize("name", ["apply_key_radius", "apply_scaled_fonts"])
+def test_main_keypad_restyles_keys_once_per_resize_burst(qapp, qtbot, window, monkeypatch, name):
+    keypad = MainKeypad()
+    qtbot.addWidget(keypad)
+    keypad.resize(300, 300)
+    keypad.show()
+    qtbot.wait(KEY_SETTLE_MS)
+    calls = []
+    real = getattr(keypad_mod, name)
+    monkeypatch.setattr(keypad_mod, name, lambda *a: calls.append(1) or real(*a))
+    for step in range(20):
+        keypad.resize(300 + step, 300 + step)
+    qtbot.wait(KEY_SETTLE_MS)
+    assert len(calls) == 1
+
+
+def _custom_grid() -> QWidget:
+    keys = [KeyDef(label=op.lower(), operation=Operation[op]) for op in CUSTOM_KEYS]
+    return KSGrid(0, keys, 6)
+
+
+def _show_settled(qapp, qtbot, theme: str, pad: QWidget) -> QWidget:
+    apply_theme(qapp, theme)
+    host = QWidget()
+    host.setProperty("uiRole", "keypad")
+    qtbot.addWidget(host)
+    pad.setParent(host)
+    pad.resize(400, 400)
+    host.show()
+    qtbot.wait(KEY_SETTLE_MS)
+    return host  # qtbot keeps no reference, so the caller holds the host
+
+
+@pytest.mark.parametrize("make_pad", [MainKeypad, _custom_grid], ids=["main", "custom"])
+def test_keys_stay_round_while_shrinking(qapp, qtbot, extreme_theme, window, make_pad):
+    # Fully round keys: the radius fitted before a shrink is above half the smaller key
+    pad = make_pad()
+    _host = _show_settled(qapp, qtbot, extreme_theme, pad)
+    pad.resize(370, 370)
+    qapp.processEvents()
+    assert [k.text() for k in pad.findChildren(KeyButton) if _square(k)] == []
+
+
+def _add_keys(grid: KSGrid) -> None:
+    for op in CUSTOM_KEYS:
+        _add_operation(grid.keys, Operation[op], grid.max_rows)
+    grid.rebuild()
+
+
+def _start_editing(grid: KSGrid) -> None:
+    grid.editing = True
+
+
+@pytest.mark.parametrize("change", [_add_keys, _start_editing])
+def test_custom_keys_stay_round_when_the_grid_keeps_its_size(
+    qapp, qtbot, extreme_theme, window, change
+):
+    # The keys change size while the grid does not, so no resize refits them
+    grid = KSGrid(0, [KeyDef(label="add", operation=Operation.ADD)], 2)
+    _host = _show_settled(qapp, qtbot, extreme_theme, grid)
+    change(grid)
+    qtbot.wait(KEY_SETTLE_MS)
+    assert [k.text() for k in grid.findChildren(KeyButton) if _square(k)] == []

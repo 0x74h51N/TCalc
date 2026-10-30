@@ -259,6 +259,9 @@ keypad_stretch = 5
 # Base keypad button padding (px)
 button_padding = 0
 
+# Pause in resizing after which the key fonts and corner radius are fitted again
+resize_debounce_ms = 30
+
 [keypad.custom]
 default_cols = 1
 default_rows = 1
@@ -326,7 +329,7 @@ resize_debounce_ms = 30
 
 btn_size = 32
 btn_padding = 6
-btn_radius = 4
+frac_toggle_radius = 4
 
 frac_icon = "frac"
 decimal_icon = "decimal"

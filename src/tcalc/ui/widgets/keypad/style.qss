@@ -1,7 +1,6 @@
 QWidget[uiRole="keypad"] QPushButton[keypadRole] {
     background-color: $number_key_color;
     color: $number_key_text_color;
-    border-radius: ${radius_small}px;
     padding: ${button_padding}px;
 }
 
@@ -95,7 +94,7 @@ QWidget[uiRole="keypad"] QPushButton[keypadRole="power"] {
 KSSpinBox {
     background-color: $spinbox_color;
     color: $spinbox_text_color;
-    border-radius: ${radius_small}px;
+    border-radius: ${spinbox_radius}px;
     padding: 1px 2px;
 }
 

@@ -32,10 +32,10 @@ from tcalc.ui.widgets.keypad.utils import (
 )
 
 from ...config import keypad_config
-from ...styles import app_fonts
+from ...styles import app_fonts, theme_events
 from ..common.button import KeyButton
 from ..common.picture_layer import PictureLayer
-from ..utils import apply_scaled_fonts
+from ..utils import apply_key_radius, apply_scaled_fonts, key_fit_timer, shrink_key_radius
 
 GridDef = tuple[dict[str, list[KeyDef]], int]
 
@@ -64,8 +64,10 @@ class Keypad(QWidget):
         self._grid_widgets: list[QWidget] = []
         # Scopes the keypad rules of the app stylesheet
         self.setProperty("uiRole", "keypad")
+        theme_events.applied.connect(self._update_key_radius)
 
         cfg = keypad_config
+        self._resize_timer = key_fit_timer(self, self._fit_keys)
         margin = int(cfg["side_margin"])
         grid_spacing = int(cfg["grid_spacing"])
         gap = int(cfg["hbox_spacing"])
@@ -199,9 +201,17 @@ class Keypad(QWidget):
         fonts = app_fonts()
         apply_scaled_fonts(self, self._buttons.values(), fonts.keypad_min_pt, fonts.keypad_max_pt)
 
+    def _update_key_radius(self) -> None:
+        apply_key_radius(self, self._buttons.values())
+
+    def _fit_keys(self) -> None:
+        self._update_button_fonts()
+        self._update_key_radius()
+
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        self._update_button_fonts()
+        shrink_key_radius(self, self._buttons.values())
+        self._resize_timer.start()
 
     def changeEvent(self, event: QEvent) -> None:
         super().changeEvent(event)
