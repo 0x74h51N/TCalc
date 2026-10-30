@@ -15,12 +15,15 @@ from PySide6.QtGui import QAction, QColor, QFont, QStyleHints
 from PySide6.QtWidgets import QApplication, QDockWidget, QMenu, QWidget
 
 import tcalc.app_state as app_state_mod
+import tcalc.ui.widgets.keypad.keypad as keypad_mod
 from tcalc.app_state import get_app_state
+from tcalc.core.ops import Operation
 from tcalc.theme import ThemeChoice, ThemeMode, get_theme, load_theme
 from tcalc.ui.styles import apply_theme, sync_theme
 from tcalc.ui.widgets.calc.display.display import Display
 from tcalc.ui.widgets.common.button import KeyButton
 from tcalc.ui.widgets.common.toaster import Toaster, ToastLevel
+from tcalc.ui.widgets.common.types import KeyDef
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad, KSGrid
 from tcalc.ui.widgets.keypad.widgets import MainKeypad
 from tcalc.ui.widgets.side_panel.side_panel import SidePanel
@@ -223,7 +226,7 @@ def test_late_scheme_signal_does_not_reapply(window, monkeypatch):
     assert calls == []
 
 
-KEY_SETTLE_MS = 100  # lets the window lay out and paint the keys
+KEY_SETTLE_MS = 100  # longer than the keypad's resize debounce
 
 
 def _corner_is_background(key: QWidget, inset: int) -> bool:
@@ -253,7 +256,7 @@ CUSTOM_KEYS = ["ADD", "SUB", "MUL", "DIV", "POW", "SIN", "COS", "TAN", "LOG", "L
 @pytest.mark.parametrize(
     "window", [{"theme": "extreme", "custom_keys": CUSTOM_KEYS}], indirect=True
 )
-@pytest.mark.parametrize("grow", [param(20, id="resized")])
+@pytest.mark.parametrize("grow", [param(0, id="launch"), param(20, id="resized")])
 @pytest.mark.parametrize("pad", [MainKeypad, KSGrid])
 def test_keys_are_as_round_as_they_fit(qtbot, extreme_theme, window, pad, grow):
     window.resize(window.width() + grow, window.height() + grow)
@@ -263,3 +266,41 @@ def test_keys_are_as_round_as_they_fit(qtbot, extreme_theme, window, pad, grow):
     assert keys
     assert [k.text() for k in keys if _square(k)] == []
     assert _fully_round(min(keys, key=lambda k: min(k.width(), k.height())))
+
+
+@pytest.mark.parametrize("name", ["apply_key_radius", "apply_scaled_fonts"])
+def test_main_keypad_restyles_keys_once_per_resize_burst(qapp, qtbot, window, monkeypatch, name):
+    keypad = MainKeypad()
+    qtbot.addWidget(keypad)
+    keypad.resize(300, 300)
+    keypad.show()
+    qtbot.wait(KEY_SETTLE_MS)
+    calls = []
+    real = getattr(keypad_mod, name)
+    monkeypatch.setattr(keypad_mod, name, lambda *a: calls.append(1) or real(*a))
+    for step in range(20):
+        keypad.resize(300 + step, 300 + step)
+    qtbot.wait(KEY_SETTLE_MS)
+    assert len(calls) == 1
+
+
+def _custom_grid() -> QWidget:
+    keys = [KeyDef(label=op.lower(), operation=Operation[op]) for op in CUSTOM_KEYS]
+    return KSGrid(0, keys, 6)
+
+
+@pytest.mark.parametrize("make_pad", [MainKeypad, _custom_grid], ids=["main", "custom"])
+def test_keys_stay_round_while_shrinking(qapp, qtbot, extreme_theme, window, make_pad):
+    # Fully round keys: the radius fitted before a shrink is above half the smaller key
+    apply_theme(qapp, extreme_theme)
+    host = QWidget()
+    host.setProperty("uiRole", "keypad")
+    qtbot.addWidget(host)
+    pad = make_pad()
+    pad.setParent(host)
+    pad.resize(400, 400)
+    host.show()
+    qtbot.wait(KEY_SETTLE_MS)
+    pad.resize(370, 370)
+    qapp.processEvents()
+    assert [k.text() for k in pad.findChildren(KeyButton) if _square(k)] == []
