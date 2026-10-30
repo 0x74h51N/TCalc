@@ -52,7 +52,7 @@ def _fitted_key_radius(keys: Iterable[QWidget]) -> int | None:
     sides = [min(key.width(), key.height()) for key in keys if not key.isHidden()]
     if not sides:  # a custom grid with no keys yet
         return None
-    return min(int(get_theme().spacing["radius_small"]), min(sides) // 2)
+    return min(int(get_theme().spacing["key_radius"]), min(sides) // 2)
 
 
 def _set_key_radius(container: QWidget, radius: int) -> None:

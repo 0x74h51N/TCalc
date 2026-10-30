@@ -2,9 +2,11 @@
 name = "Light"
 
 [spacing]
-radius_small = 2
-radius_medium = 6
-radius_large = 12
+key_radius = 2
+icon_button_radius = 2
+tooltip_radius = 2
+option_radius = 2
+spinbox_radius = 2
 
 [colors]
 # Primary colors
