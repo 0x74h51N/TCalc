@@ -17,7 +17,7 @@ Hookify rules under `.claude/hookify.*.local.md` enforce the mechanical parts of
 - `make typecheck` (mypy), `make py-lint` (ruff check and format check).
 - `make py-benchmark`: performance benchmarks.
 - `make cpp-format`, `make py-lint-fix`: format the C++ and fix the Python lint; run both before a commit you make.
-- The pre-commit hook runs format check, py-lint, typecheck, native-test and py-test.
+- The pre-commit hook runs format check, py-lint, typecheck, native-test and py-test. The pre-push hook runs the tidy diff when the pushed commits change native files.
 
 ## Where things are
 

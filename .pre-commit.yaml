@@ -1,3 +1,5 @@
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
 repos:
   - repo: local
     hooks:
@@ -26,3 +28,10 @@ repos:
         entry: make py-test PYTEST_ARGS="-ra"
         language: system
         pass_filenames: false
+      - id: native-tidy
+        name: native-tidy
+        entry: make cpp-tidy-diff
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+        files: ^src/native/|\.(c|cc|cpp|cxx|h|hh|hpp)$
