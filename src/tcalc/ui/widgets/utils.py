@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Iterable
+from typing import Callable, Iterable
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QWidget,
 )
 
 from tcalc.theme import get_theme
+
+from ..config import keypad_config
 
 # Widget size range for font interpolation
 MIN_DIM = 100
@@ -64,6 +66,15 @@ def apply_key_radius(container: QWidget, keys: Iterable[QWidget]) -> None:
     radius = _fitted_key_radius(keys)
     if radius is not None and radius != container.property("keyRadius"):
         _set_key_radius(container, radius)
+
+
+def key_fit_timer(container: QWidget, fit: Callable[[], None]) -> QTimer:
+    """Keys reach their size after the layout runs, and a drag resizes many times."""
+    timer = QTimer(container)
+    timer.setSingleShot(True)
+    timer.setInterval(int(keypad_config["resize_debounce_ms"]))
+    timer.timeout.connect(fit)
+    return timer
 
 
 def shrink_key_radius(container: QWidget, keys: Iterable[QWidget]) -> None:

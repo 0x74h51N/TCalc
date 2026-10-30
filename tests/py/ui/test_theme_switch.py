@@ -24,7 +24,7 @@ from tcalc.ui.widgets.calc.display.display import Display
 from tcalc.ui.widgets.common.button import KeyButton
 from tcalc.ui.widgets.common.toaster import Toaster, ToastLevel
 from tcalc.ui.widgets.common.types import KeyDef
-from tcalc.ui.widgets.keypad.custom_pad import CustomPad, KSGrid
+from tcalc.ui.widgets.keypad.custom_pad import CustomPad, KSGrid, _add_operation
 from tcalc.ui.widgets.keypad.widgets import MainKeypad
 from tcalc.ui.widgets.side_panel.side_panel import SidePanel
 
@@ -35,9 +35,8 @@ LIGHT_BASE = QColor("#FFFFFF")  # light background_dark
 
 @pytest.fixture
 def window(request, qapp, monkeypatch, tmp_path):
-    """A MainWindow with isolated settings; the app is back on Dark afterwards. An indirect
-    param starts it like a relaunch: {"theme": <variant>, "custom_keys": [<Operation name>]}
-    saves one custom pad and applies the theme before the window is built."""
+    """A MainWindow with isolated settings; the app is back on Dark afterwards."""
+    # An indirect {"theme", "custom_keys"} param starts it like a relaunch with a saved pad
     start = getattr(request, "param", {})
     ini = str(tmp_path / "t.ini")
 
@@ -245,8 +244,7 @@ def _square(key: QWidget) -> bool:
 
 
 def _fully_round(key: QWidget) -> bool:
-    """The key's radius is half its short side: a quarter of that in is still outside the arc,
-    which a radius below about 85% of it leaves inside the key."""
+    """A radius below about 85% of half the short side leaves this pixel inside the key."""
     return _corner_is_background(key, min(key.width(), key.height()) // 2 // 4)
 
 
@@ -289,18 +287,45 @@ def _custom_grid() -> QWidget:
     return KSGrid(0, keys, 6)
 
 
-@pytest.mark.parametrize("make_pad", [MainKeypad, _custom_grid], ids=["main", "custom"])
-def test_keys_stay_round_while_shrinking(qapp, qtbot, extreme_theme, window, make_pad):
-    # Fully round keys: the radius fitted before a shrink is above half the smaller key
-    apply_theme(qapp, extreme_theme)
+def _show_settled(qapp, qtbot, theme: str, pad: QWidget) -> QWidget:
+    apply_theme(qapp, theme)
     host = QWidget()
     host.setProperty("uiRole", "keypad")
     qtbot.addWidget(host)
-    pad = make_pad()
     pad.setParent(host)
     pad.resize(400, 400)
     host.show()
     qtbot.wait(KEY_SETTLE_MS)
+    return host  # qtbot keeps no reference, so the caller holds the host
+
+
+@pytest.mark.parametrize("make_pad", [MainKeypad, _custom_grid], ids=["main", "custom"])
+def test_keys_stay_round_while_shrinking(qapp, qtbot, extreme_theme, window, make_pad):
+    # Fully round keys: the radius fitted before a shrink is above half the smaller key
+    pad = make_pad()
+    _host = _show_settled(qapp, qtbot, extreme_theme, pad)
     pad.resize(370, 370)
     qapp.processEvents()
     assert [k.text() for k in pad.findChildren(KeyButton) if _square(k)] == []
+
+
+def _add_keys(grid: KSGrid) -> None:
+    for op in CUSTOM_KEYS:
+        _add_operation(grid.keys, Operation[op], grid.max_rows)
+    grid.rebuild()
+
+
+def _start_editing(grid: KSGrid) -> None:
+    grid.editing = True
+
+
+@pytest.mark.parametrize("change", [_add_keys, _start_editing])
+def test_custom_keys_stay_round_when_the_grid_keeps_its_size(
+    qapp, qtbot, extreme_theme, window, change
+):
+    # The keys change size while the grid does not, so no resize refits them
+    grid = KSGrid(0, [KeyDef(label="add", operation=Operation.ADD)], 2)
+    _host = _show_settled(qapp, qtbot, extreme_theme, grid)
+    change(grid)
+    qtbot.wait(KEY_SETTLE_MS)
+    assert [k.text() for k in grid.findChildren(KeyButton) if _square(k)] == []
