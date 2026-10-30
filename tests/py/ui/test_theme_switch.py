@@ -6,6 +6,8 @@
 #
 from __future__ import annotations
 
+import re
+
 import pytest
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction, QColor, QFont, QStyleHints
@@ -57,11 +59,19 @@ def _background(widget: QWidget) -> QColor:
     return widget.palette().color(widget.backgroundRole())
 
 
-def test_widgets_have_no_color_stylesheets(window):
-    styled = [
-        w.objectName() or type(w).__name__ for w in window.findChildren(QWidget) if w.styleSheet()
+# A color written into a widget's own stylesheet does not change with the theme
+COLOR_PROPERTY = re.compile(
+    r"(^|[{;\s])(color|background(-color)?|border(-(top|right|bottom|left))?|[\w-]+-color)\s*:"
+)
+
+
+def test_widget_stylesheets_set_no_colors(window):
+    colored = [
+        w.objectName() or type(w).__name__
+        for w in window.findChildren(QWidget)
+        if COLOR_PROPERTY.search(w.styleSheet())
     ]
-    assert styled == []
+    assert colored == []
 
 
 def test_switch_reaches_open_widgets(qapp, window):
