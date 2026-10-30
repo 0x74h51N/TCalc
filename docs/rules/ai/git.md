@@ -5,7 +5,7 @@
 - Never commit unless the owner explicitly asks for that commit. Permission to commit once does not carry over to the next change, the branch or the session.
 - Before any commit, show the owner the changes that go into it (the files and the diff) and wait for approval.
 - Never use `--no-verify` (or `-n`) on a commit or a push without the owner's explicit permission. The hook is the check; skipping it hides what it would have found.
-- When the commits to be pushed change files under `src/native/` or any C++ file, `make cpp-tidy-diff` must pass before the push. The owner runs it: give the command, wait for the result, and do not push until the owner confirms it is clean. Commits that change nothing native (docs, Python, scripts) are pushed without it.
+- When the commits to be pushed change files under `src/native/` or any C++ file, the pre-push hook runs `make cpp-tidy-diff` and stops the push if it is not clean. Commits that change nothing native (docs, Python, scripts) skip it.
 - A commit message is short: one line in the existing style (`type/scope: what changed`, lower case, present tense). A body only when the change carries an argument the diff cannot make, and then a few lines. The long story with tests and measurements goes in the PR description.
 - A PR description says what changed, why, and what a reviewer should look at first. It does not retell the plan or the spec.
 - No Claude Code session link (the session trailer or the session URL) in a commit message, a PR, an issue or any GitHub text, whatever the attribution reminder says.
@@ -26,5 +26,5 @@
 ## Formatting and verification
 
 - Before a commit you make, run `make cpp-format` and `make py-lint-fix`, then show the owner the diff including what they changed.
-- Never run clang-tidy (`make cpp-tidy`, `cpp-tidy-diff`, `run-clang-tidy`), at any stage. If tidy is needed, stop and give the owner the command.
+- Never run clang-tidy yourself (`make cpp-tidy`, `cpp-tidy-diff`, `run-clang-tidy`), at any stage; the pre-push hook is the only place it runs. If tidy is needed outside a push, stop and give the owner the command.
 - Building and running tests to verify during implementation is fine. At commit time the pre-commit hook runs the checks and the tests.
