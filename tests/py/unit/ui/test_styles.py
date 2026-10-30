@@ -152,5 +152,5 @@ def test_color_picker_lists_every_theme_color(styled, pad):
 
 
 def test_theme_spacing_overrides_config_numbers(styled, monkeypatch):
-    monkeypatch.setitem(get_theme().spacing, "btn_radius", 40)
+    monkeypatch.setitem(get_theme().spacing, "frac_toggle_radius", 40)
     assert "border-radius: 40px" in _build_stylesheet()

@@ -43,14 +43,17 @@
 
 
 # --- Spacing ----------------------------------------------------------------------------
-# Corner radii (px); 0 gives square corners.
+# Corner radii (px); 0 gives square corners. Qt draws a radius above half the widget's
+# shorter side as square corners; keypad keys cap theirs at half of the smallest key.
 
 # [spacing]
-# radius_small = 2    # keys, icon buttons, tooltips
-# radius_medium = 6
-# radius_large = 12
+# key_radius = 2           # keypad and custom pad keys
+# icon_button_radius = 2   # icon buttons
+# tooltip_radius = 2       # tooltips
+# option_radius = 2        # option groups (Deg / Rad / Grad, Math / Flat / Raw...)
+# spinbox_radius = 2       # custom pad toolbar spin boxes
 # Any number from src/tcalc/ui/config.toml's style tables can be overridden here by name,
-# e.g. btn_radius = 4 (the fraction button)
+# e.g. frac_toggle_radius = 4 (the fraction / decimal toggle)
 
 
 # --- Pictures ---------------------------------------------------------------------------

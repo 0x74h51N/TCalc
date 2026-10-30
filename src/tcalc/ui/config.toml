@@ -329,7 +329,7 @@ resize_debounce_ms = 30
 
 btn_size = 32
 btn_padding = 6
-btn_radius = 4
+frac_toggle_radius = 4
 
 frac_icon = "frac"
 decimal_icon = "decimal"

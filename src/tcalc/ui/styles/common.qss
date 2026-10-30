@@ -1,7 +1,7 @@
 QToolTip {
     background-color: $tooltip_background_color;
     border: 1px solid $tooltip_border_color;
-    border-radius: ${radius_small}px;
+    border-radius: ${tooltip_radius}px;
     color: $tooltip_text_color;
     padding: ${tooltip_padding}px;
 }
@@ -12,7 +12,7 @@ QPushButton[uiRole="iconButton"] {
     border: 1px solid $icon_button_shadow_color;
     border-top-color: $icon_button_light_color;
     border-left-color: $icon_button_light_color;
-    border-radius: ${radius_small}px;
+    border-radius: ${icon_button_radius}px;
     padding: ${icon_padding}px;
 }
 
@@ -38,7 +38,7 @@ QPushButton[uiRole="toolbarToggle"] {
 QRadioButton[optionRole="option"] {
     background-color: transparent;
     color: $option_text_color;
-    border-radius: ${radius_small}px;
+    border-radius: ${option_radius}px;
     padding: ${option_padding_y}px ${option_padding_x}px;
     spacing: 0px;
 }
