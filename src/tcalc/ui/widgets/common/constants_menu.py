@@ -10,13 +10,11 @@ from dataclasses import dataclass
 from typing import Callable
 
 import calc_native
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QMenu, QProxyStyle, QStyle
 
 from tcalc.core.constants import CONST_NAMES
-from tcalc.theme import get_theme
 from tcalc.ui.utils import split_camel
-from tcalc.ui.widgets.math.painter.symbol_icon import ICON_BOX, render_symbol
+from tcalc.ui.widgets.math.painter.symbol_icon import ICON_BOX, theme_symbol_icon
 
 
 class _ConstIconStyle(QProxyStyle):
@@ -52,7 +50,6 @@ CONSTANTS_BY_CATEGORY: dict[calc_native.CategoryId, list[ConstEntry]] = _build()
 def build_constant_menu(root: QMenu, on_select: Callable[[ConstEntry], None]) -> None:
     """Populate *root* with one submenu per category and an action per constant.
     Every symbol is a uniform, left-aligned icon so subscript and plain symbols align."""
-    color = QColor(get_theme().colors["text_primary"])
     style = _ConstIconStyle()
     style.setParent(root)
     root.setStyle(style)
@@ -66,6 +63,6 @@ def build_constant_menu(root: QMenu, on_select: Callable[[ConstEntry], None]) ->
         sub.setStyle(style)
         root.addMenu(sub)
         for entry in sorted(CONSTANTS_BY_CATEGORY[category], key=lambda e: e.name.lower()):
-            icon = render_symbol(entry.symbol, color, ICON_BOX)
+            icon = theme_symbol_icon(entry.symbol, "constants_menu_symbol_color")
             action = sub.addAction(icon, entry.name)
             action.triggered.connect(lambda _checked=False, e=entry: on_select(e))

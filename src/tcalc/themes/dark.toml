@@ -1,6 +1,12 @@
-# Root config - app-wide settings and theme
+# Built-in dark theme
+name = "Dark"
 
-[theme.colors]
+[spacing]
+radius_small = 2
+radius_medium = 6
+radius_large = 12
+
+[colors]
 # Primary colors
 primary = "#4a4f5a"
 primary_hover = "#3e434d"
@@ -51,12 +57,25 @@ status_success = "#9bdc8c"
 selection_background = "#3a3d47"
 selection_text = "#ffffff"
 
+# Non-keypad controls (option groups, separators, memory/frac buttons)
+control = "#343842"
+control_hover = "#2a2c33"
+control_accent = "#f3d199"
 
-[theme.spacing]
-radius_small = 2
-radius_medium = 6
-radius_large = 12
+# Single-color icon tint
+icon = "#fcfcfc"
 
-[theme.fonts]
-family_default = "System"
-family_monospace = "Monospace"
+# Translucent overlays (QSS rgba, alpha in %)
+control_bg = "rgba(52, 56, 66, 20%)"
+control_bg_hover = "rgba(52, 56, 66, 28%)"
+control_bg_pressed = "rgba(52, 56, 66, 38%)"
+control_disabled_bg = "rgba(42, 44, 51, 10%)"
+control_disabled_text = "rgba(243, 209, 153, 30%)"
+option_checked_bg = "rgba(52, 56, 66, 25%)"
+option_hover_bg = "rgba(42, 44, 51, 35%)"
+toast_info_bg = "rgba(63, 68, 80, 55%)"
+toast_warn_bg = "rgba(224, 168, 40, 55%)"
+toast_error_bg = "rgba(217, 64, 64, 55%)"
+
+# Display (calculator screen) background: a QSS color or gradient
+screen = "#1E1E1E"

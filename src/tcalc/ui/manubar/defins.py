@@ -5,6 +5,7 @@ from typing import Tuple
 from PySide6.QtWidgets import QMessageBox
 
 from tcalc.app_state import DockKind, KeypadPreset
+from tcalc.theme import ThemeChoice, ThemeMode
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, ViewOperations
 
 from .menu_builder import MenuActionItem, MenuActionType, MenuSeparatorItem, SubmenuItem
@@ -57,7 +58,46 @@ EDIT_MENU_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
     ),
 )
 
+
 VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
+    SubmenuItem(
+        text="Theme",
+        icon="palette",
+        items=(
+            MenuActionItem(
+                text="Light",
+                icon="light_mode",
+                checkable=True,
+                item_type=MenuActionType.OPS,
+                fn=lambda ops: ops.set_theme(ThemeChoice(ThemeMode.LIGHT)),
+                theme=ThemeChoice(ThemeMode.LIGHT),
+            ),
+            MenuActionItem(
+                text="Dark",
+                icon="dark_mode",
+                checkable=True,
+                item_type=MenuActionType.OPS,
+                fn=lambda ops: ops.set_theme(ThemeChoice(ThemeMode.DARK)),
+                theme=ThemeChoice(ThemeMode.DARK),
+            ),
+            MenuActionItem(
+                text="System Default",
+                icon="computer",
+                checkable=True,
+                item_type=MenuActionType.OPS,
+                fn=lambda ops: ops.set_theme(ThemeChoice(ThemeMode.SYSTEM)),
+                theme=ThemeChoice(ThemeMode.SYSTEM),
+            ),
+            # Custom themes go here, listed each time the menu opens (see menus/view.py)
+            MenuActionItem(
+                text="Add Custom Theme...",
+                enabled=False,
+                item_type=MenuActionType.OPS,
+                fn=lambda ops: None,
+            ),
+        ),
+    ),
+    MenuSeparatorItem(),
     SubmenuItem(
         text="Keypad Preset",
         icon="applications-system-symbolic",

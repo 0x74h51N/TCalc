@@ -16,6 +16,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
 
 from tcalc.app_state import AppState, KeypadPreset
+from tcalc.theme import ThemeChoice
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, ViewOperations
 from tcalc.ui.utils import get_icon
 
@@ -76,6 +77,7 @@ class MenuActionItem(MenuItem[TMenuContext], Generic[TMenuContext]):
     checked_getter: Callable[[AppState], bool] | None = None
     fn: Callable
     preset: KeypadPreset | None = None
+    theme: ThemeChoice | None = None
 
     def _create_action(self, ctx: BaseMenuContext) -> QAction:
         action = QAction(get_icon(self.icon), self.text, ctx.window)

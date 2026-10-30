@@ -1,155 +1,157 @@
-QPushButton[keypadRole] {
-    background-color: $custom_key_bg;
-    color: $custom_key_text;
+QWidget[uiRole="keypad"] QPushButton[keypadRole] {
+    background-color: $number_key_color;
+    color: $number_key_text_color;
     border-radius: ${radius_small}px;
     padding: ${button_padding}px;
 }
 
-QPushButton[keypadRole]:hover {
-    border: 1px solid $custom_key_hover_border;
+QWidget[uiRole="keypad"] QPushButton[keypadRole]:hover {
+    border: 1px solid $key_hover_border_color;
 }
 
-QPushButton[keypadRole]:pressed,
-QPushButton[keypadRole][pressed="true"] {
-    background-color: $custom_key_pressed_bg;
+QWidget[uiRole="keypad"] QPushButton[keypadRole]:pressed,
+QWidget[uiRole="keypad"] QPushButton[keypadRole][pressed="true"] {
+    background-color: $number_key_pressed_color;
 }
 
-QPushButton[keypadRole]:disabled {
-    background-color: $custom_key_disabled_bg;
-    color: $custom_key_disabled_text;
-    border-color: $custom_key_disabled_border;
+QWidget[uiRole="keypad"] QPushButton[keypadRole]:disabled {
+    background-color: $key_disabled_color;
+    color: $key_disabled_text_color;
+    border-color: $key_disabled_color;
 }
 
-QPushButton[keypadRole]:checked {
-    background-color: $custom_key_checked_bg;
+QWidget[uiRole="keypad"] QPushButton[keypadRole]:checked {
+    background-color: $key_checked_color;
 }
 
-QPushButton[keypadRole="operator"] {
-    background-color: $custom_operator_bg;
-    color: $custom_operator_text;
+QWidget[uiRole="keypad"] QPushButton[keypadRole="operator"] {
+    background-color: $operator_key_color;
+    color: $operator_key_text_color;
 }
 
-QPushButton[keypadRole="operator"]:pressed,
-QPushButton[keypadRole="operator"][pressed="true"] {
-    background-color: $custom_operator_pressed_bg;
+QWidget[uiRole="keypad"] QPushButton[keypadRole="operator"]:pressed,
+QWidget[uiRole="keypad"] QPushButton[keypadRole="operator"][pressed="true"] {
+    background-color: $operator_key_pressed_color;
 }
 
-QPushButton[keypadRole="action"] {
-    background-color: $custom_action_bg;
-    color: $custom_action_text;
+QWidget[uiRole="keypad"] QPushButton[keypadRole="action"] {
+    background-color: $action_key_color;
+    color: $action_key_text_color;
 }
 
-QPushButton[keypadRole="action"]:pressed,
-QPushButton[keypadRole="action"][pressed="true"] {
-    background-color: $custom_action_pressed_bg;
+QWidget[uiRole="keypad"] QPushButton[keypadRole="action"]:pressed,
+QWidget[uiRole="keypad"] QPushButton[keypadRole="action"][pressed="true"] {
+    background-color: $action_key_pressed_color;
 }
 
-QPushButton[keypadRole="equals"] {
-    background-color: $custom_equals_bg;
-    color: $custom_equals_text;
-    border-color: $custom_equals_border;
+QWidget[uiRole="keypad"] QPushButton[keypadRole="equals"] {
+    background-color: $equals_key_color;
+    color: $equals_key_text_color;
+    border-color: $equals_key_border_color;
 }
 
-QPushButton[keypadRole="equals"]:pressed,
-QPushButton[keypadRole="equals"][pressed="true"] {
-    background-color: $custom_equals_pressed_bg;
+QWidget[uiRole="keypad"] QPushButton[keypadRole="equals"]:pressed,
+QWidget[uiRole="keypad"] QPushButton[keypadRole="equals"][pressed="true"] {
+    background-color: $equals_key_pressed_color;
 }
 
-QPushButton[keypadRole="trig"] {
-    background-color: $custom_trig_bg;
-    color: $custom_trig_text;
+QWidget[uiRole="keypad"] QPushButton[keypadRole="trig"] {
+    background-color: $trig_key_color;
+    color: $trig_key_text_color;
 }
 
-QPushButton[keypadRole="trig"]:pressed,
-QPushButton[keypadRole="trig"][pressed="true"] {
-    background-color: $custom_trig_pressed_bg;
+QWidget[uiRole="keypad"] QPushButton[keypadRole="trig"]:pressed,
+QWidget[uiRole="keypad"] QPushButton[keypadRole="trig"][pressed="true"] {
+    background-color: $trig_key_pressed_color;
 }
 
-QPushButton[keypadRole="function"] {
-    background-color: $custom_function_bg;
-    color: $custom_function_text;
+QWidget[uiRole="keypad"] QPushButton[keypadRole="function"] {
+    background-color: $function_key_color;
+    color: $function_key_text_color;
 }
 
-QPushButton[keypadRole="function"]:pressed,
-QPushButton[keypadRole="function"][pressed="true"] {
-    background-color: $custom_function_pressed_bg;
+QWidget[uiRole="keypad"] QPushButton[keypadRole="function"]:pressed,
+QWidget[uiRole="keypad"] QPushButton[keypadRole="function"][pressed="true"] {
+    background-color: $function_key_pressed_color;
 }
 
-QPushButton[keypadRole="power"] {
-    background-color: $custom_power_bg;
-    color: $custom_power_text;
+QWidget[uiRole="keypad"] QPushButton[keypadRole="power"] {
+    background-color: $power_key_color;
+    color: $power_key_text_color;
 }
 
-QPushButton[keypadRole="power"]:pressed,
-QPushButton[keypadRole="power"][pressed="true"] {
-    background-color: $custom_power_pressed_bg;
+QWidget[uiRole="keypad"] QPushButton[keypadRole="power"]:pressed,
+QWidget[uiRole="keypad"] QPushButton[keypadRole="power"][pressed="true"] {
+    background-color: $power_key_pressed_color;
 }
 
-QPushButton[keypadRole="trig"],
-QPushButton[keypadRole="function"],
-QPushButton[keypadRole="power"] {
+QWidget[uiRole="keypad"] QPushButton[keypadRole="trig"],
+QWidget[uiRole="keypad"] QPushButton[keypadRole="function"],
+QWidget[uiRole="keypad"] QPushButton[keypadRole="power"] {
     padding: ${compact_pad_y}px ${compact_pad_x}px;
 }
 
 /* Custom pad toolbar */
-QSpinBox {
-    background-color: $custom_spin_bg;
-    color: $custom_spin_text;
+KSSpinBox {
+    background-color: $spinbox_color;
+    color: $spinbox_text_color;
     border-radius: ${radius_small}px;
     padding: 1px 2px;
 }
 
-QSpinBox:hover,
-QSpinBox:focus {
-    border: 1px solid $custom_spin_focus_border;
+KSSpinBox:hover,
+KSSpinBox:focus {
+    border: 1px solid $spinbox_focus_border_color;
 }
 
 /* Custom pad context menu */
 QMenu[customPadMenu="true"] {
-    background-color: $custom_context_menu_bg;
-    color: $custom_context_menu_text;
-    border: 1px solid $custom_picker_border;
+    background-color: $pad_menu_background_color;
+    color: $pad_menu_text_color;
+    border: 1px solid $pad_menu_border_color;
 }
 
 QMenu[customPadMenu="true"]::item:selected {
-    background-color: $custom_context_menu_hover;
+    background-color: $pad_menu_selected_color;
 }
 
 /* Searchable picker popup */
 SearchablePicker {
-    background-color: $custom_picker_bg;
-    border: 1px solid $custom_picker_border;
+    background-color: $picker_background_color;
+    border: 1px solid $picker_border_color;
 }
 
 SearchablePicker QLineEdit {
-    background-color: $custom_picker_search_bg;
-    color: $custom_picker_search_text;
-    border: 1px solid $custom_picker_border;
+    background-color: $picker_list_background_color;
+    color: $picker_text_color;
+    font-size: ${picker_font_size}pt;
+    border: 1px solid $picker_border_color;
     padding: 2px 4px;
 }
 
 SearchablePicker QListView {
-    background-color: $custom_picker_list_bg;
-    color: $custom_picker_list_text;
+    background-color: $picker_list_background_color;
+    color: $picker_text_color;
+    font-size: ${picker_font_size}pt;
     border: none;
 }
 
 SearchablePicker QListView::item:hover {
-    background-color: $custom_picker_list_hover;
+    background-color: $picker_hover_color;
 }
 
 QMenu[customPadMenu="true"]::separator {
-    background-color: $custom_separator;
+    background-color: $pad_menu_separator_color;
 }
 
-QFrame {
-    color: $custom_toolbar_separator;
+QFrame#toolbarSeparator {
+    color: $pad_toolbar_separator_color;
 }
 
 QPushButton[addButton="true"] {
-    background-color: $custom_add_button_bg;
+    background-color: $add_key_color;
 }
 
 QPushButton[addButton="true"]:hover {
-    background-color: $custom_add_button_hover_bg;
+    background-color: $add_key_hover_color;
 }

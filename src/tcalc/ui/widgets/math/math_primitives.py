@@ -7,9 +7,10 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QPainter, QPainterPath, QPen, QTransform
 from PySide6.QtWidgets import QSizePolicy, QWidget
+
+from tcalc.theme import get_theme
 
 SQRT_WIDTH = 25
 SQRT_LEFT_RATIO = 0.35
@@ -88,12 +89,7 @@ def square_bracket_path(w: float, h: float, opening: bool) -> QPainterPath:
 class MathPrimitive(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._color = Qt.GlobalColor.white
         self._pen_width = 2.0
-
-    def setColor(self, color):
-        self._color = color
-        self.update()
 
     def setPenWidth(self, width: float):
         self._pen_width = width
@@ -105,7 +101,7 @@ class MathPrimitive(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(self._color)
+        pen = QPen(get_theme().qcolor("radical_symbol_color"))
         pen.setWidthF(self._pen_width)
         painter.setPen(pen)
         path = self.build_path(float(self.width()), float(self.height()))

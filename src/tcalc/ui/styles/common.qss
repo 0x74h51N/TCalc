@@ -1,31 +1,31 @@
 QToolTip {
-    background-color: $background_dark;
-    border: 1px solid $border_light;
+    background-color: $tooltip_background_color;
+    border: 1px solid $tooltip_border_color;
     border-radius: ${radius_small}px;
-    color: $text_secondary;
+    color: $tooltip_text_color;
     padding: ${tooltip_padding}px;
 }
 
 QPushButton[uiRole="iconButton"] {
-    background-color: $background_light;
-    color: $text_primary;
-    border: 1px solid $background_dark;
-    border-top-color: $selection_background;
-    border-left-color: $selection_background;
+    background-color: $icon_button_color;
+    color: $icon_button_text_color;
+    border: 1px solid $icon_button_shadow_color;
+    border-top-color: $icon_button_light_color;
+    border-left-color: $icon_button_light_color;
     border-radius: ${radius_small}px;
     padding: ${icon_padding}px;
 }
 
 QPushButton[uiRole="iconButton"]:hover {
-    background-color: $selection_background;
+    background-color: $icon_button_hover_color;
 }
 
 QPushButton[uiRole="iconButton"]:pressed {
-    background-color: $background_dark;
-    border-top-color: $background_dark;
-    border-left-color: $background_dark;
-    border-bottom-color: $selection_background;
-    border-right-color: $selection_background;
+    background-color: $icon_button_pressed_color;
+    border-top-color: $icon_button_shadow_color;
+    border-left-color: $icon_button_shadow_color;
+    border-bottom-color: $icon_button_light_color;
+    border-right-color: $icon_button_light_color;
 }
 
 QPushButton[uiRole="toolbarToggle"] {
@@ -37,7 +37,7 @@ QPushButton[uiRole="toolbarToggle"] {
 
 QRadioButton[optionRole="option"] {
     background-color: transparent;
-    color: $text_secondary;
+    color: $option_text_color;
     border-radius: ${radius_small}px;
     padding: ${option_padding_y}px ${option_padding_x}px;
     spacing: 0px;
@@ -49,10 +49,10 @@ QRadioButton[optionRole="option"]::indicator {
 }
 
 QRadioButton[optionRole="option"]:hover {
-    background-color: $option_hover_bg;
+    background-color: $option_hover_color;
 }
 
 QRadioButton[optionRole="option"]:checked {
-    background-color: $option_checked_bg;
-    color: $accent_text;
+    background-color: $option_checked_color;
+    color: $option_checked_text_color;
 }

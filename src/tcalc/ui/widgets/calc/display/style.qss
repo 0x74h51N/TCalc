@@ -2,9 +2,9 @@
 QLineEdit[exprInput="true"] {
     border: none;
     background-color: transparent;
-    color: $text_secondary;
-    selection-background-color: $selection_background;
-    selection-color: $selection_text;
+    color: $expression_text_color;
+    selection-background-color: $expression_selection_color;
+    selection-color: $expression_selection_text_color;
 }
 
 QWidget[exprSlot="true"][exprSlotKind="aux"] {
@@ -14,17 +14,23 @@ QWidget[exprSlot="true"][exprSlotKind="aux"] {
 
 QWidget[exprSlot="true"][exprSlotKind="aux"] QLineEdit[LatexKind="aux"]:focus,
 QWidget[exprSlot="true"][exprSlotKind="script"] QLineEdit[LatexKind="script"]:focus {
-    background-color: $background_light;
+    background-color: $expression_slot_focus_color;
 }
 
 QWidget#radicandSlot, QWidget#radicandSlot:focus {
-    border-top: ${root_border_width}px solid $selection_text;
+    border-top: ${root_border_width}px solid $radical_line_color;
+}
+
+/* The calculator screen: the theme's screen brush on the whole display, its parts see through */
+QWidget#displayWidget {
+    background: $display_background_color;
 }
 
 QScrollArea#displayExpression,
 QScrollArea#displayExpression QWidget#qt_scrollarea_viewport,
-QWidget#displayExpressionEditor {
-    background-color: $background_dark;
+QWidget#displayExpressionEditor,
+Result {
+    background: transparent;
 }
 QFrame#displayDivider {
     min-height: ${divider_height}px;

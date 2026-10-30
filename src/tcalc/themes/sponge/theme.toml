@@ -1,0 +1,95 @@
+# Sponge: sponge yellow, white shirt, brown pants, red tie, under the sea
+name = "Sponge"
+base = "light"
+
+[fonts]
+family_default = "Some Time Later"
+size_default = 18
+keypad_min_pt = 14
+keypad_max_pt = 20
+menu_size = 16
+picker_size = 18
+
+[color_usage]
+picker_text_color = "text_primary"
+
+[spacing]
+radius_small = 5
+radius_medium = 8
+radius_large = 14
+
+btn_radius = 40
+
+# Sponge holes (holes.svg, drawn for TCalc) on the yellow surfaces, the sea floor behind the whole window
+[[pictures]]
+file = "holes.svg"
+target = "display"
+position = "top-right"
+size = 0.6
+opacity = 0.45
+margin = 6
+
+[[pictures]]
+file = "holes.svg"
+target = "history"
+position = "bottom-right"
+size = 0.45
+opacity = 0.35
+margin = 6
+
+[[pictures]]
+file = "undersea.svg"
+target = "window"
+position = "bottom"
+fit = "cover"
+opacity = 0.7
+
+[colors]
+# Display: the sponge itself
+screen = "#FFF15A"
+# Numbers: white shirt
+secondary = "#FFFFFF"
+secondary_hover = "#F1EEDC"
+secondary_text = "#4A2E12"
+# Operators: brown pants
+accent = "#A0632B"
+accent_hover = "#87511F"
+accent_text = "#FFFFFF"
+# ⌫ C +/- ↵: red tie
+action = "#D7262E"
+action_hover = "#B81E25"
+action_text = "#FFFFFF"
+# Equals: the sea
+primary = "#2E9BD6"
+primary_hover = "#2384BA"
+primary_text = "#FFFFFF"
+# Surfaces: sea water around the sponge
+background = "#9ADAF5"
+background_dark = "#FFFBD6"
+background_dark_alt = "#FFF5B0"
+background_medium = "#C9ECFA"
+background_light = "#FFF15A"
+foreground = "#4A2E12"
+text_primary = "#4A2E12"
+text_secondary = "#7A5426"
+text_muted = "#9C7B4E"
+text_tertiary = "#9C7B4E"
+border_default = "#7FC4E3"
+border_light = "#B5E2F5"
+border_focus = "#D7262E"
+border_dark = "#5FAED3"
+selection_background = "#FFE066"
+selection_text = "#4A2E12"
+control = "#C9ECFA"
+control_hover = "#E0F4FC"
+control_accent = "#D7262E"
+icon = "#4A2E12"
+control_bg = "rgba(160, 99, 43, 8%)"
+control_bg_hover = "rgba(160, 99, 43, 14%)"
+control_bg_pressed = "rgba(160, 99, 43, 22%)"
+control_disabled_bg = "rgba(160, 99, 43, 5%)"
+control_disabled_text = "rgba(215, 38, 46, 40%)"
+option_checked_bg = "rgba(160, 99, 43, 14%)"
+option_hover_bg = "rgba(160, 99, 43, 8%)"
+toast_info_bg = "rgba(201, 236, 250, 90%)"
+status_error = "#C2181F"

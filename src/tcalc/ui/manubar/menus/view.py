@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
 
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import QInputDialog, QMenu, QMenuBar, QMessageBox
 
 from tcalc.app_state import get_app_state
+from tcalc.theme import ThemeChoice, ThemeMode, custom_themes
 from tcalc.ui.config import preset_config
 from tcalc.ui.controller.menubar import ViewOperations
 from tcalc.ui.utils import get_icon
@@ -33,6 +34,7 @@ class ViewMenu:
         self._preset_actions: dict = {}
         self._toggle_actions: dict[Callable, QAction] = {}
         self._custom_preset_actions: dict[int, QAction] = {}
+        self._custom_theme_actions: list[QAction] = []
         self._preset_bar: CustomPresetActions | None = None
 
         self._view_menu = menu.addMenu("View")
@@ -44,8 +46,13 @@ class ViewMenu:
             app_state=self.app_state,
         )
 
+        # Exclusive check marks for the theme choices
+        self._theme_group = theme_group = QActionGroup(self._view_menu)
         for item in VIEW_ACTIONS:
             for defn, action in item.add_to(self._view_menu, ctx):
+                if defn.theme is not None:
+                    theme_group.addAction(action)
+                    action.setChecked(defn.theme == self.app_state.theme)
                 if defn.preset:
                     self._preset_actions[defn.preset] = action
                     action.triggered.connect(self._update_preset_selection)
@@ -55,6 +62,14 @@ class ViewMenu:
         self._update_preset_selection()
         # The angle toggle is driven by presets (no signal), so re-sync its check on open.
         self._view_menu.aboutToShow.connect(self._sync_angle_toggle)
+
+        self._theme_action = self._find_action_with_menu(self._view_menu, "Theme")
+        if self._theme_action is not None:
+            theme_menu = self._theme_action.menu()
+            assert isinstance(theme_menu, QMenu)
+            # A theme put in the themes folder shows up the next time the menu opens
+            theme_menu.aboutToShow.connect(self._populate_custom_themes)
+            self._populate_custom_themes()
 
         self._keypads_action = self._find_action_with_menu(self._view_menu, "Keypads")
         if self._keypads_action is not None:
@@ -97,6 +112,26 @@ class ViewMenu:
             act.toggled.connect(dock.setVisible)
             actions.append(act)
         self._rebuild_dynamic(menu, "_custom_pad_dynamic", "Add Custom Pad", actions)
+
+    def _populate_custom_themes(self) -> None:
+        menu = self._theme_action.menu() if self._theme_action is not None else None
+        if not isinstance(menu, QMenu):
+            return
+        for old in self._custom_theme_actions:
+            self._theme_group.removeAction(old)
+            old.deleteLater()
+        self._custom_theme_actions = []
+        for variant, name in custom_themes().items():
+            choice = ThemeChoice(ThemeMode.CUSTOM, variant)
+            act = QAction(get_icon("brush"), name, menu)
+            act.setCheckable(True)
+            act.setChecked(choice == self.app_state.theme)
+            act.triggered.connect(lambda _=False, c=choice: self.ops.set_theme(c))
+            self._theme_group.addAction(act)
+            self._custom_theme_actions.append(act)
+        self._rebuild_dynamic(
+            menu, "_custom_theme_dynamic", "Add Custom Theme", self._custom_theme_actions
+        )
 
     def _populate_custom_presets(self) -> None:
         menu = self._preset_action.menu() if self._preset_action is not None else None

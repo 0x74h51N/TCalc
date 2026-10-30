@@ -20,9 +20,12 @@ from PySide6.QtWidgets import (
 )
 from shiboken6 import isValid
 
+from tcalc.theme import PictureTarget
+from tcalc.ui.config import calc_config
+from tcalc.ui.widgets.common.picture_layer import PictureLayer
+
 from .expression import Expression
 from .result.result import Result
-from .style import apply_display_style, calc_config
 
 
 class Display(QWidget):
@@ -86,7 +89,9 @@ class Display(QWidget):
         self.result = Result(self, self._config["result"])
         self._layout.addWidget(self.result)
 
-        apply_display_style(self)
+        # The app stylesheet paints the theme's screen brush (QWidget#displayWidget)
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
+        PictureLayer(self, PictureTarget.DISPLAY)
 
         QTimer.singleShot(0, self._update_fonts)
 

@@ -15,7 +15,6 @@ from .menus.edit import EditMenu
 from .menus.file import FileMenu
 from .menus.settings import SettingsMenu
 from .menus.view import ViewMenu
-from .style import apply_menu_styles
 
 if TYPE_CHECKING:
     from ..window import MainWindow
@@ -30,8 +29,6 @@ class Menubar:
 
     def _create_menubar(self) -> None:
         menubar = self.window.menuBar()
-
-        apply_menu_styles(menubar)
 
         FileMenu(menubar, self.window, self.shortcuts)
         EditMenu(menubar, self.window, self.shortcuts)

@@ -10,11 +10,11 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 
 from PySide6.QtCore import QTimer
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget
 
-from tcalc.theme import get_theme
 from tcalc.ui.config import side_panel_config
+from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.utils import apply_scaled_fonts
 
 _FontTargets = Iterable[QWidget] | Callable[[], Iterable[QWidget]]
@@ -29,11 +29,8 @@ class SidePanel(QWidget):
         self._parent = parent
         self._font_targets: list[tuple[_FontTargets, int, int, Callable[[], None] | None]] = []
 
-        theme = get_theme()
-        palette = self.palette()
-        palette.setColor(self.backgroundRole(), QColor(theme.colors["background_dark"]))
+        self.setBackgroundRole(QPalette.ColorRole.Base)
         self.setAutoFillBackground(True)
-        self.setPalette(palette)
 
         margin = side_panel_config["margin"]
         self._layout = QVBoxLayout(self)
@@ -46,6 +43,7 @@ class SidePanel(QWidget):
         self._resize_timer.timeout.connect(self._update_fonts)
 
         QTimer.singleShot(0, self._update_fonts)
+        theme_events.applied.connect(self._update_fonts)
 
     def add_widget(self, widget: QWidget, stretch: int = 0) -> None:
         """Append *widget* to the panel layout with an optional stretch factor."""
