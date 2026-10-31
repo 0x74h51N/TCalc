@@ -33,6 +33,8 @@ make install
 
 Dev tooling (`ruff`, `mypy`) is installed via the `dev` extra.
 
+The version comes from git tags (setuptools-scm). An editable install shows the version of its last `make install`.
+
 **Build native extension in-place**
 
 ```bash
