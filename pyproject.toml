@@ -33,6 +33,7 @@ dev = [
   "pytest-qt>=4.5,<4.6",
   "pytest-memray>=1.11,<1.12",
   "pyinstrument>=5.1,<5.2",
+  "git-cliff>=2.14,<2.15",
 ]
 
 [project.scripts]
