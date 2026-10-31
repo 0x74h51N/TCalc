@@ -1,0 +1,110 @@
+name: Release PR
+
+# Started by hand. Computes the next version from the pull requests merged since the
+# last tag, writes their changelog section and opens the release pull request.
+# The procedure is in docs/release.md.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "auto, minor, or an exact version such as 1.0.0"
+        required: true
+        default: auto
+
+# Needs "Allow GitHub Actions to create and approve pull requests" in the repository
+# settings. CI on the pull request waits for the owner's approval, since the Actions bot opened it.
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  PYTHON_VERSION: "3.14.5"
+
+jobs:
+  release-pr:
+    name: Open the release pull request
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # The pin lives in the dev extra of pyproject.toml; the rest of the extra is not needed here.
+      - name: Install git-cliff
+        run: pip install "$(grep -oE '"git-cliff[^"]*"' pyproject.toml | tr -d '"')"
+
+      - name: Compute the version
+        id: version
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+          last=$(git describe --tags --abbrev=0 --match 'v[0-9]*')
+          IFS=. read -r major minor patch <<< "${last#v}"
+          case "$BUMP" in
+            auto)
+              if git log --merges --first-parent --format=%b "$last"..HEAD | grep -q '^feat[/:]'; then
+                version="$major.$((minor + 1)).0"
+              else
+                version="$major.$minor.$((patch + 1))"
+              fi
+              ;;
+            minor)
+              version="$major.$((minor + 1)).0"
+              ;;
+            *)
+              version="$BUMP"
+              greatest=$(printf '%s\n%s\n' "${last#v}" "$version" | sort -V | tail -1)
+              if ! printf '%s\n' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
+                || [ "$version" = "${last#v}" ] || [ "$greatest" != "$version" ]; then
+                echo "bump must be auto, minor or a version greater than $last, got: $BUMP"
+                exit 1
+              fi
+              ;;
+          esac
+          echo "last=$last" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Write the changelog section
+        env:
+          LAST: ${{ steps.version.outputs.last }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git-cliff --unreleased --tag "v$VERSION" --strip all > section.md
+          if ! grep -q '^### ' section.md; then
+            echo "nothing to release since $LAST"
+            exit 1
+          fi
+          git-cliff --unreleased --tag "v$VERSION" --prepend CHANGELOG.md
+
+      - name: Open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          branch="release/v$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add CHANGELOG.md
+          git commit -m "release: v$VERSION"
+          git push origin "$branch"
+          {
+            echo "Generated from the pull request titles merged since the last release. Polish a line here before merging; the merge tags \`v$VERSION\` and publishes the release."
+            echo
+            cat section.md
+            milestones=$(gh api "repos/$GITHUB_REPOSITORY/milestones" --jq '.[] | select(.open_issues == 0 and .closed_issues > 0) | "- " + .title')
+            if [ -n "$milestones" ]; then
+              echo
+              echo "Milestones that close with this release:"
+              echo
+              echo "$milestones"
+            fi
+          } > body.md
+          gh pr create --base master --head "$branch" --title "release: v$VERSION" --body-file body.md
