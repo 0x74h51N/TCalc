@@ -37,6 +37,6 @@ A milestone is one roadmap step that can be finished, with no due date; it close
 
 - `type:` (exactly one): `feature`, `bug`, `perf`, `refactor`, `docs`, `test`, `ci`, `chore`.
 - `area:` (at most one): one per top-level item of the v1 roadmap (`parser`, `errors`, `scientific`, `statistic`, `menubar`, `history`, `shortcuts`, `ui`, `packaging`, `tests`).
-- `status:` (open issues only): `needs spec`, `ready`, `blocked`.
+- `status:` (open issues only): `needs spec`, `ready`, `blocked`, `needs repro`.
 
 Labels are for finding work; they do not drive the changelog or the version, the title does.
