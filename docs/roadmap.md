@@ -254,7 +254,7 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [x] Keypads
       - [x] All keypads
       - [x] Custom keypads toggles and Add Custom Pad button
-      - [x] Constant pad toggle
+      - [ ] Constant pad toggle
     - [x] History panel toggle
     - [x] Restore keypads layout style
   - [ ] Add constants' keypad toggle buttons
@@ -264,7 +264,6 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 ---
 
 - [x] Add history panel with open/close shortcut
-- [x] Make separate history for calc modes
 - [x] Make history items design more pleasant and add copy icon (auto copy -> copy icon)
 - [ ] Make max history item count configurable in general settings
 - [x] Make human readable history items formatter (LaTeX -> math symbols)
@@ -283,11 +282,11 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 ---
 
 - [x] Memory for all modes MS, MC, MR, M+ Buttons
-- [ ] Improve styles and layout design
+- [x] Improve styles and layout design
   - [x] Add dock layout
   - [x] Split keypads (e.g. num, func, etc.) into dock widgets
   - [x] Themes with their own colors, fonts and pictures
-  - [ ] Add custom pad
+  - [x] Add custom pad
     - [x] Allow creating multiple custom pads
     - [x] Operation key assignment
     - [x] Constant key assignment
@@ -370,6 +369,9 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [ ] Performance tests
     - [x] Add benchmark tests
     - [ ] Add Malloc tests
+      - [x] Alpha malloc tests (memray, Python side)
+      - [ ] Settle the measurement and the pass criteria
+      - [ ] Separate malloc tests for the native core
 
 ## v2 Roadmap
 
