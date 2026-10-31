@@ -1,8 +1,12 @@
 Closes #
 
+<!-- The title is the changelog line: `type/scope: what changed`, written for users when the change is user-visible. CI checks it. -->
+
 **What changed:**
 
 **Why:**
+
+**Milestone:**
 
 **Look at first:**
 

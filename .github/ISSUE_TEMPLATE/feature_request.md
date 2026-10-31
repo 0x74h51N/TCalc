@@ -2,7 +2,7 @@
 name: Feature request
 about: Something TCalc should do
 title: "feat: "
-labels: enhancement
+labels: "type: feature"
 ---
 
 **What you want to do** (what you would type or click, and what should happen):

@@ -1,0 +1,32 @@
+[changelog]
+header = "# Changelog\n\nAll notable changes to TCalc are listed here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow the scheme in [docs/release.md](docs/release.md).\n"
+body = """
+
+{% if version -%}
+## [{{ version | trim_start_matches(pat="v") }}](https://github.com/0x74h51N/TCalc/compare/{{ previous.version }}...{{ version }}) - {{ timestamp | date(format="%Y-%m-%d") }}
+{%- else %}## [Unreleased]{% endif %}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim }}
+{% for commit in commits %}
+- {{ commit.message | split(pat=": ") | slice(start=1) | join(sep=": ") | split(pat=" (#") | first | upper_first }} (#{{ commit.message | split(pat=" (#") | last | trim_end_matches(pat=")") }})
+{%- endfor %}
+{% endfor %}
+"""
+trim = true
+
+[git]
+conventional_commits = false
+filter_commits = true
+tag_pattern = "v[0-9]+\\.[0-9]+\\.[0-9]+"
+sort_commits = "oldest"
+commit_preprocessors = [
+  # The merge body is the pull request title (checked by CI); only merges reach the changelog.
+  { pattern = "(?s)^Merge pull request #(\\d+) from \\S+\\s*\\n\\s*([^\\n]+).*", replace = "${2} (#${1})" },
+]
+commit_parsers = [
+  { message = "^feat(/[\\w-]+)?: .* \\(#\\d+\\)$", group = "<!-- 0 -->Added" },
+  { message = "^perf(/[\\w-]+)?: .* \\(#\\d+\\)$", group = "<!-- 1 -->Changed" },
+  { message = "^fix/(ci|scripts|hooks|tests): ", skip = true },
+  { message = "^fix(/[\\w-]+)?: .* \\(#\\d+\\)$", group = "<!-- 4 -->Fixed" },
+  { message = ".*", skip = true },
+]
