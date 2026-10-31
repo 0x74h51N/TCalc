@@ -1,0 +1,28 @@
+name: PR Title
+
+# The title is the changelog line (docs/release.md). Its own workflow, so editing a
+# pull request's description or title reruns only this check, not the whole CI.
+on:
+  pull_request:
+    branches:
+      - master
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    name: Pull Request Title
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check the title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^((feat|fix|perf|refactor|docs|test|ci|chore|build)(/[a-z0-9-]+)?: [^[:space:]]|release: v[0-9]+\.[0-9]+\.[0-9]+$)'
+          if ! printf '%s\n' "$TITLE" | grep -Eq "$pattern"; then
+            echo "Title does not match: $pattern"
+            echo "Title: $TITLE"
+            exit 1
+          fi
