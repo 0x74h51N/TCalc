@@ -37,6 +37,7 @@ The rules by topic, the setup and the architecture are imported below, so they a
 @docs/rules/ai/code.md
 @docs/rules/ai/tests.md
 @docs/rules/ai/git.md
+@docs/rules/ai/release.md
 @docs/rules/ai/docs.md
 @docs/rules/ai/subagents.md
 @docs/rules/ai/efficiency.md

@@ -2,7 +2,7 @@
 name: Bug report
 about: Something TCalc does wrong
 title: "bug: "
-labels: bug
+labels: "type: bug"
 ---
 
 **What you did** (the expression you typed, or the steps):
