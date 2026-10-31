@@ -1,0 +1,99 @@
+name: Release
+
+# Runs when a release pull request merges: tags it and publishes the GitHub release.
+# Tagging and publishing share this workflow because a tag pushed with GITHUB_TOKEN
+# would not start another one. The procedure is in docs/release.md.
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - CHANGELOG.md
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  PYTHON_VERSION: "3.14.5"
+
+jobs:
+  release:
+    name: Tag and publish
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read the version
+        id: version
+        run: |
+          set -euo pipefail
+          version=$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | tr -d '#[] ')
+          if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then
+            echo "::notice::v$version is already tagged, so this CHANGELOG.md change is not a release"
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          subject=$(git log -1 --format=%s)
+          case "$subject" in
+            "Merge pull request #"*" from "*"/release/v$version") ;;
+            *)
+              echo "v$version is new in CHANGELOG.md, but the head commit is not the merge of release/v$version: $subject"
+              exit 1
+              ;;
+          esac
+          echo "release=true" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "previous=$(git describe --tags --abbrev=0 --match 'v[0-9]*')" >> "$GITHUB_OUTPUT"
+
+      - name: Tag
+        if: steps.version.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "TCalc $VERSION"
+          git push origin "v$VERSION"
+
+      - uses: actions/setup-python@v5
+        if: steps.version.outputs.release == 'true'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Check the built version
+        if: steps.version.outputs.release == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          pip install --no-deps .
+          built=$(python -c 'import importlib.metadata as m; print(m.version("TCalc"))')
+          if [ "$built" != "$VERSION" ]; then
+            echo "setuptools-scm built $built, the tag is v$VERSION"
+            exit 1
+          fi
+
+      - name: Publish the release
+        if: steps.version.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          PREVIOUS: ${{ steps.version.outputs.previous }}
+        run: |
+          set -euo pipefail
+          # The top section without its heading and its surrounding blank lines, as reviewed in the release pull request.
+          awk '/^## \[/ { n++; next } n == 1' CHANGELOG.md | sed -e '/./,$!d' -e :a -e '/^\n*$/{$d;N;ba' -e '}' > notes.md
+          printf '\n**Full changes**: https://github.com/%s/compare/%s...v%s\n' "$GITHUB_REPOSITORY" "$PREVIOUS" "$VERSION" >> notes.md
+          gh release create "v$VERSION" --title "TCalc $VERSION" --notes-file notes.md
+
+      - name: Close the finished milestones
+        if: steps.version.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for number in $(gh api "repos/$GITHUB_REPOSITORY/milestones" --jq '.[] | select(.open_issues == 0 and .closed_issues > 0) | .number'); do
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/milestones/$number" -f state=closed > /dev/null
+          done
