@@ -148,7 +148,7 @@ GitHub milestones are a flat list; they cannot nest. Large projects use them for
 
 ### Labels
 
-A label answers one question at a glance, and every label belongs to one of three groups, each with its own prefix and one color family, so the list of labels on an issue reads as "what kind, about what, how far along".
+A label answers one question at a glance, and every label belongs to one of three groups, each with its own prefix, and every label has its own color (chosen by the owner on 2026-10-31), so the list of labels on an issue reads as "what kind, about what, how far along".
 
 - `type:`, exactly one on every issue and pull request: `type: feature`, `type: bug`, `type: perf`, `type: refactor`, `type: docs`, `type: test`, `type: ci`, `type: chore` (build, dependencies, tooling, scripts, hooks). The words follow the branch and commit types of `docs/CONTRIBUTING.md`. The type is what the work does: a `fix/` branch that adds a capability is a feature, and its title starts with `feat`.
 - `area:`, at most one: one per top-level item of the v1 roadmap in `README.md`, which names the sections of `docs/roadmap.md` with Calculus split into Scientific and Statistic and Tests as its own item: `area: parser`, `area: errors`, `area: scientific`, `area: statistic`, `area: menubar`, `area: history`, `area: shortcuts`, `area: ui`, `area: packaging`, `area: tests`. A new top-level roadmap item gets its label in the same change. Work that fits no section (CI, AI rules) has none.
