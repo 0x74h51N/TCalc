@@ -6,6 +6,7 @@ Bug reports, feature requests and pull requests are welcome. By taking part you 
 
 - The title starts with its type, as branches do: `bug: ...`, `feat: ...`, `docs: ...`, `chore: ...`, `perf: ...`, `refactor: ...`. The issue templates fill it in.
 - A bug report says what you typed, what you expected and what you got, plus your OS and how you installed TCalc. A screenshot helps for anything visual.
+- Every issue gets labels from three groups: `type:` (what kind of work), `area:` (which part of TCalc, at most one) and `status:` (how far along: `needs spec`, `ready`, `blocked`). The templates set the type.
 - Search the existing issues first; a duplicate is closed in favor of the older one.
 
 ## Setting up
@@ -17,6 +18,8 @@ Requirements and the build steps are in [dev.md](dev.md). In short: `make instal
 - Branch from `master` and open the pull request against `master`. Name the branch for what it does: `feat/...`, `fix/...`, `docs/...`, `chore/...`, `perf/...`, `refactor/...`.
 - One change per pull request. A refactor and a behavior change are two pull requests.
 - Commit messages are one short line in the log's style: `type/scope: what changed`, lower case, present tense (`fix/ui: bundle every icon under assets/icons`).
+- The title is the changelog line: `type/scope: what changed`, written for people who use TCalc when the change is user-visible. CI checks it. Pull requests are merged on GitHub with a merge commit.
+- A maintainer sets the milestone the work serves (if any) and the `type:` and `area:` labels. Releases and their procedure are in [release.md](release.md).
 - The description says what changed, why, and what a reviewer should look at first.
 - A bug fix comes with a test that fails without the fix. Where tests go and how they are written is in [tests.md](rules/ai/tests.md); it applies to people as much as to AI assistants.
 - Run `make native-test` and `make py-test` before pushing. CI also runs the clang-tidy diff at the tip of the branch.
