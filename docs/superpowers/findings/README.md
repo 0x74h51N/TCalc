@@ -9,3 +9,5 @@ One line per findings file: the file, then the subject in a few words. Read this
 - [versioning.md](versioning.md): the version strings setuptools-scm gives in a tagged, untagged, archived and shallow checkout.
 - [history-scrollbar.md](history-scrollbar.md): the black groove of a history item's horizontal scrollbar (#97).
 - [window-resize-hang.md](window-resize-hang.md): the main window freezing while resized on two screens.
+- [typed-config.md](typed-config.md): how config.toml and theme overrides reach the stylesheet and the Python reads (#104).
+- [ui-test-isolation.md](ui-test-isolation.md): UI tests that pass in `make py-test` but fail when their file runs alone.
