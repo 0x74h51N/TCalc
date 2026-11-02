@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 
 from tcalc.core.ops import Operation
 from tcalc.core.parser import tokenize
-from tcalc.ui.config import calc_config
+from tcalc.theme import get_theme
 from tcalc.ui.widgets.math import (
     ExpressionNode,
     ExpressionSlot,
@@ -622,6 +622,7 @@ class Expression(QWidget):
 
     def update_input_fonts(self, sample: QWidget) -> None:
         """Update font and width of all inputs based on sample widget size."""
-        base_font = int(calc_config["display"]["expression_font_size"])
-        max_pt = int(calc_config["display"]["expr_max_pt"])
-        self.renderer.update_line_fonts(self.expression_inputs(), sample, base_font, max_pt)
+        cfg = get_theme().ui.calc.display
+        self.renderer.update_line_fonts(
+            self.expression_inputs(), sample, cfg.expression_font_size, cfg.expr_max_pt
+        )

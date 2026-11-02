@@ -6,7 +6,9 @@
 #
 from __future__ import annotations
 
+import dataclasses
 import json
+import logging
 
 import calc_native
 from PySide6.QtCore import QPoint, QSettings, Qt, Signal
@@ -27,6 +29,7 @@ from PySide6.QtWidgets import (
 from tcalc.core.constants import CONST_BY_ID
 from tcalc.core.ops import Operation
 from tcalc.theme import PictureTarget, get_theme, qcolor
+from tcalc.typed_tables import TableError, build
 from tcalc.ui.styles import theme_events
 from tcalc.ui.utils import split_camel
 from tcalc.ui.widgets.common.button import IconButton, KeyButton, KSSpinBox
@@ -34,12 +37,13 @@ from tcalc.ui.widgets.common.constants_menu import ConstEntry, build_constant_me
 from tcalc.ui.widgets.common.picker import SearchablePicker
 from tcalc.ui.widgets.common.picture_layer import PictureLayer
 from tcalc.ui.widgets.common.toolbar import Toolbar
-from tcalc.ui.widgets.common.types import KeyDef
+from tcalc.ui.widgets.common.types import GridLayout, KeyDef, KeySettings, PadLayout
 from tcalc.ui.widgets.utils import apply_key_radius, key_fit_timer, shrink_key_radius
 
-from ...config import custom_pad_config, keypad_config
+from ...config import CONFIG
 
-_cfg = custom_pad_config
+_cfg = CONFIG.keypad.custom
+_log = logging.getLogger(__name__)
 _ALL_KEYS = (-1, -1)
 _ROLE = "custom"
 
@@ -132,17 +136,15 @@ def _resolve_key(name: str, row: int, col: int) -> KeyDef | None:
     return None
 
 
-def _load_keys(data: list[dict[str, str]], max_rows: int) -> list[KeyDef]:
+def _load_keys(saved: tuple[KeySettings, ...], max_rows: int) -> list[KeyDef]:
     keys: list[KeyDef] = []
-    for i, entry in enumerate(data):
-        name = entry.get("operation")
-        if not name:
-            continue
-        kd = _resolve_key(name, i % max_rows, i // max_rows)
+    # A key whose operation is gone is skipped but keeps its slot, so the others stay put
+    for i, entry in enumerate(saved):
+        kd = _resolve_key(entry.operation, i % max_rows, i // max_rows)
         if kd is None:
             continue
-        kd.bg_color = entry.get("bg_color", "")
-        kd.text_color = entry.get("text_color", "")
+        kd.bg_color = entry.bg_color
+        kd.text_color = entry.text_color
         keys.append(kd)
     return keys
 
@@ -181,7 +183,7 @@ class KSGrid(QWidget):
         root.setSpacing(2)
 
         grid_widget = QWidget(self)
-        spacing = int(keypad_config["grid_spacing"])
+        spacing = CONFIG.keypad.grid_spacing
         self._grid = QGridLayout(grid_widget)
         self._grid.setContentsMargins(0, 0, 0, 0)
         self._grid.setHorizontalSpacing(spacing)
@@ -225,10 +227,10 @@ class KSGrid(QWidget):
         self._row_spin = KSSpinBox(
             "Rows: ",
             "Max rows",
-            int(_cfg["min_rows"]),
-            int(_cfg["max_rows"]),
+            _cfg.min_rows,
+            _cfg.max_rows,
             max_rows,
-            int(_cfg["spin_width"]),
+            _cfg.spin_width,
             self._toolbar,
         )
         self._row_spin.valueChanged.connect(self._on_max_rows_changed)
@@ -445,26 +447,24 @@ class CustomPad(QWidget):
         self._settings_key = f"custom_pad/{pad_id}/layout"
         self._label = f"CustomPad {pad_id}"
         self._editing = False
-        self._cols = int(_cfg["default_cols"])
-        self._rows = int(_cfg["default_rows"])
+        self._cols = _cfg.default_cols
+        self._rows = _cfg.default_rows
         self._settings = QSettings("TCalc", "TCalc")
         self._grid_keys: list[list[KeyDef]] = [[]]
-        self._grid_max_rows: list[int] = [int(_cfg["default_max_rows"])]
+        self._grid_max_rows: list[int] = [_cfg.default_max_rows]
         self._load()
         self._grids: list[KSGrid] = []
         self._pending_edit: tuple[int, int] | None = None
         self._pending_grid_index: int = 0
         self._pending_color_target: str = "bg"
-        kcfg = keypad_config
-        margin = int(kcfg["side_margin"])
+        kcfg = CONFIG.keypad
+        margin = kcfg.side_margin
         self._root = QVBoxLayout(self)
-        self._root.setContentsMargins(
-            margin, int(kcfg["top_margin"]), margin, int(kcfg["bottom_margin"])
-        )
-        self._root.setSpacing(int(kcfg["grid_spacing"]))
+        self._root.setContentsMargins(margin, kcfg.top_margin, margin, kcfg.bottom_margin)
+        self._root.setSpacing(kcfg.grid_spacing)
         self._grid_layout = QGridLayout()
-        self._grid_layout.setSpacing(int(kcfg["hbox_spacing"]))
-        self._root.addLayout(self._grid_layout, int(kcfg["hbox_stretch"]))
+        self._grid_layout.setSpacing(kcfg.hbox_spacing)
+        self._root.addLayout(self._grid_layout, kcfg.hbox_stretch)
         self._build_grids()
         # Pickers
         self._op_picker = self._make_picker(
@@ -489,7 +489,7 @@ class CustomPad(QWidget):
     # Grid management
     # ------------------------------------------------------------------
     def _build_grids(self) -> None:
-        default_max = int(_cfg["default_max_rows"])
+        default_max = _cfg.default_max_rows
         for i, keys in enumerate(self._grid_keys):
             max_rows = self._grid_max_rows[i] if i < len(self._grid_max_rows) else default_max
             grid = KSGrid(i, keys, max_rows, self._editing, self)
@@ -518,10 +518,10 @@ class CustomPad(QWidget):
         return SearchablePicker(
             items=items,
             separator_after=separator_after,
-            min_width=int(_cfg["picker_min_width"]),
-            margin=int(_cfg["picker_margin"]),
-            spacing=int(_cfg["picker_spacing"]),
-            list_height=int(_cfg["picker_list_height"]),
+            min_width=_cfg.picker_min_width,
+            margin=_cfg.picker_margin,
+            spacing=_cfg.picker_spacing,
+            list_height=_cfg.picker_list_height,
             parent=self,
         )
 
@@ -531,18 +531,18 @@ class CustomPad(QWidget):
     def _insert_toolbar(self) -> None:
         self._toolbar = Toolbar(
             self,
-            margin=int(_cfg["toolbar_margin"]),
-            spacing=int(_cfg["toolbar_spacing"]),
+            margin=_cfg.toolbar_margin,
+            spacing=_cfg.toolbar_spacing,
             collapsible=True,
             toggle_tooltip="Pad options",
         )
 
-        spin_width = int(_cfg["spin_width"]) + 7
+        spin_width = _cfg.spin_width + 7
         self._cols_spin = KSSpinBox(
             "vGrids: ",
             "Vertical Grids",
-            int(_cfg["min_cols"]),
-            int(_cfg["max_cols"]),
+            _cfg.min_cols,
+            _cfg.max_cols,
             self._cols,
             spin_width,
             self._toolbar,
@@ -553,8 +553,8 @@ class CustomPad(QWidget):
         self._rows_spin = KSSpinBox(
             "hGrids: ",
             "Horizontal Grids",
-            int(_cfg["min_grid_rows"]),
-            int(_cfg["max_grid_rows"]),
+            _cfg.min_grid_rows,
+            _cfg.max_grid_rows,
             self._rows,
             spin_width,
             self._toolbar,
@@ -816,7 +816,7 @@ class CustomPad(QWidget):
 
     def _sync_grid_count(self) -> None:
         total = self._rows * self._cols
-        default_max = int(_cfg["default_max_rows"])
+        default_max = _cfg.default_max_rows
 
         self._grid_keys = [
             self._grids[i].keys if i < len(self._grids) else [] for i in range(total)
@@ -831,46 +831,39 @@ class CustomPad(QWidget):
     # Persistence
     # ------------------------------------------------------------------
     def _save(self) -> None:
-        data = {
-            "label": self._label,
-            "cols": self._cols,
-            "rows": self._rows,
-            "grids": [
-                {
-                    "max_rows": g.max_rows,
-                    "keys": [kd.to_settings() for kd in g.keys],
-                }
+        layout = PadLayout(
+            self._label,
+            self._cols,
+            self._rows,
+            tuple(
+                GridLayout(g.max_rows, tuple(kd.to_settings() for kd in g.keys))
                 for g in self._grids
-            ],
-        }
-        self._settings.setValue(self._settings_key, json.dumps(data))
+            ),
+        )
+        self._settings.setValue(self._settings_key, json.dumps(dataclasses.asdict(layout)))
 
     def _load(self) -> None:
         raw = self._settings.value(self._settings_key, "")
+        # A pad the GUI just created has nothing saved yet
         if not raw:
             return
-
+        where = f"custom pad {self._pad_id}"
         try:
-            data = json.loads(str(raw))
-        except json.JSONDecodeError, TypeError:
+            layout = build(PadLayout, json.loads(str(raw)), where)
+        except json.JSONDecodeError as error:
+            _log.warning("%s: %s", where, error)
+            return
+        except TableError as error:
+            _log.warning("%s", error)
             return
 
-        self._label = data.get("label", self._label)
-        self._cols = int(data.get("cols", _cfg["default_cols"]))
-        self._rows = int(data.get("rows", _cfg["default_rows"]))
-
-        default_max = int(_cfg["default_max_rows"])
+        self._label = layout.label
+        self._cols = layout.cols
+        self._rows = layout.rows
         total = self._rows * self._cols
-
-        self._grid_keys = []
-        self._grid_max_rows.clear()
-
-        for entry in data.get("grids", [])[:total]:
-            max_rows = int(entry.get("max_rows", default_max))
-            keys = _load_keys(entry.get("keys", []), max_rows)
-            self._grid_keys.append(keys)
-            self._grid_max_rows.append(max_rows)
-
-        for _ in range(total - len(self._grid_keys)):
+        grids = layout.grids[:total]
+        self._grid_keys = [_load_keys(g.keys, g.max_rows) for g in grids]
+        self._grid_max_rows = [g.max_rows for g in grids]
+        for _ in range(total - len(grids)):
             self._grid_keys.append([])
-            self._grid_max_rows.append(default_max)
+            self._grid_max_rows.append(_cfg.default_max_rows)

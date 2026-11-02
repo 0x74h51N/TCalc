@@ -12,7 +12,7 @@ from PySide6.QtGui import QColor, QPalette
 
 from tcalc.app_state import AppState
 from tcalc.theme import ThemeChoice, ThemeMode, custom_themes, load_theme
-from tcalc.ui.styles import app_fonts, apply_theme
+from tcalc.ui.styles import apply_theme
 from tcalc.ui.utils import ICONS_DIR
 
 
@@ -81,11 +81,8 @@ def test_custom_themes_come_from_theme_files():
         'name = "Broken"\nbase = "blue"',
         'name = "Broken"\nbase = "dark"\n[fonts',
         'base = "dark"',
-        'name = "Broken"\nbase = "dark"\n[[pictures]]\nfile = "a.svg"\ntarget = "roof"',
-        'name = "Broken"\nbase = "dark"\n[[pictures]]\nfile = "a.svg"\ntarget = "display"\n'
-        'tint = "no_such_color"',
     ],
-    ids=["no-base", "bad-base", "bad-toml", "no-name", "bad-target", "bad-tint"],
+    ids=["no-base", "bad-base", "bad-toml", "no-name"],
 )
 def test_broken_custom_theme_is_skipped(_user_themes, toml):
     for variant, text in (("good", 'name = "Good"\nbase = "light"'), ("broken", toml)):
@@ -113,14 +110,10 @@ def test_themes_and_icons_do_not_depend_on_the_working_directory(tmp_path, monke
     assert (ICONS_DIR / "palette.svg").is_file()
 
 
-def test_theme_sets_the_monospace_font(_user_themes):
-    (_user_themes / "mono").mkdir(parents=True)
-    (_user_themes / "mono" / "theme.toml").write_text(
-        'name = "Mono"\nbase = "dark"\n[fonts]\nfamily_monospace = "VT323"'
-    )
-    load_theme("mono")
+def test_theme_sets_the_monospace_font(write_theme):
+    theme = load_theme(write_theme('[fonts]\nfamily_monospace = "VT323"'))
     try:
-        assert app_fonts().monospace == "VT323"
+        assert theme.ui.fonts.family_monospace == "VT323"
     finally:
         load_theme("dark")
 

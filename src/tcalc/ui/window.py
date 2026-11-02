@@ -36,7 +36,7 @@ from tcalc.ui.widgets.common.dock_title_bar import DockTitleBar
 from tcalc.ui.widgets.common.picture_layer import PicturePainter
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad
 
-from .config import history_style, memory_style, window
+from .config import CONFIG
 from .controller import CalculatorController, EditOperations
 from .controller.utils import format_result
 from .manubar.menu import Menubar
@@ -103,7 +103,7 @@ class MainWindow(QMainWindow):
         widget: QWidget,
         title: str,
         object_name: str,
-        min_width_key: str,
+        min_width: int,
     ) -> QDockWidget:
         app_state = get_app_state()
         dock = QDockWidget(title, self)
@@ -111,7 +111,7 @@ class MainWindow(QMainWindow):
         dock.setObjectName(object_name)
         dock.setWidget(widget)
         dock.setAllowedAreas(self._DOCK_ALLOWED)
-        dock.setMinimumWidth(window[min_width_key])
+        dock.setMinimumWidth(min_width)
         dock.setVisible(app_state.is_dock_open(kind))
 
         toggle_fn = self._DOCK_MENU_TOGGLES[kind]
@@ -129,7 +129,7 @@ class MainWindow(QMainWindow):
         self._docks: dict[DockKind, QDockWidget] = {}
         self.numpad = MainKeypad(parent=self)
         self._register_dock(
-            DockKind.NUMPAD, self.numpad, "Numpad", "numpadDock", "numpad_min_width"
+            DockKind.NUMPAD, self.numpad, "Numpad", "numpadDock", CONFIG.window.numpad_min_width
         )
 
         self.functions_keypad = FunctionsKeypad(parent=self)
@@ -138,7 +138,7 @@ class MainWindow(QMainWindow):
             self.functions_keypad,
             "Functions",
             "functionsDock",
-            "funcpad_min_width",
+            CONFIG.window.funcpad_min_width,
         )
 
         self.trig_power_keypad = TrigPowerKeypad(parent=self)
@@ -147,7 +147,7 @@ class MainWindow(QMainWindow):
             self.trig_power_keypad,
             "Trig / Power",
             "trigPowerDock",
-            "trigpad_min_width",
+            CONFIG.window.trigpad_min_width,
         )
         # Dynamic custom pads (restored after controller is ready)
         self._custom_pads: dict[int, tuple[CustomPad, QDockWidget]] = {}
@@ -169,19 +169,19 @@ class MainWindow(QMainWindow):
             self.side_panel,
             "History",
             "historyDock",
-            "history_min_width",
+            CONFIG.window.history_min_width,
         )
 
     def _register_font_targets(self) -> None:
         self.side_panel.register_font_targets(
             self.memory_bar.font_targets,
-            int(memory_style["font_size"]),
-            int(memory_style["max_pt"]),
+            CONFIG.memory.style.font_size,
+            CONFIG.memory.style.max_pt,
         )
         self.side_panel.register_font_targets(
             [self.history.list],
-            int(history_style["font_size"]),
-            int(history_style["max_pt"]),
+            CONFIG.history.style.font_size,
+            CONFIG.history.style.max_pt,
             # Debounced side-panel resize: re-wrap + force refresh_layout so
             # each item's QListWidget cell size is recomputed against the
             # final viewport width (initial wrap can lock in a too-tall hint
@@ -190,8 +190,8 @@ class MainWindow(QMainWindow):
         )
         self.side_panel.register_font_targets(
             [self.history.clear_button],
-            int(history_style["clr_btn_min_pt"]),
-            int(history_style["clr_btn_max_pt"]),
+            CONFIG.history.style.clr_btn_min_pt,
+            CONFIG.history.style.clr_btn_max_pt,
         )
 
     def _setup_controller(self) -> None:
@@ -340,7 +340,7 @@ class MainWindow(QMainWindow):
         hist = self._docks[DockKind.HISTORY]
         was_hidden = hist.isHidden()
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, hist)
-        self.resizeDocks([hist], [int(window["history_min_width"])], Qt.Orientation.Horizontal)
+        self.resizeDocks([hist], [CONFIG.window.history_min_width], Qt.Orientation.Horizontal)
         hist.setVisible(not was_hidden)
 
         app_state = get_app_state()
@@ -432,4 +432,4 @@ class MainWindow(QMainWindow):
             self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, dock)
 
     def sizeHint(self) -> QSize:
-        return QSize(int(window["size_hint_width"]), int(window["size_hint_height"]))
+        return QSize(CONFIG.window.size_hint_width, CONFIG.window.size_hint_height)

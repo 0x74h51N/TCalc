@@ -8,6 +8,7 @@ base = "light"
 # Miniver-Regular.ttf in this folder (OFL-1.1, see OFL-Miniver.txt)
 family_default = "Miniver"
 size_default = 14
+picker_size = 14
 # Keypad key font range (pt)
 keypad_min_pt = 10
 keypad_max_pt = 16

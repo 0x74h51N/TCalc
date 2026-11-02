@@ -16,7 +16,7 @@ from tcalc.app_state import get_app_state
 from tcalc.core.ops import Operation
 from tcalc.theme import PictureTarget
 
-from ...config import keypad_config
+from ...config import CONFIG
 from .keypad import GridDef, Keypad
 from .keypad_defins import (
     FUNCTION_GROUP,
@@ -32,10 +32,10 @@ class MainKeypad(Keypad):
     picture_target = PictureTarget.MAIN_KEYPAD
 
     def grid_defs(self) -> list[GridDef]:
-        cfg = keypad_config
+        cfg = CONFIG.keypad
         return [
-            (NORMAL_MODE_KEYS, int(cfg["normal_mode_keys_stretch"])),
-            (SIDEBAR_KEYS, int(cfg["right_side_grid_stretch"])),
+            (NORMAL_MODE_KEYS, cfg.normal_mode_keys_stretch),
+            (SIDEBAR_KEYS, cfg.right_side_grid_stretch),
         ]
 
 

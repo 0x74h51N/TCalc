@@ -7,12 +7,14 @@
 from __future__ import annotations
 
 import tomllib
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
 from PySide6.QtGui import QColor
 
 from tcalc.theme import get_theme, load_theme, qcolor
+from tcalc.ui.config import CONFIG
 
 UI_CONFIG = Path(__file__).parents[4] / "src" / "tcalc" / "ui" / "config.toml"
 
@@ -139,3 +141,9 @@ def test_light_accent_is_orange():
 )
 def test_theme_color_values_read_as_qss_does(value, rgba):
     assert qcolor(value).getRgb() == rgba
+
+
+@pytest.mark.parametrize("variant", ["light", "dark"])
+def test_builtin_themes_have_every_color_usage_color(variant):
+    colors = load_theme(variant).colors
+    assert [c for c in asdict(CONFIG.color_usage).values() if c not in colors] == []

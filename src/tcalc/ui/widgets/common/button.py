@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from tcalc.ui.config import ColorPlace, PresetConfig
 from tcalc.ui.utils import get_icon
 from tcalc.ui.widgets.math.painter.symbol_icon import ICON_BOX, needs_math_render, theme_symbol_icon
 
@@ -33,7 +34,7 @@ class KeyButton(QPushButton):
     def __init__(self, key_def: KeyDef, role: str, parent: QWidget | None = None) -> None:
         if needs_math_render(key_def.label):
             super().__init__("", parent)
-            self.setIcon(theme_symbol_icon(key_def.label, "key_symbol_color"))
+            self.setIcon(theme_symbol_icon(key_def.label, lambda u: u.key_symbol_color))
             self.setIconSize(ICON_BOX)
         else:
             super().__init__(key_def.label, parent)
@@ -66,11 +67,11 @@ class IconButton(QPushButton):
         size: int | None = None,
         parent: QWidget | None = None,
         padding: int = 4,
-        tint_key: str | None = None,
+        tint: ColorPlace | None = None,
     ) -> None:
         super().__init__(text, parent)
-        self._tint_key = tint_key
-        self.setIcon(get_icon(icon_name, self._tint_key))
+        self._tint = tint
+        self.setIcon(get_icon(icon_name, self._tint))
 
         if tooltip:
             self.setToolTip(tooltip)
@@ -85,7 +86,7 @@ class IconButton(QPushButton):
             self.setContentsMargins(padding, padding, padding, padding)
 
     def update_icon(self, icon_name: str) -> None:
-        self.setIcon(get_icon(icon_name, self._tint_key))
+        self.setIcon(get_icon(icon_name, self._tint))
 
     def update_tooltip(self, tooltip: str) -> None:
         self.setToolTip(tooltip)
@@ -194,19 +195,19 @@ class CustomPresetActions(QWidget):
     update_requested = Signal()
     delete_requested = Signal()
 
-    def __init__(self, config: Mapping, parent: QWidget | None = None):
+    def __init__(self, config: PresetConfig, parent: QWidget | None = None):
         super().__init__(parent)
-        size = int(config["action_btn_size"])
+        size = config.action_btn_size
 
         row = QHBoxLayout(self)
         row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(int(config["action_spacing"]))
+        row.setSpacing(config.action_spacing)
 
-        self.rename_btn = IconButton(config["rename_icon"], "Rename preset", size=size, parent=self)
+        self.rename_btn = IconButton(config.rename_icon, "Rename preset", size=size, parent=self)
         self.update_btn = IconButton(
-            config["update_icon"], "Save current layout to this preset", size=size, parent=self
+            config.update_icon, "Save current layout to this preset", size=size, parent=self
         )
-        self.delete_btn = IconButton(config["delete_icon"], "Delete preset", size=size, parent=self)
+        self.delete_btn = IconButton(config.delete_icon, "Delete preset", size=size, parent=self)
 
         for btn, sig in (
             (self.rename_btn, self.rename_requested),
