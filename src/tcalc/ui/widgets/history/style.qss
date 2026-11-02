@@ -30,7 +30,3 @@ QWidget#historyItem QWidget[exprSlot="true"] QLineEdit {
     background: transparent;
     border: none;
 }
-
-QWidget#historyItem QScrollArea#historyExprScroll, QWidget#historyPaintWidget {
-    background: transparent;
-}
