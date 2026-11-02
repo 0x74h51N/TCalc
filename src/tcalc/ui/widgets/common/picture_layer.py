@@ -9,14 +9,14 @@ from __future__ import annotations
 from functools import cache
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QSize, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRunnable, QSize, Qt, QThreadPool, Signal
 from PySide6.QtGui import QImage, QImageReader, QMoveEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import QStyle, QWidget
 
 from tcalc.theme import PictureTarget, ThemePicture, get_theme, qcolor
 
-# Pause in resizing after which pictures are rendered again at the new size
-SETTLE_MS = 150
+# A pass this much smaller shows the picture within tens of ms while the full one renders
+LOW_RES_DIVISOR = 8
 
 
 def picture_rects(picture: ThemePicture, area: QRect, natural: QSize) -> tuple[QRect, QRect]:
@@ -39,6 +39,12 @@ def _natural_size(file: Path) -> QSize:
     return QImageReader(str(file)).size()
 
 
+def master_size(picture: ThemePicture, screen: QSize) -> QSize:
+    """The largest image *picture* can be drawn at on *screen*: its box is at most the screen's."""
+    box = QSize(int(screen.width() * picture.size), int(screen.height() * picture.size))
+    return _natural_size(picture.file).scaled(box, picture.fit.aspect_mode)
+
+
 def _render(picture: ThemePicture, size: QSize) -> QImage:
     reader = QImageReader(str(picture.file))
     reader.setScaledSize(size)
@@ -52,6 +58,37 @@ def _render(picture: ThemePicture, size: QSize) -> QImage:
     return image
 
 
+MasterKey = tuple[int, int]
+
+
+class _RenderResult(QObject):
+    # Lives in the UI thread, so a pool thread's result reaches the painter through the event loop
+    ready = Signal(object, object, QImage)
+
+
+class _RenderJob(QRunnable):
+    def __init__(self, picture: ThemePicture, key: MasterKey, result: _RenderResult) -> None:
+        super().__init__()
+        self._picture = picture
+        self._key = key
+        self._result = result
+
+    def run(self) -> None:
+        width, height = self._key
+        sizes = [QSize(*self._key)]
+        # An SVG's cost grows with its pixels, so a small pass shows it sooner; a raster file
+        # costs its whole decode at any size, so a small pass would only delay the full one
+        if QImageReader(str(self._picture.file)).format() == b"svg":
+            sizes.insert(0, QSize(width // LOW_RES_DIVISOR, height // LOW_RES_DIVISOR))
+        for size in sizes:
+            image = _render(self._picture, size)
+            try:
+                self._result.ready.emit(self._picture, self._key, image)
+            except RuntimeError:
+                # The widget closed while its render ran (a removed pad, the app closed at startup)
+                return
+
+
 class PicturePainter:
     """Paints the active theme's pictures for *target* on *widget*, from its paint event."""
 
@@ -59,22 +96,22 @@ class PicturePainter:
         self._widget = widget
         self._target = target
         self._cache: dict[ThemePicture, QImage] = {}
-        # Rendering an SVG is slow; while resizing, the last image is stretched instead
-        self._settle = QTimer(widget)
-        self._settle.setSingleShot(True)
-        self._settle.setInterval(SETTLE_MS)
-        self._settle.timeout.connect(widget.update)
-
-    def resized(self) -> None:
-        self._settle.start()
+        # Rasterizing on the UI thread froze resizes (issue #102), so masters render in the pool
+        self._masters: dict[ThemePicture, tuple[MasterKey, QImage]] = {}
+        self._pending: set[tuple[ThemePicture, MasterKey]] = set()
+        self._result = _RenderResult(widget)
+        self._result.ready.connect(self._on_ready)
 
     def paint(self) -> None:
         pictures = [p for p in get_theme().pictures if p.target is self._target]
         if not pictures:
             self._cache.clear()
+            self._masters.clear()
+            self._pending.clear()
             return
         painter = QPainter(self._widget)
-        images: dict[ThemePicture, QImage] = {}
+        screen = self._widget.screen().size()
+        drawn: set[ThemePicture] = set()
         for picture in pictures:
             natural = _natural_size(picture.file)
             if not natural.isValid():
@@ -83,17 +120,48 @@ class PicturePainter:
             # The reader ignores an empty scaled size and renders the file's own (huge) size
             if rect.isEmpty():
                 continue
-            image = self._cache.get(picture)
-            if image is None or (image.size() != rect.size() and not self._settle.isActive()):
-                image = _render(picture, rect.size())
-            images[picture] = image
+            drawn.add(picture)
+            key = master_size(picture, screen).toTuple()
+            master = self._masters.get(picture)
+            if (master is None or master[0] != key) and (picture, key) not in self._pending:
+                self._pending.add((picture, key))
+                QThreadPool.globalInstance().start(_RenderJob(picture, key, self._result))
+            if master is None:
+                continue
+            image = master[1]
+            if image.size() == QSize(*master[0]):
+                scaled = self._cache.get(picture)
+                if scaled is None or scaled.size() != rect.size():
+                    scaled = image.scaled(
+                        rect.size(),
+                        Qt.AspectRatioMode.IgnoreAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                    self._cache[picture] = scaled
+                image = scaled
             painter.save()
             painter.setClipRect(box)
             painter.setOpacity(picture.opacity)
             painter.drawImage(rect, image)
             painter.restore()
-        # Only the images in use stay cached
-        self._cache = images
+        # Only the pictures of this paint keep their images and their pending renders
+        self._cache = {p: i for p, i in self._cache.items() if p in drawn}
+        self._masters = {p: m for p, m in self._masters.items() if p in drawn}
+        self._pending = {(p, k) for p, k in self._pending if p in drawn}
+
+    def _on_ready(self, picture: ThemePicture, key: MasterKey, image: QImage) -> None:
+        if (picture, key) not in self._pending:
+            return
+        full = image.size() == QSize(*key)
+        current = self._masters.get(picture)
+        # A new screen's low pass would blur a picture that is sharp until its full pass arrives
+        if not full and current is not None and current[1].size() == QSize(*current[0]):
+            return
+        self._masters[picture] = (key, image)
+        if full:
+            self._pending.discard((picture, key))
+            self._cache.pop(picture, None)
+        self._widget.update()
 
 
 class PictureLayer(QWidget):
@@ -116,7 +184,6 @@ class PictureLayer(QWidget):
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if watched is self._owner and event.type() == QEvent.Type.Resize:
             self.setGeometry(self._owner.rect())
-            self._pictures.resized()
         return False
 
     def moveEvent(self, event: QMoveEvent) -> None:
