@@ -371,6 +371,9 @@ class HistoryItem(QWidget):
 
         self._expr_scroll.setWidgetResizable(True)
         self._expr_scroll.setWidget(self._paint_canvas)
+        # The row color shows through; a QSS background here would blacken the scrollbar
+        self._expr_scroll.viewport().setAutoFillBackground(False)
+        self._paint_canvas.setAutoFillBackground(False)
         self._expr_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self._expr_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self._expr_scroll.setFrameShape(QScrollArea.Shape.NoFrame)

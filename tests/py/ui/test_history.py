@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import calc_native
 import pytest
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QPoint, Qt
 
 from tcalc.app_state import RenderMode, get_app_state
 from tcalc.core.parser import tokenize
+from tcalc.theme import load_theme
 from tcalc.ui.config import history_style as style
+from tcalc.ui.styles import apply_theme
 from tcalc.ui.widgets.history.history import History, HistoryItem
 from tcalc.ui.widgets.history.storage import HistoryEntry
 from tcalc.ui.widgets.history.utils import wrap_expression
@@ -38,6 +40,19 @@ def history(qapp, monkeypatch):
 
     widget.close()
     widget.deleteLater()
+    qapp.processEvents()
+
+
+@pytest.fixture
+def themed(qapp):
+    """The app stylesheet, which paints the history rows; the app is back as it was afterwards."""
+    old_palette, old_sheet = qapp.palette(), qapp.styleSheet()
+    apply_theme(qapp, "dark")
+    qapp.processEvents()
+    yield
+    load_theme("dark")
+    qapp.setPalette(old_palette)
+    qapp.setStyleSheet(old_sheet)
     qapp.processEvents()
 
 
@@ -235,6 +250,20 @@ class TestHistoryItemWidget:
         short_h = _item_widget(history, 0).heightForWidth(200)
         long_h = _item_widget(history, 1).heightForWidth(200)
         assert long_h >= short_h
+
+    def test_math_expression_shows_the_row_color(self, history, qapp, themed):
+        # Long enough that the horizontal scrollbar shows, as in issue #97
+        _add(history, "+".join(f"\\frac{{{i}}}{{{i + 1}}}" for i in range(1, 20)), "x", qapp)
+        history.set_mode(RenderMode.MATH)
+        qapp.processEvents()
+
+        w = _item_widget(history, 0)
+        viewport = w._expr_scroll.viewport()
+        assert w._expr_scroll.horizontalScrollBar().isVisible()
+        image = qapp.primaryScreen().grabWindow(history.winId()).toImage()
+        inside = viewport.mapTo(history, QPoint(1, 1))
+        row_margin = w.mapTo(history, QPoint(1, w._expr_scroll.y() + 1))
+        assert image.pixelColor(inside) == image.pixelColor(row_margin)
 
 
 # ===================================================================
