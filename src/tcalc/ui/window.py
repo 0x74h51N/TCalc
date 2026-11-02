@@ -24,7 +24,7 @@ from typing import Callable
 
 from calc_native import Calculator
 from PySide6.QtCore import QByteArray, QSettings, QSize, QTimer
-from PySide6.QtGui import QPaintEvent, QResizeEvent, Qt
+from PySide6.QtGui import QPaintEvent, Qt
 from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
 
 from tcalc.app_state import DockKind, KeypadPreset, get_app_state
@@ -75,10 +75,6 @@ class MainWindow(QMainWindow):
 
         self.update_layout()
         self._restore_window_state()
-
-    def resizeEvent(self, event: QResizeEvent) -> None:
-        super().resizeEvent(event)
-        self._pictures.resized()
 
     def paintEvent(self, event: QPaintEvent) -> None:
         super().paintEvent(event)
