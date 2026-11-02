@@ -8,3 +8,4 @@ One line per findings file: the file, then the subject in a few words. Read this
 - [ci-runtime.md](ci-runtime.md): CI job durations and how path-based skipping meets the required checks.
 - [versioning.md](versioning.md): the version strings setuptools-scm gives in a tagged, untagged, archived and shallow checkout.
 - [history-scrollbar.md](history-scrollbar.md): the black groove of a history item's horizontal scrollbar (#97).
+- [window-resize-hang.md](window-resize-hang.md): the main window freezing while resized on two screens.
