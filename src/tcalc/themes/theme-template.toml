@@ -8,13 +8,15 @@
 #        Windows  %APPDATA%\TCalc\themes\
 #        macOS    ~/Library/Application Support/TCalc/themes/
 #   2. Copy this file into it as theme.toml.
-#   3. Uncomment and change only what you want; everything you leave out comes from `base`.
+#   3. Uncomment and change only what you want; a color you leave out comes from `base`, any
+#      other value from the app defaults in src/tcalc/ui/config.toml.
 #   4. Put the theme's own files (pictures, fonts) in the same folder.
 #   5. Open View > Theme; the theme shows up there. Its fonts load when TCalc starts, so
 #      restart once after adding a font.
 # A theme folder with the same name as a bundled one (kitty, retro, sponge) replaces it.
 #
-# Every key below is optional except `name` and `base`.
+# Every key below is optional except `name` and `base`. A key TCalc does not know or a value of
+# the wrong type is logged and skipped; the rest of the theme still applies.
 # Colors take any QSS color: "#RRGGBB", "#AARRGGBB", "rgba(r, g, b, a%)" or a color name.
 
 
@@ -23,14 +25,14 @@
 # Name shown in View > Theme
 # name = "Sunset"
 
-# Built-in theme this one builds on: "light" or "dark". It gives every value this file does
+# Built-in theme this one builds on: "light" or "dark". It gives the colors this file does
 # not set, Qt's color scheme (dialogs, scrollbars...) and the light/dark icon files.
 # base = "dark"
 
 
 # --- Fonts ------------------------------------------------------------------------------
 # Font files (.ttf/.otf) in the theme folder are loaded at startup; use their family name.
-# Unset keys keep the app defaults (src/tcalc/ui/config.toml [fonts] and [keypad]).
+# Unset keys keep the app defaults (src/tcalc/ui/config.toml [fonts]).
 
 # [fonts]
 # family_default = "Sans Serif"   # app font: menus, labels, keys, display
@@ -39,12 +41,13 @@
 # keypad_min_pt = 8               # smallest key label size (pt); keys scale with the keypad
 # keypad_max_pt = 16              # largest key label size (pt)
 # menu_size = 14                  # menu item size (px): View, Settings... dropdowns
-# picker_size = 9                 # searchable picker size (pt); defaults to size_default
+# picker_size = 9                 # searchable picker size (pt)
 
 
 # --- Spacing ----------------------------------------------------------------------------
-# Corner radii (px); 0 gives square corners. Qt draws a radius above half the widget's
-# shorter side as square corners; keypad keys cap theirs at half of the smallest key.
+# Corner radii (px), by default those of src/tcalc/ui/config.toml [style]; 0 gives square
+# corners. Qt draws a radius above half the widget's shorter side as square corners;
+# keypad keys cap theirs at half of the smallest key.
 
 # [spacing]
 # key_radius = 2           # keypad and custom pad keys
@@ -52,8 +55,10 @@
 # tooltip_radius = 2       # tooltips
 # option_radius = 2        # option groups (Deg / Rad / Grad, Math / Flat / Raw...)
 # spinbox_radius = 2       # custom pad toolbar spin boxes
-# Any number from src/tcalc/ui/config.toml's style tables can be overridden here by name,
-# e.g. frac_toggle_radius = 4 (the fraction / decimal toggle)
+# Any number of these src/tcalc/ui/config.toml tables can be overridden here by name: [style],
+# [style.option_group] (as option_<name>), [manubar.style], [calc.style], [calc.topbar],
+# [calc.display], [calc.display.result] and [toast] (as toast_<name>); e.g.
+# frac_toggle_radius = 4 (the fraction / decimal toggle)
 
 
 # --- Pictures ---------------------------------------------------------------------------

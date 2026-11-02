@@ -12,7 +12,7 @@ from typing import Optional
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
-from tcalc.ui.config import memory_style as style
+from tcalc.ui.config import CONFIG
 
 
 class MemoryBar(QWidget):
@@ -24,7 +24,7 @@ class MemoryBar(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(int(style["divider_spacing"]))
+        layout.setSpacing(CONFIG.memory.style.divider_spacing)
 
         row = QWidget(self)
         row_layout = QHBoxLayout(row)

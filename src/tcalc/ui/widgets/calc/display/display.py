@@ -20,8 +20,7 @@ from PySide6.QtWidgets import (
 )
 from shiboken6 import isValid
 
-from tcalc.theme import PictureTarget
-from tcalc.ui.config import calc_config
+from tcalc.theme import PictureTarget, get_theme
 from tcalc.ui.widgets.common.picture_layer import PictureLayer
 
 from .expression import Expression
@@ -35,15 +34,15 @@ class Display(QWidget):
         super().__init__(parent)
         self.setObjectName("displayWidget")
 
-        self._config = calc_config["display"]
+        self._config = get_theme().ui.calc.display
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(
-            self._config["margin"],
-            self._config["margin"],
-            self._config["margin"],
-            self._config["margin"],
+            self._config.margin,
+            self._config.margin,
+            self._config.margin,
+            self._config.margin,
         )
-        self._layout.setSpacing(self._config["spacing"])
+        self._layout.setSpacing(self._config.spacing)
 
         self.editor = Expression(self)
         self.editor.setObjectName("displayExpressionEditor")
@@ -63,8 +62,8 @@ class Display(QWidget):
         self._scroll_target: QLineEdit | None = None
         self._scroll_scheduled = False
 
-        self._anim_duration = int(self._config["scroll_anim_duration"])
-        self._anim_curve = QEasingCurve.Type[self._config["scroll_anim_curve"]]
+        self._anim_duration = self._config.scroll_anim_duration
+        self._anim_curve = self._config.scroll_anim_curve
         self._h_anim = self._make_scroll_anim(
             self._expr_scroll.horizontalScrollBar(), self._anim_duration, self._anim_curve
         )
@@ -86,7 +85,7 @@ class Display(QWidget):
         line.setFrameShadow(QFrame.Shadow.Sunken)
         self._layout.addWidget(line)
 
-        self.result = Result(self, self._config["result"])
+        self.result = Result(self, self._config.result)
         self._layout.addWidget(self.result)
 
         # The app stylesheet paints the theme's screen brush (QWidget#displayWidget)

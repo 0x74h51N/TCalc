@@ -1,13 +1,6 @@
 # Built-in dark theme
 name = "Dark"
 
-[spacing]
-key_radius = 2
-icon_button_radius = 2
-tooltip_radius = 2
-option_radius = 2
-spinbox_radius = 2
-
 [colors]
 # Primary colors
 primary = "#4a4f5a"

@@ -23,7 +23,7 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.core.ops import Operation
-from tcalc.theme import PictureTarget
+from tcalc.theme import PictureTarget, get_theme
 from tcalc.ui.widgets.keypad.utils import (
     KeyDef,
     add_keys_to_grid,
@@ -31,8 +31,8 @@ from tcalc.ui.widgets.keypad.utils import (
     make_grid,
 )
 
-from ...config import keypad_config
-from ...styles import app_fonts, theme_events
+from ...config import CONFIG
+from ...styles import theme_events
 from ..common.button import KeyButton
 from ..common.picture_layer import PictureLayer
 from ..utils import apply_key_radius, apply_scaled_fonts, key_fit_timer, shrink_key_radius
@@ -66,19 +66,19 @@ class Keypad(QWidget):
         self.setProperty("uiRole", "keypad")
         theme_events.applied.connect(self._update_key_radius)
 
-        cfg = keypad_config
+        cfg = CONFIG.keypad
         self._resize_timer = key_fit_timer(self, self._fit_keys)
-        margin = int(cfg["side_margin"])
-        grid_spacing = int(cfg["grid_spacing"])
-        gap = int(cfg["hbox_spacing"])
+        margin = cfg.side_margin
+        grid_spacing = cfg.grid_spacing
+        gap = cfg.hbox_spacing
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(margin, int(cfg["top_margin"]), margin, int(cfg["bottom_margin"]))
+        root.setContentsMargins(margin, cfg.top_margin, margin, cfg.bottom_margin)
         root.setSpacing(grid_spacing)
 
         self._hbox = QHBoxLayout()
         self._hbox.setSpacing(gap)
-        root.addLayout(self._hbox, int(cfg["hbox_stretch"]))
+        root.addLayout(self._hbox, cfg.hbox_stretch)
 
         self._build_grids()
         self._update_button_fonts()
@@ -96,8 +96,8 @@ class Keypad(QWidget):
 
     def _build_grids(self) -> None:
         """Populate ``_hbox`` from ``grid_defs()``."""
-        cfg = keypad_config
-        grid_spacing = int(cfg["grid_spacing"])
+        cfg = CONFIG.keypad
+        grid_spacing = cfg.grid_spacing
 
         for keys, stretch in self.grid_defs():
             wrapper = QWidget(self)
@@ -198,7 +198,7 @@ class Keypad(QWidget):
 
     def _update_button_fonts(self) -> None:
         # A theme may set its own key font range
-        fonts = app_fonts()
+        fonts = get_theme().ui.fonts
         apply_scaled_fonts(self, self._buttons.values(), fonts.keypad_min_pt, fonts.keypad_max_pt)
 
     def _update_key_radius(self) -> None:

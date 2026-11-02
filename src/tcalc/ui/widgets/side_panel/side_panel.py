@@ -13,7 +13,7 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget
 
-from tcalc.ui.config import side_panel_config
+from tcalc.ui.config import CONFIG
 from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.utils import apply_scaled_fonts
 
@@ -32,14 +32,14 @@ class SidePanel(QWidget):
         self.setBackgroundRole(QPalette.ColorRole.Base)
         self.setAutoFillBackground(True)
 
-        margin = side_panel_config["margin"]
+        margin = CONFIG.side_panel.margin
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(margin, margin, margin, margin)
-        self._layout.setSpacing(side_panel_config["spacing"])
+        self._layout.setSpacing(CONFIG.side_panel.spacing)
 
         self._resize_timer = QTimer(self)
         self._resize_timer.setSingleShot(True)
-        self._resize_timer.setInterval(int(side_panel_config.get("resize_debounce_ms", 45)))
+        self._resize_timer.setInterval(CONFIG.side_panel.resize_debounce_ms)
         self._resize_timer.timeout.connect(self._update_fonts)
 
         QTimer.singleShot(0, self._update_fonts)

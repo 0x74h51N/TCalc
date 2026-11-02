@@ -6,6 +6,7 @@
 #
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 
@@ -23,7 +24,7 @@ from tcalc.ui.styles import apply_theme, sync_theme
 from tcalc.ui.widgets.calc.display.display import Display
 from tcalc.ui.widgets.common.button import KeyButton
 from tcalc.ui.widgets.common.toaster import Toaster, ToastLevel
-from tcalc.ui.widgets.common.types import KeyDef
+from tcalc.ui.widgets.common.types import GridLayout, KeyDef, KeySettings, PadLayout
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad, KSGrid, _add_operation
 from tcalc.ui.widgets.keypad.widgets import MainKeypad
 from tcalc.ui.widgets.side_panel.side_panel import SidePanel
@@ -51,10 +52,11 @@ def window(request, qapp, monkeypatch, tmp_path):
     monkeypatch.setattr("tcalc.ui.widgets.history.history.save_history", lambda _i: None)
     monkeypatch.setattr(app_state_mod, "_app_state", None)
     if keys := start.get("custom_keys"):
-        grid = {"max_rows": 6, "keys": [{"operation": op} for op in keys]}
+        grid = GridLayout(6, tuple(KeySettings(op) for op in keys))
+        layout = PadLayout("CustomPad 0", 1, 1, (grid,))
         settings = factory()
         settings.setValue("custom_pads/ids", [0])
-        settings.setValue("custom_pad/0/layout", json.dumps({"grids": [grid]}))
+        settings.setValue("custom_pad/0/layout", json.dumps(dataclasses.asdict(layout)))
         settings.sync()
 
     from tcalc.ui.window import MainWindow

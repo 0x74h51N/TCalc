@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 from PySide6.QtGui import QColor, QIcon
 
-from tcalc.theme import get_theme, load_theme
+from tcalc.theme import load_theme
 from tcalc.ui.manubar import defins
 from tcalc.ui.manubar.menu_builder import SubmenuItem
 from tcalc.ui.utils import ICONS_DIR, get_icon
@@ -139,12 +139,12 @@ def test_red_icon_stays_red_after_switch():
 
 
 @pytest.mark.usefixtures("qapp")
-def test_tint_key_follows_a_switch():
+def test_tint_follows_a_switch():
     load_theme("dark")
-    icon = get_icon("frac", tint_key="fraction_icon_color")
-    load_theme("light")
+    icon = get_icon("frac", lambda u: u.fraction_icon_color)
+    theme = load_theme("light")
     try:
-        assert _opaque_color(icon) == QColor(get_theme().color("fraction_icon_color"))
+        assert _opaque_color(icon) == theme.qcolor(theme.ui.color_usage.fraction_icon_color)
     finally:
         load_theme("dark")
 

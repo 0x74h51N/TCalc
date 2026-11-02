@@ -9,7 +9,7 @@ from typing import List
 import calc_native
 from PySide6.QtCore import QStandardPaths
 
-from tcalc.ui.config import history_config
+from tcalc.ui.config import CONFIG
 
 _log = logging.getLogger("tcalc.ui.history.storage")
 
@@ -53,7 +53,7 @@ def save_history(history: List[HistoryEntry]) -> None:
     """Save history to binary file."""
     path = _history_path()
 
-    max_items = int(history_config["max_items"])
+    max_items = CONFIG.history.max_items
     if len(history) > max_items:
         history = history[-max_items:]
 

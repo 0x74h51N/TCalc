@@ -8,6 +8,7 @@ base = "dark"
 # VT323-Regular.ttf in this folder (OFL-1.1, see OFL-VT323.txt)
 family_default = "VT323"
 size_default = 18
+picker_size = 18
 # Keypad key font range (pt); VT323 draws small
 keypad_min_pt = 14
 keypad_max_pt = 24

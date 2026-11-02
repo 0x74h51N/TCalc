@@ -4,8 +4,8 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QAbstractItemView, QListWidget
 
-from tcalc.ui.config import history_style as style
-from tcalc.ui.styles import app_fonts
+from tcalc.theme import get_theme
+from tcalc.ui.config import CONFIG
 
 
 def apply_history_style(list_widget: QListWidget) -> None:
@@ -21,7 +21,7 @@ def apply_history_style(list_widget: QListWidget) -> None:
         | Qt.TextInteractionFlag.TextSelectableByKeyboard,
     )
 
-    font = QFont(app_fonts().monospace, style["font_size"])
+    font = QFont(get_theme().ui.fonts.family_monospace, CONFIG.history.style.font_size)
     font.setStyleHint(QFont.StyleHint.TypeWriter)
     list_widget.setFont(font)
 
