@@ -287,14 +287,28 @@ class TestWrapExpression:
         result = wrap_expression("1 + 2 + 3 + 4 + 5 + 6 + 7 + 8", fm, 40)
         assert "\n" in result
 
-    def test_all_lines_within_budget(self, history):
+    # (expression, its width budget from the font metrics)
+    @pytest.mark.parametrize(
+        "expr, budget",
+        [
+            pytest.param("100 + 200 + 300 + 400 + 500 + 600 + 700", lambda fm: 80, id="sums"),
+            pytest.param(
+                "100 + 200 + 300",
+                lambda fm: fm.horizontalAdvance("100 + 200 +") - 1,
+                id="plus overflows",
+            ),
+            pytest.param(
+                "sin(1) + cos(2) + 3",
+                lambda fm: fm.horizontalAdvance("sin(1) + cos(2)") - 1,
+                id="close paren overflows",
+            ),
+        ],
+    )
+    def test_all_lines_within_budget(self, history, expr, budget):
         fm = history.list.fontMetrics()
-        max_w = 80
-        result = wrap_expression("100 + 200 + 300 + 400 + 500 + 600 + 700", fm, max_w)
-        tolerance = fm.horizontalAdvance("0") * 2
-
-        for line in result.split("\n"):
-            assert fm.horizontalAdvance(line) <= max_w + tolerance
+        max_w = budget(fm)
+        for line in wrap_expression(expr, fm, max_w).split("\n"):
+            assert fm.horizontalAdvance(line) <= max_w
 
 
 # ===================================================================
