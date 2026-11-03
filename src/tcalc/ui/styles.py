@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict
 from pathlib import Path
 from string import Template
 
@@ -10,8 +10,7 @@ from PySide6.QtWidgets import QApplication
 
 from ..app_state import get_app_state
 from ..theme import custom_theme_folders, get_theme, load_theme
-from .config import calc_config, fonts_config, keypad_config, manubar_style, toast_config
-from .config import style as ui_style
+from .config import STYLESHEET_TABLES, int_fields
 
 
 class _ThemeEvents(QObject):
@@ -26,33 +25,20 @@ _UI_DIR = Path(__file__).parent
 _QSS_FILES = sorted(_UI_DIR.rglob("*.qss"), key=lambda p: (p.name != "common.qss", p))
 
 
-def _ints(table: dict[str, object], prefix: str = "") -> dict[str, str]:
-    return {f"{prefix}{k}": str(v) for k, v in table.items() if isinstance(v, int)}
-
-
 def _build_subs() -> dict[str, str]:
     """Template substitutions: the active theme's colors, the color each place uses, and the
-    layout numbers the stylesheets use (the theme's [spacing] overrides the config's)."""
+    numbers of its stylesheet tables and fonts."""
     theme = get_theme()
-    og = ui_style["option_group"]
+    ui = theme.ui
+    numbers = [(row.prefix, row.table(ui)) for row in STYLESHEET_TABLES] + [("", ui.fonts)]
     return {
-        **{k: str(v) for k, v in theme.colors.items()},
-        **{place: theme.color(place) for place in theme.color_usage},
-        "tooltip_padding": str(int(ui_style["tooltip_padding"])),
-        "icon_padding": "4",
-        "option_padding_y": str(int(og["padding_y"])),
-        "option_padding_x": str(int(og["padding_x"])),
-        "button_padding": str(int(keypad_config["button_padding"])),
-        **_ints(manubar_style),
-        "menu_font_size": str(app_fonts().menu_size),
-        "picker_font_size": str(app_fonts().picker_size),
-        **_ints(calc_config["style"]),
-        **_ints(calc_config["topbar"]),
-        **_ints(calc_config["display"]),
-        **_ints(calc_config["display"]["result"]),
-        **_ints(toast_config, "toast_"),
-        # Last, so a theme can override any of the config numbers above by name
-        **{k: str(v) for k, v in theme.spacing.items()},
+        **theme.colors,
+        **{place: theme.colors[color] for place, color in asdict(ui.color_usage).items()},
+        **{
+            prefix + name: str(value)
+            for prefix, table in numbers
+            for name, value in int_fields(table).items()
+        },
     }
 
 
@@ -67,18 +53,21 @@ def _build_palette() -> QPalette:
     """Map theme tokens onto Qt palette roles, so un-styled widgets don't fall back to the OS
     scheme (a light OS theme would otherwise leak into dialogs, menus, scrollbars...)."""
     theme = get_theme()
+    usage = theme.ui.color_usage
     role = QPalette.ColorRole
     # (button, window) constructor derives the 3D shades and disabled colors itself
-    palette = QPalette(theme.qcolor("palette_button_color"), theme.qcolor("palette_window_color"))
-    for r, place in (
-        (role.WindowText, "palette_window_text_color"),
-        (role.Base, "palette_base_color"),
-        (role.Text, "palette_text_color"),
-        (role.ButtonText, "palette_button_text_color"),
-        (role.Highlight, "palette_highlight_color"),
-        (role.HighlightedText, "palette_highlighted_text_color"),
+    palette = QPalette(
+        theme.qcolor(usage.palette_button_color), theme.qcolor(usage.palette_window_color)
+    )
+    for r, color in (
+        (role.WindowText, usage.palette_window_text_color),
+        (role.Base, usage.palette_base_color),
+        (role.Text, usage.palette_text_color),
+        (role.ButtonText, usage.palette_button_text_color),
+        (role.Highlight, usage.palette_highlight_color),
+        (role.HighlightedText, usage.palette_highlighted_text_color),
     ):
-        palette.setColor(r, theme.qcolor(place))
+        palette.setColor(r, theme.qcolor(color))
     return palette
 
 
@@ -96,40 +85,9 @@ def init_styles(app: QApplication, variant: str) -> None:
     app.setFont(_app_font())
 
 
-@dataclass(frozen=True, slots=True)
-class AppFonts:
-    family: str
-    size: int
-    monospace: str  # history list
-    keypad_min_pt: int
-    keypad_max_pt: int
-    menu_size: int  # px
-    picker_size: int  # pt
-
-
-def app_fonts() -> AppFonts:
-    """The UI config's [fonts] and keypad font range, with the active theme's overrides."""
-    fonts = {
-        **fonts_config,
-        "keypad_min_pt": keypad_config["min_pt"],
-        "keypad_max_pt": keypad_config["max_pt"],
-        "menu_size": manubar_style["menu_font_size"],
-        **get_theme().fonts,
-    }
-    return AppFonts(
-        fonts["family_default"],
-        fonts["size_default"],
-        fonts["family_monospace"],
-        fonts["keypad_min_pt"],
-        fonts["keypad_max_pt"],
-        fonts["menu_size"],
-        fonts.get("picker_size", fonts["size_default"]),
-    )
-
-
 def _app_font() -> QFont:
-    fonts = app_fonts()
-    return QFont(fonts.family, fonts.size)
+    fonts = get_theme().ui.fonts
+    return QFont(fonts.family_default, fonts.size_default)
 
 
 def apply_theme(app: QApplication, variant: str) -> None:

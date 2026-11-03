@@ -153,9 +153,25 @@ toast_error_color = "toast_error_bg"
 family_default = "Sans Serif"
 size_default = 9
 family_monospace = "Monospace"
+# Keypad key font range (pt)
+keypad_min_pt = 8
+keypad_max_pt = 16
+# Menu bar font (px)
+menu_size = 14
+# Searchable picker font (pt)
+picker_size = 9
 
 [style]
 tooltip_padding = 2
+icon_padding = 4
+# Base keypad button padding (px)
+button_padding = 0
+# Corner radii (px)
+key_radius = 2
+icon_button_radius = 2
+tooltip_radius = 2
+option_radius = 2
+spinbox_radius = 2
 
 # OptionGroup (reusable radio-button group) style
 [style.option_group]
@@ -251,13 +267,7 @@ science_grid_stretch = 4
 
 column_split = 3
 
-min_pt = 8
-max_pt = 16
-
 keypad_stretch = 5
-
-# Base keypad button padding (px)
-button_padding = 0
 
 # Pause in resizing after which the key fonts and corner radius are fitted again
 resize_debounce_ms = 30
@@ -349,7 +359,6 @@ memory_pad_x = 14
 # Menu bar
 # ---------------------------------------------------------------------------
 [manubar.style]
-menu_font_size = 14
 item_padding_horizontal = 12
 item_padding_vertical = 4
 item_margin = 2

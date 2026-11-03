@@ -24,7 +24,7 @@ from typing import Optional
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
-from ...config import calc_config
+from ...config import CONFIG
 from .display.display import Display
 from .topbar import TopBar
 
@@ -43,7 +43,7 @@ class CalcWidget(QWidget):
 
         # Display
         self.display = Display(parent=self)
-        layout.addWidget(self.display, calc_config["layout"]["display_stretch"])
+        layout.addWidget(self.display, CONFIG.calc.layout.display_stretch)
 
         # Top bar (angle + memory)
         self.topbar = TopBar(parent=self)

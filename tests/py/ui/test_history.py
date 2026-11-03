@@ -14,7 +14,7 @@ from PySide6.QtCore import QPoint, Qt
 from tcalc.app_state import RenderMode, get_app_state
 from tcalc.core.parser import tokenize
 from tcalc.theme import load_theme
-from tcalc.ui.config import history_style as style
+from tcalc.ui.config import CONFIG
 from tcalc.ui.styles import apply_theme
 from tcalc.ui.widgets.history.history import History, HistoryItem
 from tcalc.ui.widgets.history.storage import HistoryEntry
@@ -218,7 +218,7 @@ class TestHistoryItemWidget:
         assert isinstance(w, HistoryItem)
         assert w.expression_label.alignment() & Qt.AlignmentFlag.AlignRight
         assert w.result_label.alignment() & Qt.AlignmentFlag.AlignRight
-        assert w.minimumHeight() >= int(style["item_min_height"])
+        assert w.minimumHeight() >= CONFIG.history.style.item_min_height
 
     def test_action_buttons_toggle(self, history, qapp):
         _add(history, "1+2", "3", qapp)
@@ -241,7 +241,7 @@ class TestHistoryItemWidget:
         _add(history, "1+2", "3", qapp)
 
         item = history.list.item(0)
-        assert item.sizeHint().height() >= int(style["item_min_height"])
+        assert item.sizeHint().height() >= CONFIG.history.style.item_min_height
 
     def test_long_expression_taller_than_short(self, history, qapp):
         _add(history, "1+2", "3", qapp)
