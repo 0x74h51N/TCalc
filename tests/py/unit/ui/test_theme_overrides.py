@@ -56,6 +56,24 @@ def _restore_dark():
             id="spacing unknown name",
         ),
         param(
+            '[spacing]\ntooltip_radius = 7\nkey_radius = "9"\nfrac_toggle_radius = 40\n',
+            lambda t: (
+                t.ui.style.key_radius,
+                t.ui.style.tooltip_radius,
+                t.ui.calc.display.result.frac_toggle_radius,
+            ),
+            (CONFIG.style.key_radius, 7, 40),
+            "theme user [spacing].key_radius: expected int, got str",
+            id="spacing good, wrong type, good",
+        ),
+        param(
+            '[fonts]\nsize_default = 11\n[[spacing]]\nkey_radius = 9\n[colors]\nprimary = "#ff0000"\n',
+            lambda t: (t.ui.style.key_radius, t.ui.fonts.size_default, t.colors["primary"]),
+            (CONFIG.style.key_radius, 11, "#ff0000"),
+            "theme user [spacing]: expected a table, got list",
+            id="good table, array, good table",
+        ),
+        param(
             "[[fonts]]\nsize_default = 30\n[spacing]\nkey_radius = 7\n",
             lambda t: (t.ui.fonts.size_default, t.ui.style.key_radius),
             (CONFIG.fonts.size_default, 7),
