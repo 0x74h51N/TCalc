@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 import dataclasses
+import functools
 import logging
+from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, get_args, get_origin, get_type_hints
@@ -18,6 +20,9 @@ if TYPE_CHECKING:
 
 _log = logging.getLogger(__name__)
 
+# The annotations are strings (postponed), and get_type_hints compiles them again on every call
+_hints = functools.cache(get_type_hints)
+
 
 class TableError(Exception):
     """A table that does not match its dataclass."""
@@ -25,59 +30,52 @@ class TableError(Exception):
 
 def build[T: DataclassInstance](cls: type[T], table: object, where: str) -> T:
     """*table* as a *cls*; a missing, unknown or wrongly typed key raises a TableError."""
-    table = _table(table, where)
-    hints = get_type_hints(cls)
-    for key in table:
-        if key not in hints:
-            raise TableError(f"{where}.{key}: unknown key")
-    values: dict[str, Any] = {}
+    converted, errors = _convert_keys(table, _hints(cls).get, where)
+    if errors:
+        raise errors[0]
     for field in dataclasses.fields(cls):
-        if field.name in table:
-            values[field.name] = _convert(
-                table[field.name], hints[field.name], f"{where}.{field.name}"
-            )
-        elif field.default is dataclasses.MISSING and field.default_factory is dataclasses.MISSING:
+        missing = field.default is dataclasses.MISSING
+        if missing and field.default_factory is dataclasses.MISSING and field.name not in converted:
             raise TableError(f"{where}.{field.name}: missing")
-    return cls(**values)
+    return cls(**converted)
 
 
 def override[T: DataclassInstance](obj: T, table: object, where: str) -> T:
     """*obj* with the keys of *table* applied; a bad key is logged and skipped, never raised."""
-    hints = get_type_hints(type(obj))
-    changed: dict[str, Any] = {}
-    for key, value in _logged_table(table, where).items():
-        try:
-            if key not in hints:
-                raise TableError(f"{where}.{key}: unknown key")
-            changed[key] = _convert(value, hints[key], f"{where}.{key}")
-        except TableError as error:
-            _log.warning("%s", error)
-    return dataclasses.replace(obj, **changed)
+    converted, errors = _convert_keys(table, _hints(type(obj)).get, where)
+    _log_all(errors)
+    return dataclasses.replace(obj, **converted)
 
 
 def values[V](table: object, kind: type[V], where: str) -> dict[str, V]:
     """The values of *table*, all of type *kind*; a wrongly typed one is logged and skipped."""
-    result: dict[str, V] = {}
-    for key, value in _logged_table(table, where).items():
-        try:
-            result[key] = _convert(value, kind, f"{where}.{key}")
-        except TableError as error:
-            _log.warning("%s", error)
-    return result
+    converted, errors = _convert_keys(table, lambda _key: kind, where)
+    _log_all(errors)
+    return converted
 
 
-def _logged_table(table: object, where: str) -> dict[str, Any]:
-    try:
-        return _table(table, where)
-    except TableError as error:
-        _log.warning("%s", error)
-        return {}
-
-
-def _table(table: object, where: str) -> dict[str, Any]:
+def _convert_keys(
+    table: object, hint_of: Callable[[str], Any], where: str
+) -> tuple[dict[str, Any], list[TableError]]:
     if not isinstance(table, dict):
-        raise TableError(f"{where}: expected a table, got {type(table).__name__}")
-    return table
+        return {}, [TableError(f"{where}: expected a table, got {type(table).__name__}")]
+    converted: dict[str, Any] = {}
+    errors: list[TableError] = []
+    for key, value in table.items():
+        hint = hint_of(key)
+        if hint is None:
+            errors.append(TableError(f"{where}.{key}: unknown key"))
+            continue
+        try:
+            converted[key] = _convert(value, hint, f"{where}.{key}")
+        except TableError as error:
+            errors.append(error)
+    return converted, errors
+
+
+def _log_all(errors: list[TableError]) -> None:
+    for error in errors:
+        _log.warning("%s", error)
 
 
 def _convert(value: object, hint: Any, where: str) -> Any:
