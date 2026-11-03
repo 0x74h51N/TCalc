@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.core.utils import CalcValue
-from tcalc.ui.config import calc_config
+from tcalc.ui.config import ResultConfig
 from tcalc.ui.widgets.common.button import IconButton
 from tcalc.ui.widgets.history.utils import wrap_expression
 from tcalc.ui.widgets.math import ExpressionSlot, InputKind, MathRender
@@ -28,12 +28,12 @@ from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
 
 
 class Result(QWidget):
-    def __init__(self, parent: QWidget, config: calc_config):
+    def __init__(self, parent: QWidget, config: ResultConfig):
         super().__init__(parent)
 
         self._config = config
 
-        self.setFixedHeight(self._config["height"])
+        self.setFixedHeight(self._config.height)
         self._layout = QVBoxLayout()
         self._layout.setContentsMargins(0, 0, 0, 0)
         self._layout.setSpacing(2)
@@ -49,7 +49,7 @@ class Result(QWidget):
         )
 
         self._result_font = QFont()
-        self._result_font.setPointSize(self._config["font_size"])
+        self._result_font.setPointSize(self._config.font_size)
         self._result_font.setBold(True)
 
         self.result_label = QLabel("0")
@@ -74,16 +74,16 @@ class Result(QWidget):
         self._row_layout.addWidget(self._result_scroll, 1)
         self._res_slot.hide()
         self._row_layout.addWidget(self._res_slot, 1)
-        btn_size = self._config["btn_size"]
-        btn_padding = self._config["btn_padding"]
+        btn_size = self._config.btn_size
+        btn_padding = self._config.btn_padding
         self._frac_btn_tooltip = "Show as fraction"
         self._decimal_tooltip = "Show as decimal"
         self._frac_btn = IconButton(
-            icon_name=self._config["frac_icon"],
+            icon_name=self._config.frac_icon,
             tooltip=self._frac_btn_tooltip,
             size=btn_size,
             padding=btn_padding,
-            tint_key="fraction_icon_color",
+            tint=lambda u: u.fraction_icon_color,
             parent=self,
         )
         self._frac_btn.setObjectName("fracToggleBtn")
@@ -93,7 +93,7 @@ class Result(QWidget):
 
         self._resize_timer = QTimer(self)
         self._resize_timer.setSingleShot(True)
-        self._resize_timer.setInterval(int(self._config.get("resize_debounce_ms", 30)))
+        self._resize_timer.setInterval(self._config.resize_debounce_ms)
         self._resize_timer.timeout.connect(self._on_resize_settled)
 
         self.status_label = QLabel("", self)
@@ -152,7 +152,7 @@ class Result(QWidget):
 
     def _sync_fraction_ui(self) -> None:
         self._frac_btn.update_icon(
-            self._config["decimal_icon"] if self._frac_visible else self._config["frac_icon"]
+            self._config.decimal_icon if self._frac_visible else self._config.frac_icon
         )
         self._frac_btn.update_tooltip(
             self._decimal_tooltip if self._frac_visible else self._frac_btn_tooltip
@@ -180,9 +180,9 @@ class Result(QWidget):
         self.result_label.show()
 
     def _update_fonts(self) -> None:
-        norm = self._config["font_norm"]
-        base_font = self._config["font_size"]
-        max_pt = int(self._config["max_pt"])
+        norm = self._config.font_norm
+        base_font = self._config.font_size
+        max_pt = self._config.max_pt
         line_edits = self._res_slot.line_edits()
         self._res_render.update_line_fonts(line_edits, self, base_font - norm, max_pt - norm)
         for le in line_edits:

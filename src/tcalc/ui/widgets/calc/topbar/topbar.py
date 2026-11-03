@@ -11,10 +11,10 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.app_state import AngleUnit
+from tcalc.theme import get_theme
 from tcalc.ui.widgets.common import KeyButton, OptionGroup
 from tcalc.ui.widgets.common.types import KeyDef
 
-from ....config import calc_config
 from ...keypad.utils import (
     add_keys_to_grid,
     handle_button_clicked,
@@ -32,16 +32,16 @@ class TopBar(QWidget):
 
         self._buttons: dict[str, QPushButton] = {}
 
-        topbar = calc_config["topbar"]
+        topbar = get_theme().ui.calc.topbar
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(
-            topbar["side_margin"],
-            topbar["top_margin"],
-            topbar["side_margin"],
-            topbar["bottom_margin"],
+            topbar.side_margin,
+            topbar.top_margin,
+            topbar.side_margin,
+            topbar.bottom_margin,
         )
-        layout.setSpacing(topbar["grid_spacing"])
+        layout.setSpacing(topbar.grid_spacing)
 
         self._angle_group = OptionGroup(
             options=ANGLE_OPTIONS,
@@ -56,13 +56,13 @@ class TopBar(QWidget):
         self._angle_group.selection_changed.connect(self.angle_changed)
         layout.addWidget(self._angle_group)
 
-        layout.addStretch(int(topbar["spacer_stretch"]))
+        layout.addStretch(topbar.spacer_stretch)
 
         # Memory keys
         self._memory_widget = QWidget(self)
         self._memory_widget.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
-        memory_grid = make_grid(topbar["grid_spacing"], self._memory_widget)
+        memory_grid = make_grid(topbar.grid_spacing, self._memory_widget)
         add_keys_to_grid(MEMORY_L_KEYS, memory_grid, self._add_key)
         layout.addWidget(self._memory_widget)
 

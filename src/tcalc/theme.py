@@ -2,18 +2,23 @@
 # Central theme configuration: one config file per theme
 from __future__ import annotations
 
+import dataclasses
 import logging
 import re
 import tomllib
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QStandardPaths, Qt
 from PySide6.QtGui import QColor
 
-from tcalc.ui.config import color_usage_config
+from tcalc.typed_tables import TableError, build, override, values
+from tcalc.ui.config import CONFIG, STYLESHEET_TABLES, ColorUsage, StyleTable, UiConfig, int_fields
+
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
 
 _log = logging.getLogger(__name__)
 
@@ -159,19 +164,6 @@ class ThemePicture:
     margin: int = 0  # px from the component's edges
     tint: str = ""  # theme color key to repaint the picture in; empty keeps its colors
 
-    @classmethod
-    def from_config(cls, folder: Path, table: dict[str, Any]) -> ThemePicture:
-        return cls(
-            file=folder / table["file"],
-            target=PictureTarget(table["target"]),
-            position=PicturePosition(table.get("position", PicturePosition.CENTER.value)),
-            size=float(table.get("size", 1.0)),
-            fit=PictureFit(table.get("fit", PictureFit.CONTAIN.value)),
-            opacity=float(table.get("opacity", 1.0)),
-            margin=int(table.get("margin", 0)),
-            tint=table.get("tint", ""),
-        )
-
 
 class ThemeError(Exception):
     """A theme file that cannot be used."""
@@ -190,16 +182,14 @@ def custom_themes() -> dict[str, str]:
 
 
 class Theme:
-    """A theme: colors, spacing (corner radii...) and font overrides from its config file."""
+    """A theme: its colors, and the UI config with its overrides, resolved once on load."""
 
     variant: str
     name: str
     base: str
+    colors: dict[str, str]
+    ui: UiConfig
     pictures: tuple[ThemePicture, ...]
-    fonts: dict[str, Any]
-    colors: dict[str, Any]
-    color_usage: dict[str, str]
-    spacing: dict[str, Any]
 
     def __init__(self, variant: str = "dark"):
         data = _read(variant)
@@ -213,38 +203,85 @@ class Theme:
         if self.base not in BUILT_IN_VARIANTS:
             raise ThemeError(f"base must be one of {BUILT_IN_VARIANTS}, not {self.base!r}")
         base = _read(self.base) if self.base != variant else {}
-        # Pictures behind components, from files in the theme's folder
-        try:
-            self.pictures = tuple(
-                ThemePicture.from_config(_folder(variant), table)
-                for table in data.get("pictures", [])
-            )
-        except (KeyError, ValueError, TypeError) as e:
-            raise ThemeError(f"bad [[pictures]] entry: {e}") from e
-        # Overrides of the UI config's [fonts]
-        self.fonts = {**base.get("fonts", {}), **data.get("fonts", {})}
-        self.colors = {**base.get("colors", {}), **data.get("colors", {})}
-        # Which color each place uses: the UI config's [color_usage] with the theme's overrides
-        self.color_usage = {
-            **color_usage_config,
-            **base.get("color_usage", {}),
-            **data.get("color_usage", {}),
+        where = f"theme {variant}"
+        self.colors = {
+            **values(base.get("colors", {}), str, f"theme {self.base} [colors]"),
+            **values(data.get("colors", {}), str, f"{where} [colors]"),
         }
-        self.spacing = {**base.get("spacing", {}), **data.get("spacing", {})}
-        for picture in self.pictures:
+        self.ui = _spacing(
+            dataclasses.replace(
+                CONFIG,
+                fonts=override(CONFIG.fonts, data.get("fonts", {}), f"{where} [fonts]"),
+                color_usage=self._color_usage(
+                    data.get("color_usage", {}), f"{where} [color_usage]"
+                ),
+            ),
+            data.get("spacing", {}),
+            f"{where} [spacing]",
+        )
+        self.pictures = self._pictures(data.get("pictures", []), f"{where} [[pictures]]")
+
+    def _color_usage(self, table: object, where: str) -> ColorUsage:
+        usage = override(CONFIG.color_usage, table, where)
+        missing = {
+            place: color
+            for place, color in dataclasses.asdict(usage).items()
+            if color not in self.colors
+        }
+        for place, color in missing.items():
+            _log.warning("%s.%s: %r is not one of its colors", where, place, color)
+        defaults = dataclasses.asdict(CONFIG.color_usage)
+        return dataclasses.replace(usage, **{place: defaults[place] for place in missing})
+
+    def _pictures(self, entries: object, where: str) -> tuple[ThemePicture, ...]:
+        if not isinstance(entries, list):
+            _log.warning("%s: expected a list, got %s", where, type(entries).__name__)
+            return ()
+        pictures = []
+        for n, entry in enumerate(entries, 1):
+            try:
+                picture = build(ThemePicture, entry, f"{where} #{n}")
+            except TableError as error:
+                _log.warning("%s", error)
+                continue
             if picture.tint and picture.tint not in self.colors:
-                raise ThemeError(f"picture tint {picture.tint!r} is not one of its colors")
+                _log.warning("%s #%d.tint: %r is not one of its colors", where, n, picture.tint)
+                continue
+            pictures.append(dataclasses.replace(picture, file=_folder(self.variant) / picture.file))
+        return tuple(pictures)
 
-    def color(self, place: str) -> str:
-        """The color *place* uses (a [color_usage] name)."""
-        return self.colors[self.color_usage[place]]
-
-    def qcolor(self, place: str) -> QColor:
-        return qcolor(self.color(place))
+    def qcolor(self, name: str) -> QColor:
+        """Theme color *name* as a QColor."""
+        return qcolor(self.colors[name])
 
     @property
     def scheme(self) -> Qt.ColorScheme:
         return Qt.ColorScheme.Light if self.base == "light" else Qt.ColorScheme.Dark
+
+
+def _spacing(ui: UiConfig, table: object, where: str) -> UiConfig:
+    """*ui* with a theme's [spacing] applied; a name is a STYLESHEET_TABLES row's prefix and field."""
+    owners = {
+        row.prefix + field: (row, field)
+        for row in STYLESHEET_TABLES
+        for field in int_fields(row.table(ui))
+    }
+    changed: dict[StyleTable, dict[str, int]] = {}
+    for name, value in values(table, int, where).items():
+        if name not in owners:
+            _log.warning("%s.%s: unknown name", where, name)
+            continue
+        row, field = owners[name]
+        changed.setdefault(row, {})[field] = value
+    for row, fields in changed.items():
+        ui = _replaced(ui, row.path, dataclasses.replace(row.table(ui), **fields))
+    return ui
+
+
+def _replaced[T: DataclassInstance](obj: T, path: tuple[str, ...], value: object) -> T:
+    head, *rest = path
+    inner = _replaced(getattr(obj, head), tuple(rest), value) if rest else value
+    return dataclasses.replace(obj, **{head: inner})
 
 
 def _folder(variant: str) -> Path:

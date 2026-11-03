@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TypedDict
 
 import calc_native
 
@@ -15,10 +14,29 @@ class ShiftedDef:
     tooltip: str = ""
 
 
-class KeySettings(TypedDict, total=False):
-    operation: str
-    bg_color: str
-    text_color: str
+@dataclass(frozen=True, slots=True)
+class KeySettings:
+    """A custom pad key as saved: an Operation or ConstId name, and its colors."""
+
+    operation: str = ""
+    bg_color: str = ""
+    text_color: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class GridLayout:
+    max_rows: int
+    keys: tuple[KeySettings, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PadLayout:
+    """A custom pad's saved layout."""
+
+    label: str
+    cols: int
+    rows: int
+    grids: tuple[GridLayout, ...]
 
 
 @dataclass
@@ -47,11 +65,6 @@ class KeyDef:
         )
 
     def to_settings(self) -> KeySettings:
-        data: KeySettings = {}
-        if isinstance(self.operation, (Operation, calc_native.ConstId)):
-            data["operation"] = self.operation.name
-        if self.bg_color:
-            data["bg_color"] = self.bg_color
-        if self.text_color:
-            data["text_color"] = self.text_color
-        return data
+        operation = self.operation
+        name = operation.name if isinstance(operation, (Operation, calc_native.ConstId)) else ""
+        return KeySettings(name, self.bg_color, self.text_color)

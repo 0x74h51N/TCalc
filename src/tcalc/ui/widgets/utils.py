@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
 
 from tcalc.theme import get_theme
 
-from ..config import keypad_config
+from ..config import CONFIG
 
 # Widget size range for font interpolation
 MIN_DIM = 100
@@ -54,7 +54,7 @@ def _fitted_key_radius(keys: Iterable[QWidget]) -> int | None:
     sides = [min(key.width(), key.height()) for key in keys if not key.isHidden()]
     if not sides:  # a custom grid with no keys yet
         return None
-    return min(int(get_theme().spacing["key_radius"]), min(sides) // 2)
+    return min(get_theme().ui.style.key_radius, min(sides) // 2)
 
 
 def _set_key_radius(container: QWidget, radius: int) -> None:
@@ -72,7 +72,7 @@ def key_fit_timer(container: QWidget, fit: Callable[[], None]) -> QTimer:
     """Keys reach their size after the layout runs, and a drag resizes many times."""
     timer = QTimer(container)
     timer.setSingleShot(True)
-    timer.setInterval(int(keypad_config["resize_debounce_ms"]))
+    timer.setInterval(CONFIG.keypad.resize_debounce_ms)
     timer.timeout.connect(fit)
     return timer
 

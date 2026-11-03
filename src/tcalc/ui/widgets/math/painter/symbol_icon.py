@@ -18,6 +18,7 @@ from PySide6.QtGui import (
 
 from tcalc.core.constants import strip_subscript
 from tcalc.theme import get_theme
+from tcalc.ui.config import ColorPlace
 from tcalc.ui.utils import theme_icon
 
 from ..math_primitives import PEN_WIDTH
@@ -74,7 +75,11 @@ def render_symbol(symbol: str, color: QColor, box: QSize) -> QIcon:
     return icon
 
 
-def theme_symbol_icon(symbol: str, place: str) -> QIcon:
-    """*symbol* drawn in the color *place* uses (a [color_usage] name); follows theme switches
-    on its own."""
-    return theme_icon(lambda: render_symbol(symbol, get_theme().qcolor(place), ICON_BOX))
+def theme_symbol_icon(symbol: str, place: ColorPlace) -> QIcon:
+    """*symbol* drawn in the color of the place *place* picks; follows theme switches on its own."""
+
+    def build() -> QIcon:
+        theme = get_theme()
+        return render_symbol(symbol, theme.qcolor(place(theme.ui.color_usage)), ICON_BOX)
+
+    return theme_icon(build)

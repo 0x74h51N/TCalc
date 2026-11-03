@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QWidget
 
 from tcalc.core.native_eval import evaluate_branch
 from tcalc.core.parser import tokenize
-from tcalc.ui.config import calc_config
+from tcalc.ui.config import CONFIG
 from tcalc.ui.widgets.calc.display.result.result import Result
 
 
@@ -21,7 +21,7 @@ def _coll(expr: str):
 @pytest.fixture
 def result_widget(qapp):
     parent = QWidget()
-    w = Result(parent, calc_config["display"]["result"])
+    w = Result(parent, CONFIG.calc.display.result)
     parent.show()
     qapp.processEvents()
     yield w

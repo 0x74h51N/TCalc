@@ -25,10 +25,9 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.app_state import RenderMode, get_app_state
-from tcalc.theme import PictureTarget
-from tcalc.ui.config import history_math
-from tcalc.ui.config import history_style as style
-from tcalc.ui.styles import app_fonts, theme_events
+from tcalc.theme import PictureTarget, get_theme
+from tcalc.ui.config import CONFIG
+from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.common.utils import Align
 from tcalc.ui.widgets.math import MathPainter, PaintCanvas
@@ -39,6 +38,8 @@ from ..common.picture_layer import PictureLayer
 from .storage import HistoryEntry, clear_history_file, load_history, save_history
 from .style import apply_history_style
 from .utils import wrap_expression
+
+style = CONFIG.history.style
 
 _log = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ class History(QWidget):
 
         btn_container = QHBoxLayout()
 
-        btn_margin = style["btn_margin"]
+        btn_margin = style.btn_margin
         btn_container.setContentsMargins(0, btn_margin, 0, 0)
 
         # History item render modes
@@ -97,7 +98,7 @@ class History(QWidget):
 
         btn_container.addWidget(self._history_modes)
 
-        btn_container.addStretch(int(style["button_spacer_stretch"]))
+        btn_container.addStretch(style.button_spacer_stretch)
 
         # Clear Button
         self.clear_button = IconButton(
@@ -108,7 +109,7 @@ class History(QWidget):
         )
         self.clear_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.clear_button.clicked.connect(self.clear_history)
-        btn_container.addWidget(self.clear_button, int(style["clear_button_stretch"]))
+        btn_container.addWidget(self.clear_button, style.clear_button_stretch)
 
         layout.addLayout(btn_container)
 
@@ -117,7 +118,7 @@ class History(QWidget):
     def _apply_theme_font(self) -> None:
         # Only the family: the side panel scales the size
         font = self.list.font()
-        font.setFamily(app_fonts().monospace)
+        font.setFamily(get_theme().ui.fonts.family_monospace)
         self.list.setFont(font)
 
     def set_mode(self, mode: RenderMode):
@@ -328,7 +329,7 @@ class HistoryItem(QWidget):
         self.parrent = parrent
         self._entry = entry
         self.setObjectName("historyItem")
-        self.setMinimumHeight(int(style["item_min_height"]))
+        self.setMinimumHeight(style.item_min_height)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding)
 
         self._current_render_mode: RenderMode | None = None
@@ -342,12 +343,12 @@ class HistoryItem(QWidget):
 
         self._display_widget: QWidget
 
-        margin = int(style["item_margin"])
+        margin = style.item_margin
         self._layout.setContentsMargins(margin, margin, margin, margin)
-        self._layout.setSpacing(int(style["item_spacing"]))
+        self._layout.setSpacing(style.item_spacing)
 
         # Action buttons (absolute positioned, bottom-left, outside layout)
-        self._btn_size = int(style["action_btn_size"])
+        self._btn_size = style.action_btn_size
         self._copy_btn = IconButton(
             "edit-copy", tooltip="Copy expression", size=self._btn_size, parent=self
         )
@@ -389,7 +390,7 @@ class HistoryItem(QWidget):
         self.set_display_mode(mode, defer_layout=True)
 
     def _math_paint(self) -> None:
-        base_font = int(history_math["base_font"])
+        base_font = CONFIG.history.math.base_font
         f = QFont(self.parrent.font())
         f.setPointSize(base_font)
         self._font = f
@@ -448,8 +449,8 @@ class HistoryItem(QWidget):
             apply_scaled_fonts(
                 sample,
                 self.expression_label,
-                int(style["expr_min_pt"]),
-                int(style["expr_max_pt"]),
+                style.expr_min_pt,
+                style.expr_max_pt,
             )
 
     def refresh_layout(self) -> None:
@@ -459,8 +460,8 @@ class HistoryItem(QWidget):
         if self.painter.is_painting:
             return
 
-        margin = int(style["item_margin"])
-        spacing = int(style["item_spacing"])
+        margin = style.item_margin
+        spacing = style.item_spacing
         result_h = self.result_label.sizeHint().height()
 
         if self._current_render_mode is RenderMode.MATH:
@@ -488,7 +489,7 @@ class HistoryItem(QWidget):
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
 
-        margin = int(style["item_margin"])
+        margin = style.item_margin
         y = self.height() - margin - self._btn_size
         self._copy_btn.move(margin, y)
         self._remove_btn.move(margin + self._btn_size + margin // 2, y)

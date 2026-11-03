@@ -7,7 +7,7 @@ from PySide6.QtWidgets import QInputDialog, QMenu, QMenuBar, QMessageBox
 
 from tcalc.app_state import get_app_state
 from tcalc.theme import ThemeChoice, ThemeMode, custom_themes
-from tcalc.ui.config import preset_config
+from tcalc.ui.config import CONFIG
 from tcalc.ui.controller.menubar import ViewOperations
 from tcalc.ui.utils import get_icon
 
@@ -83,7 +83,7 @@ class ViewMenu:
             assert isinstance(preset_menu, QMenu)
             # Custom presets are native checkable QActions (identical to the built-in
             # ones); the rename/update/delete bar floats over the active row.
-            bar = CustomPresetActions(preset_config, preset_menu)
+            bar = CustomPresetActions(CONFIG.manubar.preset, preset_menu)
             bar.hide()
             bar.rename_requested.connect(self._on_rename_custom)
             bar.update_requested.connect(self._on_update_custom)
@@ -141,7 +141,7 @@ class ViewMenu:
         active = self.app_state.active_custom_id
         actions = []
         for rec in self.window._layout_presets.list():
-            act = QAction(get_icon(preset_config["row_icon"]), rec.name, menu)
+            act = QAction(get_icon(CONFIG.manubar.preset.row_icon), rec.name, menu)
             act.setCheckable(True)
             act.setChecked(rec.id == active)
             act.triggered.connect(lambda _=False, i=rec.id: self._on_apply_custom(i))
@@ -212,7 +212,7 @@ class ViewMenu:
             return
         bar = self._preset_bar
         bar.adjustSize()
-        offset = int(preset_config["bar_offset"])
+        offset = CONFIG.manubar.preset.bar_offset
         bar.move(
             rect.right() - bar.width() - offset, rect.y() + (rect.height() - bar.height()) // 2
         )

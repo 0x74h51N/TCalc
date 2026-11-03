@@ -35,9 +35,12 @@ from tcalc.ui.widgets.common.picture_layer import (
 )
 
 
-def test_config_defaults():
-    picture = ThemePicture.from_config(Path("t"), {"file": "a.svg", "target": "display"})
-    assert picture == ThemePicture(Path("t/a.svg"), PictureTarget.DISPLAY)
+def test_config_defaults(write_theme, _user_themes):
+    theme = load_theme(write_theme('[[pictures]]\nfile = "a.svg"\ntarget = "display"\n'))
+    try:
+        assert theme.pictures == (ThemePicture(_user_themes / "user/a.svg", PictureTarget.DISPLAY),)
+    finally:
+        load_theme("dark")
 
 
 def test_top_right_contain_sits_in_the_corner_inside_the_margin():
