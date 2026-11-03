@@ -102,6 +102,12 @@ def test_build(table, expected):
             "theme.i: expected int, got str",
             id="wrong type skipped",
         ),
+        param(
+            {"s": "b", "i": "5", "b": False},
+            {"s": "b", "b": False},
+            "theme.i: expected int, got str",
+            id="good, wrong type, good",
+        ),
         param([{"i": 5}], {}, "theme: expected a table, got list", id="not a table skipped"),
     ],
 )
