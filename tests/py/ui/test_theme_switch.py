@@ -23,6 +23,7 @@ from tcalc.core.ops import Operation
 from tcalc.core.parser import tokenize
 from tcalc.theme import ThemeChoice, ThemeMode, get_theme, load_theme
 from tcalc.ui.icon import Icon
+from tcalc.ui.look import ColorName
 from tcalc.ui.props import KeypadRole, Prop, UiRole
 from tcalc.ui.styles import apply_theme, sync_theme
 from tcalc.ui.widgets.calc.display.display import Display
@@ -383,6 +384,45 @@ def test_a_radius_above_the_widget_is_as_round_as_it_fits(qtbot, round_theme, wi
     assert _fully_round(widget)
 
 
+@pytest.fixture
+def edged_theme(_user_themes) -> str:
+    """A dark-based user theme with a raised edge on every button area."""
+    folder = _user_themes / "edged"
+    folder.mkdir(parents=True)
+    tables = ["[keypad]", "[memory]", "[options]", "[history.mode]"]
+    edge = 'edge_width = 2\nedge_light_color = "accent_text"\n'
+    body = "".join(f"{table}\n{edge}" for table in tables)
+    (folder / "theme.toml").write_text(f'name = "Edged"\nbase = "dark"\n{body}')
+    return "edged"
+
+
+def _option(window, text: str) -> QWidget:
+    return next(b for b in window.findChildren(QRadioButton) if b.text() == text)
+
+
+@pytest.mark.parametrize("window", [{"theme": "edged"}], indirect=True)
+@pytest.mark.parametrize(
+    "shown",
+    [
+        param(lambda w: w.findChild(MainKeypad).findChildren(KeyButton)[0], id="keypad key"),
+        param(lambda w: w.findChild(TopBar).get_button("MC"), id="memory button"),
+        param(lambda w: _option(w, "Rad"), id="option group"),
+        param(lambda w: _option(w, "Math"), id="history modes"),
+    ],
+)
+def test_raised_edge_reaches_every_button_area(qtbot, edged_theme, window, shown):
+    widget = shown(window)
+    parent = widget
+    while parent is not None:
+        parent.show()
+        parent = parent.parentWidget()
+    qtbot.wait(KEY_SETTLE_MS)
+    top = widget.window()
+    origin = widget.mapTo(top, widget.rect().topLeft())
+    edge = top.grab().toImage().pixelColor(origin.x() + widget.width() // 2, origin.y())
+    assert edge.name().upper() == get_theme().qcolor(ColorName("accent_text")).name().upper()
+
+
 @pytest.mark.parametrize(
     "make",
     [
@@ -394,9 +434,7 @@ def test_a_radius_above_the_widget_is_as_round_as_it_fits(qtbot, round_theme, wi
         ),
         param(lambda host: IconButton(Icon.EDIT_COPY, "Copy", parent=host), id="icon button"),
         param(
-            lambda host: OptionGroup(
-                [(1, "A")], 1, lambda look: look.options.radius, host
-            ).buttons()[1],
+            lambda host: OptionGroup([(1, "A")], 1, lambda look: look.options, host).buttons()[1],
             id="option",
         ),
         param(lambda host: KSSpinBox("x", "Rows", 1, 9, 3, QFont(), parent=host), id="spin box"),

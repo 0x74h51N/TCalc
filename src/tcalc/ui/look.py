@@ -84,6 +84,9 @@ class MemoryLook:
     pad_y: int
     pad_x: int
     radius: int
+    edge_width: int
+    edge_light_color: ColorName
+    edge_shadow_color: ColorName
     font_size: int
     max_pt: int
 
@@ -109,6 +112,9 @@ class KeypadLook:
     disabled_text_color: ColorName
     symbol_color: ColorName
     radius: int
+    edge_width: int
+    edge_light_color: ColorName
+    edge_shadow_color: ColorName
     button_padding: int
     compact_pad_y: int
     compact_pad_x: int
@@ -173,6 +179,9 @@ class OptionsLook:
     checked_color: ColorName
     checked_text_color: ColorName
     radius: int
+    edge_width: int
+    edge_light_color: ColorName
+    edge_shadow_color: ColorName
     padding_y: int
     padding_x: int
     font_size: int

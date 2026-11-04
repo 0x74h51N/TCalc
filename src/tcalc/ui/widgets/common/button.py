@@ -25,13 +25,13 @@ from PySide6.QtWidgets import (
 from tcalc.theme import get_theme
 from tcalc.ui.config import PresetConfig
 from tcalc.ui.icon import Icon
-from tcalc.ui.look import ColorPlace, Look
+from tcalc.ui.look import ColorPlace, Look, OptionsLook
 from tcalc.ui.props import KeypadRole, OptionRole, Prop, UiRole
 from tcalc.ui.styles import theme_events
 from tcalc.ui.utils import get_icon
 from tcalc.ui.widgets.math.painter.symbol_icon import ICON_BOX, needs_math_render, theme_symbol_icon
 
-from ..utils import fit_radius, key_fit_timer, round_tooltip, shortest_side
+from ..utils import fit_radius, key_fit_timer, round_tooltip, set_raised, shortest_side
 from .types import KeyDef
 
 
@@ -127,16 +127,17 @@ class OptionGroup(QWidget):
         self,
         options: Sequence[tuple[object, str]],
         current: object,
-        radius: Callable[[Look], int],
+        look: Callable[[Look], OptionsLook],
         parent: QWidget | None = None,
         tooltips: Mapping[object, str] | None = None,
     ) -> None:
         super().__init__(parent)
-        self._radius = radius
+        self._look = look
         self._applied_radius: int | None = None
         # The buttons take their size from the layout and the theme font
         self._fit_timer = key_fit_timer(self, self._fit_radius)
         theme_events.applied.connect(self._fit_timer.start)
+        theme_events.applied.connect(self._update_raised)
 
         sp = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         sp.setRetainSizeWhenHidden(False)
@@ -164,11 +165,15 @@ class OptionGroup(QWidget):
             self._buttons[current].setChecked(True)
 
         self._group.buttonToggled.connect(self._on_toggled)
+        self._update_raised()
+
+    def _update_raised(self) -> None:
+        set_raised(self, self._look(get_theme().look).edge_width > 0)
 
     def _fit_radius(self) -> None:
         side = shortest_side(self._buttons.values())
         if side is not None:
-            radius = self._radius(get_theme().look)
+            radius = self._look(get_theme().look).radius
             self._applied_radius = fit_radius(
                 self, OPTION_SELECTOR, radius, side, self._applied_radius
             )

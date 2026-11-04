@@ -33,6 +33,7 @@ VALUES: dict[Prop, type[Enum] | type[bool]] = {
     Prop.EXPR_SLOT: bool,
     Prop.EXPR_INPUT: bool,
     Prop.CUSTOM_PAD_MENU: bool,
+    Prop.RAISED: bool,
 }
 _QSS_SELECTOR = re.compile(r'[\w#\]]\[(\w+)(?:="([^"]*)")?\]')
 # In Python only a stylesheet string names a Qt class before the bracket

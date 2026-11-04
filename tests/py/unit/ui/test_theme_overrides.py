@@ -182,15 +182,16 @@ def test_look_override_reaches_stylesheet_and_python(write_theme):
 # shared icon button rule is fixed (retro and sponge lose their radius) and the history item
 # buttons get their own rules; the option, history button, fraction and toast radii leave the
 # stylesheet, since Python fits them to the widget; their raised edge's shadow is a fixed dark
-# color, not background_dark (white in light)
+# color, not background_dark (white in light); keys, memory and option buttons get raised
+# edge rules that apply only under a theme with an edge width
 @pytest.mark.parametrize(
     "variant, sha256",
     [
-        ("light", "db8747e04f70e69b831a3e0b152245a79e6b238eeb649ebc4a1ef8f3fdda7b48"),
-        ("dark", "aec503593914c32f6e242b7d3a9a7ac5415d0839e023aed3d6df0d78e5f7a14a"),
-        ("kitty", "0d6fc4ecf40355a3facab6102da66be8c0352f23f9d544fb8ce11f6b87a72206"),
-        ("retro", "48f4d1933bc3093efe5935bf9ee609fc0ecd867c0b9cbb5921eebb7620e35f85"),
-        ("sponge", "566c1448f223d2c12cbbab40257228299f6a1cbb9fc93e9eee5dac6d9787075a"),
+        ("light", "558812b732395425547f824c561561ac2656f6a9c610536ea11adcc45248d5ac"),
+        ("dark", "44c20c9c3bebd364a5897311527e19d1d01f1514983deb613af526c6719cbc4f"),
+        ("kitty", "c441457edf11d8717c9aad4313f4885357623e25dcf8417e0737f0dbadb77e56"),
+        ("retro", "1250de8f967302faf878341bd233a6df611657d73ffb8ab60423d78280de1506"),
+        ("sponge", "69a7f7ef8762b52762de13a5989720e4d0973653b072764460bb034ba12a6988"),
     ],
 )
 def test_bundled_themes_style_unchanged(variant, sha256):

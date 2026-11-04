@@ -24,6 +24,7 @@ class Prop(StrEnum):
     EXPR_SLOT = "exprSlot"
     EXPR_INPUT = "exprInput"
     CUSTOM_PAD_MENU = "customPadMenu"
+    RAISED = "raised"
 
 
 class UiRole(StrEnum):

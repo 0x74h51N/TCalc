@@ -57,3 +57,17 @@ QRadioButton[optionRole="option"]:checked {
     background-color: $options_checked_color;
     color: $options_checked_text_color;
 }
+
+/* A border, even 0 px, drops the style's own button frame: edges only where a theme asks */
+QWidget[raised="true"] QRadioButton[optionRole="option"] {
+    border: ${options_edge_width}px solid $options_edge_shadow_color;
+    border-top-color: $options_edge_light_color;
+    border-left-color: $options_edge_light_color;
+}
+
+QWidget[raised="true"] QRadioButton[optionRole="option"]:checked {
+    border-top-color: $options_edge_shadow_color;
+    border-left-color: $options_edge_shadow_color;
+    border-bottom-color: $options_edge_light_color;
+    border-right-color: $options_edge_light_color;
+}

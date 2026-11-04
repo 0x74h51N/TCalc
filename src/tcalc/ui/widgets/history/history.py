@@ -93,7 +93,7 @@ class History(QWidget):
         self._history_modes = OptionGroup(
             [(RenderMode.MATH, "Math"), (RenderMode.FLAT, "Flat"), (RenderMode.RAW, "Raw")],
             self._app_state.history_mode,
-            lambda look: look.history.mode.radius,
+            lambda look: look.history.mode,
             self,
             tooltips={
                 RenderMode.FLAT: "Formatted text",
