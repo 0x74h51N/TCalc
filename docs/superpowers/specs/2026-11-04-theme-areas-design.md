@@ -51,19 +51,19 @@ Today's values by area; the new field name drops the area (`[color_usage] histor
 - `[icons]`: `icon_color` as `color`. `untinted` stays in `config.toml`.
 - `[display]`: `display_background_color`, the four `expression_*` places, `radical_line_color`, `radical_symbol_color`, `status_text_color`, `status_error_text_color`; from `[calc.display]` `divider_height`, `root_border_width`, `expression_font_size`, `expr_max_pt`.
 - `[result]`: `result_text_color`, the three `fraction_button_*` places, `fraction_icon_color`; from `[calc.display.result]` `font_size`, `max_pt`, `btn_padding`, `frac_toggle_radius`.
-- `[memory]`: the six `memory_button_*` places; `[calc.topbar]` `memory_pad_y`, `memory_pad_x`. In the history PR: `[memory.style]` `font_size`, `max_pt`.
+- `[memory]`: the six `memory_button_*` places; `[calc.topbar]` `memory_pad_y`, `memory_pad_x`. In the history part: `[memory.style]` `font_size`, `max_pt`.
 - `[keypad]`: the 22 role key places, `key_hover_border_color`, `key_checked_color`, `key_disabled_color`, `key_disabled_text_color`, `key_symbol_color`; `[style]` `key_radius` and `button_padding`; `[calc.style]` `compact_pad_y`, `compact_pad_x`; `[fonts]` `keypad_min_pt`, `keypad_max_pt`.
 - `[custom_pad]`: `add_key_color`, `add_key_hover_color`, the three `spinbox_*` places, `pad_toolbar_separator_color`, the five `pad_menu_*` places.
 - `[picker]`: the five `picker_*` places; `[fonts]` `picker_size` as `font_size`.
 - `[menu]`: the eight `menu_*` places, `constants_menu_symbol_color`; all of `[manubar.style]`; `[fonts]` `menu_size` as `font_size`.
-- `[history]`: the six `history_*` places. In the history PR: `[history.style]` `font_size`, `max_pt`, `expr_min_pt`, `expr_max_pt`, `clr_btn_min_pt`, `clr_btn_max_pt`, `action_btn_size`; `[history.math]` `base_font`; and the new settings.
+- `[history]`: the six `history_*` places. In the history part: `[history.style]` `font_size`, `max_pt`, `expr_min_pt`, `expr_max_pt`, `clr_btn_min_pt`, `clr_btn_max_pt`, `action_btn_size`; `[history.math]` `base_font`; and the new settings.
 - `[options]`: the four `option_*` places; `[style]` `option_radius`; `[style.option_group]` `padding_y`, `padding_x`.
 - `[icon_button]`: the six `icon_button_*` places; `[style]` `icon_button_radius`, `icon_padding`.
 - `[tooltip]`: the three `tooltip_*` places; `[style]` `tooltip_radius`, `tooltip_padding`.
 - `[toast]`: the four `toast_*` places; all of `[toast]`.
-- `[dock]`, `[tabs]`: new, in the last PR.
+- `[dock]`, `[tabs]`: new, in the last part.
 
-**New settings.** `[history]`: expression and result font size ranges and colors (the result gets a range of its own; today it takes the list's font), item button size and color, mode button font size and colors, Clear History colors next to its existing range. `[dock]`: title font size and color, read by `DockTitleBar`. `[tabs]`: background, text, selected and hover colors, radius and font size of the tab bar of tabified docks, a new `QTabBar` rule in the window's QSS. `[options]`: font size. Each default is what the widget shows today (a size that comes from the app font is written out as `size_default`'s value), so no bundled theme changes unless it sets one.
+**New settings.** `[history]`: expression and result font size ranges and colors (the result gets a range of its own; today it takes the list's font), item button size and color, the mode buttons as a `[history.mode]` table of the `[options]` shape (an `OptionsLook`, so a theme may set one key of it), Clear History colors next to its existing range. `[dock]`: title font size and color, read by `DockTitleBar`. `[tabs]`: background, text, selected and hover colors, radius and font size of the tab bar of tabified docks, a new `QTabBar` rule in the window's QSS. `[options]`: font size, added with `[history.mode]` since both share the shape. Each default is what the widget shows today (a size that comes from the app font is written out as `size_default`'s value), so no bundled theme changes unless it sets one.
 
 ## Removed
 
@@ -84,7 +84,7 @@ The converter in `typed_tables.py` types its hints and values instead of `Any`, 
 
 ## Verification
 
-- The restructure PR leaves each bundled theme's built stylesheet byte for byte the same: the hash pins in `test_theme_overrides.py` do not change. The later PRs change a pin only after a diff of the built stylesheets shows nothing but their added rules; the diff goes in the PR.
+- The restructure leaves each bundled theme's built stylesheet byte for byte the same: the hash pins in `test_theme_overrides.py` do not change. The later parts change a pin only after a diff of the built stylesheets shows nothing but their added rules; the diff goes in the PR.
 - A theme that sets one key of an area changes that key and keeps the rest of the area.
 - A theme table naming a behavior value (`[keypad.custom] spin_font_size`) has no effect and is logged.
 - A test per new setting that a theme value reaches the widget and follows a switch between two themes.
@@ -92,4 +92,4 @@ The converter in `typed_tables.py` types its hints and values instead of `Any`, 
 
 ## Delivery
 
-Three PRs, in order: the restructure (two files, `look.py`, area tables, stylesheet names, themes converted, Removed; no new setting), then history and memory, then docks, tabs and options.
+One PR (#201) in three parts, in order: the restructure (two files, `look.py`, area tables, stylesheet names, themes converted, Removed; no new setting), then history, memory and the option groups, then docks and tabs.
