@@ -262,9 +262,9 @@ The owner's review of Task 8 in the running app asked for these; each is one com
 - Test: `tests/py/ui/test_theme_switch.py`
 
 **Interfaces:**
-- Produces: `DockLook` `[dock]`: `title_color` (default `text_primary`), `title_font_size` (default `size_default`'s value). `TabsLook` `[tabs]`: `background_color` (`background`), `text_color` (`text_primary`), `selected_color` (`background_light`), `hover_color` (`selection_background`), `radius` (2), `font_size` (9). Color fields are `ColorName`, sizes `int`. QSS: `QTabBar` rules in `common.qss`; `DockTitleBar`'s label gets an object name the dock rule selects.
+- Produces: `DockLook` `[dock]`: `title_color` (default `text_primary`), `title_font_size` (default `size_default`'s value). `TabsLook` `[tabs]`: `text_color` (`text_primary`), `font_size` (9). Color fields are `ColorName`, sizes `int`. QSS: a `QTabBar::tab` rule in `common.qss`; `DockTitleBar`'s label gets an object name the dock rule selects. A tab background, selected or hover color or a radius drops the style's own tab (`findings/theme-radius.md`), so the tab box moves to #203 with the edges; kitty, retro and sponge set their app font size on both, as their titles and tabs had it.
 
-- [ ] **Step 1: Tests: a theme's `[dock]` values reach a `DockTitleBar` label after `apply_theme`; a stylesheet built with `[tabs] radius = 5` contains the `QTabBar::tab` rule with `5px`**
+- [ ] **Step 1: Test: a theme's `[dock]` values reach a `DockTitleBar` label after `apply_theme`, and its `[tabs]` font size and text color reach the tabs of two tabified docks**
 - [ ] **Step 2: Run, expect FAIL**
 - [ ] **Step 3: Implement**
 - [ ] **Step 4: Run, expect PASS; diff the built stylesheets and update the pins for the added rules only; open the app, tabify two docks and look in each bundled theme**

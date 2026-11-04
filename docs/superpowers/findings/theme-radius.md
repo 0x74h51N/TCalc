@@ -53,3 +53,19 @@ Same drag probe as above, every step a shrink (the worst case), `shrink_key_radi
 
 A `border` in a `QPushButton` or `QRadioButton` rule, even `0px`, makes the style sheet draw the button and drops the Fusion frame: with ungated 0 px edge rules, about 27k of the window's pixels differed in dark and 31k in light against HEAD. The edge rules therefore apply only under `[raised="true"]`, which `set_raised` sets when a theme's `edge_width` is above 0; after that, dark and light grabbed by `grab_win.py` (a 560x640 `MainWindow`, offscreen) match HEAD in every pixel.
 
+
+## 2026-11-04: which QTabBar::tab properties keep the Fusion tab
+
+Dock tabs (`tabifyDockWidget`, numpad and history, dark, offscreen) grabbed with one extra rule `QTabBar::tab { ... }` against none: `color` and `font-size` change 0 pixels; `background-color` (the window color, `#1E1E1E`) changes 2953 of 26100; `border-radius: 2px` changes the tab bar's size. A tab background, selected or hover color or a radius therefore changes the default themes' tabs, as a border does on a button.
+
+```bash
+EXTRA_QSS='QTabBar::tab { background-color: #1E1E1E; }' QT_QPA_PLATFORM=offscreen PYTHONPATH=src .venv/bin/python grab_tabs2.py dark out.png
+```
+
+`grab_tabs2.py` is a scratch script: a `MainWindow` with `QSettings` patched in each module that reads it, numpad and history docks tabified, the visible `QTabBar` grabbed.
+
+## 2026-11-04: a bare History shows empty rows since fit_radius; the app does not
+
+A `History` put in a plain host widget with entries added before `show()` draws its rows without text and drops the second row since 23019eb (`fit_radius` writes a stylesheet on the `History` widget); at 1ddcc5f the same script draws them. With `History._fit_icon_button_radius` patched out the rows come back. In a `MainWindow` (entries added after show, or loaded from storage at startup) dark matches 1ddcc5f in every pixel, so no user path reaches it. Probe the history inside a `MainWindow`, not bare.
+
+Pixel comparisons in a bash heredoc must not use shell variables in file names (`"$S/c_$t.png"`): the shell expands `$t` before Python runs, a missing file loads as a null `QImage`, and two null images compare equal. Compare with a script that takes the paths as arguments and fails on a null image.
