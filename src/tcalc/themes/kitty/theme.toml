@@ -67,6 +67,13 @@ opacity = 0.25
 margin = 10
 tint = "accent_text"
 
+# Dock titles and tabs at the app font size, as before they had a setting
+[dock]
+title_font_size = 14
+
+[tabs]
+font_size = 14
+
 [colors]
 # Translucent keys let the keypad picture through
 secondary = "rgba(255, 192, 217, 75%)"

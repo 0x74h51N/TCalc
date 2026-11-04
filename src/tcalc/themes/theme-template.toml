@@ -286,6 +286,15 @@
 # radius = 4
 # font_size = 13
 
+# [dock]
+# title_color = "text_primary"
+# title_font_size = 9
+
+# [tabs]
+#   The tab bar of docks stacked as tabs
+# text_color = "text_primary"
+# font_size = 9
+
 
 # --- Pictures ---------------------------------------------------------------------------
 # Pictures painted behind a component. Add one [[pictures]] table per picture.

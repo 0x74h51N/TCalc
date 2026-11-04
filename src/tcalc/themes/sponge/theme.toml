@@ -67,6 +67,13 @@ position = "bottom"
 fit = "cover"
 opacity = 0.7
 
+# Dock titles and tabs at the app font size, as before they had a setting
+[dock]
+title_font_size = 18
+
+[tabs]
+font_size = 18
+
 [colors]
 # Display: the sponge itself
 screen = "#FFF15A"

@@ -14,11 +14,19 @@ import calc_native
 import pytest
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction, QColor, QFont, QStyleHints
-from PySide6.QtWidgets import QApplication, QDockWidget, QLabel, QMenu, QRadioButton, QWidget
+from PySide6.QtWidgets import (
+    QApplication,
+    QDockWidget,
+    QLabel,
+    QMenu,
+    QRadioButton,
+    QTabBar,
+    QWidget,
+)
 
 import tcalc.app_state as app_state_mod
 import tcalc.ui.widgets.keypad.keypad as keypad_mod
-from tcalc.app_state import get_app_state
+from tcalc.app_state import DockKind, get_app_state
 from tcalc.core.ops import Operation
 from tcalc.core.parser import tokenize
 from tcalc.theme import ThemeChoice, ThemeMode, get_theme, load_theme
@@ -351,6 +359,32 @@ def _fraction_button(window) -> QWidget:
     button = window.findChild(Result)._frac_btn
     button.show()
     return button
+
+
+def test_dock_titles_and_tabs_follow_the_theme(qapp, window, _user_themes):
+    docks = window._docks
+    for kind in (DockKind.NUMPAD, DockKind.HISTORY):
+        docks[kind].show()
+    window.tabifyDockWidget(docks[DockKind.NUMPAD], docks[DockKind.HISTORY])
+    qapp.processEvents()
+    tabs = next(t for t in window.findChildren(QTabBar) if t.isVisible())
+    height = tabs.tabSizeHint(0).height()
+    (_user_themes / "docky").mkdir(parents=True)
+    (_user_themes / "docky" / "theme.toml").write_text(
+        'name = "Docky"\nbase = "dark"\n'
+        '[dock]\ntitle_color = "status_error"\ntitle_font_size = 21\n'
+        '[tabs]\ntext_color = "status_error"\nfont_size = 21\n'
+    )
+    apply_theme(qapp, "docky")
+    qapp.processEvents()
+    error = get_theme().qcolor(ColorName("status_error"))
+    title = docks[DockKind.HISTORY].titleBarWidget().findChild(QLabel)
+    assert title.font().pointSize() == 21
+    assert title.palette().color(title.foregroundRole()) == error
+    assert tabs.tabSizeHint(0).height() > height
+    image = tabs.grab().toImage()
+    pixels = (image.pixelColor(x, y) for y in range(image.height()) for x in range(image.width()))
+    assert any(p == error for p in pixels)
 
 
 def _toast(window) -> QWidget:

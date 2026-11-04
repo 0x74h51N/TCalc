@@ -246,3 +246,12 @@ pad_y = 6
 pad_x = 10
 radius = 4
 font_size = 13
+
+[dock]
+title_color = "text_primary"
+title_font_size = 9
+
+# The tab bar of docks stacked as tabs; a tab background or radius would drop the style's own tab
+[tabs]
+text_color = "text_primary"
+font_size = 9
