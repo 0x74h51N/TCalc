@@ -6,30 +6,16 @@ QMenu {
     font-size: ${menu_font_size}px;
 }
 
-/* Native items and the custom-preset row (a QWidgetAction QPushButton that
-   can't inherit QMenu::item) share one look. */
-QMenu::item,
-QPushButton[presetRow="true"] {
+QMenu::item {
     padding: ${menu_item_padding_vertical}px ${menu_item_padding_horizontal}px;
     border-radius: ${menu_item_border_radius}px;
     border: 1px solid transparent;
-}
-
-QMenu::item {
     margin: ${menu_item_margin}px 0;
     min-width: ${menu_item_min_width}px;
 }
 
-QPushButton[presetRow="true"] {
-    background: transparent;
-    color: $menu_text_color;
-    text-align: left;
-}
-
 QMenu::item:selected,
-QMenu::item:checked,
-QPushButton[presetRow="true"]:hover,
-QPushButton[presetRow="true"][active="true"] {
+QMenu::item:checked {
     background: $menu_selected_color;
     color: $menu_selected_text_color;
     border: 1px solid $menu_selected_border_color;

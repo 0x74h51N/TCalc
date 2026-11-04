@@ -30,9 +30,6 @@ radius = 0
 [colors]
 # Green CRT glass with scanlines (the gradient repeats every 0.8% of the height)
 screen = "qlineargradient(spread:repeat, x1:0, y1:0, x2:0, y2:0.01, stop:0 #0C4A0C, stop:0.5 #0C4A0C, stop:0.51 #083b08, stop:1 #063006)"
-primary = "#33FF33"
-primary_hover = "#66FF66"
-primary_text = "#000000"
 secondary = "#000000"
 secondary_hover = "#0A2A0A"
 secondary_text = "#33FF33"

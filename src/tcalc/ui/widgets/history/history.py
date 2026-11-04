@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
 from tcalc.app_state import RenderMode, get_app_state
 from tcalc.theme import PictureTarget, get_theme
 from tcalc.ui.config import CONFIG
+from tcalc.ui.icon import Icon
 from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.common.utils import Align
@@ -102,7 +103,7 @@ class History(QWidget):
 
         # Clear Button
         self.clear_button = IconButton(
-            "edit-clear-history",
+            Icon.EDIT_CLEAR_HISTORY,
             tooltip="Clears all history permanently from local storage",
             text="Clear History",
             parent=self,
@@ -350,13 +351,13 @@ class HistoryItem(QWidget):
         # Action buttons (absolute positioned, bottom-left, outside layout)
         self._btn_size = style.action_btn_size
         self._copy_btn = IconButton(
-            "edit-copy", tooltip="Copy expression", size=self._btn_size, parent=self
+            Icon.EDIT_COPY, tooltip="Copy expression", size=self._btn_size, parent=self
         )
         self._copy_btn.hide()
         self._copy_btn.clicked.connect(self.copy_clicked)
 
         self._remove_btn = IconButton(
-            "edit-delete", tooltip="Remove from history", size=self._btn_size, parent=self
+            Icon.EDIT_DELETE, tooltip="Remove from history", size=self._btn_size, parent=self
         )
         self._remove_btn.hide()
         self._remove_btn.clicked.connect(self.remove_clicked)

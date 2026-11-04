@@ -10,47 +10,18 @@ import pytest
 from PySide6.QtGui import QColor, QIcon
 
 from tcalc.theme import load_theme
-from tcalc.ui.manubar import defins
-from tcalc.ui.manubar.menu_builder import SubmenuItem
+from tcalc.ui.icon import Icon
 from tcalc.ui.utils import ICONS_DIR, get_icon
 
-BUNDLED = sorted(p.stem for p in ICONS_DIR.glob("*.svg"))
 
-
-def _menu_icons(items) -> set[str]:
-    icons: set[str] = set()
-    for item in items:
-        if getattr(item, "icon", ""):
-            icons.add(item.icon)
-        if isinstance(item, SubmenuItem):
-            icons |= _menu_icons(item.items)
-    return icons
-
-
-MENU_ICONS = sorted(
-    _menu_icons(
-        defins.FILE_MENU_ACTIONS
-        + defins.EDIT_MENU_ACTIONS
-        + defins.VIEW_ACTIONS
-        + defins.SETTINGS_ACTIONS
-    )
-)
+def test_icon_names_are_the_bundled_files():
+    assert {i.value for i in Icon} == {p.stem for p in ICONS_DIR.glob("*.svg")}
 
 
 @pytest.mark.usefixtures("qapp")
-@pytest.mark.parametrize("name", BUNDLED)
-def test_bundled_icon_loads(name):
-    assert not get_icon(name).isNull()
-
-
-@pytest.mark.usefixtures("qapp")
-@pytest.mark.parametrize("name", MENU_ICONS)
-def test_menu_icon_is_bundled(name):
-    assert not get_icon(name).isNull()
-
-
-def test_bundle_is_not_empty():
-    assert BUNDLED
+@pytest.mark.parametrize("icon", list(Icon))
+def test_bundled_icon_loads(icon):
+    assert not get_icon(icon).isNull()
 
 
 def _opaque_color(icon: QIcon) -> QColor:
@@ -72,7 +43,7 @@ def light():
 
 @pytest.mark.usefixtures("qapp", "light")
 def test_single_color_icon_is_tinted_with_theme_icon_color():
-    assert _opaque_color(get_icon("edit-copy")) == QColor("#232629")
+    assert _opaque_color(get_icon(Icon.EDIT_COPY)) == QColor("#232629")
 
 
 @pytest.mark.usefixtures("qapp")
@@ -80,7 +51,7 @@ def test_single_color_icon_is_tinted_with_theme_icon_color():
 def test_untinted_icons_keep_their_colors(variant):
     load_theme(variant)
     try:
-        assert _opaque_color(get_icon("edit-delete")) == QColor("#da4453")
+        assert _opaque_color(get_icon(Icon.EDIT_DELETE)) == QColor("#da4453")
     finally:
         load_theme("dark")
 
@@ -91,7 +62,7 @@ def _same_image(a: QIcon, b: QIcon) -> bool:
 
 @pytest.mark.usefixtures("qapp", "light")
 def test_light_variant_file_is_used():
-    icon = get_icon("snap-angle-symbolic")
+    icon = get_icon(Icon.SNAP_ANGLE_SYMBOLIC)
     assert _same_image(icon, QIcon(str(ICONS_DIR / "light" / "snap-angle-symbolic.svg")))
     assert not _same_image(icon, QIcon(str(ICONS_DIR / "snap-angle-symbolic.svg")))
 
@@ -100,14 +71,14 @@ def test_light_variant_file_is_used():
 def test_dark_has_no_variant_dir_and_falls_back():
     load_theme("dark")
     assert not (ICONS_DIR / "dark").exists()
-    icon = get_icon("snap-angle-symbolic")
+    icon = get_icon(Icon.SNAP_ANGLE_SYMBOLIC)
     assert _same_image(icon, QIcon(str(ICONS_DIR / "snap-angle-symbolic.svg")))
 
 
 @pytest.mark.usefixtures("qapp")
 def test_shown_icon_follows_a_switch():
     load_theme("dark")
-    icon = get_icon("edit-copy")
+    icon = get_icon(Icon.EDIT_COPY)
     assert _opaque_color(icon) == QColor("#fcfcfc")
     load_theme("light")
     try:
@@ -119,7 +90,7 @@ def test_shown_icon_follows_a_switch():
 @pytest.mark.usefixtures("qapp")
 def test_angle_icon_switches_file():
     load_theme("dark")
-    icon = get_icon("snap-angle-symbolic")
+    icon = get_icon(Icon.SNAP_ANGLE_SYMBOLIC)
     load_theme("light")
     try:
         assert _same_image(icon, QIcon(str(ICONS_DIR / "light" / "snap-angle-symbolic.svg")))
@@ -130,7 +101,7 @@ def test_angle_icon_switches_file():
 @pytest.mark.usefixtures("qapp")
 def test_red_icon_stays_red_after_switch():
     load_theme("dark")
-    icon = get_icon("edit-delete")
+    icon = get_icon(Icon.EDIT_DELETE)
     load_theme("light")
     try:
         assert _opaque_color(icon) == QColor("#da4453")
@@ -141,7 +112,7 @@ def test_red_icon_stays_red_after_switch():
 @pytest.mark.usefixtures("qapp")
 def test_tint_follows_a_switch():
     load_theme("dark")
-    icon = get_icon("frac", lambda look: look.result.fraction_icon_color)
+    icon = get_icon(Icon.FRAC, lambda look: look.result.fraction_icon_color)
     theme = load_theme("light")
     try:
         assert _opaque_color(icon) == theme.qcolor(theme.look.result.fraction_icon_color)
@@ -153,7 +124,7 @@ def test_tint_follows_a_switch():
 def test_kitty_uses_its_base_variant_files():
     load_theme("kitty")
     try:
-        icon = get_icon("snap-angle-symbolic")
+        icon = get_icon(Icon.SNAP_ANGLE_SYMBOLIC)
         assert _same_image(icon, QIcon(str(ICONS_DIR / "light" / "snap-angle-symbolic.svg")))
     finally:
         load_theme("dark")

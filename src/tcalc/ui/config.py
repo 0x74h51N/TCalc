@@ -8,6 +8,7 @@ from pathlib import Path
 from PySide6.QtCore import QEasingCurve
 
 from tcalc.typed_tables import build
+from tcalc.ui.icon import Icon
 
 CONFIG_PATH = Path(__file__).parent / "config.toml"
 
@@ -31,7 +32,7 @@ class WindowConfig:
 
 @dataclass(frozen=True, slots=True)
 class IconsConfig:
-    untinted: tuple[str, ...]
+    untinted: tuple[Icon, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,8 +137,8 @@ class ResultConfig:
     font_norm: int
     resize_debounce_ms: int
     btn_size: int
-    frac_icon: str
-    decimal_icon: str
+    frac_icon: Icon
+    decimal_icon: Icon
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,10 +170,10 @@ class CalcConfig:
 
 @dataclass(frozen=True, slots=True)
 class PresetConfig:
-    row_icon: str
-    rename_icon: str
-    update_icon: str
-    delete_icon: str
+    row_icon: Icon
+    rename_icon: Icon
+    update_icon: Icon
+    delete_icon: Icon
     action_btn_size: int
     action_spacing: int
     bar_offset: int

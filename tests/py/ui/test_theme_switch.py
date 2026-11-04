@@ -20,6 +20,7 @@ import tcalc.ui.widgets.keypad.keypad as keypad_mod
 from tcalc.app_state import get_app_state
 from tcalc.core.ops import Operation
 from tcalc.theme import ThemeChoice, ThemeMode, get_theme, load_theme
+from tcalc.ui.props import Prop, UiRole
 from tcalc.ui.styles import apply_theme, sync_theme
 from tcalc.ui.widgets.calc.display.display import Display
 from tcalc.ui.widgets.common.button import KeyButton
@@ -292,7 +293,7 @@ def _custom_grid() -> QWidget:
 def _show_settled(qapp, qtbot, theme: str, pad: QWidget) -> QWidget:
     apply_theme(qapp, theme)
     host = QWidget()
-    host.setProperty("uiRole", "keypad")
+    host.setProperty(Prop.UI_ROLE, UiRole.KEYPAD)
     qtbot.addWidget(host)
     pad.setParent(host)
     pad.resize(400, 400)

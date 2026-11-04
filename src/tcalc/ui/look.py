@@ -97,11 +97,9 @@ class KeypadLook:
     number: KeyRoleLook
     operator: KeyRoleLook
     action: KeyRoleLook
-    equals: KeyRoleLook
     trig: KeyRoleLook
     function: KeyRoleLook
     power: KeyRoleLook
-    equals_border_color: ColorName
     hover_border_color: ColorName
     checked_color: ColorName
     disabled_color: ColorName

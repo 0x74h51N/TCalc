@@ -9,6 +9,7 @@ from tcalc.app_state import get_app_state
 from tcalc.theme import ThemeChoice, ThemeMode, custom_themes
 from tcalc.ui.config import CONFIG
 from tcalc.ui.controller.menubar import ViewOperations
+from tcalc.ui.icon import Icon
 from tcalc.ui.utils import get_icon
 
 from ...widgets.common.button import CustomPresetActions
@@ -106,7 +107,7 @@ class ViewMenu:
             return
         actions = []
         for _, (pad, dock) in getattr(self.window, "_custom_pads", {}).items():
-            act = QAction(get_icon("custom_pad"), pad.label, menu)
+            act = QAction(get_icon(Icon.CUSTOM_PAD), pad.label, menu)
             act.setCheckable(True)
             act.setChecked(dock.isVisible())
             act.toggled.connect(dock.setVisible)
@@ -123,7 +124,7 @@ class ViewMenu:
         self._custom_theme_actions = []
         for variant, name in custom_themes().items():
             choice = ThemeChoice(ThemeMode.CUSTOM, variant)
-            act = QAction(get_icon("brush"), name, menu)
+            act = QAction(get_icon(Icon.BRUSH), name, menu)
             act.setCheckable(True)
             act.setChecked(choice == self.app_state.theme)
             act.triggered.connect(lambda _=False, c=choice: self.ops.set_theme(c))

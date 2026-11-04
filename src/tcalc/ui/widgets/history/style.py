@@ -6,10 +6,11 @@ from PySide6.QtWidgets import QAbstractItemView, QListWidget
 
 from tcalc.theme import get_theme
 from tcalc.ui.config import CONFIG
+from tcalc.ui.props import Prop, UiRole
 
 
 def apply_history_style(list_widget: QListWidget) -> None:
-    list_widget.setProperty("uiRole", "historyList")
+    list_widget.setProperty(Prop.UI_ROLE, UiRole.HISTORY_LIST)
 
     list_widget.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
     list_widget.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)

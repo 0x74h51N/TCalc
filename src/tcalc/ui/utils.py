@@ -16,6 +16,7 @@ from PySide6.QtCore import QRect, QSize, Qt
 from PySide6.QtGui import QIcon, QIconEngine, QPainter, QPixmap
 
 from tcalc.theme import Theme, get_theme, qcolor
+from tcalc.ui.icon import Icon
 
 from .config import CONFIG
 from .look import ColorPlace
@@ -89,7 +90,7 @@ def theme_icon(build: Callable[[], QIcon]) -> QIcon:
     return QIcon(_ThemeIconEngine(build))
 
 
-def _load_icon(name: str, tint: ColorPlace | None) -> QIcon:
+def _load_icon(name: Icon, tint: ColorPlace | None) -> QIcon:
     theme = get_theme()
     path = ICONS_DIR / theme.base / f"{name}.svg"
     if not path.exists():
@@ -103,13 +104,13 @@ def _load_icon(name: str, tint: ColorPlace | None) -> QIcon:
     return _apply_tint(QIcon(str(path)), color)
 
 
-def get_icon(name: str, tint: ColorPlace | None = None) -> QIcon:
+def get_icon(name: Icon | None, tint: ColorPlace | None = None) -> QIcon:
     """Icon *name* for the active theme, tinted with the color of the place *tint* picks or
     the icon color.
 
     ``assets/icons/<base>/<name>.svg`` (the theme's light/dark family) wins over ``assets/icons/<name>.svg``;
     icons in ``[icons].untinted`` keep their own colors unless *tint* is given.
     """
-    if not name:
+    if name is None:
         return QIcon()
     return theme_icon(partial(_load_icon, name, tint))

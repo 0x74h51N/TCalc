@@ -41,9 +41,6 @@ tint = "accent_text"
 
 [colors]
 # Translucent keys let the keypad picture through
-primary = "rgba(255, 255, 255, 80%)"
-primary_hover = "rgba(255, 214, 231, 90%)"
-primary_text = "#3A1F2B"
 secondary = "rgba(255, 192, 217, 75%)"
 secondary_hover = "rgba(255, 160, 199, 85%)"
 secondary_text = "#3A1F2B"

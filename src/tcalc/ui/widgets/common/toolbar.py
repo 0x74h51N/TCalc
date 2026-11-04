@@ -18,6 +18,9 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QIcon, QPixmap, QResizeEvent, QTransform
 from PySide6.QtWidgets import QGraphicsOpacityEffect, QSizePolicy, QVBoxLayout, QWidget
 
+from tcalc.ui.icon import Icon
+from tcalc.ui.props import Prop, UiRole
+
 from .button import IconButton
 from .flow_layout import FlowLayout
 
@@ -31,7 +34,7 @@ class Toolbar(QWidget):
         margin: int = 0,
         spacing: int = 0,
         collapsible: bool = False,
-        toggle_icon: str = "arrow-down-double",
+        toggle_icon: Icon = Icon.ARROW_DOWN_DOUBLE,
         toggle_tooltip: str = "Toggle toolbar",
         toggle_height: int = 14,
         toggle_anim_duration: int = 300,
@@ -66,7 +69,7 @@ class Toolbar(QWidget):
             self._toggle_btn.setFixedHeight(toggle_height)
             self._toggle_btn.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
             self._toggle_btn.setIconSize(icon_size)
-            self._toggle_btn.setProperty("uiRole", "toolbarToggle")
+            self._toggle_btn.setProperty(Prop.UI_ROLE, UiRole.TOOLBAR_TOGGLE)
             self._toggle_btn.clicked.connect(self._toggle_btn_content)
             outer.addWidget(self._toggle_btn)
 
