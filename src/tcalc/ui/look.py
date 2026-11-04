@@ -166,6 +166,18 @@ class MenuLook:
 
 
 @dataclass(frozen=True, slots=True)
+class OptionsLook:
+    text_color: ColorName
+    hover_color: ColorName
+    checked_color: ColorName
+    checked_text_color: ColorName
+    radius: int
+    padding_y: int
+    padding_x: int
+    font_size: int
+
+
+@dataclass(frozen=True, slots=True)
 class HistoryLook:
     background_color: ColorName
     text_color: ColorName
@@ -181,17 +193,14 @@ class HistoryLook:
     clear_max_pt: int
     action_btn_size: int
     math_font_size: int
-
-
-@dataclass(frozen=True, slots=True)
-class OptionsLook:
-    text_color: ColorName
-    hover_color: ColorName
-    checked_color: ColorName
-    checked_text_color: ColorName
-    radius: int
-    padding_y: int
-    padding_x: int
+    expression_color: ColorName
+    result_color: ColorName
+    result_min_pt: int
+    result_max_pt: int
+    copy_button_color: ColorName
+    clear_color: ColorName
+    clear_text_color: ColorName
+    mode: OptionsLook
 
 
 @dataclass(frozen=True, slots=True)

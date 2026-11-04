@@ -95,6 +95,7 @@ class History(QWidget):
                 RenderMode.RAW: "Raw LaTeX",
             },
         )
+        self._history_modes.setObjectName("historyModes")
         self._history_modes.selection_changed.connect(self.set_mode)
 
         btn_container.addWidget(self._history_modes)
@@ -108,6 +109,7 @@ class History(QWidget):
             text="Clear History",
             parent=self,
         )
+        self.clear_button.setObjectName("clearHistory")
         self.clear_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.clear_button.clicked.connect(self.clear_history)
         btn_container.addWidget(self.clear_button, style.clear_button_stretch)
@@ -340,6 +342,7 @@ class HistoryItem(QWidget):
 
         self._layout = QVBoxLayout(self)
         self.expression_label = QLabel(self)
+        self.expression_label.setObjectName("historyExpression")
         self.expression_label.setAlignment(InputAlign.RIGHT.value)
 
         self._display_widget: QWidget
@@ -351,7 +354,11 @@ class HistoryItem(QWidget):
         # Action buttons (absolute positioned, bottom-left, outside layout)
         self._btn_size = get_theme().look.history.action_btn_size
         self._copy_btn = IconButton(
-            Icon.EDIT_COPY, tooltip="Copy expression", size=self._btn_size, parent=self
+            Icon.EDIT_COPY,
+            tooltip="Copy expression",
+            size=self._btn_size,
+            parent=self,
+            tint=lambda look: look.history.copy_button_color,
         )
         self._copy_btn.hide()
         self._copy_btn.clicked.connect(self.copy_clicked)
@@ -381,6 +388,7 @@ class HistoryItem(QWidget):
         self._expr_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         # Result label
         self.result_label = QLabel(self)
+        self.result_label.setObjectName("historyResult")
         self.result_label.setAlignment(InputAlign.RIGHT.value)
         self.result_label.setText(self._wrap_text(entry.result))
 
@@ -443,11 +451,12 @@ class HistoryItem(QWidget):
         return self._wrap_text(self._entry.expression)
 
     def update_fonts(self) -> None:
-        """Update font scaling for expression inputs."""
+        """Update font scaling for the expression and the result."""
         sample = self.parrent
+        look = get_theme().look.history
         if self._current_render_mode is not RenderMode.MATH:
-            look = get_theme().look.history
             apply_scaled_fonts(sample, self.expression_label, look.expr_min_pt, look.expr_max_pt)
+        apply_scaled_fonts(sample, self.result_label, look.result_min_pt, look.result_max_pt)
 
     def refresh_layout(self) -> None:
         """Recalculate item row height for QListWidget after font/mode changes in disgusting way."""

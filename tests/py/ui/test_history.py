@@ -10,15 +10,20 @@ from __future__ import annotations
 import calc_native
 import pytest
 from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QPalette
+from PySide6.QtWidgets import QWidget
+from pytest import param
 
 from tcalc.app_state import RenderMode, get_app_state
 from tcalc.core.parser import tokenize
 from tcalc.theme import load_theme
 from tcalc.ui.config import CONFIG
 from tcalc.ui.styles import apply_theme
+from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.history.history import History, HistoryItem
 from tcalc.ui.widgets.history.storage import HistoryEntry
 from tcalc.ui.widgets.history.utils import wrap_expression
+from tests.py.unit.ui.test_icons import _opaque_color
 
 
 @pytest.fixture
@@ -264,6 +269,118 @@ class TestHistoryItemWidget:
         inside = viewport.mapTo(history, QPoint(1, 1))
         row_margin = w.mapTo(history, QPoint(1, w._expr_scroll.y() + 1))
         assert image.pixelColor(inside) == image.pixelColor(row_margin)
+
+
+# ===================================================================
+# Theme
+# ===================================================================
+
+
+@pytest.fixture
+def apply_user_theme(qapp, _user_themes):
+    """Writes a dark-based user theme with *table* and applies it; the app is dark afterwards."""
+    old_palette, old_sheet = qapp.palette(), qapp.styleSheet()
+
+    def apply(table: str) -> None:
+        (_user_themes / "t").mkdir(parents=True)
+        (_user_themes / "t" / "theme.toml").write_text(f'name = "T"\nbase = "dark"\n{table}')
+        apply_theme(qapp, "t")
+        qapp.processEvents()
+
+    yield apply
+    load_theme("dark")
+    qapp.setPalette(old_palette)
+    qapp.setStyleSheet(old_sheet)
+    qapp.processEvents()
+
+
+def _text_color(widget: QWidget) -> str:
+    widget.ensurePolished()
+    return widget.palette().color(QPalette.ColorRole.WindowText).name().upper()
+
+
+def _polished(widget: QWidget) -> QWidget:
+    widget.ensurePolished()
+    return widget
+
+
+def _mode_button(history: History, mode: RenderMode) -> QWidget:
+    return history._history_modes._buttons[mode]
+
+
+# (theme table, what the history shows, the expected value: a color name of the dark theme or a number)
+@pytest.mark.parametrize(
+    "table, shown, expected",
+    [
+        param(
+            '[history]\nexpression_color = "accent_text"',
+            lambda h: _text_color(_item_widget(h, 0).expression_label),
+            "accent_text",
+            id="expression color",
+        ),
+        param(
+            '[history]\nresult_color = "accent_text"',
+            lambda h: _text_color(_item_widget(h, 0).result_label),
+            "accent_text",
+            id="result color",
+        ),
+        param(
+            "[history]\nresult_min_pt = 20\nresult_max_pt = 20",
+            lambda h: _item_widget(h, 0).result_label.font().pointSize(),
+            20,
+            id="result font range",
+        ),
+        param(
+            '[history]\ncopy_button_color = "status_error"',
+            lambda h: _opaque_color(_item_widget(h, 0)._copy_btn.icon()).name().upper(),
+            "status_error",
+            id="copy button color",
+        ),
+        param(
+            '[history]\nclear_text_color = "accent_text"',
+            lambda h: _text_color(h.clear_button),
+            "accent_text",
+            id="clear text color",
+        ),
+        param(
+            '[history.mode]\ntext_color = "accent_text"',
+            lambda h: _text_color(_mode_button(h, RenderMode.MATH)),
+            "accent_text",
+            id="mode text color",
+        ),
+        param(
+            '[history.mode]\ntext_color = "accent_text"',
+            lambda h: _text_color(_mode_button(h, RenderMode.FLAT)),
+            "control_accent",
+            id="mode checked text keeps its default",
+        ),
+        param(
+            "[history.mode]\nfont_size = 15",
+            lambda h: _mode_button(h, RenderMode.MATH).font().pointSize(),
+            15,
+            id="mode font size",
+        ),
+        param(
+            "[options]\nfont_size = 15",
+            lambda h: _mode_button(h, RenderMode.MATH).font().pointSize(),
+            9,
+            id="options font size leaves the history modes",
+        ),
+        param(
+            "[options]\nfont_size = 15",
+            lambda h: _polished(OptionGroup([(1, "A")], 1, h)._buttons[1]).font().pointSize(),
+            15,
+            id="options font size",
+        ),
+    ],
+)
+def test_theme_reaches_the_history(history, qapp, apply_user_theme, table, shown, expected):
+    _add(history, "1+2", "3", qapp)
+    apply_user_theme(table)
+    history.update_fonts()
+    if isinstance(expected, str):
+        expected = load_theme("t").colors[expected].upper()
+    assert shown(history) == expected
 
 
 # ===================================================================

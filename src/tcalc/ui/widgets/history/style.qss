@@ -30,3 +30,38 @@ QWidget#historyItem QWidget[exprSlot="true"] QLineEdit {
     background: transparent;
     border: none;
 }
+
+QWidget#historyItem QLabel#historyExpression,
+QWidget#historyItem #historyPaintWidget {
+    color: $history_expression_color;
+}
+
+QWidget#historyItem QLabel#historyResult {
+    color: $history_result_color;
+}
+
+/* The Clear History button: hover and pressed stay the icon button's */
+QPushButton#clearHistory {
+    color: $history_clear_text_color;
+}
+
+QPushButton#clearHistory:!hover:!pressed {
+    background-color: $history_clear_color;
+}
+
+/* The Math / Flat / Raw buttons, an option group with its own look */
+QWidget#historyModes QRadioButton[optionRole="option"] {
+    color: $history_mode_text_color;
+    border-radius: ${history_mode_radius}px;
+    padding: ${history_mode_padding_y}px ${history_mode_padding_x}px;
+    font-size: ${history_mode_font_size}pt;
+}
+
+QWidget#historyModes QRadioButton[optionRole="option"]:hover {
+    background-color: $history_mode_hover_color;
+}
+
+QWidget#historyModes QRadioButton[optionRole="option"]:checked {
+    background-color: $history_mode_checked_color;
+    color: $history_mode_checked_text_color;
+}

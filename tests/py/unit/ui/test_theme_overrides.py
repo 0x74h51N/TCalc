@@ -177,15 +177,16 @@ def test_look_override_reaches_stylesheet_and_python(write_theme):
 # The stylesheet of each bundled theme as master a88c553 built it (2026-11-02): moving the
 # values and renaming QSS variables must not change one substituted character. Since
 # 2026-11-04 the spin box radius is fixed at 2 px in every theme (#106), and the menu bar's
-# preset row rules and the keypad's equals rules, which no widget matched, are gone
+# preset row rules and the keypad's equals rules, which no widget matched, are gone, and the
+# history item, Clear History, history mode and option font size rules are added (#197)
 @pytest.mark.parametrize(
     "variant, sha256",
     [
-        ("light", "4a2dcdfbcce539b04083603391d9ade406ac5a841109a3ef7d1d95e3d52483b2"),
-        ("dark", "c59786d571ae1da15babb06fc41f9586291a20e0b8a168bb05c655edcbf4f9d7"),
-        ("kitty", "1ffb0ad1ada3f9a808e8911329460a2447cce345acb7de3ce73f53a0d2943502"),
-        ("retro", "6b1895c1aacb52ee33fc922d90879cba0b2374cb125ac97602bbc890270a63a5"),
-        ("sponge", "4729650c464ea5cb8002d2935af61e81ace4061fee6388a871a50ecdb9aa63e3"),
+        ("light", "3ba9f7520f488028ab54652a7254b34f2fe9be980310a57010ddb39ba2622650"),
+        ("dark", "d819723639999f68a80a90c0c29e60de7861a3d23e361534922afb67197888de"),
+        ("kitty", "1ab1a8cedb9a06a912aa44eca1edf06039b6b6d08a931ecee79b250d665bbe61"),
+        ("retro", "051c7d82fb009f9a97344fd3173332d6229aa347602751d4f24f35e3c4db2ba6"),
+        ("sponge", "5093bc37a28b75001d3909d352e7f16ca5874b84228185f7db70919a614b5fc7"),
     ],
 )
 def test_bundled_themes_style_unchanged(variant, sha256):
