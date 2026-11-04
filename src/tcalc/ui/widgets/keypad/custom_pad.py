@@ -12,6 +12,7 @@ import logging
 
 import calc_native
 from PySide6.QtCore import QPoint, QSettings, Qt, Signal
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QAbstractButton,
     QColorDialog,
@@ -43,9 +44,15 @@ from tcalc.ui.widgets.utils import apply_key_radius, key_fit_timer, shrink_key_r
 from ...config import CONFIG
 
 _cfg = CONFIG.keypad.custom
+
 _log = logging.getLogger(__name__)
 _ALL_KEYS = (-1, -1)
 _ROLE = "custom"
+
+
+def _spin_font() -> QFont:
+    # CONFIG, not the theme: a theme font would overflow the fixed spin box width
+    return QFont(CONFIG.fonts.family_default, _cfg.spin_font_size)
 
 
 # ---------------------------------------------------------------------------
@@ -230,6 +237,7 @@ class KSGrid(QWidget):
             _cfg.min_rows,
             _cfg.max_rows,
             max_rows,
+            _spin_font(),
             _cfg.spin_width,
             self._toolbar,
         )
@@ -538,12 +546,14 @@ class CustomPad(QWidget):
         )
 
         spin_width = _cfg.spin_width + 7
+        font = _spin_font()
         self._cols_spin = KSSpinBox(
             "vGrids: ",
             "Vertical Grids",
             _cfg.min_cols,
             _cfg.max_cols,
             self._cols,
+            font,
             spin_width,
             self._toolbar,
         )
@@ -556,6 +566,7 @@ class CustomPad(QWidget):
             _cfg.min_grid_rows,
             _cfg.max_grid_rows,
             self._rows,
+            font,
             spin_width,
             self._toolbar,
         )
