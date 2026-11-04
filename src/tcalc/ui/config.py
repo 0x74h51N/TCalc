@@ -49,32 +49,17 @@ class HistoryStyleConfig:
     item_min_height: int
     item_margin: int
     item_spacing: int
-    action_btn_size: int
-    font_size: int
-    max_pt: int
-    expr_min_pt: int
-    expr_max_pt: int
     btn_margin: int
-    clr_btn_min_pt: int
-    clr_btn_max_pt: int
-
-
-@dataclass(frozen=True, slots=True)
-class HistoryMathConfig:
-    base_font: int
 
 
 @dataclass(frozen=True, slots=True)
 class HistoryConfig:
     max_items: int
     style: HistoryStyleConfig
-    math: HistoryMathConfig
 
 
 @dataclass(frozen=True, slots=True)
 class MemoryStyleConfig:
-    font_size: int
-    max_pt: int
     divider_spacing: int
 
 

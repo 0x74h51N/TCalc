@@ -349,7 +349,7 @@ class HistoryItem(QWidget):
         self._layout.setSpacing(style.item_spacing)
 
         # Action buttons (absolute positioned, bottom-left, outside layout)
-        self._btn_size = style.action_btn_size
+        self._btn_size = get_theme().look.history.action_btn_size
         self._copy_btn = IconButton(
             Icon.EDIT_COPY, tooltip="Copy expression", size=self._btn_size, parent=self
         )
@@ -391,9 +391,8 @@ class HistoryItem(QWidget):
         self.set_display_mode(mode, defer_layout=True)
 
     def _math_paint(self) -> None:
-        base_font = CONFIG.history.math.base_font
         f = QFont(self.parrent.font())
-        f.setPointSize(base_font)
+        f.setPointSize(get_theme().look.history.math_font_size)
         self._font = f
         if self._entry.tokenized is not None:
             tree = self.painter.paint_tree(self._entry.tokenized, f)
@@ -447,12 +446,8 @@ class HistoryItem(QWidget):
         """Update font scaling for expression inputs."""
         sample = self.parrent
         if self._current_render_mode is not RenderMode.MATH:
-            apply_scaled_fonts(
-                sample,
-                self.expression_label,
-                style.expr_min_pt,
-                style.expr_max_pt,
-            )
+            look = get_theme().look.history
+            apply_scaled_fonts(sample, self.expression_label, look.expr_min_pt, look.expr_max_pt)
 
     def refresh_layout(self) -> None:
         """Recalculate item row height for QListWidget after font/mode changes in disgusting way."""

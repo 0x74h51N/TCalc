@@ -144,6 +144,43 @@ def test_side_panel_fonts_stay_scaled_after_switch(qapp, window, monkeypatch):
     assert window.history.clear_button.font().pointSize() <= 10
 
 
+# (theme table pinning a font range at 20pt, the widgets it scales, the dark range's top)
+@pytest.mark.parametrize(
+    "table, widgets, dark_max",
+    [
+        param(
+            "[history]\nfont_size = 20\nmax_pt = 20",
+            lambda w: [w.history.list],
+            12,
+            id="history list",
+        ),
+        param(
+            "[history]\nclear_min_pt = 20\nclear_max_pt = 20",
+            lambda w: [w.history.clear_button],
+            10,
+            id="clear history",
+        ),
+        param(
+            "[memory]\nfont_size = 20\nmax_pt = 20",
+            lambda w: list(w.memory_bar.font_targets),
+            13,
+            id="memory bar",
+        ),
+    ],
+)
+def test_side_panel_font_range_follows_the_theme(
+    qapp, window, _user_themes, table, widgets, dark_max
+):
+    (_user_themes / "big").mkdir(parents=True)
+    (_user_themes / "big" / "theme.toml").write_text(f'name = "Big"\nbase = "dark"\n{table}')
+    apply_theme(qapp, "big")
+    qapp.processEvents()
+    assert {w.font().pointSize() for w in widgets(window)} == {20}
+    apply_theme(qapp, "dark")
+    qapp.processEvents()
+    assert max(w.font().pointSize() for w in widgets(window)) <= dark_max
+
+
 def test_history_takes_the_theme_monospace_font(qapp, window, _user_themes):
     (_user_themes / "mono").mkdir(parents=True)
     (_user_themes / "mono" / "theme.toml").write_text(
