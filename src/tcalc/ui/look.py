@@ -248,6 +248,18 @@ class ToastLook:
 
 
 @dataclass(frozen=True, slots=True)
+class DockLook:
+    title_color: ColorName
+    title_font_size: int
+
+
+@dataclass(frozen=True, slots=True)
+class TabsLook:
+    text_color: ColorName
+    font_size: int
+
+
+@dataclass(frozen=True, slots=True)
 class Look:
     fonts: FontsLook
     palette: PaletteLook
@@ -263,6 +275,8 @@ class Look:
     options: OptionsLook
     tooltip: TooltipLook
     toast: ToastLook
+    dock: DockLook
+    tabs: TabsLook
 
 
 # Picks a place from the look; a caller that resolves its color on every theme switch keeps it

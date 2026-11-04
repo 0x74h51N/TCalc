@@ -84,6 +84,13 @@ radius = 0
 radius = 0
 font_size = 18
 
+# Dock titles and tabs at the app font size, as before they had a setting
+[dock]
+title_font_size = 18
+
+[tabs]
+font_size = 18
+
 [colors]
 # The 1995 desktop: a gray face, a dark gray shadow under raised keys, navy selection
 button_shadow = "#404040"

@@ -6,6 +6,16 @@ QToolTip {
     padding: ${tooltip_padding}px;
 }
 
+QLabel#dockTitle {
+    color: $dock_title_color;
+    font-size: ${dock_title_font_size}pt;
+}
+
+QTabBar::tab {
+    color: $tabs_text_color;
+    font-size: ${tabs_font_size}pt;
+}
+
 /* The same in every theme: only the history items' buttons have a look of their own */
 QPushButton[uiRole="iconButton"] {
     background-color: $palette_button_color;

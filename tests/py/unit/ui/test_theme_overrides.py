@@ -184,15 +184,16 @@ def test_look_override_reaches_stylesheet_and_python(write_theme):
 # stylesheet, since Python fits them to the widget; their raised edge's shadow is a fixed dark
 # color, not background_dark (white in light); keys, memory and option buttons get raised
 # edge rules that apply only under a theme with an edge width (retro, now a 1995 desktop);
-# kitty and sponge set the new option, history and menu sizes and radii
+# kitty and sponge set the new option, history and menu sizes and radii; the dock title and
+# tab text rules are added, which keep the style's own tab
 @pytest.mark.parametrize(
     "variant, sha256",
     [
-        ("light", "558812b732395425547f824c561561ac2656f6a9c610536ea11adcc45248d5ac"),
-        ("dark", "44c20c9c3bebd364a5897311527e19d1d01f1514983deb613af526c6719cbc4f"),
-        ("kitty", "08bd57cad5d3a809b513284c6f15da6e23ec80df20e9d1f9a2f3f27c1a3583dd"),
-        ("retro", "81739c77bcf9b536a78e030a238b39c036553819c883b3726a528b5d5188b1a9"),
-        ("sponge", "226cdb169151c3f52e5acdfcfea20df65c0c60b22819d519d1842a37af722627"),
+        ("light", "c8ebcda1474ed6f7b81d7d287f311b94a20faa70a58c125b7800a750ee681ed3"),
+        ("dark", "8a0dadab72f1056bf16903de7d07c61c0e209e4188b0223d546a0371dfd3e183"),
+        ("kitty", "abdff7148087c040898b9f32c6d4a4b23cefd913c140d86a1d1f2ace894b9e40"),
+        ("retro", "18d33aca73ae6e7e705e0737b79c6b667c635af521901eb5734c26216a07e303"),
+        ("sponge", "c0403a0b0dcd26fb51f77ee0c662fb3a2e457868abe587ecaa6cb2a57717ed5a"),
     ],
 )
 def test_bundled_themes_style_unchanged(variant, sha256):
