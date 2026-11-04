@@ -30,7 +30,7 @@ class TableError(Exception):
 
 def build[T: DataclassInstance](cls: type[T], table: object, where: str) -> T:
     """*table* as a *cls*; a missing, unknown or wrongly typed key raises a TableError."""
-    converted, errors = _convert_keys(table, _hints(cls).get, where)
+    converted, errors = _convert_keys(table, _hints(cls).get, _convert_key, where)
     if errors:
         raise errors[0]
     for field in dataclasses.fields(cls):
@@ -42,20 +42,34 @@ def build[T: DataclassInstance](cls: type[T], table: object, where: str) -> T:
 
 def override[T: DataclassInstance](obj: T, table: object, where: str) -> T:
     """*obj* with the keys of *table* applied; a bad key is logged and skipped, never raised."""
-    converted, errors = _convert_keys(table, _hints(type(obj)).get, where)
+
+    def convert(key: str, value: object, hint: Any, at: str) -> Any:
+        # A theme table lays over the default one, so a nested table may name only some fields
+        if _is_dataclass_type(hint):
+            return override(getattr(obj, key), value, at)
+        return _convert(value, hint, at)
+
+    converted, errors = _convert_keys(table, _hints(type(obj)).get, convert, where)
     _log_all(errors)
     return dataclasses.replace(obj, **converted)
 
 
 def values[V](table: object, kind: type[V], where: str) -> dict[str, V]:
     """The values of *table*, all of type *kind*; a wrongly typed one is logged and skipped."""
-    converted, errors = _convert_keys(table, lambda _key: kind, where)
+    converted, errors = _convert_keys(table, lambda _key: kind, _convert_key, where)
     _log_all(errors)
     return converted
 
 
+def _convert_key(_key: str, value: object, hint: Any, where: str) -> Any:
+    return _convert(value, hint, where)
+
+
 def _convert_keys(
-    table: object, hint_of: Callable[[str], Any], where: str
+    table: object,
+    hint_of: Callable[[str], Any],
+    convert: Callable[[str, object, Any, str], Any],
+    where: str,
 ) -> tuple[dict[str, Any], list[TableError]]:
     if not isinstance(table, dict):
         return {}, [TableError(f"{where}: expected a table, got {type(table).__name__}")]
@@ -67,10 +81,14 @@ def _convert_keys(
             errors.append(TableError(f"{where}.{key}: unknown key"))
             continue
         try:
-            converted[key] = _convert(value, hint, f"{where}.{key}")
+            converted[key] = convert(key, value, hint, f"{where}.{key}")
         except TableError as error:
             errors.append(error)
     return converted, errors
+
+
+def _is_dataclass_type(hint: Any) -> bool:
+    return isinstance(hint, type) and dataclasses.is_dataclass(hint)
 
 
 def _log_all(errors: list[TableError]) -> None:
@@ -79,7 +97,7 @@ def _log_all(errors: list[TableError]) -> None:
 
 
 def _convert(value: object, hint: Any, where: str) -> Any:
-    if isinstance(hint, type) and dataclasses.is_dataclass(hint):
+    if _is_dataclass_type(hint):
         return build(hint, value, where)
     if get_origin(hint) is tuple:
         if not isinstance(value, list):
