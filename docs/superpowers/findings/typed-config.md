@@ -2,12 +2,11 @@
 
 ## 2026-11-02, refactor/typed-config: how config and theme values reach the code
 
-- `config.toml` is built once into `CONFIG: UiConfig` (`src/tcalc/ui/config.py`), one frozen dataclass per table, by `typed_tables.build`; a missing, unknown or wrongly typed key stops the import with the table and key in the message.
-- `light.toml` and `dark.toml` hold `name` and `[colors]` only. The corner radii, `button_padding` and `icon_padding` live in `[style]`; the font values (`keypad_min_pt`, `keypad_max_pt`, `menu_size`, `picker_size`) in `[fonts]`.
-- `Theme(variant)` resolves once: `colors` (base, then the theme's), and `ui`, which is `CONFIG` with the theme's `[fonts]`, `[color_usage]` and `[spacing]` applied. A broken part is logged (`theme <variant> [table].key: why`) and skipped; only an unparsable file, a missing `name` or a bad `base` rejects the theme.
-- A `[spacing]` name is a `STYLESHEET_TABLES` row's prefix plus an int field; `_build_subs` builds the `$name` substitutions from the same rows and `ui.fonts`, so the stylesheet and `get_theme().ui` see the same value. No name occurs twice (`test_stylesheet_names_are_unique`).
-- Python reads a stylesheet table through `get_theme().ui` (top bar, display, result, expression fonts, `key_radius`), everything else through `CONFIG`; `test_no_stylesheet_table_read_through_config` keeps it so. A widget built under one theme keeps its Python-read values until it is rebuilt; the stylesheet follows every switch.
-- A `[color_usage]` place is an attribute; a caller that re-resolves on every switch (icons, symbol icons) passes a `ColorPlace` selector (`lambda u: u.icon_color`).
+- `config.toml` (behavior values) and `look.toml` (the look) are each built once, `CONFIG: UiConfig` in `src/tcalc/ui/config.py` and `DEFAULT_LOOK: Look` in `src/tcalc/ui/look.py`, one frozen dataclass per table, by `typed_tables.build`; a missing, unknown or wrongly typed key stops the import with the table and key in the message.
+- `look.toml` has one table per UI area (`[fonts]`, `[palette]`, `[keypad]`, `[menu]`...). A field named `color` or ending in `_color` holds a color name from the theme's `[colors]`, never a color; the other fields are sizes, radii and paddings.
+- `light.toml` and `dark.toml` hold `name` and `[colors]` only. A theme file is a partial `look.toml`: `Theme(variant)` resolves `colors` (base, then the theme's) and `Theme.look = override(DEFAULT_LOOK, ...)` with the theme's area tables applied. A broken part is logged (`theme <variant> [table].key: why`) and skipped; only an unparsable file, a missing `name` or a bad `base` rejects the theme.
+- Stylesheets substitute `$<area>_<field>` (`src/tcalc/ui/styles.py`), built from `Theme.look`, so the stylesheet and Python code read the same value; a color field is resolved through `Theme.colors` first.
+- Python reads the look through `get_theme().look`, behavior values through `CONFIG`. A widget built under one theme keeps its Python-read values until it is rebuilt; the stylesheet follows every switch.
 
 ## 2026-11-02: picker_size followed the theme's size_default, not 9
 
