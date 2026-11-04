@@ -28,6 +28,7 @@ from tcalc.app_state import RenderMode, get_app_state
 from tcalc.theme import PictureTarget, get_theme
 from tcalc.ui.config import CONFIG
 from tcalc.ui.icon import Icon
+from tcalc.ui.props import Prop, UiRole
 from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.common.utils import Align
@@ -40,7 +41,7 @@ from .storage import HistoryEntry, clear_history_file, load_history, save_histor
 from .style import apply_history_style
 from .utils import wrap_expression
 
-ICON_BUTTON_SELECTOR = 'QWidget#historyItem QPushButton[uiRole="iconButton"]'
+ICON_BUTTON_SELECTOR = f'QWidget#historyItem QPushButton[{Prop.UI_ROLE}="{UiRole.ICON_BUTTON}"]'
 
 style = CONFIG.history.style
 

@@ -86,7 +86,7 @@ def fit_radius(
     return fitted
 
 
-KEY_SELECTOR = "QPushButton[keypadRole]"
+KEY_SELECTOR = f"QPushButton[{Prop.KEYPAD_ROLE}]"
 
 
 def apply_key_radius(

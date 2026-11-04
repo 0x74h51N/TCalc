@@ -107,7 +107,7 @@ class IconButton(QPushButton):
         super().childEvent(event)
 
 
-OPTION_SELECTOR = 'QRadioButton[optionRole="option"]'
+OPTION_SELECTOR = f'QRadioButton[{Prop.OPTION_ROLE}="{OptionRole.OPTION}"]'
 
 
 class OptionButton(QRadioButton):
