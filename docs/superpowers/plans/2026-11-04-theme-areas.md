@@ -17,7 +17,7 @@
 - Every look field is substituted in QSS as `$<area>_<field>`; no other substitution exists.
 - No value changes. Part 1 leaves every bundled theme's built stylesheet byte for byte the same (the hash pins in `tests/py/unit/ui/test_theme_overrides.py` do not change).
 - A commit step stops for the owner's approval of the diff (`docs/rules/ai/git.md`). Run `make py-lint-fix` before each commit. Run single test files with `PYTHONPATH=src python -m pytest <file>`; `make py-test` once at the end of each part.
-- Three PRs: Part 1, Part 2, Part 3, each from its own branch off `master` after the previous one merged. The spec and this plan go into Part 1's PR as its first commit.
+- One PR (#201) on `refactor/theme-areas`, in three parts: Part 1, Part 2, Part 3, in order. The spec and this plan went in as its first commit.
 
 ## Review Focus
 
@@ -25,9 +25,9 @@
 - A theme that writes a behavior table (`[keypad.custom] spin_font_size = 20`) changes nothing and logs it (Task 3).
 - A custom theme in the old format (`[spacing]`, `[color_usage]`) still loads; those tables are logged and skipped (Task 3).
 - A theme whose area table names a missing color keeps the default place and logs it (Task 3).
-- A theme switch after Part 2 changes the history and memory font ranges without a restart (Task 5).
+- A theme switch after Part 2 changes the history and memory font ranges without a restart (Task 7).
 
-## Part 1: the restructure (PR 1, branch `refactor/theme-areas`)
+## Part 1: the restructure
 
 ### Task 1: partial nested override
 
@@ -206,51 +206,51 @@ Builds on Task 5. Every string a widget is styled by, and every icon name, is na
 - [ ] **Step 4: Run `make typecheck`, the two test files, `test_theme_overrides.py`; the hash pins change only by the removed manubar rules: diff the built stylesheets against Task 5's commit and update the pins with that diff in the report. Then `make py-test`**
 - [ ] **Step 5: Commit** `refactor/ui: name the styling properties and icons once`
 
-## Part 2: history and memory (PR 2, branch `feat/theme-history-memory`)
+## Part 2: history, memory and option groups
 
-### Task 5: history and memory font sizes in the look
+### Task 7: history and memory font sizes in the look
 
 **Files:**
-- Modify: `look.toml`, `look.py`, `config.toml`, `config.py`, `ui/widgets/side_panel/side_panel.py`, `ui/window.py`, `ui/widgets/history/history.py`, `ui/widgets/history/style.py`
+- Modify: `look.toml`, `look.py`, `config.toml`, `config.py`, `ui/widgets/side_panel/side_panel.py`, `ui/window.py`, `ui/widgets/history/history.py`, `ui/widgets/history/style.py`, `src/tcalc/themes/theme-template.toml`
 - Test: `tests/py/ui/test_theme_switch.py`
 
 **Interfaces:**
-- Produces: `HistoryLook` gains `font_size`, `max_pt`, `expr_min_pt`, `expr_max_pt`, `clear_min_pt`, `clear_max_pt` (`clr_btn_*`), `action_btn_size`, `math_font_size` (`[history.math] base_font`); `MemoryLook` gains `font_size`, `max_pt`. `SidePanel.register_font_targets(targets, sizes: Callable[[Look], tuple[int, int]], callback=None)`: the range is resolved from `get_theme().look` each time fonts are applied.
+- Produces: `HistoryLook` gains `font_size`, `max_pt`, `expr_min_pt`, `expr_max_pt`, `clear_min_pt`, `clear_max_pt` (`clr_btn_*`), `action_btn_size`, `math_font_size` (`[history.math] base_font`); `MemoryLook` gains `font_size`, `max_pt`. All are `int`. `SidePanel.register_font_targets(targets, sizes: Callable[[Look], tuple[int, int]], callback=None)`: the range is resolved from `get_theme().look` each time fonts are applied.
 
 - [ ] **Step 1: Test in `test_theme_switch.py`: with a written theme `[history]\nfont_size = 11\nmax_pt = 11\n`, `apply_theme` to it and back to dark; the history list's `font().pointSize()` is 11, then the dark value.**
 - [ ] **Step 2: Run, expect FAIL (the range is fixed at registration)**
-- [ ] **Step 3: Move the fields, change `register_font_targets` and its three callers in `window.py`, read the rest through `get_theme().look.history`**
+- [ ] **Step 3: Move the fields, change `register_font_targets` and its three callers in `window.py`, read the rest through `get_theme().look.history`; add the fields to `theme-template.toml`**
 - [ ] **Step 4: Run the file and `tests/py/ui/test_history.py`, expect PASS; hash pins unchanged**
 - [ ] **Step 5: Commit** `feat/theme: history and memory font sizes in the theme`
 
-### Task 6: history colors and sizes per part
+### Task 8: history colors and sizes per part
 
 **Files:**
-- Modify: `look.toml`, `look.py`, `ui/widgets/history/history.py`, `ui/widgets/history/style.qss`, `ui/widgets/common/button.py` (`OptionGroup` takes its look)
+- Modify: `look.toml`, `look.py`, `ui/widgets/history/history.py`, `ui/widgets/history/style.qss`, `ui/widgets/common/button.py` (`OptionGroup` takes its look), `ui/widgets/calc/topbar/topbar.py`, `src/tcalc/themes/theme-template.toml`
 - Test: `tests/py/ui/test_history.py`
 
 **Interfaces:**
-- Produces: `HistoryLook` gains `expression_color`, `result_color` (default `text_secondary`, today's list color), `result_min_pt`, `result_max_pt` (defaults the list's `font_size` and `max_pt`), `item_button_color` (icon tint, default `icon`), `mode_text_color`, `mode_checked_color`, `mode_checked_text_color`, `mode_font_size` (defaults `[options]`'s and `size_default`), `clear_text_color`, `clear_color` (defaults `[icon_button]`'s). `OptionGroup(..., look: OptionsLook)`: the history passes one built from the `mode_*` fields, the top bar passes `look.options`.
+- Produces: `HistoryLook` gains `expression_color`, `result_color` (default `text_secondary`, today's list color), `result_min_pt`, `result_max_pt` (defaults the list's `font_size` and `max_pt`), `item_button_color` (icon tint, default `icon`), `clear_text_color`, `clear_color` (defaults `[icon_button]`'s), and `mode: OptionsLook`, the `[history.mode]` table with today's `[options]` values as its defaults. `OptionsLook` gains `font_size` (default `size_default`'s value), so the mode buttons and the top bar's option groups both get a font size. Color fields are `ColorName`, sizes `int`. `OptionGroup(..., look: OptionsLook)`: the history passes `look.history.mode`, the top bar `look.options`.
 
-- [ ] **Step 1: Params in `test_history.py`: a theme setting each new field reaches its widget (label palette/stylesheet color, label font size, icon tint by `test_icons._opaque_color`), and the default theme renders as before**
+- [ ] **Step 1: Params in `test_history.py`: a theme setting each new field reaches its widget (label palette/stylesheet color, label font size, icon tint by `test_icons._opaque_color`), `[history.mode] checked_color` alone keeps the rest of the mode look, `[options] font_size` reaches a top bar option button, and the default theme renders as before**
 - [ ] **Step 2: Run, expect FAIL**
-- [ ] **Step 3: Implement; QSS selectors on `#historyItem` and the clear button's object name**
+- [ ] **Step 3: Implement; QSS selectors on `#historyItem` and the clear button's object name; add the fields to `theme-template.toml`**
 - [ ] **Step 4: Run, expect PASS; diff the built stylesheets against Part 1 and update the pins only for the added rules**
 - [ ] **Step 5: Commit** `feat/theme: history expression, result, buttons and modes in the theme`
 
-## Part 3: docks, tabs and options (PR 3, branch `feat/theme-docks-tabs`)
+## Part 3: docks and tabs
 
-### Task 7: dock title, tab bar, option font size
+### Task 9: dock title and tab bar
 
 **Files:**
-- Modify: `look.toml`, `look.py`, `ui/widgets/common/dock_title_bar.py`, `ui/styles/common.qss`, `ui/widgets/common/button.py`
+- Modify: `look.toml`, `look.py`, `ui/widgets/common/dock_title_bar.py`, `ui/styles/common.qss`, `src/tcalc/themes/theme-template.toml`
 - Test: `tests/py/ui/test_theme_switch.py`
 
 **Interfaces:**
-- Produces: `DockLook` `[dock]`: `title_color` (default `text_primary`), `title_font_size` (default `size_default`'s value). `TabsLook` `[tabs]`: `background_color` (`background`), `text_color` (`text_primary`), `selected_color` (`background_light`), `hover_color` (`selection_background`), `radius` (2), `font_size` (9). `OptionsLook.font_size` (9). QSS: `QTabBar` rules in `common.qss`; `DockTitleBar`'s label gets an object name the dock rule selects.
+- Produces: `DockLook` `[dock]`: `title_color` (default `text_primary`), `title_font_size` (default `size_default`'s value). `TabsLook` `[tabs]`: `background_color` (`background`), `text_color` (`text_primary`), `selected_color` (`background_light`), `hover_color` (`selection_background`), `radius` (2), `font_size` (9). Color fields are `ColorName`, sizes `int`. QSS: `QTabBar` rules in `common.qss`; `DockTitleBar`'s label gets an object name the dock rule selects.
 
-- [ ] **Step 1: Tests: a theme's `[dock]` and `[options]` values reach a `DockTitleBar` label and an `OptionGroup` button after `apply_theme`; a stylesheet built with `[tabs] radius = 5` contains the `QTabBar::tab` rule with `5px`**
+- [ ] **Step 1: Tests: a theme's `[dock]` values reach a `DockTitleBar` label after `apply_theme`; a stylesheet built with `[tabs] radius = 5` contains the `QTabBar::tab` rule with `5px`**
 - [ ] **Step 2: Run, expect FAIL**
 - [ ] **Step 3: Implement**
 - [ ] **Step 4: Run, expect PASS; diff the built stylesheets and update the pins for the added rules only; open the app, tabify two docks and look in each bundled theme**
-- [ ] **Step 5: Update `theme-template.toml` for Parts 2 and 3's fields; commit** `feat/theme: dock titles, dock tabs and option font size in the theme`
+- [ ] **Step 5: Add the fields to `theme-template.toml`; commit** `feat/theme: dock titles and dock tabs in the theme`
