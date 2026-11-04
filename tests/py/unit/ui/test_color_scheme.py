@@ -42,7 +42,7 @@ def restore(qapp):
         (ThemeChoice(ThemeMode.SYSTEM), Qt.ColorScheme.Unknown),
         # A custom theme asks for its base theme's scheme
         (ThemeChoice(ThemeMode.CUSTOM, "kitty"), Qt.ColorScheme.Light),
-        (ThemeChoice(ThemeMode.CUSTOM, "retro"), Qt.ColorScheme.Dark),
+        (ThemeChoice(ThemeMode.CUSTOM, "retro"), Qt.ColorScheme.Light),
     ],
 )
 def test_choice_maps_to_qt_scheme(choice, scheme):

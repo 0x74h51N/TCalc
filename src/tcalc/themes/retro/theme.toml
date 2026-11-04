@@ -1,7 +1,7 @@
-# Bundled example custom theme: green phosphor CRT terminal: black keys, scanlined green screen
+# Bundled example custom theme: a 1995 desktop, gray raised keys around a white display
 name = "Retro"
 # Built-in theme it builds on; this file holds only what differs from it
-base = "dark"
+base = "light"
 
 # Overrides of the look's areas (look.toml); square corners everywhere
 [fonts]
@@ -9,59 +9,120 @@ base = "dark"
 family_default = "VT323"
 size_default = 18
 
+[palette]
+# Window parts follow the gray face; the lists keep their white
+base_color = "background"
+
+[display]
+expression_selection_color = "selection_background"
+expression_selection_text_color = "selection_text"
+expression_slot_focus_color = "control_hover"
+radical_line_color = "text_primary"
+radical_symbol_color = "text_primary"
+
+[result]
+fraction_icon_color = "text_primary"
+frac_toggle_radius = 0
+
 [picker]
 font_size = 18
 
+[menu]
+item_border_radius = 0
+font_size = 16
+
+# VT323 draws small, so every text area is a few points larger
 [keypad]
-# Key font range (pt); VT323 draws small
 min_pt = 14
 max_pt = 24
 radius = 0
+# Raised keys, lit from the top left
+edge_width = 2
+edge_light_color = "button_highlight"
+
+[memory]
+radius = 0
+edge_width = 2
+edge_light_color = "button_highlight"
+font_size = 14
+max_pt = 18
+
+[options]
+radius = 0
+edge_width = 2
+edge_light_color = "button_highlight"
+font_size = 18
+
+[history]
+font_size = 14
+max_pt = 18
+expr_min_pt = 14
+expr_max_pt = 20
+clear_min_pt = 12
+clear_max_pt = 15
+result_min_pt = 16
+result_max_pt = 20
+
+[history.mode]
+radius = 0
+edge_width = 2
+edge_light_color = "button_highlight"
+font_size = 16
 
 [history.icon_button]
 radius = 0
+light_color = "button_highlight"
+copy_color = "background"
+delete_color = "background"
+hover_color = "control_hover"
+pressed_color = "control_bg_pressed"
 
 [tooltip]
 radius = 0
 
-[options]
+[toast]
 radius = 0
+font_size = 18
 
 [colors]
-# Green CRT glass with scanlines (the gradient repeats every 0.8% of the height)
-screen = "qlineargradient(spread:repeat, x1:0, y1:0, x2:0, y2:0.01, stop:0 #0C4A0C, stop:0.5 #0C4A0C, stop:0.51 #083b08, stop:1 #063006)"
-secondary = "#000000"
-secondary_hover = "#0A2A0A"
-secondary_text = "#33FF33"
-accent = "#000"
-accent_hover = "#0A2A0A"
-accent_text = "#7CFF7C"
-action = "#000000"
-action_hover = "#0A2A0A"
-action_text = "#B6FFB6"
-background_dark = "#000000"
-background_dark_alt = "#000A00"
-background_medium = "#001000"
-background_light = "#002000"
-background = "#070707"
-text_primary = "#33FF33"
-text_secondary = "#22B822"
-border_light = "#1A8A1A"
-border_focus = "#33FF33"
-status_error = "#FF3B3B"
-selection_background = "#33FF33"
-selection_text = "#000000"
-control = "#002000"
-control_hover = "#003800"
-control_accent = "#7CFF7C"
-icon = "#33FF33"
-control_bg = "rgba(51, 255, 51, 8%)"
-control_bg_hover = "rgba(51, 255, 51, 14%)"
-control_bg_pressed = "rgba(51, 255, 51, 22%)"
-control_disabled_bg = "rgba(51, 255, 51, 4%)"
-control_disabled_text = "rgba(51, 255, 51, 30%)"
-option_checked_bg = "rgba(51, 255, 51, 18%)"
-option_hover_bg = "rgba(51, 255, 51, 10%)"
-toast_info_bg = "rgba(0, 32, 0, 90%)"
-toast_warn_bg = "rgba(255, 176, 0, 35%)"
-toast_error_bg = "rgba(255, 59, 59, 35%)"
+# The 1995 desktop: a gray face, a dark gray shadow under raised keys, navy selection
+button_shadow = "#404040"
+# The display is a white field, as the calculator of the era
+screen = "#FFFFFF"
+# Keys: digits navy, operators and actions red, as the calculator of the era
+secondary = "#C0C0C0"
+secondary_hover = "#A8A8A8"
+secondary_text = "#000080"
+accent = "#C0C0C0"
+accent_hover = "#A8A8A8"
+accent_text = "#800000"
+action = "#C0C0C0"
+action_hover = "#A8A8A8"
+action_text = "#800000"
+background_dark = "#FFFFFF"
+# History rows: white and a light gray zebra
+background_dark_alt = "#E0E0E0"
+background_medium = "#C0C0C0"
+background_light = "#C0C0C0"
+background = "#C0C0C0"
+text_primary = "#000000"
+text_secondary = "#000000"
+border_light = "#808080"
+border_focus = "#000000"
+status_error = "#C00000"
+selection_background = "#000080"
+selection_text = "#FFFFFF"
+control = "#C0C0C0"
+control_hover = "#CDCDCD"
+control_accent = "#800000"
+icon = "#000000"
+control_bg = "#C0C0C0"
+control_bg_hover = "#CDCDCD"
+control_bg_pressed = "#A8A8A8"
+control_disabled_bg = "#C0C0C0"
+control_disabled_text = "#808080"
+option_checked_bg = "#DCDCDC"
+option_hover_bg = "#CDCDCD"
+toast_info_bg = "#C0C0C0"
+toast_warn_bg = "#FFFFE1"
+toast_error_bg = "#FFB0B0"
