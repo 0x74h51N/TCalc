@@ -38,3 +38,18 @@ Same drag probe as above, every step a shrink (the worst case), `shrink_key_radi
 |---|---|---|---|
 | 5 | 75 | 3.7 ms, no restyle | none |
 | 50 | 75 | 22.6 ms over the 40 steps | 202 |
+
+## 2026-11-04: every themed button and the toast cap their radius
+
+`fit_radius` in `ui/widgets/utils.py` caps a theme radius at half a side and writes one `border-radius` rule on a container; the keypads, the memory keys, the option groups, the history item buttons, the fraction toggle and the toast use it, and their radius left the QSS. Fixed-size buttons (history item buttons, fraction toggle) pass their size; the others measure their widgets after layout. Not capped: `QMenu::item`, which Qt sizes and draws itself.
+
+`test_a_radius_above_the_widget_is_as_round_as_it_fits` (radius 100 in every area) fails in all five rows with the cap removed (`fitted = radius`) and passes with it. Its first version read pixels of hidden widgets (the default preset hides the history dock and the angle group) and saw only the window background.
+
+## 2026-11-04: the tooltip window keeps square corners
+
+`QToolTip { border-radius }` rounds the border only; the tooltip is a top-level `QTipLabel` window whose corners stay filled. `WA_TranslucentBackground` on that window makes them see-through (corner alpha 0, Wayland). The `QTipLabel` is a child of the widget whose tooltip it shows, created on each show, and its `ChildPolished` event reaches that widget before the first paint, so `round_tooltip` in a `childEvent` override sets the attribute. Tried first and dropped: an app-wide event filter, measured at about 1.2 µs per event over about 37k events at launch and 33k at a theme switch (about 40 ms each). Tooltips never show under `offscreen`; the test polishes a `ToolTip` label on each widget class instead.
+
+## 2026-11-04: any QSS border drops the button's own frame
+
+A `border` in a `QPushButton` or `QRadioButton` rule, even `0px`, makes the style sheet draw the button and drops the Fusion frame: with ungated 0 px edge rules, about 27k of the window's pixels differed in dark and 31k in light against HEAD. The edge rules therefore apply only under `[raised="true"]`, which `set_raised` sets when a theme's `edge_width` is above 0; after that, dark and light grabbed by `grab_win.py` (a 560x640 `MainWindow`, offscreen) match HEAD in every pixel.
+

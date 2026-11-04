@@ -226,17 +226,32 @@ Builds on Task 5. Every string a widget is styled by, and every icon name, is na
 ### Task 8: history colors and sizes per part
 
 **Files:**
-- Modify: `look.toml`, `look.py`, `ui/widgets/history/history.py`, `ui/widgets/history/style.qss`, `ui/widgets/common/button.py` (`OptionGroup` takes its look), `ui/widgets/calc/topbar/topbar.py`, `src/tcalc/themes/theme-template.toml`
+- Modify: `look.toml`, `look.py`, `ui/widgets/history/history.py`, `ui/widgets/history/style.qss`, `ui/styles/common.qss`, `src/tcalc/themes/theme-template.toml`
 - Test: `tests/py/ui/test_history.py`
 
 **Interfaces:**
-- Produces: `HistoryLook` gains `expression_color`, `result_color` (default `text_secondary`, today's list color), `result_min_pt`, `result_max_pt` (defaults the list's `font_size` and `max_pt`), `item_button_color` (icon tint, default `icon`), `clear_text_color`, `clear_color` (defaults `[icon_button]`'s), and `mode: OptionsLook`, the `[history.mode]` table with today's `[options]` values as its defaults. `OptionsLook` gains `font_size` (default `size_default`'s value), so the mode buttons and the top bar's option groups both get a font size. Color fields are `ColorName`, sizes `int`. `OptionGroup(..., look: OptionsLook)`: the history passes `look.history.mode`, the top bar `look.options`.
+- Produces: `HistoryLook` gains `expression_color`, `result_color` (default `text_secondary`, today's list color), `result_min_pt`, `result_max_pt` (defaults the list's `font_size` and `max_pt`), `icon_button: HistoryIconButtonLook`, the `[history.icon_button]` table that replaces `[icon_button]` and `action_btn_size`: `size`, `radius`, `hover_color`, `pressed_color`, `light_color`, `shadow_color`, `copy_color`, `copy_icon_color` (default `icon`), `delete_color`, `delete_icon_color` (default `status_error`); the shared icon button rule reads `[palette]` with a fixed radius 2 and padding 4, `clear_text_color`, `clear_color` (defaults `[icon_button]`'s), and `mode: OptionsLook`, the `[history.mode]` table with today's `[options]` values as its defaults. `OptionsLook` gains `font_size` (default `size_default`'s value), so the mode buttons and the top bar's option groups both get a font size. Color fields are `ColorName`, sizes `int`. The mode buttons take `[history.mode]` through QSS rules on the group's object name `historyModes`; every other option group takes `[options]` from `common.qss`. `OptionGroup` itself does not change in this task (Task 8b gives it a look picker).
 
-- [ ] **Step 1: Params in `test_history.py`: a theme setting each new field reaches its widget (label palette/stylesheet color, label font size, icon tint by `test_icons._opaque_color`), `[history.mode] checked_color` alone keeps the rest of the mode look, `[options] font_size` reaches a top bar option button, and the default theme renders as before**
+- [ ] **Step 1: Params in `test_history.py`: a theme setting each new field reaches its widget (label palette/stylesheet color, label font size, icon tint by `test_icons._opaque_color`), `[history.mode] text_color` alone keeps the checked button's text color, `[options] font_size` reaches an `OptionGroup` button but not the history modes, and the default theme renders as before**
 - [ ] **Step 2: Run, expect FAIL**
-- [ ] **Step 3: Implement; QSS selectors on `#historyItem` and the clear button's object name; add the fields to `theme-template.toml`**
+- [ ] **Step 3: Implement; QSS selectors on `#historyItem`, `#historyModes` and the clear button's object name; add the fields to `theme-template.toml`**
 - [ ] **Step 4: Run, expect PASS; diff the built stylesheets against Part 1 and update the pins only for the added rules**
 - [ ] **Step 5: Commit** `feat/theme: history expression, result, buttons and modes in the theme`
+
+### Task 8b: radii that fit, raised edges, retro (owner's review of Task 8)
+
+The owner's review of Task 8 in the running app asked for these; each is one commit.
+
+**Files:**
+- Modify: `ui/widgets/utils.py`, `ui/widgets/common/button.py`, `ui/widgets/common/toaster.py`, `ui/widgets/calc/topbar/topbar.py`, `ui/widgets/calc/display/result/result.py`, `ui/widgets/history/history.py`, `ui/widgets/keypad/keypad.py`, `ui/widgets/keypad/custom_pad.py`, `ui/props.py`, the QSS files of those widgets, `look.toml`, `look.py`, `theme-template.toml`, `dark.toml`, `light.toml`, `retro/theme.toml`
+- Test: `tests/py/ui/test_history.py`, `tests/py/ui/test_theme_switch.py`
+
+**Interfaces:**
+- Produces: `fit_radius(container, selector, radius, side, applied) -> int` and `shortest_side(widgets)` in `ui/widgets/utils.py`, on which `apply_key_radius` and `shrink_key_radius` now run; the option groups, the memory keys, the history item buttons, the fraction toggle and the toast fit their radius with it, so a radius larger than a button makes it as round as it fits. `[memory] radius`. `round_tooltip(event)`, called from `childEvent` of the widgets that carry tooltips, makes the tooltip window see-through so `[tooltip] radius` rounds the whole box. The colors `button_highlight` and `button_shadow`, the same in `dark` and `light`. `edge_width`, `edge_light_color`, `edge_shadow_color` in `[keypad]`, `[memory]`, `[options]` and `[history.mode]`, `edge_width = 0` by default; `set_raised(container, raised)` sets `Prop.RAISED` when the edge width is above 0, and the edge rules apply only under it. `OptionGroup(..., look: Callable[[Look], OptionsLook])`: the history passes `look.history.mode`, the top bar `look.options`.
+
+- [x] **Commit 1** `feat/theme: every button radius fits its button`: `fit_radius`, `[history.icon_button]`, `[memory] radius`, the tooltip box, `button_shadow`
+- [x] **Commit 2** `feat/theme: raised edges for keys, memory and option buttons`: the `edge_*` fields behind `Prop.RAISED`; the default themes render pixel for pixel as before
+- [x] **Commit 3** `feat/theme: retro as a 1995 desktop`: gray raised keys, a white display, a history zebra, larger VT323 sizes; retro's base is now `light`
 
 ## Part 3: docks and tabs
 
