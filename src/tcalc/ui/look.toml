@@ -1,0 +1,188 @@
+# What every theme lays over: one table per UI area, read into the Look dataclass.
+# A *_color value is a color name from the theme's [colors], never a color.
+
+[fonts]
+# Fixed app font, independent of the theme and of desktop font settings (e.g. GTK's)
+family_default = "Sans Serif"
+size_default = 9
+family_monospace = "Monospace"
+
+[palette]
+# Qt palette: widgets without a stylesheet (dialogs, scrollbars, line edits...)
+window_color = "background"
+window_text_color = "text_primary"
+base_color = "background_dark"
+text_color = "text_primary"
+button_color = "background_light"
+button_text_color = "text_primary"
+highlight_color = "selection_background"
+highlighted_text_color = "selection_text"
+
+[icons]
+color = "icon"
+
+[display]
+background_color = "screen"
+expression_text_color = "text_secondary"
+expression_selection_color = "selection_background"
+expression_selection_text_color = "selection_text"
+expression_slot_focus_color = "background_light"
+radical_line_color = "selection_text"
+radical_symbol_color = "text_primary"
+status_text_color = "text_secondary"
+status_error_text_color = "status_error"
+divider_height = 1
+root_border_width = 2
+expression_font_size = 14
+expr_max_pt = 26
+
+[result]
+text_color = "text_primary"
+fraction_button_color = "control_bg"
+fraction_button_hover_color = "control_bg_hover"
+fraction_button_pressed_color = "control_bg_pressed"
+fraction_icon_color = "control_accent"
+font_size = 24
+max_pt = 32
+btn_padding = 6
+frac_toggle_radius = 4
+
+[memory]
+button_color = "control_bg"
+button_text_color = "control_accent"
+button_hover_color = "control_bg_hover"
+button_pressed_color = "control_bg_pressed"
+button_disabled_color = "control_disabled_bg"
+button_disabled_text_color = "control_disabled_text"
+# Memory button layout (px)
+pad_y = 8
+pad_x = 14
+
+[keypad]
+number_color = "secondary"
+number_text_color = "secondary_text"
+number_pressed_color = "secondary_hover"
+operator_color = "accent"
+operator_text_color = "accent_text"
+operator_pressed_color = "accent_hover"
+action_color = "action"
+action_text_color = "action_text"
+action_pressed_color = "action_hover"
+equals_color = "primary"
+equals_text_color = "primary_text"
+equals_pressed_color = "primary_hover"
+trig_color = "action"
+trig_text_color = "action_text"
+trig_pressed_color = "action_hover"
+function_color = "accent"
+function_text_color = "accent_text"
+function_pressed_color = "accent_hover"
+power_color = "secondary"
+power_text_color = "secondary_text"
+power_pressed_color = "secondary_hover"
+equals_border_color = "border_focus"
+hover_border_color = "accent_text"
+checked_color = "action_hover"
+disabled_color = "control_disabled_bg"
+disabled_text_color = "control_disabled_text"
+symbol_color = "secondary_text"
+# Corner radius (px)
+radius = 2
+# Base keypad button padding (px)
+button_padding = 0
+compact_pad_y = 4
+compact_pad_x = 8
+# Keypad key font range (pt)
+min_pt = 8
+max_pt = 16
+
+[custom_pad]
+add_key_color = "control"
+add_key_hover_color = "control_hover"
+spinbox_color = "control"
+spinbox_text_color = "text_primary"
+spinbox_focus_border_color = "control_accent"
+toolbar_separator_color = "control"
+menu_background_color = "background_medium"
+menu_text_color = "text_primary"
+menu_border_color = "border_light"
+menu_selected_color = "selection_background"
+menu_separator_color = "control"
+
+[picker]
+background_color = "background_medium"
+border_color = "border_light"
+list_background_color = "background_dark"
+text_color = "text_primary"
+hover_color = "selection_background"
+# Searchable picker font (pt)
+font_size = 9
+
+[menu]
+background_color = "background_medium"
+text_color = "text_primary"
+border_color = "border_light"
+selected_color = "selection_background"
+selected_text_color = "selection_text"
+selected_border_color = "border_focus"
+disabled_text_color = "text_secondary"
+separator_color = "border_light"
+constants_symbol_color = "text_primary"
+item_padding_horizontal = 12
+item_padding_vertical = 4
+item_margin = 2
+item_min_width = 70
+item_border_radius = 6
+icon_padding_left = 6
+icon_padding_right = 4
+separator_height = 1
+separator_margin_vertical = 4
+separator_margin_horizontal = 2
+padding = 4
+# Menu bar font (px)
+font_size = 14
+
+[history]
+background_color = "background_dark"
+text_color = "text_secondary"
+row_color = "background_dark_alt"
+alternate_row_color = "background_dark"
+selected_color = "selection_background"
+selected_text_color = "selection_text"
+
+# Option groups (Deg/Rad/Grad, Math/Flat/Raw...)
+[options]
+text_color = "text_secondary"
+hover_color = "option_hover_bg"
+checked_color = "option_checked_bg"
+checked_text_color = "control_accent"
+radius = 2
+padding_y = 4
+padding_x = 10
+
+[icon_button]
+color = "background_light"
+text_color = "text_primary"
+hover_color = "selection_background"
+pressed_color = "background_dark"
+light_color = "selection_background"
+shadow_color = "background_dark"
+radius = 2
+padding = 4
+
+[tooltip]
+background_color = "background_dark"
+border_color = "border_light"
+text_color = "text_secondary"
+radius = 2
+padding = 2
+
+[toast]
+text_color = "text_primary"
+info_color = "toast_info_bg"
+warn_color = "toast_warn_bg"
+error_color = "toast_error_bg"
+pad_y = 6
+pad_x = 10
+radius = 4
+font_size = 13
