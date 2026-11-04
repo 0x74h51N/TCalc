@@ -57,6 +57,7 @@ button_disabled_text_color = "control_disabled_text"
 # Memory button layout (px)
 pad_y = 8
 pad_x = 14
+radius = 0
 # Memory bar font range (pt)
 font_size = 9
 max_pt = 13
@@ -167,8 +168,6 @@ expr_min_pt = 10
 expr_max_pt = 15
 clear_min_pt = 7
 clear_max_pt = 10
-# Copy and delete buttons of an item (px)
-action_btn_size = 22
 # Math mode render size (pt)
 math_font_size = 17
 # An item's expression (also in math mode) and result
@@ -176,8 +175,6 @@ expression_color = "text_secondary"
 result_color = "text_secondary"
 result_min_pt = 7
 result_max_pt = 12
-# The copy button's icon; the delete icon keeps its red
-copy_button_color = "icon"
 clear_color = "background_light"
 clear_text_color = "text_primary"
 
@@ -192,6 +189,20 @@ padding_y = 4
 padding_x = 10
 font_size = 9
 
+# The copy and delete buttons of an item
+[history.icon_button]
+size = 22
+radius = 2
+hover_color = "selection_background"
+pressed_color = "background_dark"
+# The raised edge: top and left, then bottom and right; pressed swaps them
+light_color = "selection_background"
+shadow_color = "button_shadow"
+copy_color = "background_light"
+copy_icon_color = "icon"
+delete_color = "background_light"
+delete_icon_color = "status_error"
+
 # Option groups (Deg/Rad/Grad...)
 [options]
 text_color = "text_secondary"
@@ -202,16 +213,6 @@ radius = 2
 padding_y = 4
 padding_x = 10
 font_size = 9
-
-[icon_button]
-color = "background_light"
-text_color = "text_primary"
-hover_color = "selection_background"
-pressed_color = "background_dark"
-light_color = "selection_background"
-shadow_color = "background_dark"
-radius = 2
-padding = 4
 
 [tooltip]
 background_color = "background_dark"

@@ -18,9 +18,6 @@ font_size = 16
 font_size = 18
 text_color = "text_primary"
 
-[icon_button]
-radius = 5
-
 [tooltip]
 radius = 5
 

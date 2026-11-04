@@ -18,7 +18,7 @@ min_pt = 14
 max_pt = 24
 radius = 0
 
-[icon_button]
+[history.icon_button]
 radius = 0
 
 [tooltip]

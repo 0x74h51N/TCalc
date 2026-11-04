@@ -23,6 +23,7 @@ class TestOptionGroup:
         g = OptionGroup(
             [("a", "Alpha"), ("b", "Beta"), ("c", "Gamma")],
             current="b",
+            radius=lambda look: look.options.radius,
         )
         g.show()
         qapp.processEvents()

@@ -5,7 +5,6 @@ QLabel#displayResult {
 QPushButton#fracToggleBtn {
     background-color: $result_fraction_button_color;
     border: none;
-    border-radius: ${result_frac_toggle_radius}px;
 }
 QPushButton#fracToggleBtn:hover {
     background-color: $result_fraction_button_hover_color;

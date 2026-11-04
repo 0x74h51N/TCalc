@@ -83,6 +83,7 @@ class MemoryLook:
     button_disabled_text_color: ColorName
     pad_y: int
     pad_x: int
+    radius: int
     font_size: int
     max_pt: int
 
@@ -178,6 +179,20 @@ class OptionsLook:
 
 
 @dataclass(frozen=True, slots=True)
+class HistoryIconButtonLook:
+    size: int
+    radius: int
+    hover_color: ColorName
+    pressed_color: ColorName
+    light_color: ColorName
+    shadow_color: ColorName
+    copy_color: ColorName
+    copy_icon_color: ColorName
+    delete_color: ColorName
+    delete_icon_color: ColorName
+
+
+@dataclass(frozen=True, slots=True)
 class HistoryLook:
     background_color: ColorName
     text_color: ColorName
@@ -191,28 +206,15 @@ class HistoryLook:
     expr_max_pt: int
     clear_min_pt: int
     clear_max_pt: int
-    action_btn_size: int
     math_font_size: int
     expression_color: ColorName
     result_color: ColorName
     result_min_pt: int
     result_max_pt: int
-    copy_button_color: ColorName
     clear_color: ColorName
     clear_text_color: ColorName
     mode: OptionsLook
-
-
-@dataclass(frozen=True, slots=True)
-class IconButtonLook:
-    color: ColorName
-    text_color: ColorName
-    hover_color: ColorName
-    pressed_color: ColorName
-    light_color: ColorName
-    shadow_color: ColorName
-    radius: int
-    padding: int
+    icon_button: HistoryIconButtonLook
 
 
 @dataclass(frozen=True, slots=True)
@@ -250,7 +252,6 @@ class Look:
     menu: MenuLook
     history: HistoryLook
     options: OptionsLook
-    icon_button: IconButtonLook
     tooltip: TooltipLook
     toast: ToastLook
 

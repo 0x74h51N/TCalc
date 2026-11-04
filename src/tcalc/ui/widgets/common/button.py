@@ -7,10 +7,10 @@
 
 from __future__ import annotations
 
-from typing import Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 
-from PySide6.QtCore import QSize, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtCore import QChildEvent, QSize, Signal
+from PySide6.QtGui import QFont, QResizeEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
     QGridLayout,
@@ -22,13 +22,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from tcalc.theme import get_theme
 from tcalc.ui.config import PresetConfig
 from tcalc.ui.icon import Icon
-from tcalc.ui.look import ColorPlace
+from tcalc.ui.look import ColorPlace, Look
 from tcalc.ui.props import KeypadRole, OptionRole, Prop, UiRole
+from tcalc.ui.styles import theme_events
 from tcalc.ui.utils import get_icon
 from tcalc.ui.widgets.math.painter.symbol_icon import ICON_BOX, needs_math_render, theme_symbol_icon
 
+from ..utils import fit_radius, key_fit_timer, round_tooltip, shortest_side
 from .types import KeyDef
 
 
@@ -58,6 +61,10 @@ class KeyButton(QPushButton):
     def place(self, grid: QGridLayout, key_def: KeyDef) -> None:
         """Add this button to *grid* at the position specified in *key_def*."""
         grid.addWidget(self, key_def.row, key_def.col, key_def.rowspan, key_def.colspan)
+
+    def childEvent(self, event: QChildEvent) -> None:
+        round_tooltip(event)
+        super().childEvent(event)
 
 
 class IconButton(QPushButton):
@@ -95,6 +102,21 @@ class IconButton(QPushButton):
     def update_tooltip(self, tooltip: str) -> None:
         self.setToolTip(tooltip)
 
+    def childEvent(self, event: QChildEvent) -> None:
+        round_tooltip(event)
+        super().childEvent(event)
+
+
+OPTION_SELECTOR = 'QRadioButton[optionRole="option"]'
+
+
+class OptionButton(QRadioButton):
+    """One option of an OptionGroup."""
+
+    def childEvent(self, event: QChildEvent) -> None:
+        round_tooltip(event)
+        super().childEvent(event)
+
 
 class OptionGroup(QWidget):
     """Reusable radio-button group built from ``(key, label)`` pairs."""
@@ -105,10 +127,16 @@ class OptionGroup(QWidget):
         self,
         options: Sequence[tuple[object, str]],
         current: object,
+        radius: Callable[[Look], int],
         parent: QWidget | None = None,
         tooltips: Mapping[object, str] | None = None,
     ) -> None:
         super().__init__(parent)
+        self._radius = radius
+        self._applied_radius: int | None = None
+        # The buttons take their size from the layout and the theme font
+        self._fit_timer = key_fit_timer(self, self._fit_radius)
+        theme_events.applied.connect(self._fit_timer.start)
 
         sp = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         sp.setRetainSizeWhenHidden(False)
@@ -122,7 +150,7 @@ class OptionGroup(QWidget):
         layout.setSpacing(4)
 
         for key, label in options:
-            btn = QRadioButton(label, self)
+            btn = OptionButton(label, self)
             btn.setProperty(Prop.OPTION_ROLE, OptionRole.OPTION)
             if tooltips is not None:
                 tooltip = tooltips.get(key)
@@ -136,6 +164,18 @@ class OptionGroup(QWidget):
             self._buttons[current].setChecked(True)
 
         self._group.buttonToggled.connect(self._on_toggled)
+
+    def _fit_radius(self) -> None:
+        side = shortest_side(self._buttons.values())
+        if side is not None:
+            radius = self._radius(get_theme().look)
+            self._applied_radius = fit_radius(
+                self, OPTION_SELECTOR, radius, side, self._applied_radius
+            )
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._fit_timer.start()
 
     def _on_toggled(self, button: QRadioButton, checked: bool) -> None:
         if not checked:
@@ -189,6 +229,10 @@ class KSSpinBox(QSpinBox):
         self.setToolTip(tooltip)
         if width is not None:
             self.setFixedWidth(width)
+
+    def childEvent(self, event: QChildEvent) -> None:
+        round_tooltip(event)
+        super().childEvent(event)
 
 
 class CustomPresetActions(QWidget):
