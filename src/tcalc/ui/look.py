@@ -83,6 +83,8 @@ class MemoryLook:
     button_disabled_text_color: ColorName
     pad_y: int
     pad_x: int
+    font_size: int
+    max_pt: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,6 +173,14 @@ class HistoryLook:
     alternate_row_color: ColorName
     selected_color: ColorName
     selected_text_color: ColorName
+    font_size: int
+    max_pt: int
+    expr_min_pt: int
+    expr_max_pt: int
+    clear_min_pt: int
+    clear_max_pt: int
+    action_btn_size: int
+    math_font_size: int
 
 
 @dataclass(frozen=True, slots=True)

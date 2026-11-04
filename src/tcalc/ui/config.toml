@@ -56,27 +56,13 @@ clear_button_stretch = 1
 item_min_height = 70
 item_margin = 10
 item_spacing = 10
-action_btn_size = 22
-
-font_size = 7
-max_pt = 12
-expr_min_pt = 10
-expr_max_pt = 15
 
 btn_margin = 6
-
-clr_btn_min_pt = 7
-clr_btn_max_pt = 10
-
-[history.math]
-base_font = 17
 
 # ---------------------------------------------------------------------------
 # Memory bar
 # ---------------------------------------------------------------------------
 [memory.style]
-font_size = 9
-max_pt = 13
 divider_spacing = 4
 
 

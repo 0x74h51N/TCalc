@@ -57,6 +57,9 @@ button_disabled_text_color = "control_disabled_text"
 # Memory button layout (px)
 pad_y = 8
 pad_x = 14
+# Memory bar font range (pt)
+font_size = 9
+max_pt = 13
 
 [keypad]
 hover_border_color = "accent_text"
@@ -157,6 +160,17 @@ row_color = "background_dark_alt"
 alternate_row_color = "background_dark"
 selected_color = "selection_background"
 selected_text_color = "selection_text"
+# Font ranges (pt): the list, an item's expression, the Clear History button
+font_size = 7
+max_pt = 12
+expr_min_pt = 10
+expr_max_pt = 15
+clear_min_pt = 7
+clear_max_pt = 10
+# Copy and delete buttons of an item (px)
+action_btn_size = 22
+# Math mode render size (pt)
+math_font_size = 17
 
 # Option groups (Deg/Rad/Grad, Math/Flat/Raw...)
 [options]
