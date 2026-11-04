@@ -168,25 +168,29 @@ def test_broken_part_falls_back(write_theme, caplog, body, values, expected, log
 
 
 def test_look_override_reaches_stylesheet_and_python(write_theme):
-    theme = load_theme(write_theme("[result]\nfrac_toggle_radius = 40\n[keypad]\nradius = 7\n"))
-    assert theme.look.result.frac_toggle_radius == 40
+    theme = load_theme(write_theme("[toast]\npad_y = 40\n[keypad]\nradius = 7\n"))
+    assert theme.look.toast.pad_y == 40
     assert theme.look.keypad.radius == 7
-    assert "border-radius: 40px" in _build_stylesheet()
+    assert "padding: 40px" in _build_stylesheet()
 
 
 # The stylesheet of each bundled theme as master a88c553 built it (2026-11-02): moving the
 # values and renaming QSS variables must not change one substituted character. Since
 # 2026-11-04 the spin box radius is fixed at 2 px in every theme (#106), and the menu bar's
 # preset row rules and the keypad's equals rules, which no widget matched, are gone, and the
-# history item, Clear History, history mode and option font size rules are added (#197)
+# history item, Clear History, history mode and option font size rules are added (#197); the
+# shared icon button rule is fixed (retro and sponge lose their radius) and the history item
+# buttons get their own rules; the option, history button, fraction and toast radii leave the
+# stylesheet, since Python fits them to the widget; their raised edge's shadow is a fixed dark
+# color, not background_dark (white in light)
 @pytest.mark.parametrize(
     "variant, sha256",
     [
-        ("light", "3ba9f7520f488028ab54652a7254b34f2fe9be980310a57010ddb39ba2622650"),
-        ("dark", "d819723639999f68a80a90c0c29e60de7861a3d23e361534922afb67197888de"),
-        ("kitty", "1ab1a8cedb9a06a912aa44eca1edf06039b6b6d08a931ecee79b250d665bbe61"),
-        ("retro", "051c7d82fb009f9a97344fd3173332d6229aa347602751d4f24f35e3c4db2ba6"),
-        ("sponge", "5093bc37a28b75001d3909d352e7f16ca5874b84228185f7db70919a614b5fc7"),
+        ("light", "db8747e04f70e69b831a3e0b152245a79e6b238eeb649ebc4a1ef8f3fdda7b48"),
+        ("dark", "aec503593914c32f6e242b7d3a9a7ac5415d0839e023aed3d6df0d78e5f7a14a"),
+        ("kitty", "0d6fc4ecf40355a3facab6102da66be8c0352f23f9d544fb8ce11f6b87a72206"),
+        ("retro", "48f4d1933bc3093efe5935bf9ee609fc0ecd867c0b9cbb5921eebb7620e35f85"),
+        ("sponge", "566c1448f223d2c12cbbab40257228299f6a1cbb9fc93e9eee5dac6d9787075a"),
     ],
 )
 def test_bundled_themes_style_unchanged(variant, sha256):

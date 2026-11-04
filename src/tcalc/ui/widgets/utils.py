@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Callable, Iterable
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QChildEvent, QEvent, Qt, QTimer
 from PySide6.QtWidgets import (
     QWidget,
 )
@@ -49,27 +49,43 @@ def apply_scaled_fonts(
         targets.setFont(font)
 
 
-def _fitted_key_radius(keys: Iterable[QWidget]) -> int | None:
-    """Theme key radius, capped at half the shortest key side: Qt squares a larger one."""
-    sides = [min(key.width(), key.height()) for key in keys if not key.isHidden()]
-    if not sides:  # a custom grid with no keys yet
-        return None
-    return min(get_theme().look.keypad.radius, min(sides) // 2)
+def round_tooltip(event: QChildEvent) -> None:
+    """Qt rounds only the tooltip's border; its window corners stay filled unless see-through."""
+    child = event.child()
+    if (
+        event.type() == QEvent.Type.ChildPolished
+        and isinstance(child, QWidget)
+        and child.windowType() == Qt.WindowType.ToolTip
+    ):
+        child.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
 
-def _set_key_radius(container: QWidget, radius: int) -> None:
-    container.setStyleSheet(f"QPushButton[keypadRole] {{ border-radius: {radius}px; }}")
+def shortest_side(widgets: Iterable[QWidget]) -> int | None:
+    sides = [min(w.width(), w.height()) for w in widgets if not w.isHidden()]
+    return min(sides) if sides else None  # None: a custom grid with no keys yet
+
+
+def fit_radius(
+    container: QWidget, selector: str, radius: int, side: int, applied: int | None
+) -> int:
+    """The radius set on *selector*, capped at half *side* since Qt squares a larger one."""
+    fitted = min(radius, side // 2)
+    if fitted != applied:
+        container.setStyleSheet(f"{selector} {{ border-radius: {fitted}px; }}")
+    return fitted
+
+
+KEY_SELECTOR = "QPushButton[keypadRole]"
 
 
 def apply_key_radius(
     container: QWidget, keys: Iterable[QWidget], applied: int | None
 ) -> int | None:
     """The radius the keys have after fitting it; *applied* is the one they had."""
-    radius = _fitted_key_radius(keys)
-    if radius is None or radius == applied:
+    side = shortest_side(keys)
+    if side is None:
         return applied
-    _set_key_radius(container, radius)
-    return radius
+    return fit_radius(container, KEY_SELECTOR, get_theme().look.keypad.radius, side, applied)
 
 
 def key_fit_timer(container: QWidget, fit: Callable[[], None]) -> QTimer:
@@ -85,11 +101,13 @@ def shrink_key_radius(
     container: QWidget, keys: Iterable[QWidget], applied: int | None
 ) -> int | None:
     """Refits at once only a radius the keys shrank below, which Qt squares until the next fit."""
-    radius = _fitted_key_radius(keys)
-    if radius is None or applied is None or radius >= applied:  # None before launch fit
+    side = shortest_side(keys)
+    radius = get_theme().look.keypad.radius
+    if (
+        side is None or applied is None or min(radius, side // 2) >= applied
+    ):  # None before launch fit
         return applied
-    _set_key_radius(container, radius)
-    return radius
+    return fit_radius(container, KEY_SELECTOR, radius, side, applied)
 
 
 class InputAlign(Enum):

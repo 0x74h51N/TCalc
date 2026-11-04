@@ -10,22 +10,29 @@ import dataclasses
 import json
 import re
 
+import calc_native
 import pytest
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction, QColor, QFont, QStyleHints
-from PySide6.QtWidgets import QApplication, QDockWidget, QMenu, QWidget
+from PySide6.QtWidgets import QApplication, QDockWidget, QLabel, QMenu, QRadioButton, QWidget
 
 import tcalc.app_state as app_state_mod
 import tcalc.ui.widgets.keypad.keypad as keypad_mod
 from tcalc.app_state import get_app_state
 from tcalc.core.ops import Operation
+from tcalc.core.parser import tokenize
 from tcalc.theme import ThemeChoice, ThemeMode, get_theme, load_theme
-from tcalc.ui.props import Prop, UiRole
+from tcalc.ui.icon import Icon
+from tcalc.ui.props import KeypadRole, Prop, UiRole
 from tcalc.ui.styles import apply_theme, sync_theme
 from tcalc.ui.widgets.calc.display.display import Display
-from tcalc.ui.widgets.common.button import KeyButton
+from tcalc.ui.widgets.calc.display.result.result import Result
+from tcalc.ui.widgets.calc.topbar.topbar import TopBar
+from tcalc.ui.widgets.common.button import IconButton, KeyButton, KSSpinBox, OptionGroup
 from tcalc.ui.widgets.common.toaster import Toaster, ToastLevel
 from tcalc.ui.widgets.common.types import GridLayout, KeyDef, KeySettings, PadLayout
+from tcalc.ui.widgets.history.history import History, HistoryItem
+from tcalc.ui.widgets.history.storage import HistoryEntry
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad, KSGrid, _add_operation
 from tcalc.ui.widgets.keypad.widgets import MainKeypad
 from tcalc.ui.widgets.side_panel.side_panel import SidePanel
@@ -193,7 +200,8 @@ def test_history_takes_the_theme_monospace_font(qapp, window, _user_themes):
 def test_toast_is_styled_by_level_not_inline(qapp, window):
     toaster = Toaster(window)
     toaster.show_toast("x", ToastLevel.ERROR)
-    assert toaster.styleSheet() == "" and toaster.property("toastLevel") == "error"
+    # Its own sheet holds only the radius it fits
+    assert "background" not in toaster.styleSheet() and toaster.property("toastLevel") == "error"
 
 
 def _view_menu(window) -> QMenu:
@@ -304,6 +312,102 @@ def test_keys_are_as_round_as_they_fit(qtbot, extreme_theme, window, pad, grow):
     assert keys
     assert [k.text() for k in keys if _square(k)] == []
     assert _fully_round(min(keys, key=lambda k: min(k.width(), k.height())))
+
+
+@pytest.fixture
+def round_theme(_user_themes) -> str:
+    """A dark-based user theme whose every radius is far above what a widget fits."""
+    folder = _user_themes / "round"
+    folder.mkdir(parents=True)
+    tables = ["[options]", "[history.mode]", "[history.icon_button]", "[toast]", "[memory]"]
+    body = "".join(f"{table}\nradius = 100\n" for table in tables)
+    (folder / "theme.toml").write_text(
+        f'name = "Round"\nbase = "dark"\n{body}[result]\nfrac_toggle_radius = 100\n'
+    )
+    return "round"
+
+
+def _checked_option(window, text: str) -> QWidget:
+    return next(b for b in window.findChildren(QRadioButton) if b.text() == text)
+
+
+def _history_item(window) -> HistoryItem:
+    history = window.findChild(History)
+    tokens = tokenize("1+2")
+    history.update_history(
+        HistoryEntry("1+2", "3", tokens, calc_native.tokens_to_flat_text(tokens.tokens))
+    )
+    return history.list.itemWidget(history.list.item(0))
+
+
+def _history_copy_button(window) -> QWidget:
+    button = _history_item(window)._copy_btn
+    button.show()
+    return button
+
+
+def _fraction_button(window) -> QWidget:
+    button = window.findChild(Result)._frac_btn
+    button.show()
+    return button
+
+
+def _toast(window) -> QWidget:
+    toast = _history_item(window).toaster
+    toast.show_toast("Copied")
+    return toast
+
+
+@pytest.mark.parametrize("window", [{"theme": "round"}], indirect=True)
+@pytest.mark.parametrize(
+    "shown",
+    [
+        param(lambda w: _checked_option(w, "Deg"), id="option group"),
+        param(lambda w: _checked_option(w, "Flat"), id="history modes"),
+        param(_history_copy_button, id="history item button"),
+        param(_fraction_button, id="fraction toggle"),
+        param(_toast, id="toast"),
+        param(lambda w: w.findChild(TopBar).get_button("MC"), id="memory button"),
+    ],
+)
+def test_a_radius_above_the_widget_is_as_round_as_it_fits(qtbot, round_theme, window, shown):
+    widget = shown(window)
+    # The default preset hides the history dock and the angle group
+    parent = widget
+    while parent is not None:
+        parent.show()
+        parent = parent.parentWidget()
+    qtbot.wait(KEY_SETTLE_MS)
+    assert widget.isVisible()
+    assert not _square(widget)
+    assert _fully_round(widget)
+
+
+@pytest.mark.parametrize(
+    "make",
+    [
+        param(
+            lambda host: KeyButton(
+                KeyDef(label="+", operation=Operation.ADD, tooltip="add"), KeypadRole.OPERATOR, host
+            ),
+            id="key",
+        ),
+        param(lambda host: IconButton(Icon.EDIT_COPY, "Copy", parent=host), id="icon button"),
+        param(
+            lambda host: OptionGroup(
+                [(1, "A")], 1, lambda look: look.options.radius, host
+            ).buttons()[1],
+            id="option",
+        ),
+        param(lambda host: KSSpinBox("x", "Rows", 1, 9, 3, QFont(), parent=host), id="spin box"),
+    ],
+)
+def test_tooltip_window_corners_are_see_through(qapp, make):
+    host = QWidget()
+    # Qt makes the tooltip window a child of the widget and polishes it before it shows
+    tip = QLabel(make(host), Qt.WindowType.ToolTip)
+    tip.ensurePolished()
+    assert tip.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
 
 @pytest.mark.parametrize("name", ["apply_key_radius", "apply_scaled_fonts"])

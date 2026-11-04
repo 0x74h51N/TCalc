@@ -6,26 +6,27 @@ QToolTip {
     padding: ${tooltip_padding}px;
 }
 
+/* The same in every theme: only the history items' buttons have a look of their own */
 QPushButton[uiRole="iconButton"] {
-    background-color: $icon_button_color;
-    color: $icon_button_text_color;
-    border: 1px solid $icon_button_shadow_color;
-    border-top-color: $icon_button_light_color;
-    border-left-color: $icon_button_light_color;
-    border-radius: ${icon_button_radius}px;
-    padding: ${icon_button_padding}px;
+    background-color: $palette_button_color;
+    color: $palette_button_text_color;
+    border: 1px solid $palette_base_color;
+    border-top-color: $palette_highlight_color;
+    border-left-color: $palette_highlight_color;
+    border-radius: 2px;
+    padding: 4px;
 }
 
 QPushButton[uiRole="iconButton"]:hover {
-    background-color: $icon_button_hover_color;
+    background-color: $palette_highlight_color;
 }
 
 QPushButton[uiRole="iconButton"]:pressed {
-    background-color: $icon_button_pressed_color;
-    border-top-color: $icon_button_shadow_color;
-    border-left-color: $icon_button_shadow_color;
-    border-bottom-color: $icon_button_light_color;
-    border-right-color: $icon_button_light_color;
+    background-color: $palette_base_color;
+    border-top-color: $palette_base_color;
+    border-left-color: $palette_base_color;
+    border-bottom-color: $palette_highlight_color;
+    border-right-color: $palette_highlight_color;
 }
 
 QPushButton[uiRole="toolbarToggle"] {
@@ -38,7 +39,6 @@ QPushButton[uiRole="toolbarToggle"] {
 QRadioButton[optionRole="option"] {
     background-color: transparent;
     color: $options_text_color;
-    border-radius: ${options_radius}px;
     padding: ${options_padding_y}px ${options_padding_x}px;
     spacing: 0px;
     font-size: ${options_font_size}pt;

@@ -34,8 +34,8 @@
 # One table per UI area; this file is a partial copy of src/tcalc/ui/look.toml, which holds
 # the defaults. Everything below is those defaults. Set only the fields you change; a table or
 # field you leave out keeps its default. A field named color or ending in _color names a color
-# of this file's [colors] (or of `base`), never a color. Qt draws a radius above half the
-# widget's shorter side as square corners; keypad keys cap theirs at half of the smallest key.
+# of this file's [colors] (or of `base`), never a color. Keys, buttons and toasts cap a radius
+# at half their shorter side, so a large radius makes them as round as they fit.
 # Font files (.ttf/.otf) in the theme folder are loaded at startup; use their family name in
 # [fonts].
 
@@ -96,6 +96,7 @@
 #   Memory button layout (px)
 # pad_y = 8
 # pad_x = 14
+# radius = 0
 #   Memory bar font range (pt)
 # font_size = 9
 # max_pt = 13
@@ -206,8 +207,6 @@
 # expr_max_pt = 15
 # clear_min_pt = 7
 # clear_max_pt = 10
-#   Copy and delete buttons of an item (px)
-# action_btn_size = 22
 #   Math mode render size (pt)
 # math_font_size = 17
 #   An item's expression (also in math mode) and result
@@ -215,8 +214,6 @@
 # result_color = "text_secondary"
 # result_min_pt = 7
 # result_max_pt = 12
-#   The copy button's icon; the delete icon keeps its red
-# copy_button_color = "icon"
 # clear_color = "background_light"
 # clear_text_color = "text_primary"
 
@@ -231,6 +228,20 @@
 # padding_x = 10
 # font_size = 9
 
+#   The copy and delete buttons of an item
+# [history.icon_button]
+# size = 22
+# radius = 2
+# hover_color = "selection_background"
+# pressed_color = "background_dark"
+#   The raised edge: top and left, then bottom and right; pressed swaps them
+# light_color = "selection_background"
+# shadow_color = "button_shadow"
+# copy_color = "background_light"
+# copy_icon_color = "icon"
+# delete_color = "background_light"
+# delete_icon_color = "status_error"
+
 #   Option groups (Deg/Rad/Grad...)
 # [options]
 # text_color = "text_secondary"
@@ -241,16 +252,6 @@
 # padding_y = 4
 # padding_x = 10
 # font_size = 9
-
-# [icon_button]
-# color = "background_light"
-# text_color = "text_primary"
-# hover_color = "selection_background"
-# pressed_color = "background_dark"
-# light_color = "selection_background"
-# shadow_color = "background_dark"
-# radius = 2
-# padding = 4
 
 # [tooltip]
 # background_color = "background_dark"
@@ -340,6 +341,7 @@
 # control_disabled_text = "rgba(243, 209, 153, 30%)"
 # option_checked_bg = "rgba(52, 56, 66, 25%)"   # checked option in option groups
 # option_hover_bg = "rgba(42, 44, 51, 35%)"
+# button_shadow = "rgba(0, 0, 0, 40%)"   # the shadow side of the history item buttons
 
 # Icons and messages
 # icon = "#fcfcfc"                 # single-color icons (colored icons keep their colors)

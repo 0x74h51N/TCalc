@@ -57,6 +57,8 @@ control_disabled_bg = "rgba(30, 31, 36, 4%)"
 control_disabled_text = "rgba(232, 89, 12, 40%)"
 option_checked_bg = "rgba(30, 31, 36, 10%)"
 option_hover_bg = "rgba(30, 31, 36, 6%)"
+# The same in every theme: a shadow that darkens any background
+button_shadow = "rgba(0, 0, 0, 40%)"
 toast_info_bg = "rgba(220, 223, 230, 90%)"
 toast_warn_bg = "rgba(183, 121, 31, 25%)"
 toast_error_bg = "rgba(198, 40, 40, 20%)"

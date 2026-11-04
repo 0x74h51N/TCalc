@@ -32,13 +32,15 @@ from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.common.utils import Align
 from tcalc.ui.widgets.math import MathPainter, PaintCanvas
-from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
+from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts, fit_radius
 
 from ..common import IconButton, Toaster, ToastLevel
 from ..common.picture_layer import PictureLayer
 from .storage import HistoryEntry, clear_history_file, load_history, save_history
 from .style import apply_history_style
 from .utils import wrap_expression
+
+ICON_BUTTON_SELECTOR = 'QWidget#historyItem QPushButton[uiRole="iconButton"]'
 
 style = CONFIG.history.style
 
@@ -77,6 +79,9 @@ class History(QWidget):
 
         self.list.currentItemChanged.connect(self._on_current_changed)
         theme_events.applied.connect(self._apply_theme_font)
+        self._icon_button_radius: int | None = None
+        self._fit_icon_button_radius()
+        theme_events.applied.connect(self._fit_icon_button_radius)
         layout.addWidget(self.list, 1)
 
         btn_container = QHBoxLayout()
@@ -88,6 +93,7 @@ class History(QWidget):
         self._history_modes = OptionGroup(
             [(RenderMode.MATH, "Math"), (RenderMode.FLAT, "Flat"), (RenderMode.RAW, "Raw")],
             self._app_state.history_mode,
+            lambda look: look.history.mode.radius,
             self,
             tooltips={
                 RenderMode.FLAT: "Formatted text",
@@ -123,6 +129,12 @@ class History(QWidget):
         font = self.list.font()
         font.setFamily(get_theme().look.fonts.family_monospace)
         self.list.setFont(font)
+
+    def _fit_icon_button_radius(self) -> None:
+        look = get_theme().look.history.icon_button
+        self._icon_button_radius = fit_radius(
+            self, ICON_BUTTON_SELECTOR, look.radius, look.size, self._icon_button_radius
+        )
 
     def set_mode(self, mode: RenderMode):
         self._history_modes.set_current(mode)
@@ -352,20 +364,26 @@ class HistoryItem(QWidget):
         self._layout.setSpacing(style.item_spacing)
 
         # Action buttons (absolute positioned, bottom-left, outside layout)
-        self._btn_size = get_theme().look.history.action_btn_size
+        self._btn_size = get_theme().look.history.icon_button.size
         self._copy_btn = IconButton(
             Icon.EDIT_COPY,
             tooltip="Copy expression",
             size=self._btn_size,
             parent=self,
-            tint=lambda look: look.history.copy_button_color,
+            tint=lambda look: look.history.icon_button.copy_icon_color,
         )
+        self._copy_btn.setObjectName("historyCopy")
         self._copy_btn.hide()
         self._copy_btn.clicked.connect(self.copy_clicked)
 
         self._remove_btn = IconButton(
-            Icon.EDIT_DELETE, tooltip="Remove from history", size=self._btn_size, parent=self
+            Icon.EDIT_DELETE,
+            tooltip="Remove from history",
+            size=self._btn_size,
+            parent=self,
+            tint=lambda look: look.history.icon_button.delete_icon_color,
         )
+        self._remove_btn.setObjectName("historyDelete")
         self._remove_btn.hide()
         self._remove_btn.clicked.connect(self.remove_clicked)
 

@@ -23,10 +23,11 @@ from tcalc.core.utils import CalcValue
 from tcalc.theme import get_theme
 from tcalc.ui.config import ResultConfig
 from tcalc.ui.props import Prop, StatusKind
+from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.common.button import IconButton
 from tcalc.ui.widgets.history.utils import wrap_expression
 from tcalc.ui.widgets.math import ExpressionSlot, InputKind, MathRender
-from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
+from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts, fit_radius
 
 
 class Result(QWidget):
@@ -88,6 +89,9 @@ class Result(QWidget):
             parent=self,
         )
         self._frac_btn.setObjectName("fracToggleBtn")
+        self._frac_radius: int | None = None
+        self._fit_frac_radius()
+        theme_events.applied.connect(self._fit_frac_radius)
         self._frac_btn.hide()
         self._frac_btn.clicked.connect(self._toggle_fraction_view)
         self._row_layout.addWidget(self._frac_btn, 0)
@@ -108,6 +112,12 @@ class Result(QWidget):
         self.setBackgroundRole(QPalette.ColorRole.Base)
         self.setAutoFillBackground(True)
         QTimer.singleShot(0, self._update_fonts)
+
+    def _fit_frac_radius(self) -> None:
+        radius = get_theme().look.result.frac_toggle_radius
+        self._frac_radius = fit_radius(
+            self, "QPushButton#fracToggleBtn", radius, self._config.btn_size, self._frac_radius
+        )
 
     def update_res(
         self,

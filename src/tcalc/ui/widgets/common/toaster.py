@@ -5,7 +5,9 @@ from enum import StrEnum
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QLabel, QWidget
 
+from tcalc.theme import get_theme
 from tcalc.ui.props import Prop
+from tcalc.ui.widgets.utils import fit_radius
 
 from .utils import Align, reposition, setup_fade, start_fade_out
 
@@ -31,6 +33,7 @@ class Toaster(QLabel):
     ) -> None:
         super().__init__(parent)
         self._duration_ms = duration_ms
+        self._radius: int | None = None
         self._horizontal = horizontal
         self._vertical = vertical
         self._x_offset = x_offset
@@ -58,6 +61,10 @@ class Toaster(QLabel):
         self.style().unpolish(self)
         self.style().polish(self)
         self.adjustSize()
+        side = min(self.width(), self.height())
+        self._radius = fit_radius(
+            self, "Toaster", get_theme().look.toast.radius, side, self._radius
+        )
         reposition(self, self._horizontal, self._vertical)
         if self._x_offset or self._y_offset:
             self.move(self.x() + self._x_offset, self.y() + self._y_offset)
