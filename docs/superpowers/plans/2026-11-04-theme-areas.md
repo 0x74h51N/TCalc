@@ -168,6 +168,43 @@ Expected: all pass; `git diff tests/py/unit/ui/test_theme_overrides.py` shows no
 
 - [ ] **Step 3: Commit** `docs/theme: describe the area tables`
 
+### Task 5: typed tables and typed values, no `Any` and no bare `str`
+
+The owner's follow-up from Task 1 review: the converter's hints and values are typed, not `Any`, and removing `Any` does not mean falling back to `object` or a bare `str`. A value says what it is by its type: a color name, an icon name, a font family, a group of fields with the same shape.
+
+**Files:**
+- Modify: `src/tcalc/typed_tables.py`, `src/tcalc/ui/look.py`, `src/tcalc/ui/look.toml`, `src/tcalc/ui/config.py`, `src/tcalc/theme.py`, `src/tcalc/ui/styles.py`, the readers of the moved keypad fields, `src/tcalc/themes/{kitty,retro,sponge}/theme.toml`, `tests/py/ui/themes/extreme/theme.toml`
+- Test: `tests/py/unit/ui/test_typed_tables.py`, `tests/py/unit/ui/test_look.py` (`make typecheck` is the main check)
+
+**Interfaces:**
+- `typed_tables.py`: `type Toml = int | float | bool | str | list[Toml] | dict[str, Toml]` is what a table holds (the input of `build`, `override`, `values`); `type Value = int | float | bool | str | Path | Enum | tuple[Value, ...] | DataclassInstance` is what a converted field holds (the converter's return); `type Hint = type | types.GenericAlias | NewType` is what a field may be declared as. A `NewType` field converts by its supertype and keeps the NewType. `_hints` is typed `Callable[[type], dict[str, Hint]]` at the `get_type_hints` boundary; `_is_dataclass_type(hint: Hint) -> TypeGuard[type[DataclassInstance]]`; the per-key converter is `Callable[[str, Toml, Hint, str], Value]`; `override` reads the current nested value as `DataclassInstance` before recursing; `values[V]` converts with its own check against `kind` and returns `dict[str, V]`. No `Any` and no `cast` in the file.
+- Named value types, each a `NewType` over `str`, declared beside the table that owns them: `ColorName` (`look.py`: every color place of the look; `Theme.colors: dict[ColorName, str]`), `IconName` (`config.py`: `untinted`, `frac_icon`, `decimal_icon`, `row_icon`, `rename_icon`, `update_icon`, `delete_icon`), `FontFamily` (`look.py`: `family_default`, `family_monospace`). A color place is a field whose type is `ColorName`: `is_color_place(name)` and its name rule go, `color_places` walks the look by type and recurses into nested tables.
+- Nested structure: the seven keypad roles share one shape, so `@dataclass(frozen=True, slots=True) class KeyRoleLook: color: ColorName; text_color: ColorName; pressed_color: ColorName` and `KeypadLook` has `number`, `operator`, `action`, `equals`, `trig`, `function`, `power: KeyRoleLook` in place of the 21 flat fields. `look.toml` and the themes write `[keypad.number] color = ...`. The stylesheet name is the path joined by `_` (`$keypad_number_color`), so no QSS file changes. Areas whose fields occur once keep them flat; no other group is merged into a shared shape.
+
+- [ ] **Step 1: Add a `test_typed_tables.py` row for a `NewType` field (built value equals the plain one, a wrong type is a TableError) and for a nested override of one role (`{"number": {"color": "x"}}` keeps the role's other fields); run, expect FAIL**
+- [ ] **Step 2: Implement the types above in `typed_tables.py`, `look.py`, `config.py`, `theme.py`, move the keypad role fields into `[keypad.<role>]` in `look.toml` and the four theme files, update their readers**
+- [ ] **Step 3: Run `PYTHONPATH=src python -m pytest tests/py/unit/ui/test_typed_tables.py tests/py/unit/ui/test_look.py tests/py/unit/ui/test_theme_overrides.py -q` and `make typecheck`; expect green with the hash pins unchanged, and `grep -n "Any\|cast(" src/tcalc/typed_tables.py` empty. Then `make py-test`**
+- [ ] **Step 4: Commit** `refactor/typed-tables: type the field hints and values`
+
+### Task 6: typed Qt properties
+
+Builds on Task 5. Every string a widget is styled by is named once in Python, and a test fails when the QSS and Python drift.
+
+**Files:**
+- Create: `src/tcalc/ui/props.py` (new module: the property names and values have no home today; they are shared by 12 widget files and 8 QSS files)
+- Modify: the 12 files with `setProperty`/`property` calls (`ui/keyboard/handler.py`, `ui/widgets/common/{toaster,toolbar,button,utils}.py`, `ui/widgets/history/style.py`, `ui/widgets/calc/display/result/result.py`, `ui/widgets/calc/display/expression/expression.py`, `ui/widgets/math/renderer/expression_node.py`, `ui/widgets/keypad/{keypad,custom_pad}.py`, `ui/widgets/utils.py`), `src/tcalc/ui/manubar/style.qss`
+- Test: `tests/py/unit/ui/test_props.py` (new: the QSS-against-Python check has no existing home)
+
+**Interfaces:**
+- Produces: `class Prop(StrEnum)` with one member per property a QSS selector reads (`UI_ROLE = "uiRole"`, `KEYPAD_ROLE = "keypadRole"`, `PRESSED`, `ADD_BUTTON`, `PAD_KEY`, `TOAST_LEVEL`, `STATUS_KIND`, `OPTION_ROLE`, `EXPR_SLOT`, `EXPR_SLOT_KIND`, `EXPR_INPUT`, `LATEX_KIND`, `CUSTOM_PAD_MENU`); value enums `UiRole(StrEnum)` (`keypad`, `historyList`, `iconButton`, `toolbarToggle`), `KeypadRole(StrEnum)` (the roles `common/utils.py` and `button.py` set), `OptionRole(StrEnum)` (`option`), `StatusKind(StrEnum)` (`info`, `error`). Existing enums are reused for the others: `InputKind` for `exprSlotKind` and `LatexKind`, `ToastLevel` for `toastLevel` (its values made lowercase so Python passes the member, not `level.name.lower()`). A widget calls `widget.setProperty(Prop.UI_ROLE, UiRole.KEYPAD)` directly: no wrapper function.
+- Removed: the Qt-property caches `keyRadius` (`ui/widgets/utils.py`: `apply_key_radius` and `shrink_key_radius` take the applied radius and return the new one; `Keypad` and `KSGrid` keep it in `self._key_radius: int | None`), `_expr_connected` and `_aw_scheduled` (typed instance attributes of their classes). The dead QSS rules `[presetRow="true"]` and `[active="true"]` in `manubar/style.qss`, which no code sets.
+
+- [ ] **Step 1: Write `test_props.py`: every `[name]` and `[name="value"]` in the QSS files and in the inline stylesheets of `custom_pad.py` and `ui/widgets/utils.py` is a `Prop` member, and its value a member of that property's value enum (a table in the test maps each `Prop` to its value enum, or to `bool` for `"true"` properties)**
+- [ ] **Step 2: Run it, expect FAIL on `presetRow` and `active`**
+- [ ] **Step 3: Implement `props.py`, switch every call site, remove the three caches and the dead rules**
+- [ ] **Step 4: Run `make typecheck`, the test file, `test_theme_overrides.py`; the hash pins change only by the removed manubar rules: diff the built stylesheets against Task 4's commit and update the pins with that diff in the report. Then `make py-test`**
+- [ ] **Step 5: Commit** `refactor/ui: name the styling properties once`
+
 ## Part 2: history and memory (PR 2, branch `feat/theme-history-memory`)
 
 ### Task 5: history and memory font sizes in the look

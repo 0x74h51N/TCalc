@@ -74,6 +74,10 @@ Today's values by area; the new field name drops the area (`[color_usage] histor
 - Tests: `test_no_stylesheet_table_read_through_config`, the `[spacing]` cases of `test_theme_overrides.py` (rewritten for area tables).
 - Config keys no code reads (findings, 2026-11-04): `[history.style]` `result_min_pt`, `result_max_pt`, `wrap_padding_factor`, `item_padding`; `[history.math]` `scale_main`, `scale_aux`, `scale_script`.
 
+## Typed names (added during Part 1, owner's decision)
+
+The converter in `typed_tables.py` types its hints and values instead of `Any`, and no value falls back to a bare `str`: a color place is a `ColorName`, an icon an `IconName`, a font family a `FontFamily` (each a `NewType`), and a color place is found by its type instead of its name. Fields with the same shape are one nested dataclass: the seven keypad roles are `[keypad.<role>]` tables of one `KeyRoleLook`, with the stylesheet name joined by `_` so no QSS changes. The Qt properties a QSS selector reads (`uiRole`, `keypadRole`, ...) and their values are named once in Python as enums, and a test fails when a QSS selector names one that Python does not define. Qt properties used only as Python state (`keyRadius`, `_expr_connected`, `_aw_scheduled`) become typed attributes, and the QSS rules no code can reach (`[presetRow]`, `[active]` in the menu bar) go.
+
 ## Themes and template
 
 `kitty`, `retro` and `sponge` move their `[fonts]`, `[spacing]` and `[color_usage]` values into the area tables (`[keypad] radius`, `[result] frac_toggle_radius`, `[picker] text_color`...). `light.toml` and `dark.toml` stay palettes. `theme-template.toml` lists the area tables with their fields as comments and points to `look.toml` for the defaults.
