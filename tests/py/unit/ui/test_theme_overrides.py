@@ -158,15 +158,16 @@ def test_spacing_override_reaches_stylesheet_and_python(write_theme):
 
 
 # The stylesheet of each bundled theme as master a88c553 built it (2026-11-02): moving the
-# values and renaming QSS variables must not change one substituted character
+# values and renaming QSS variables must not change one substituted character. Since
+# 2026-11-04 the spin box radius is fixed at 2 px in every theme (#106)
 @pytest.mark.parametrize(
     "variant, sha256",
     [
-        ("light", "eb02efff73cf8a0cc3e01d1e2d0b83e4938846bb8052c0c886560464cb9f173a"),
-        ("dark", "318439088be3c47faf2ba63568c298edee1c306d9a9fad6a6ff2232bb13e7e46"),
-        ("kitty", "77f8643b92fe30af6f1adae24f62a4aa775c452ba38373d28c35a541814e4dc9"),
-        ("retro", "c5257825df224bc37f7b3d557d7ad2a433a321e625cddfbe56187d753a0e228e"),
-        ("sponge", "9c51fae7ca5662f4ac0637caac7d9ef821259b930be5d07698b43842073cb4f3"),
+        ("light", "299b7a94e8caf9eb493fbc83104c5f52082182211d1f22aedb55f89a8b1d76aa"),
+        ("dark", "f658dce9c3801576c3b926b15ac0fd579a650a8f782c52634f6cdd5ff75528c3"),
+        ("kitty", "cc73d7c18f55358575322221dc92c9f08be6206812ffaf4a97efab727001f618"),
+        ("retro", "6f3b72f45967c58536ebf0c23fffa7aef9c99acd797839548d4ef7af8f05c46b"),
+        ("sponge", "ac28b07e9c91fa26b54f859538a4ad20644bcefc33b864e17a9a5db72cb345bc"),
     ],
 )
 def test_bundled_themes_style_unchanged(variant, sha256):

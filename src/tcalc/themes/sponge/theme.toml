@@ -18,7 +18,6 @@ key_radius = 5
 icon_button_radius = 5
 tooltip_radius = 5
 option_radius = 5
-spinbox_radius = 5
 
 frac_toggle_radius = 40
 

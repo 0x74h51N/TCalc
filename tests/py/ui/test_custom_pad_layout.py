@@ -15,7 +15,10 @@ from PySide6.QtCore import QPoint, QSettings
 from pytest import param
 
 from tcalc.core.ops import Operation
+from tcalc.theme import load_theme
 from tcalc.ui.config import CONFIG
+from tcalc.ui.styles import apply_theme
+from tcalc.ui.widgets.common.button import KSSpinBox
 from tcalc.ui.widgets.common.constants_menu import CONSTANTS_BY_CATEGORY
 from tcalc.ui.widgets.common.types import GridLayout, KeySettings, PadLayout
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad
@@ -157,3 +160,28 @@ def test_layout_of_the_wrong_shape_starts_from_defaults(settings, caplog, layout
         DEFAULTS.default_rows,
     )
     assert [r.getMessage() for r in caplog.records] == [logged]
+
+
+@pytest.fixture
+def themed(qapp):
+    old_palette, old_sheet = qapp.palette(), qapp.styleSheet()
+    apply_theme(qapp, "dark")
+    yield qapp
+    load_theme("dark")
+    qapp.setPalette(old_palette)
+    qapp.setStyleSheet(old_sheet)
+
+
+def _spins(pad: CustomPad) -> list[KSSpinBox]:
+    pad._toggle_edit(True)
+    return pad.findChildren(KSSpinBox)
+
+
+@pytest.mark.parametrize("variant", ["kitty", "sponge", "retro"])
+def test_toolbar_spin_boxes_keep_their_font_and_fit_in_every_theme(settings, themed, variant):
+    built_before = _spins(CustomPad(3))
+    font = built_before[0].font()
+    apply_theme(themed, variant)
+    for spin in built_before + _spins(CustomPad(4)):
+        assert (spin.font().family(), spin.font().pointSize()) == (font.family(), font.pointSize())
+        assert spin.width() >= spin.sizeHint().width(), spin.prefix()
