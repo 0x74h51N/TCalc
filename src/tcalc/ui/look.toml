@@ -171,8 +171,28 @@ clear_max_pt = 10
 action_btn_size = 22
 # Math mode render size (pt)
 math_font_size = 17
+# An item's expression (also in math mode) and result
+expression_color = "text_secondary"
+result_color = "text_secondary"
+result_min_pt = 7
+result_max_pt = 12
+# The copy button's icon; the delete icon keeps its red
+copy_button_color = "icon"
+clear_color = "background_light"
+clear_text_color = "text_primary"
 
-# Option groups (Deg/Rad/Grad, Math/Flat/Raw...)
+# The Math / Flat / Raw buttons, an option group of their own
+[history.mode]
+text_color = "text_secondary"
+hover_color = "option_hover_bg"
+checked_color = "option_checked_bg"
+checked_text_color = "control_accent"
+radius = 2
+padding_y = 4
+padding_x = 10
+font_size = 9
+
+# Option groups (Deg/Rad/Grad...)
 [options]
 text_color = "text_secondary"
 hover_color = "option_hover_bg"
@@ -181,6 +201,7 @@ checked_text_color = "control_accent"
 radius = 2
 padding_y = 4
 padding_x = 10
+font_size = 9
 
 [icon_button]
 color = "background_light"

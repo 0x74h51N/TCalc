@@ -41,6 +41,7 @@ QRadioButton[optionRole="option"] {
     border-radius: ${options_radius}px;
     padding: ${options_padding_y}px ${options_padding_x}px;
     spacing: 0px;
+    font-size: ${options_font_size}pt;
 }
 
 QRadioButton[optionRole="option"]::indicator {
