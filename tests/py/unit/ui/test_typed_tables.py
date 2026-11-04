@@ -28,6 +28,7 @@ class Fit(Enum):
 @dataclass(frozen=True, slots=True)
 class Inner:
     n: int
+    k: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,9 +50,9 @@ GOOD = {
     "b": True,
     "e": "cover",
     "t": ["p", "q"],
-    "inner": {"n": 2},
+    "inner": {"n": 2, "k": 3},
 }
-BUILT = Outer(1, 0.5, "a", True, Fit.COVER, ("p", "q"), Inner(2))
+BUILT = Outer(1, 0.5, "a", True, Fit.COVER, ("p", "q"), Inner(2, 3))
 
 
 # (table, expected Outer or the TableError message)
@@ -94,7 +95,14 @@ def test_build(table, expected):
 @pytest.mark.parametrize(
     "table, changed, warning",
     [
-        param({"i": 5, "inner": {"n": 7}}, {"i": 5, "inner": Inner(7)}, "", id="applies"),
+        param({"i": 5, "inner": {"n": 7}}, {"i": 5, "inner": Inner(7, 3)}, "", id="applies"),
+        param({"inner": {"z": 1}}, {}, "theme.inner.z: unknown key", id="nested unknown key"),
+        param(
+            {"inner": {"n": "7"}},
+            {},
+            "theme.inner.n: expected int, got str",
+            id="nested wrong type",
+        ),
         param({"i": 5, "z": 1}, {"i": 5}, "theme.z: unknown key", id="unknown key skipped"),
         param(
             {"i": "5", "s": "b"},
