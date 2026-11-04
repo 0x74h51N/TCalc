@@ -42,7 +42,7 @@ from tcalc.ui.widgets.common.types import GridLayout, KeyDef, KeySettings, PadLa
 from tcalc.ui.widgets.utils import apply_key_radius, key_fit_timer, shrink_key_radius
 
 from ...config import CONFIG
-from ...look import DEFAULT_LOOK
+from ...look import DEFAULT_LOOK, ColorName
 
 _cfg = CONFIG.keypad.custom
 
@@ -106,7 +106,7 @@ def _remove_key(keys: list[KeyDef], index: int, max_rows: int) -> None:
 def _key_color(value: str) -> str:
     """A key's stored color as QSS: "$name" is the active theme's color of that name."""
     if value.startswith("$"):
-        return get_theme().colors.get(value[1:], "")
+        return get_theme().colors.get(ColorName(value[1:]), "")
     return value
 
 

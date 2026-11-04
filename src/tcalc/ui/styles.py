@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import fields
 from pathlib import Path
 from string import Template
 
@@ -10,7 +9,7 @@ from PySide6.QtWidgets import QApplication
 
 from ..app_state import get_app_state
 from ..theme import custom_theme_folders, get_theme, load_theme
-from .look import is_color_place
+from .look import ColorField, look_fields, qss_name
 
 
 class _ThemeEvents(QObject):
@@ -26,17 +25,12 @@ _QSS_FILES = sorted(_UI_DIR.rglob("*.qss"), key=lambda p: (p.name != "common.qss
 
 
 def _build_subs() -> dict[str, str]:
-    """Template substitutions: each look field as $<area>_<field>, a color place as the color."""
+    """Template substitutions: each look field by its qss_name, a color place as the color."""
     theme = get_theme()
-    look = theme.look
-    subs: dict[str, str] = {}
-    for area in fields(look):
-        table = getattr(look, area.name)
-        for field in fields(table):
-            value = getattr(table, field.name)
-            name = f"{area.name}_{field.name}"
-            subs[name] = theme.colors[value] if is_color_place(field.name) else str(value)
-    return subs
+    return {
+        qss_name(f): theme.colors[f.color] if isinstance(f, ColorField) else str(f.value)
+        for f in look_fields(theme.look)
+    }
 
 
 def _build_stylesheet() -> str:

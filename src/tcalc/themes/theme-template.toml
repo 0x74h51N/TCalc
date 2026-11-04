@@ -98,27 +98,6 @@
 # pad_x = 14
 
 # [keypad]
-# number_color = "secondary"
-# number_text_color = "secondary_text"
-# number_pressed_color = "secondary_hover"
-# operator_color = "accent"
-# operator_text_color = "accent_text"
-# operator_pressed_color = "accent_hover"
-# action_color = "action"
-# action_text_color = "action_text"
-# action_pressed_color = "action_hover"
-# equals_color = "primary"
-# equals_text_color = "primary_text"
-# equals_pressed_color = "primary_hover"
-# trig_color = "action"
-# trig_text_color = "action_text"
-# trig_pressed_color = "action_hover"
-# function_color = "accent"
-# function_text_color = "accent_text"
-# function_pressed_color = "accent_hover"
-# power_color = "secondary"
-# power_text_color = "secondary_text"
-# power_pressed_color = "secondary_hover"
 # equals_border_color = "border_focus"
 # hover_border_color = "accent_text"
 # checked_color = "action_hover"
@@ -134,6 +113,41 @@
 #   Keypad key font range (pt)
 # min_pt = 8
 # max_pt = 16
+
+# [keypad.number]
+# color = "secondary"
+# text_color = "secondary_text"
+# pressed_color = "secondary_hover"
+
+# [keypad.operator]
+# color = "accent"
+# text_color = "accent_text"
+# pressed_color = "accent_hover"
+
+# [keypad.action]
+# color = "action"
+# text_color = "action_text"
+# pressed_color = "action_hover"
+
+# [keypad.equals]
+# color = "primary"
+# text_color = "primary_text"
+# pressed_color = "primary_hover"
+
+# [keypad.trig]
+# color = "action"
+# text_color = "action_text"
+# pressed_color = "action_hover"
+
+# [keypad.function]
+# color = "accent"
+# text_color = "accent_text"
+# pressed_color = "accent_hover"
+
+# [keypad.power]
+# color = "secondary"
+# text_color = "secondary_text"
+# pressed_color = "secondary_hover"
 
 # [custom_pad]
 # add_key_color = "control"
