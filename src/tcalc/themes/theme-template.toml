@@ -153,6 +153,3 @@
 # toast_warn_bg = "rgba(224, 168, 40, 55%)"
 # toast_error_bg = "rgba(217, 64, 64, 55%)"
 
-# Not used by the UI yet (kept for future use):
-# foreground, text_muted, text_tertiary, border_default, border_dark,
-# status_warn, status_info, status_success
