@@ -16,6 +16,34 @@ font_size = 14
 # Key font range (pt)
 min_pt = 10
 max_pt = 16
+radius = 15
+
+[menu]
+font_size = 16
+
+[tooltip]
+radius = 14
+
+[options]
+radius = 14
+font_size= 18
+
+[history]
+result_min_pt = 12
+result_max_pt = 15
+
+[history.icon_button]
+size = 20
+radius = 10
+
+[history.mode]
+radius = 7
+font_size = 14
+
+[memory]
+radius = 15
+
+
 
 # Line-art kitty in the display's top right corner (kitty.svg, CC0, see CREDITS.txt)
 [[pictures]]

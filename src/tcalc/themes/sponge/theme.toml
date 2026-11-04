@@ -9,7 +9,7 @@ size_default = 18
 [keypad]
 min_pt = 14
 max_pt = 20
-radius = 5
+radius = 15
 
 [menu]
 font_size = 16
@@ -19,10 +19,26 @@ font_size = 18
 text_color = "text_primary"
 
 [tooltip]
-radius = 5
+radius = 10
 
 [options]
-radius = 5
+radius = 10
+font_size= 18
+
+[history]
+result_min_pt = 12
+result_max_pt = 15
+
+[history.icon_button]
+size = 20
+radius = 10
+
+[history.mode]
+font_size = 14
+
+[memory]
+radius = 15
+
 
 [result]
 frac_toggle_radius = 40
