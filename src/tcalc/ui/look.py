@@ -2,50 +2,58 @@
 from __future__ import annotations
 
 import tomllib
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, fields
 from pathlib import Path
+from typing import TYPE_CHECKING, NewType
 
-from tcalc.typed_tables import build
+from tcalc.typed_tables import build, field_hints, is_dataclass_type
+
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
 
 LOOK_PATH = Path(__file__).parent / "look.toml"
+
+# A color of the theme's [colors], by name
+ColorName = NewType("ColorName", str)
+FontFamily = NewType("FontFamily", str)
 
 
 @dataclass(frozen=True, slots=True)
 class FontsLook:
-    family_default: str
+    family_default: FontFamily
     size_default: int
-    family_monospace: str
+    family_monospace: FontFamily
 
 
 @dataclass(frozen=True, slots=True)
 class PaletteLook:
-    window_color: str
-    window_text_color: str
-    base_color: str
-    text_color: str
-    button_color: str
-    button_text_color: str
-    highlight_color: str
-    highlighted_text_color: str
+    window_color: ColorName
+    window_text_color: ColorName
+    base_color: ColorName
+    text_color: ColorName
+    button_color: ColorName
+    button_text_color: ColorName
+    highlight_color: ColorName
+    highlighted_text_color: ColorName
 
 
 @dataclass(frozen=True, slots=True)
 class IconsLook:
-    color: str
+    color: ColorName
 
 
 @dataclass(frozen=True, slots=True)
 class DisplayLook:
-    background_color: str
-    expression_text_color: str
-    expression_selection_color: str
-    expression_selection_text_color: str
-    expression_slot_focus_color: str
-    radical_line_color: str
-    radical_symbol_color: str
-    status_text_color: str
-    status_error_text_color: str
+    background_color: ColorName
+    expression_text_color: ColorName
+    expression_selection_color: ColorName
+    expression_selection_text_color: ColorName
+    expression_slot_focus_color: ColorName
+    radical_line_color: ColorName
+    radical_symbol_color: ColorName
+    status_text_color: ColorName
+    status_error_text_color: ColorName
     divider_height: int
     root_border_width: int
     expression_font_size: int
@@ -54,11 +62,11 @@ class DisplayLook:
 
 @dataclass(frozen=True, slots=True)
 class ResultLook:
-    text_color: str
-    fraction_button_color: str
-    fraction_button_hover_color: str
-    fraction_button_pressed_color: str
-    fraction_icon_color: str
+    text_color: ColorName
+    fraction_button_color: ColorName
+    fraction_button_hover_color: ColorName
+    fraction_button_pressed_color: ColorName
+    fraction_icon_color: ColorName
     font_size: int
     max_pt: int
     btn_padding: int
@@ -67,45 +75,38 @@ class ResultLook:
 
 @dataclass(frozen=True, slots=True)
 class MemoryLook:
-    button_color: str
-    button_text_color: str
-    button_hover_color: str
-    button_pressed_color: str
-    button_disabled_color: str
-    button_disabled_text_color: str
+    button_color: ColorName
+    button_text_color: ColorName
+    button_hover_color: ColorName
+    button_pressed_color: ColorName
+    button_disabled_color: ColorName
+    button_disabled_text_color: ColorName
     pad_y: int
     pad_x: int
 
 
 @dataclass(frozen=True, slots=True)
+class KeyRoleLook:
+    color: ColorName
+    text_color: ColorName
+    pressed_color: ColorName
+
+
+@dataclass(frozen=True, slots=True)
 class KeypadLook:
-    number_color: str
-    number_text_color: str
-    number_pressed_color: str
-    operator_color: str
-    operator_text_color: str
-    operator_pressed_color: str
-    action_color: str
-    action_text_color: str
-    action_pressed_color: str
-    equals_color: str
-    equals_text_color: str
-    equals_pressed_color: str
-    trig_color: str
-    trig_text_color: str
-    trig_pressed_color: str
-    function_color: str
-    function_text_color: str
-    function_pressed_color: str
-    power_color: str
-    power_text_color: str
-    power_pressed_color: str
-    equals_border_color: str
-    hover_border_color: str
-    checked_color: str
-    disabled_color: str
-    disabled_text_color: str
-    symbol_color: str
+    number: KeyRoleLook
+    operator: KeyRoleLook
+    action: KeyRoleLook
+    equals: KeyRoleLook
+    trig: KeyRoleLook
+    function: KeyRoleLook
+    power: KeyRoleLook
+    equals_border_color: ColorName
+    hover_border_color: ColorName
+    checked_color: ColorName
+    disabled_color: ColorName
+    disabled_text_color: ColorName
+    symbol_color: ColorName
     radius: int
     button_padding: int
     compact_pad_y: int
@@ -116,40 +117,40 @@ class KeypadLook:
 
 @dataclass(frozen=True, slots=True)
 class CustomPadLook:
-    add_key_color: str
-    add_key_hover_color: str
-    spinbox_color: str
-    spinbox_text_color: str
-    spinbox_focus_border_color: str
-    toolbar_separator_color: str
-    menu_background_color: str
-    menu_text_color: str
-    menu_border_color: str
-    menu_selected_color: str
-    menu_separator_color: str
+    add_key_color: ColorName
+    add_key_hover_color: ColorName
+    spinbox_color: ColorName
+    spinbox_text_color: ColorName
+    spinbox_focus_border_color: ColorName
+    toolbar_separator_color: ColorName
+    menu_background_color: ColorName
+    menu_text_color: ColorName
+    menu_border_color: ColorName
+    menu_selected_color: ColorName
+    menu_separator_color: ColorName
 
 
 @dataclass(frozen=True, slots=True)
 class PickerLook:
-    background_color: str
-    border_color: str
-    list_background_color: str
-    text_color: str
-    hover_color: str
+    background_color: ColorName
+    border_color: ColorName
+    list_background_color: ColorName
+    text_color: ColorName
+    hover_color: ColorName
     font_size: int
 
 
 @dataclass(frozen=True, slots=True)
 class MenuLook:
-    background_color: str
-    text_color: str
-    border_color: str
-    selected_color: str
-    selected_text_color: str
-    selected_border_color: str
-    disabled_text_color: str
-    separator_color: str
-    constants_symbol_color: str
+    background_color: ColorName
+    text_color: ColorName
+    border_color: ColorName
+    selected_color: ColorName
+    selected_text_color: ColorName
+    selected_border_color: ColorName
+    disabled_text_color: ColorName
+    separator_color: ColorName
+    constants_symbol_color: ColorName
     item_padding_horizontal: int
     item_padding_vertical: int
     item_margin: int
@@ -166,20 +167,20 @@ class MenuLook:
 
 @dataclass(frozen=True, slots=True)
 class HistoryLook:
-    background_color: str
-    text_color: str
-    row_color: str
-    alternate_row_color: str
-    selected_color: str
-    selected_text_color: str
+    background_color: ColorName
+    text_color: ColorName
+    row_color: ColorName
+    alternate_row_color: ColorName
+    selected_color: ColorName
+    selected_text_color: ColorName
 
 
 @dataclass(frozen=True, slots=True)
 class OptionsLook:
-    text_color: str
-    hover_color: str
-    checked_color: str
-    checked_text_color: str
+    text_color: ColorName
+    hover_color: ColorName
+    checked_color: ColorName
+    checked_text_color: ColorName
     radius: int
     padding_y: int
     padding_x: int
@@ -187,31 +188,31 @@ class OptionsLook:
 
 @dataclass(frozen=True, slots=True)
 class IconButtonLook:
-    color: str
-    text_color: str
-    hover_color: str
-    pressed_color: str
-    light_color: str
-    shadow_color: str
+    color: ColorName
+    text_color: ColorName
+    hover_color: ColorName
+    pressed_color: ColorName
+    light_color: ColorName
+    shadow_color: ColorName
     radius: int
     padding: int
 
 
 @dataclass(frozen=True, slots=True)
 class TooltipLook:
-    background_color: str
-    border_color: str
-    text_color: str
+    background_color: ColorName
+    border_color: ColorName
+    text_color: ColorName
     radius: int
     padding: int
 
 
 @dataclass(frozen=True, slots=True)
 class ToastLook:
-    text_color: str
-    info_color: str
-    warn_color: str
-    error_color: str
+    text_color: ColorName
+    info_color: ColorName
+    warn_color: ColorName
+    error_color: ColorName
     pad_y: int
     pad_x: int
     radius: int
@@ -238,21 +239,40 @@ class Look:
 
 
 # Picks a place from the look; a caller that resolves its color on every theme switch keeps it
-type ColorPlace = Callable[[Look], str]
+type ColorPlace = Callable[[Look], ColorName]
 
 
-def is_color_place(field: str) -> bool:
-    # An area's own color is a field named just "color" ([icons] color, [icon_button] color)
-    return field == "color" or field.endswith("_color")
+@dataclass(frozen=True, slots=True)
+class ColorField:
+    path: tuple[str, ...]
+    color: ColorName
 
 
-def color_places(look: Look) -> dict[str, str]:
-    return {
-        f"{area.name}_{f.name}": getattr(getattr(look, area.name), f.name)
-        for area in fields(look)
-        for f in fields(getattr(look, area.name))
-        if is_color_place(f.name)
-    }
+@dataclass(frozen=True, slots=True)
+class ValueField:
+    path: tuple[str, ...]
+    value: int | FontFamily
+
+
+type LookField = ColorField | ValueField
+
+
+def look_fields(table: DataclassInstance, path: tuple[str, ...] = ()) -> Iterator[LookField]:
+    # A NewType is gone at runtime, so a color is told apart by the declared type, not the value
+    hints = field_hints(type(table))
+    for f in fields(table):
+        value, hint, at = getattr(table, f.name), hints[f.name], (*path, f.name)
+        if is_dataclass_type(hint):
+            yield from look_fields(value, at)
+        elif hint is ColorName:
+            yield ColorField(at, value)
+        else:
+            yield ValueField(at, value)
+
+
+def qss_name(field: LookField) -> str:
+    # $keypad_number_color is [keypad.number] color
+    return "_".join(field.path)
 
 
 with open(LOOK_PATH, "rb") as _file:

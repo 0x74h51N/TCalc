@@ -9,13 +9,16 @@ import tomllib
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QStandardPaths, Qt
 from PySide6.QtGui import QColor
 
 from tcalc.typed_tables import TableError, build, override, values
-from tcalc.ui.look import DEFAULT_LOOK, Look, is_color_place
+from tcalc.ui.look import DEFAULT_LOOK, ColorField, ColorName, Look, look_fields
+
+if TYPE_CHECKING:
+    from _typeshed import DataclassInstance
 
 _log = logging.getLogger(__name__)
 
@@ -159,7 +162,7 @@ class ThemePicture:
     fit: PictureFit = PictureFit.CONTAIN
     opacity: float = 1.0
     margin: int = 0  # px from the component's edges
-    tint: str = ""  # theme color key to repaint the picture in; empty keeps its colors
+    tint: ColorName = ColorName("")  # theme color to repaint the picture in; empty keeps its colors
 
 
 class ThemeError(Exception):
@@ -184,7 +187,7 @@ class Theme:
     variant: str
     name: str
     base: str
-    colors: dict[str, str]
+    colors: dict[ColorName, str]
     look: Look
     pictures: tuple[ThemePicture, ...]
 
@@ -201,10 +204,11 @@ class Theme:
             raise ThemeError(f"base must be one of {BUILT_IN_VARIANTS}, not {self.base!r}")
         base = _read(self.base) if self.base != variant else {}
         where = f"theme {variant}"
-        self.colors = {
+        colors = {
             **values(base.get("colors", {}), str, f"theme {self.base} [colors]"),
             **values(data.get("colors", {}), str, f"{where} [colors]"),
         }
+        self.colors = {ColorName(name): color for name, color in colors.items()}
         look = override(
             DEFAULT_LOOK,
             {k: v for k, v in data.items() if k not in ("name", "base", "colors", "pictures")},
@@ -215,18 +219,12 @@ class Theme:
 
     def _known_colors(self, look: Look, where: str) -> Look:
         """*look* with each place naming a color the theme lacks set back to the default's."""
-        missing: dict[str, dict[str, str]] = {}
-        for area in dataclasses.fields(look):
-            table = getattr(look, area.name)
-            for place in dataclasses.fields(table):
-                color = getattr(table, place.name)
-                if is_color_place(place.name) and color not in self.colors:
-                    _log.warning(
-                        "%s.%s.%s: %r is not one of its colors", where, area.name, place.name, color
-                    )
-                    default = getattr(getattr(DEFAULT_LOOK, area.name), place.name)
-                    missing.setdefault(area.name, {})[place.name] = default
-        return override(look, missing, where)
+        for field in look_fields(look):
+            if isinstance(field, ColorField) and field.color not in self.colors:
+                place = ".".join(field.path)
+                _log.warning("%s.%s: %r is not one of its colors", where, place, field.color)
+                look = _restored(look, DEFAULT_LOOK, field.path)
+        return look
 
     def _pictures(self, entries: object, where: str) -> tuple[ThemePicture, ...]:
         if not isinstance(entries, list):
@@ -245,13 +243,22 @@ class Theme:
             pictures.append(dataclasses.replace(picture, file=_folder(self.variant) / picture.file))
         return tuple(pictures)
 
-    def qcolor(self, name: str) -> QColor:
+    def qcolor(self, name: ColorName) -> QColor:
         """Theme color *name* as a QColor."""
         return qcolor(self.colors[name])
 
     @property
     def scheme(self) -> Qt.ColorScheme:
         return Qt.ColorScheme.Light if self.base == "light" else Qt.ColorScheme.Dark
+
+
+def _restored[T: DataclassInstance](table: T, default: T, path: tuple[str, ...]) -> T:
+    """*table* with the field at *path* taken from *default*."""
+    key, *rest = path
+    value = getattr(default, key)
+    if rest:
+        value = _restored(getattr(table, key), value, tuple(rest))
+    return dataclasses.replace(table, **{key: value})
 
 
 def _folder(variant: str) -> Path:
