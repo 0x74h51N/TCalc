@@ -58,6 +58,10 @@ button_disabled_text_color = "control_disabled_text"
 pad_y = 8
 pad_x = 14
 radius = 0
+# A raised edge (px, 0 for none): top and left, then bottom and right; pressed swaps them
+edge_width = 0
+edge_light_color = "selection_background"
+edge_shadow_color = "button_shadow"
 # Memory bar font range (pt)
 font_size = 9
 max_pt = 13
@@ -70,6 +74,10 @@ disabled_text_color = "control_disabled_text"
 symbol_color = "secondary_text"
 # Corner radius (px)
 radius = 2
+# A raised edge (px, 0 for none): top and left, then bottom and right; pressed swaps them
+edge_width = 0
+edge_light_color = "selection_background"
+edge_shadow_color = "button_shadow"
 # Base keypad button padding (px)
 button_padding = 0
 compact_pad_y = 4
@@ -185,6 +193,10 @@ hover_color = "option_hover_bg"
 checked_color = "option_checked_bg"
 checked_text_color = "control_accent"
 radius = 2
+# A raised edge (px, 0 for none): top and left, then bottom and right; pressed swaps them
+edge_width = 0
+edge_light_color = "selection_background"
+edge_shadow_color = "button_shadow"
 padding_y = 4
 padding_x = 10
 font_size = 9
@@ -210,6 +222,10 @@ hover_color = "option_hover_bg"
 checked_color = "option_checked_bg"
 checked_text_color = "control_accent"
 radius = 2
+# A raised edge (px, 0 for none): top and left, then bottom and right; pressed swaps them
+edge_width = 0
+edge_light_color = "selection_background"
+edge_shadow_color = "button_shadow"
 padding_y = 4
 padding_x = 10
 font_size = 9

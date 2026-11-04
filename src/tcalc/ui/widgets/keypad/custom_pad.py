@@ -41,7 +41,7 @@ from tcalc.ui.widgets.common.picker import SearchablePicker
 from tcalc.ui.widgets.common.picture_layer import PictureLayer
 from tcalc.ui.widgets.common.toolbar import Toolbar
 from tcalc.ui.widgets.common.types import GridLayout, KeyDef, KeySettings, PadLayout
-from tcalc.ui.widgets.utils import apply_key_radius, key_fit_timer, shrink_key_radius
+from tcalc.ui.widgets.utils import apply_key_radius, key_fit_timer, set_raised, shrink_key_radius
 
 from ...config import CONFIG
 from ...look import DEFAULT_LOOK, ColorName
@@ -458,6 +458,8 @@ class CustomPad(QWidget):
         self._pad_id = pad_id
         # Scopes the keypad rules of the app stylesheet
         self.setProperty(Prop.UI_ROLE, UiRole.KEYPAD)
+        self._update_raised()
+        theme_events.applied.connect(self._update_raised)
         PictureLayer(self, PictureTarget.CUSTOM_PAD)
         self._settings_key = f"custom_pad/{pad_id}/layout"
         self._label = f"CustomPad {pad_id}"
@@ -490,6 +492,9 @@ class CustomPad(QWidget):
         # A key colored by name follows the theme
         theme_events.applied.connect(self._restyle_keys)
         self._insert_toolbar()
+
+    def _update_raised(self) -> None:
+        set_raised(self, get_theme().look.keypad.edge_width > 0)
 
     # -- Properties --------------------------------------------------------
     @property

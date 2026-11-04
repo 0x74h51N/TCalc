@@ -418,9 +418,7 @@ def _mode_button(history: History, mode: RenderMode) -> QWidget:
         param(
             "[options]\nfont_size = 15",
             lambda h: (
-                _polished(
-                    OptionGroup([(1, "A")], 1, lambda look: look.options.radius, h)._buttons[1]
-                )
+                _polished(OptionGroup([(1, "A")], 1, lambda look: look.options, h)._buttons[1])
                 .font()
                 .pointSize()
             ),

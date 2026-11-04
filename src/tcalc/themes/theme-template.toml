@@ -97,6 +97,10 @@
 # pad_y = 8
 # pad_x = 14
 # radius = 0
+#   A raised edge (px, 0 for none): top and left, then bottom and right; pressed swaps them
+# edge_width = 0
+# edge_light_color = "selection_background"
+# edge_shadow_color = "button_shadow"
 #   Memory bar font range (pt)
 # font_size = 9
 # max_pt = 13
@@ -109,6 +113,10 @@
 # symbol_color = "secondary_text"
 #   Corner radius (px)
 # radius = 2
+#   A raised edge (px, 0 for none): top and left, then bottom and right; pressed swaps them
+# edge_width = 0
+# edge_light_color = "selection_background"
+# edge_shadow_color = "button_shadow"
 #   Base keypad button padding (px)
 # button_padding = 0
 # compact_pad_y = 4
@@ -224,6 +232,10 @@
 # checked_color = "option_checked_bg"
 # checked_text_color = "control_accent"
 # radius = 2
+#   A raised edge (px, 0 for none): top and left, then bottom and right; pressed swaps them
+# edge_width = 0
+# edge_light_color = "selection_background"
+# edge_shadow_color = "button_shadow"
 # padding_y = 4
 # padding_x = 10
 # font_size = 9
@@ -249,6 +261,10 @@
 # checked_color = "option_checked_bg"
 # checked_text_color = "control_accent"
 # radius = 2
+#   A raised edge (px, 0 for none): top and left, then bottom and right; pressed swaps them
+# edge_width = 0
+# edge_light_color = "selection_background"
+# edge_shadow_color = "button_shadow"
 # padding_y = 4
 # padding_x = 10
 # font_size = 9
@@ -341,7 +357,8 @@
 # control_disabled_text = "rgba(243, 209, 153, 30%)"
 # option_checked_bg = "rgba(52, 56, 66, 25%)"   # checked option in option groups
 # option_hover_bg = "rgba(42, 44, 51, 35%)"
-# button_shadow = "rgba(0, 0, 0, 40%)"   # the shadow side of the history item buttons
+# button_highlight = "#FFFFFF"           # the raised edge's lit side
+# button_shadow = "rgba(0, 0, 0, 40%)"   # the raised edge's shadow side
 
 # Icons and messages
 # icon = "#fcfcfc"                 # single-color icons (colored icons keep their colors)

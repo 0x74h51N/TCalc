@@ -18,7 +18,7 @@ from tcalc.ui.props import KeypadRole
 from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.common import KeyButton, OptionGroup
 from tcalc.ui.widgets.common.types import KeyDef
-from tcalc.ui.widgets.utils import fit_radius, key_fit_timer, shortest_side
+from tcalc.ui.widgets.utils import fit_radius, key_fit_timer, set_raised, shortest_side
 
 from ...keypad.utils import (
     add_keys_to_grid,
@@ -53,7 +53,7 @@ class TopBar(QWidget):
         self._angle_group = OptionGroup(
             options=ANGLE_OPTIONS,
             current=AngleUnit.DEG,
-            radius=lambda look: look.options.radius,
+            look=lambda look: look.options,
             parent=self,
             tooltips={
                 AngleUnit.DEG: "Degrees",
@@ -78,6 +78,11 @@ class TopBar(QWidget):
         self._memory_radius: int | None = None
         self._fit_timer = key_fit_timer(self, self._fit_memory_radius)
         theme_events.applied.connect(self._fit_timer.start)
+        self._update_raised()
+        theme_events.applied.connect(self._update_raised)
+
+    def _update_raised(self) -> None:
+        set_raised(self._memory_widget, get_theme().look.memory.edge_width > 0)
 
     def _fit_memory_radius(self) -> None:
         side = shortest_side(self._buttons.values())

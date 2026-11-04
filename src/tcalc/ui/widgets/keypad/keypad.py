@@ -36,7 +36,13 @@ from ...config import CONFIG
 from ...styles import theme_events
 from ..common.button import KeyButton
 from ..common.picture_layer import PictureLayer
-from ..utils import apply_key_radius, apply_scaled_fonts, key_fit_timer, shrink_key_radius
+from ..utils import (
+    apply_key_radius,
+    apply_scaled_fonts,
+    key_fit_timer,
+    set_raised,
+    shrink_key_radius,
+)
 
 GridDef = tuple[dict[KeypadRole, list[KeyDef]], int]
 
@@ -67,6 +73,8 @@ class Keypad(QWidget):
         # Scopes the keypad rules of the app stylesheet
         self.setProperty(Prop.UI_ROLE, UiRole.KEYPAD)
         theme_events.applied.connect(self._update_key_radius)
+        self._update_raised()
+        theme_events.applied.connect(self._update_raised)
 
         cfg = CONFIG.keypad
         self._resize_timer = key_fit_timer(self, self._fit_keys)
@@ -202,6 +210,9 @@ class Keypad(QWidget):
         # A theme may set its own key font range
         keypad = get_theme().look.keypad
         apply_scaled_fonts(self, self._buttons.values(), keypad.min_pt, keypad.max_pt)
+
+    def _update_raised(self) -> None:
+        set_raised(self, get_theme().look.keypad.edge_width > 0)
 
     def _update_key_radius(self) -> None:
         self._key_radius = apply_key_radius(self, self._buttons.values(), self._key_radius)

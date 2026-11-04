@@ -79,6 +79,22 @@ QWidget[uiRole="keypad"] QPushButton[keypadRole="power"] {
     padding: ${keypad_compact_pad_y}px ${keypad_compact_pad_x}px;
 }
 
+/* A border, even 0 px, drops the style's own button frame: edges only where a theme asks */
+QWidget[uiRole="keypad"][raised="true"] QPushButton[keypadRole] {
+    border: ${keypad_edge_width}px solid $keypad_edge_shadow_color;
+    border-top-color: $keypad_edge_light_color;
+    border-left-color: $keypad_edge_light_color;
+}
+
+QWidget[uiRole="keypad"][raised="true"] QPushButton[keypadRole]:pressed,
+QWidget[uiRole="keypad"][raised="true"] QPushButton[keypadRole][pressed="true"],
+QWidget[uiRole="keypad"][raised="true"] QPushButton[keypadRole]:checked {
+    border-top-color: $keypad_edge_shadow_color;
+    border-left-color: $keypad_edge_shadow_color;
+    border-bottom-color: $keypad_edge_light_color;
+    border-right-color: $keypad_edge_light_color;
+}
+
 /* Custom pad toolbar */
 KSSpinBox {
     background-color: $custom_pad_spinbox_color;

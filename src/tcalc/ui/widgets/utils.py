@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.theme import get_theme
+from tcalc.ui.props import Prop
 
 from ..config import CONFIG
 
@@ -58,6 +59,16 @@ def round_tooltip(event: QChildEvent) -> None:
         and child.windowType() == Qt.WindowType.ToolTip
     ):
         child.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+
+def set_raised(container: QWidget, raised: bool) -> None:
+    """Turns on the edge rules under *container*; a property on an ancestor needs a re-polish."""
+    if bool(container.property(Prop.RAISED)) == raised:
+        return
+    container.setProperty(Prop.RAISED, raised)
+    for widget in (container, *container.findChildren(QWidget)):
+        widget.style().unpolish(widget)
+        widget.style().polish(widget)
 
 
 def shortest_side(widgets: Iterable[QWidget]) -> int | None:
