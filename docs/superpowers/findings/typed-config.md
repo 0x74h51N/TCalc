@@ -12,3 +12,7 @@
 ## 2026-11-02: picker_size followed the theme's size_default, not 9
 
 The spec moved `picker_size = 9` into `[fonts]` on the claim that the code's fallback was 9. The fallback was `fonts.get("picker_size", fonts["size_default"])` after the theme's `[fonts]` merge, so Kitty (14) and Retro (18) drew the picker at their own `size_default`. The stylesheet hash pin in `tests/py/unit/ui/test_theme_overrides.py` caught it (`font-size: 14pt` became `9pt`). Kitty and Retro now set `picker_size` themselves; `theme-template.toml` no longer says it defaults to `size_default`.
+
+## 2026-11-04, master f816fac: config keys nothing reads
+
+`grep -rn "\b<key>\b" src/tcalc tests`, leaving out `config.py` and `config.toml`, finds no read of `[history.style] result_min_pt`, `result_max_pt`, `wrap_padding_factor`, `item_padding` or `[history.math] scale_main`, `scale_aux`, `scale_script`. A history item's result has no font size of its own in config.
