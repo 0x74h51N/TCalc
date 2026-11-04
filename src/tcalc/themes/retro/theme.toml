@@ -3,22 +3,29 @@ name = "Retro"
 # Built-in theme it builds on; this file holds only what differs from it
 base = "dark"
 
-# Overrides of the UI config's [fonts]
+# Overrides of the look's areas (look.toml); square corners everywhere
 [fonts]
 # VT323-Regular.ttf in this folder (OFL-1.1, see OFL-VT323.txt)
 family_default = "VT323"
 size_default = 18
-picker_size = 18
-# Keypad key font range (pt); VT323 draws small
-keypad_min_pt = 14
-keypad_max_pt = 24
 
-# Square corners
-[spacing]
-key_radius = 0
-icon_button_radius = 0
-tooltip_radius = 0
-option_radius = 0
+[picker]
+font_size = 18
+
+[keypad]
+# Key font range (pt); VT323 draws small
+min_pt = 14
+max_pt = 24
+radius = 0
+
+[icon_button]
+radius = 0
+
+[tooltip]
+radius = 0
+
+[options]
+radius = 0
 
 [colors]
 # Green CRT glass with scanlines (the gradient repeats every 0.8% of the height)

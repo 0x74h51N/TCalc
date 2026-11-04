@@ -22,161 +22,6 @@ size_hint_height = 300
 calc_stretch = 3
 history_stretch = 1
 
-[color_usage]
-# Which theme color each place uses; a theme's [color_usage] can pick another one.
-# Values are color names from the theme's [colors], never colors.
-
-# Qt palette: widgets without a stylesheet (dialogs, scrollbars, line edits...)
-palette_window_color = "background"
-palette_window_text_color = "text_primary"
-palette_base_color = "background_dark"
-palette_text_color = "text_primary"
-palette_button_color = "background_light"
-palette_button_text_color = "text_primary"
-palette_highlight_color = "selection_background"
-palette_highlighted_text_color = "selection_text"
-
-# Icons
-icon_color = "icon"
-fraction_icon_color = "control_accent"
-key_symbol_color = "secondary_text"
-constants_menu_symbol_color = "text_primary"
-
-# Display
-display_background_color = "screen"
-expression_text_color = "text_secondary"
-expression_selection_color = "selection_background"
-expression_selection_text_color = "selection_text"
-expression_slot_focus_color = "background_light"
-radical_line_color = "selection_text"
-radical_symbol_color = "text_primary"
-result_text_color = "text_primary"
-status_text_color = "text_secondary"
-status_error_text_color = "status_error"
-fraction_button_color = "control_bg"
-fraction_button_hover_color = "control_bg_hover"
-fraction_button_pressed_color = "control_bg_pressed"
-
-# Memory buttons
-memory_button_color = "control_bg"
-memory_button_text_color = "control_accent"
-memory_button_hover_color = "control_bg_hover"
-memory_button_pressed_color = "control_bg_pressed"
-memory_button_disabled_color = "control_disabled_bg"
-memory_button_disabled_text_color = "control_disabled_text"
-
-# Keypad keys
-number_key_color = "secondary"
-number_key_text_color = "secondary_text"
-number_key_pressed_color = "secondary_hover"
-operator_key_color = "accent"
-operator_key_text_color = "accent_text"
-operator_key_pressed_color = "accent_hover"
-action_key_color = "action"
-action_key_text_color = "action_text"
-action_key_pressed_color = "action_hover"
-equals_key_color = "primary"
-equals_key_text_color = "primary_text"
-equals_key_pressed_color = "primary_hover"
-equals_key_border_color = "border_focus"
-trig_key_color = "action"
-trig_key_text_color = "action_text"
-trig_key_pressed_color = "action_hover"
-function_key_color = "accent"
-function_key_text_color = "accent_text"
-function_key_pressed_color = "accent_hover"
-power_key_color = "secondary"
-power_key_text_color = "secondary_text"
-power_key_pressed_color = "secondary_hover"
-key_hover_border_color = "accent_text"
-key_checked_color = "action_hover"
-key_disabled_color = "control_disabled_bg"
-key_disabled_text_color = "control_disabled_text"
-
-# Custom pad
-add_key_color = "control"
-add_key_hover_color = "control_hover"
-spinbox_color = "control"
-spinbox_text_color = "text_primary"
-spinbox_focus_border_color = "control_accent"
-pad_toolbar_separator_color = "control"
-pad_menu_background_color = "background_medium"
-pad_menu_text_color = "text_primary"
-pad_menu_border_color = "border_light"
-pad_menu_selected_color = "selection_background"
-pad_menu_separator_color = "control"
-picker_background_color = "background_medium"
-picker_border_color = "border_light"
-picker_list_background_color = "background_dark"
-picker_text_color = "text_primary"
-picker_hover_color = "selection_background"
-
-# Menus
-menu_background_color = "background_medium"
-menu_text_color = "text_primary"
-menu_border_color = "border_light"
-menu_selected_color = "selection_background"
-menu_selected_text_color = "selection_text"
-menu_selected_border_color = "border_focus"
-menu_disabled_text_color = "text_secondary"
-menu_separator_color = "border_light"
-
-# History
-history_background_color = "background_dark"
-history_text_color = "text_secondary"
-history_row_color = "background_dark_alt"
-history_alternate_row_color = "background_dark"
-history_selected_color = "selection_background"
-history_selected_text_color = "selection_text"
-
-# Option groups (Deg/Rad/Grad, Math/Flat/Raw...), icon buttons, tooltips, toasts
-option_text_color = "text_secondary"
-option_hover_color = "option_hover_bg"
-option_checked_color = "option_checked_bg"
-option_checked_text_color = "control_accent"
-icon_button_color = "background_light"
-icon_button_text_color = "text_primary"
-icon_button_hover_color = "selection_background"
-icon_button_pressed_color = "background_dark"
-icon_button_light_color = "selection_background"
-icon_button_shadow_color = "background_dark"
-tooltip_background_color = "background_dark"
-tooltip_border_color = "border_light"
-tooltip_text_color = "text_secondary"
-toast_text_color = "text_primary"
-toast_info_color = "toast_info_bg"
-toast_warn_color = "toast_warn_bg"
-toast_error_color = "toast_error_bg"
-
-[fonts]
-# Fixed app font, independent of the theme and of desktop font settings (e.g. GTK's)
-family_default = "Sans Serif"
-size_default = 9
-family_monospace = "Monospace"
-# Keypad key font range (pt)
-keypad_min_pt = 8
-keypad_max_pt = 16
-# Menu bar font (px)
-menu_size = 14
-# Searchable picker font (pt)
-picker_size = 9
-
-[style]
-tooltip_padding = 2
-icon_padding = 4
-# Base keypad button padding (px)
-button_padding = 0
-# Corner radii (px)
-key_radius = 2
-icon_button_radius = 2
-tooltip_radius = 2
-option_radius = 2
-
-# OptionGroup (reusable radio-button group) style
-[style.option_group]
-padding_y = 4
-padding_x = 10
-
 # ---------------------------------------------------------------------------
 # Icons
 # ---------------------------------------------------------------------------
@@ -189,15 +34,6 @@ untinted = [
     "edit-delete-shred",
     "snap-angle-symbolic",
 ]
-
-# ---------------------------------------------------------------------------
-# Toast notifications
-# ---------------------------------------------------------------------------
-[toast]
-pad_y = 6
-pad_x = 10
-border_radius = 4
-font_size = 13
 
 # ---------------------------------------------------------------------------
 # Side panel (reusable container for history / future left-panel / etc.)
@@ -217,19 +53,15 @@ max_items = 100
 button_spacer_stretch = 1
 clear_button_stretch = 1
 
-item_padding = 4
 item_min_height = 70
 item_margin = 10
 item_spacing = 10
 action_btn_size = 22
 
 font_size = 7
-wrap_padding_factor = 3
 max_pt = 12
 expr_min_pt = 10
 expr_max_pt = 15
-result_min_pt = 8
-result_max_pt = 12
 
 btn_margin = 6
 
@@ -238,9 +70,6 @@ clr_btn_max_pt = 10
 
 [history.math]
 base_font = 17
-scale_main = 1.0
-scale_aux = 1.0
-scale_script = 0.5
 
 # ---------------------------------------------------------------------------
 # Memory bar
@@ -309,24 +138,13 @@ picker_list_margin_bottom = 2
 display_stretch = 5
 divider_line_width = 1
 
-[calc.style]
-compact_pad_y = 4
-compact_pad_x = 8
-
 [calc.display]
 margin = 10
 spacing = 6
-divider_height = 1
-root_border_width = 2
-
-# Font sizes
-expression_font_size = 14
 
 # Expression line sizing
 expression_height_factor = 1.8
 expression_min_height = 30
-
-expr_max_pt = 26
 
 # Scroll animation
 scroll_anim_duration = 140
@@ -334,14 +152,10 @@ scroll_anim_curve = "InCubic"
 
 [calc.display.result]
 height = 110
-font_size = 24
-max_pt = 32
 font_norm = 8  # FractionWidget font size normalizer
 resize_debounce_ms = 30
 
 btn_size = 32
-btn_padding = 6
-frac_toggle_radius = 4
 
 frac_icon = "frac"
 decimal_icon = "decimal"
@@ -353,29 +167,9 @@ bottom_margin = 5
 grid_spacing = 2
 spacer_stretch = 1
 
-# Memory button layout (px)
-memory_pad_y = 8
-memory_pad_x = 14
-
 # ---------------------------------------------------------------------------
 # Menu bar
 # ---------------------------------------------------------------------------
-[manubar.style]
-item_padding_horizontal = 12
-item_padding_vertical = 4
-item_margin = 2
-item_min_width = 70
-item_border_radius = 6
-
-icon_padding_left = 6
-icon_padding_right = 4
-
-separator_height = 1
-separator_margin_vertical = 4
-separator_margin_horizontal = 2
-
-menu_padding = 4
-
 [manubar.preset]
 # Custom layout-preset row + its floating action bar
 row_icon = "custom_pad"

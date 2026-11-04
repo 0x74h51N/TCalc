@@ -3,15 +3,19 @@ name = "Kitty"
 # Built-in theme it builds on; this file holds only what differs from it
 base = "light"
 
-# Overrides of the UI config's [fonts]
+# Overrides of the look's areas (look.toml)
 [fonts]
 # Miniver-Regular.ttf in this folder (OFL-1.1, see OFL-Miniver.txt)
 family_default = "Miniver"
 size_default = 14
-picker_size = 14
-# Keypad key font range (pt)
-keypad_min_pt = 10
-keypad_max_pt = 16
+
+[picker]
+font_size = 14
+
+[keypad]
+# Key font range (pt)
+min_pt = 10
+max_pt = 16
 
 # Line-art kitty in the display's top right corner (kitty.svg, CC0, see CREDITS.txt)
 [[pictures]]

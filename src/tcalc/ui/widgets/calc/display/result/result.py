@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.core.utils import CalcValue
+from tcalc.theme import get_theme
 from tcalc.ui.config import ResultConfig
 from tcalc.ui.widgets.common.button import IconButton
 from tcalc.ui.widgets.history.utils import wrap_expression
@@ -49,7 +50,7 @@ class Result(QWidget):
         )
 
         self._result_font = QFont()
-        self._result_font.setPointSize(self._config.font_size)
+        self._result_font.setPointSize(get_theme().look.result.font_size)
         self._result_font.setBold(True)
 
         self.result_label = QLabel("0")
@@ -75,15 +76,14 @@ class Result(QWidget):
         self._res_slot.hide()
         self._row_layout.addWidget(self._res_slot, 1)
         btn_size = self._config.btn_size
-        btn_padding = self._config.btn_padding
         self._frac_btn_tooltip = "Show as fraction"
         self._decimal_tooltip = "Show as decimal"
         self._frac_btn = IconButton(
             icon_name=self._config.frac_icon,
             tooltip=self._frac_btn_tooltip,
             size=btn_size,
-            padding=btn_padding,
-            tint=lambda u: u.fraction_icon_color,
+            padding=get_theme().look.result.btn_padding,
+            tint=lambda look: look.result.fraction_icon_color,
             parent=self,
         )
         self._frac_btn.setObjectName("fracToggleBtn")
@@ -181,8 +181,9 @@ class Result(QWidget):
 
     def _update_fonts(self) -> None:
         norm = self._config.font_norm
-        base_font = self._config.font_size
-        max_pt = self._config.max_pt
+        look = get_theme().look.result
+        base_font = look.font_size
+        max_pt = look.max_pt
         line_edits = self._res_slot.line_edits()
         self._res_render.update_line_fonts(line_edits, self, base_font - norm, max_pt - norm)
         for le in line_edits:

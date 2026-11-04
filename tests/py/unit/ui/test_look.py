@@ -13,14 +13,14 @@ from collections import Counter
 import pytest
 
 from tcalc.theme import BUILT_IN_DIR
-from tcalc.ui.look import DEFAULT_LOOK, Look, color_places
+from tcalc.ui.look import DEFAULT_LOOK, Look, color_places, is_color_place
 
 
 def test_color_places_are_str():
     for area in dataclasses.fields(Look):
         table = getattr(DEFAULT_LOOK, area.name)
         for f in dataclasses.fields(table):
-            if f.name.endswith("_color"):
+            if is_color_place(f.name):
                 assert type(getattr(table, f.name)) is str, f.name
 
 

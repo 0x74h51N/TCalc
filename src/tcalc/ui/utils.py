@@ -17,7 +17,8 @@ from PySide6.QtGui import QIcon, QIconEngine, QPainter, QPixmap
 
 from tcalc.theme import Theme, get_theme, qcolor
 
-from .config import CONFIG, ColorPlace
+from .config import CONFIG
+from .look import ColorPlace
 
 # Every icon the UI shows, by file stem; bundled so no desktop icon theme is needed
 ICONS_DIR = Path(__file__).parents[1] / "assets" / "icons"
@@ -93,11 +94,10 @@ def _load_icon(name: str, tint: ColorPlace | None) -> QIcon:
     path = ICONS_DIR / theme.base / f"{name}.svg"
     if not path.exists():
         path = ICONS_DIR / f"{name}.svg"
-    usage = theme.ui.color_usage
     if tint is not None:
-        color: str | None = theme.colors[tint(usage)]
+        color: str | None = theme.colors[tint(theme.look)]
     elif name not in CONFIG.icons.untinted:
-        color = theme.colors[usage.icon_color]
+        color = theme.colors[theme.look.icons.color]
     else:
         color = None
     return _apply_tint(QIcon(str(path)), color)

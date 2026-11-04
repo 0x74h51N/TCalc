@@ -150,8 +150,8 @@ def test_config_toml_builds():
             id="unknown key",
         ),
         param(
-            lambda c: c["toast"].update(pad_y="6"),
-            "config.toast.pad_y: expected int, got str",
+            lambda c: c["side_panel"].update(margin="6"),
+            "config.side_panel.margin: expected int, got str",
             id="wrong type",
         ),
     ],

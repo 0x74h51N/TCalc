@@ -241,12 +241,17 @@ class Look:
 type ColorPlace = Callable[[Look], str]
 
 
+def is_color_place(field: str) -> bool:
+    # An area's own color is a field named just "color" ([icons] color, [icon_button] color)
+    return field == "color" or field.endswith("_color")
+
+
 def color_places(look: Look) -> dict[str, str]:
     return {
         f"{area.name}_{f.name}": getattr(getattr(look, area.name), f.name)
         for area in fields(look)
         for f in fields(getattr(look, area.name))
-        if f.name.endswith("_color")
+        if is_color_place(f.name)
     }
 
 
