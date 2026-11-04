@@ -35,7 +35,7 @@
 # Unset keys keep the app defaults (src/tcalc/ui/config.toml [fonts]).
 
 # [fonts]
-# family_default = "Sans Serif"   # app font: menus, labels, keys, display
+# family_default = "Sans Serif"   # app font: menus, labels, keys, display (not the custom pad spin boxes)
 # size_default = 9                # app font size (pt)
 # family_monospace = "Monospace"  # history list font
 # keypad_min_pt = 8               # smallest key label size (pt); keys scale with the keypad
@@ -54,7 +54,6 @@
 # icon_button_radius = 2   # icon buttons
 # tooltip_radius = 2       # tooltips
 # option_radius = 2        # option groups (Deg / Rad / Grad, Math / Flat / Raw...)
-# spinbox_radius = 2       # custom pad toolbar spin boxes
 # Any number of these src/tcalc/ui/config.toml tables can be overridden here by name: [style],
 # [style.option_group] (as option_<name>), [manubar.style], [calc.style], [calc.topbar],
 # [calc.display], [calc.display.result] and [toast] (as toast_<name>); e.g.

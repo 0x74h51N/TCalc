@@ -173,7 +173,6 @@ class StyleConfig:
     icon_button_radius: int
     tooltip_radius: int
     option_radius: int
-    spinbox_radius: int
     option_group: OptionGroupConfig
 
 
@@ -259,6 +258,7 @@ class CustomPadConfig:
     toolbar_margin: int
     toolbar_spacing: int
     spin_width: int
+    spin_font_size: int
     picker_min_width: int
     picker_margin: int
     picker_spacing: int

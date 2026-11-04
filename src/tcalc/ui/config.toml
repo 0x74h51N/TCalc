@@ -171,7 +171,6 @@ key_radius = 2
 icon_button_radius = 2
 tooltip_radius = 2
 option_radius = 2
-spinbox_radius = 2
 
 # OptionGroup (reusable radio-button group) style
 [style.option_group]
@@ -288,7 +287,10 @@ max_rows = 24
 # Toolbar (edit mode)
 toolbar_margin = 2
 toolbar_spacing = 4
-spin_width = 70
+# Spin boxes keep their own font size and the default family in every theme, so a fixed
+# width fits their text
+spin_width = 98
+spin_font_size = 9
 
 # Operation picker popup
 picker_min_width = 200

@@ -17,3 +17,9 @@ Fix options, not decided:
 - Drop the fixed width and let Qt size the spin box from its font. Needed in any case, since the font family changes the width too (VT323 and Sans Serif differ at the same size). The toolbar is a `FlowLayout`, so controls that do not fit wrap. `spin_width` and the `+ 7` for the grid spin boxes go away. At 18 pt the spin boxes become about 145 px wide.
 - On top of that, give the toolbar controls their own font size, apart from the theme's app size, the way `picker_size` does for the picker (family from the theme, size from a theme value or a fixed one), so a large theme font does not make the toolbar huge.
 - Scaling the font down to a fixed width was not measured; it keeps the layout fixed but makes the text size depend on the label length.
+
+## 2026-11-04, refactor/typed-config (b0ec993): a font set on the spin box survives theme switches
+
+Probe: `CustomPad(3)` in edit mode, offscreen, `apply_theme` through dark, kitty, sponge, retro and back. Measured with today's code, `width()` against `sizeHint().width()`: dark 70 / 97, kitty 70 / 136, sponge 70 / 150, retro 70 / 134 (Rows); the grid spin boxes 77 against 96 to 145. So 70 px clips even the default 9 pt Sans Serif.
+
+With `setFont(QFont(CONFIG.fonts.family_default, CONFIG.fonts.size_default))` on each `KSSpinBox` and the fixed width removed, every theme gives `Sans Serif` 9 pt and widths 97 / 96 / 98, equal to the size hint; the stylesheet re-polish on a switch keeps a font the widget set itself, since `KSSpinBox` has no `font` rule.
