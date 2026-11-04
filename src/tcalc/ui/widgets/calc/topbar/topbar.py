@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 from tcalc.app_state import AngleUnit
 from tcalc.theme import get_theme
 from tcalc.ui.config import CONFIG
-from tcalc.ui.props import KeypadRole
+from tcalc.ui.props import KeypadRole, Prop
 from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.common import KeyButton, OptionGroup
 from tcalc.ui.widgets.common.types import KeyDef
@@ -27,7 +27,7 @@ from ...keypad.utils import (
 )
 from .defins import ANGLE_OPTIONS, MEMORY_L_KEYS, MemoryKey
 
-MEMORY_SELECTOR = 'QPushButton[keypadRole="memory"]'
+MEMORY_SELECTOR = f'QPushButton[{Prop.KEYPAD_ROLE}="{KeypadRole.MEMORY}"]'
 
 
 class TopBar(QWidget):
