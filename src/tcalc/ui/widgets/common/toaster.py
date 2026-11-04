@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-from enum import Enum, auto
+from enum import StrEnum
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import QLabel, QWidget
 
+from tcalc.ui.props import Prop
+
 from .utils import Align, reposition, setup_fade, start_fade_out
 
 
-class ToastLevel(Enum):
-    INFO = auto()
-    WARN = auto()
-    ERROR = auto()
+class ToastLevel(StrEnum):
+    INFO = "info"
+    WARN = "warn"
+    ERROR = "error"
 
 
 class Toaster(QLabel):
@@ -52,7 +54,7 @@ class Toaster(QLabel):
 
         self.setText(message)
         # toaster.qss styles each level through this property
-        self.setProperty("toastLevel", level.name.lower())
+        self.setProperty(Prop.TOAST_LEVEL, level)
         self.style().unpolish(self)
         self.style().polish(self)
         self.adjustSize()

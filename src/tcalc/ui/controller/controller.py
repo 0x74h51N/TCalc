@@ -18,6 +18,7 @@ from tcalc.core.ops import Operation
 from tcalc.core.utils import is_number_token
 from tcalc.errors import CalculatorError, ErrorKind, Msg
 from tcalc.ui.controller.menubar import EditOperations
+from tcalc.ui.props import StatusKind
 from tcalc.ui.widgets import History, MemoryBar
 from tcalc.ui.widgets.calc import Display, TopBar
 from tcalc.ui.widgets.history.storage import HistoryEntry
@@ -41,16 +42,16 @@ def _short_error_for_expression(expression: str, tokens) -> str | None:
     return Msg.USE_LIST_OR_POINT
 
 
-def _compute_status(tokens) -> tuple[str, str]:
+def _compute_status(tokens) -> tuple[str, StatusKind | None]:
     """Top-level token analysis -> ('status text', 'info' | 'error' | '').
 
     Surfaces a friendly hint while the user is typing an unclosed
-    Collection literal. Returns ('', '') when no hint applies; the
+    Collection literal. Returns ('', None) when no hint applies; the
     caller then falls back to the live error text (if any) or shows
     nothing.
     """
     if len(tokens) != 1:
-        return "", ""
+        return "", None
     tok = tokens[0]
     const_name = None
     if tok.kind == calc_native.TokenKind.Const:
@@ -61,20 +62,20 @@ def _compute_status(tokens) -> tuple[str, str]:
     ):
         const_name = SUBSCRIPT_CONST_NAMES.get(strip_subscript(calc_native.token_text(tok)))
     if const_name is not None:
-        return f"{const_name} Constant", "info"
+        return f"{const_name} Constant", StatusKind.INFO
     if tok.kind != calc_native.TokenKind.Paren:
-        return "", ""
+        return "", None
     par = tok.as_paren()
     arity = len(par.elements)
     if par.kind == calc_native.ParenKind.Bracket:
         word = {0: "none", 1: "one", 2: "two", 3: "three"}.get(arity, str(arity))
-        return f"{word} element list", "info"
+        return f"{word} element list", StatusKind.INFO
     if par.kind == calc_native.ParenKind.Paren:
         if arity < 2:
-            return "", ""
+            return "", None
         word = {2: "two", 3: "three"}.get(arity, str(arity))
-        return f"{word} element point", "info"
-    return "", ""
+        return f"{word} element point", StatusKind.INFO
+    return "", None
 
 
 class CalculatorController:
@@ -210,7 +211,7 @@ class CalculatorController:
                     self._display.result.result_label.text(),
                     result=value,
                     status_text=Msg.MEMORY_NUMBERS_ONLY,
-                    status_kind="error",
+                    status_kind=StatusKind.ERROR,
                 )
                 return
             fn(value)
@@ -362,7 +363,7 @@ class CalculatorController:
                 else:
                     status_text = self._error_detail or self._error_text
                     result_text = self._error_text
-                status_kind = "error"
+                status_kind = StatusKind.ERROR
             # Live preview: keep info status (or empty); eval error stays in
             # self._error_text but is NOT surfaced until force_display.
         else:

@@ -58,14 +58,18 @@ def _fitted_key_radius(keys: Iterable[QWidget]) -> int | None:
 
 
 def _set_key_radius(container: QWidget, radius: int) -> None:
-    container.setProperty("keyRadius", radius)
     container.setStyleSheet(f"QPushButton[keypadRole] {{ border-radius: {radius}px; }}")
 
 
-def apply_key_radius(container: QWidget, keys: Iterable[QWidget]) -> None:
+def apply_key_radius(
+    container: QWidget, keys: Iterable[QWidget], applied: int | None
+) -> int | None:
+    """The radius the keys have after fitting it; *applied* is the one they had."""
     radius = _fitted_key_radius(keys)
-    if radius is not None and radius != container.property("keyRadius"):
-        _set_key_radius(container, radius)
+    if radius is None or radius == applied:
+        return applied
+    _set_key_radius(container, radius)
+    return radius
 
 
 def key_fit_timer(container: QWidget, fit: Callable[[], None]) -> QTimer:
@@ -77,12 +81,15 @@ def key_fit_timer(container: QWidget, fit: Callable[[], None]) -> QTimer:
     return timer
 
 
-def shrink_key_radius(container: QWidget, keys: Iterable[QWidget]) -> None:
+def shrink_key_radius(
+    container: QWidget, keys: Iterable[QWidget], applied: int | None
+) -> int | None:
     """Refits at once only a radius the keys shrank below, which Qt squares until the next fit."""
     radius = _fitted_key_radius(keys)
-    applied = container.property("keyRadius")
-    if radius is not None and applied is not None and radius < applied:  # None before launch fit
-        _set_key_radius(container, radius)
+    if radius is None or applied is None or radius >= applied:  # None before launch fit
+        return applied
+    _set_key_radius(container, radius)
+    return radius
 
 
 class InputAlign(Enum):

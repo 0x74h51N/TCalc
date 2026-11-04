@@ -4,6 +4,7 @@ from enum import Enum
 
 import calc_native
 
+from tcalc.ui.props import KeypadRole
 from tcalc.ui.widgets.common.types import KeyDef
 
 ANGLE_OPTIONS: list[tuple[calc_native.AngleUnit, str]] = [
@@ -50,6 +51,6 @@ MEMORY_KEYS: list[KeyDef] = [
     ),
 ]
 
-MEMORY_L_KEYS: dict[str, list[KeyDef]] = {"memory": MEMORY_KEYS}
+MEMORY_L_KEYS: dict[KeypadRole, list[KeyDef]] = {KeypadRole.MEMORY: MEMORY_KEYS}
 
 __all__ = ["ANGLE_OPTIONS", "MEMORY_L_KEYS", "MemoryKey", "MEMORY_KEYS"]

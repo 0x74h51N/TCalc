@@ -23,7 +23,9 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.ui.config import PresetConfig
+from tcalc.ui.icon import Icon
 from tcalc.ui.look import ColorPlace
+from tcalc.ui.props import KeypadRole, OptionRole, Prop, UiRole
 from tcalc.ui.utils import get_icon
 from tcalc.ui.widgets.math.painter.symbol_icon import ICON_BOX, needs_math_render, theme_symbol_icon
 
@@ -33,7 +35,7 @@ from .types import KeyDef
 class KeyButton(QPushButton):
     """Push button created from a ``KeyDef`` with grid placement support."""
 
-    def __init__(self, key_def: KeyDef, role: str, parent: QWidget | None = None) -> None:
+    def __init__(self, key_def: KeyDef, role: KeypadRole, parent: QWidget | None = None) -> None:
         if needs_math_render(key_def.label):
             super().__init__("", parent)
             self.setIcon(theme_symbol_icon(key_def.label, lambda look: look.keypad.symbol_color))
@@ -49,7 +51,7 @@ class KeyButton(QPushButton):
             self.setCheckable(True)
 
         self.setObjectName("keypadButton")
-        self.setProperty("keypadRole", role)
+        self.setProperty(Prop.KEYPAD_ROLE, role)
         self.style().unpolish(self)
         self.style().polish(self)
 
@@ -63,7 +65,7 @@ class IconButton(QPushButton):
 
     def __init__(
         self,
-        icon_name: str,
+        icon_name: Icon,
         tooltip: str = "",
         text: str = "",
         size: int | None = None,
@@ -78,7 +80,7 @@ class IconButton(QPushButton):
         if tooltip:
             self.setToolTip(tooltip)
 
-        self.setProperty("uiRole", "iconButton")
+        self.setProperty(Prop.UI_ROLE, UiRole.ICON_BUTTON)
 
         if size is not None:
             self.setFixedSize(size, size)
@@ -87,7 +89,7 @@ class IconButton(QPushButton):
             self.setIconSize(QSize(icon_size, icon_size))
             self.setContentsMargins(padding, padding, padding, padding)
 
-    def update_icon(self, icon_name: str) -> None:
+    def update_icon(self, icon_name: Icon) -> None:
         self.setIcon(get_icon(icon_name, self._tint))
 
     def update_tooltip(self, tooltip: str) -> None:
@@ -121,7 +123,7 @@ class OptionGroup(QWidget):
 
         for key, label in options:
             btn = QRadioButton(label, self)
-            btn.setProperty("optionRole", "option")
+            btn.setProperty(Prop.OPTION_ROLE, OptionRole.OPTION)
             if tooltips is not None:
                 tooltip = tooltips.get(key)
                 if tooltip:

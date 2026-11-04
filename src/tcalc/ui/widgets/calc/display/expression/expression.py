@@ -31,6 +31,7 @@ from tcalc.ui.widgets.math import (
     ParenWidget,
 )
 from tcalc.ui.widgets.math.math_primitives import ParenGlyph
+from tcalc.ui.widgets.math.renderer.expression_node import ExprInput
 from tcalc.ui.widgets.math.utils import split_operand
 from tcalc.ui.widgets.utils import InputAlign
 
@@ -433,10 +434,10 @@ class Expression(QWidget):
         self._pending_seg = seg
         QTimer.singleShot(0, self._flush_exp_nodes)
 
-    def _register_input(self, le: QLineEdit) -> None:
-        if le.property("_expr_connected"):
+    def _register_input(self, le: ExprInput) -> None:
+        if le.registered:
             return
-        le.setProperty("_expr_connected", True)
+        le.registered = True
         le.textChanged.connect(lambda _=None, seg=le: self._on_input_changed(seg))
         self.input_created.emit(le)
 

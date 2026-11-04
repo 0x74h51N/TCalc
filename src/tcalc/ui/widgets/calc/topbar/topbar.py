@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 
 from tcalc.app_state import AngleUnit
 from tcalc.ui.config import CONFIG
+from tcalc.ui.props import KeypadRole
 from tcalc.ui.widgets.common import KeyButton, OptionGroup
 from tcalc.ui.widgets.common.types import KeyDef
 
@@ -66,7 +67,7 @@ class TopBar(QWidget):
         add_keys_to_grid(MEMORY_L_KEYS, memory_grid, self._add_key)
         layout.addWidget(self._memory_widget)
 
-    def _add_key(self, key_def: KeyDef, role: str, grid) -> None:
+    def _add_key(self, key_def: KeyDef, role: KeypadRole, grid) -> None:
         button = KeyButton(key_def, role, grid.parentWidget() or self)
         button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         button.clicked.connect(

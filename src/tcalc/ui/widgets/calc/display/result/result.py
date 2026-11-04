@@ -22,6 +22,7 @@ from PySide6.QtWidgets import (
 from tcalc.core.utils import CalcValue
 from tcalc.theme import get_theme
 from tcalc.ui.config import ResultConfig
+from tcalc.ui.props import Prop, StatusKind
 from tcalc.ui.widgets.common.button import IconButton
 from tcalc.ui.widgets.history.utils import wrap_expression
 from tcalc.ui.widgets.math import ExpressionSlot, InputKind, MathRender
@@ -113,7 +114,7 @@ class Result(QWidget):
         result_text: str,
         result: CalcValue | None,
         status_text: str = "",
-        status_kind: str = "",
+        status_kind: StatusKind | None = None,
     ) -> None:
         self.setUpdatesEnabled(False)
         try:
@@ -139,13 +140,13 @@ class Result(QWidget):
         finally:
             self.setUpdatesEnabled(True)
 
-    def _apply_status(self, status_text: str, status_kind: str) -> None:
+    def _apply_status(self, status_text: str, status_kind: StatusKind | None) -> None:
         if not status_text:
             self.status_label.hide()
             self.status_label.setText("")
             return
         self.status_label.setText(status_text)
-        self.status_label.setProperty("statusKind", status_kind or "info")
+        self.status_label.setProperty(Prop.STATUS_KIND, status_kind)
         self.status_label.style().unpolish(self.status_label)
         self.status_label.style().polish(self.status_label)
         self.status_label.show()

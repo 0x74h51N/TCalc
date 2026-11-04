@@ -31,6 +31,8 @@ from tcalc.core.constants import CONST_BY_ID
 from tcalc.core.ops import Operation
 from tcalc.theme import PictureTarget, get_theme, qcolor
 from tcalc.typed_tables import TableError, build
+from tcalc.ui.icon import Icon
+from tcalc.ui.props import KeypadRole, Prop, UiRole
 from tcalc.ui.styles import theme_events
 from tcalc.ui.utils import split_camel
 from tcalc.ui.widgets.common.button import IconButton, KeyButton, KSSpinBox
@@ -48,7 +50,7 @@ _cfg = CONFIG.keypad.custom
 
 _log = logging.getLogger(__name__)
 _ALL_KEYS = (-1, -1)
-_ROLE = "custom"
+_ROLE = KeypadRole.CUSTOM
 
 
 def _spin_font() -> QFont:
@@ -184,6 +186,7 @@ class KSGrid(QWidget):
         self._max_rows = max_rows
         self._editing = editing
         self._buttons: list[QPushButton] = []
+        self._key_radius: int | None = None
         self._add_button: IconButton | None = None
 
         root = QVBoxLayout(self)
@@ -201,7 +204,7 @@ class KSGrid(QWidget):
         self._insert_toolbar(root, max_rows, editing)
 
         self._build()
-        self._resize_timer = key_fit_timer(self, lambda: apply_key_radius(self, self._buttons))
+        self._resize_timer = key_fit_timer(self, self._fit_key_radius)
 
     # -- Properties --------------------------------------------------------
 
@@ -245,11 +248,11 @@ class KSGrid(QWidget):
         self._row_spin.valueChanged.connect(self._on_max_rows_changed)
         self._toolbar.addWidget(self._row_spin)
 
-        self._edit_btn = IconButton("document-edit", "Edit keys", "", None, self._toolbar)
+        self._edit_btn = IconButton(Icon.DOCUMENT_EDIT, "Edit keys", "", None, self._toolbar)
         self._edit_btn.clicked.connect(self._on_edit_clicked)
         self._toolbar.addWidget(self._edit_btn)
 
-        self._remove_btn = IconButton("edit-delete", "Delete keys", "", None, self._toolbar)
+        self._remove_btn = IconButton(Icon.EDIT_DELETE, "Delete keys", "", None, self._toolbar)
         self._remove_btn.clicked.connect(self._confirm_remove_grid_keys)
         self._toolbar.addWidget(self._remove_btn)
 
@@ -298,8 +301,8 @@ class KSGrid(QWidget):
 
         if self._editing:
             idx = len(self._keys)
-            self._add_button = IconButton("custom_pad", tooltip="Add key", parent=self)
-            self._add_button.setProperty("addButton", True)
+            self._add_button = IconButton(Icon.CUSTOM_PAD, tooltip="Add key", parent=self)
+            self._add_button.setProperty(Prop.ADD_BUTTON, True)
             self._add_button.setSizePolicy(
                 QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
             )
@@ -341,8 +344,8 @@ class KSGrid(QWidget):
     def _place_add_button(self) -> None:
         if self._add_button is not None:
             return
-        self._add_button = IconButton("custom_pad", tooltip="Add key", parent=self)
-        self._add_button.setProperty("addButton", True)
+        self._add_button = IconButton(Icon.CUSTOM_PAD, tooltip="Add key", parent=self)
+        self._add_button.setProperty(Prop.ADD_BUTTON, True)
         self._add_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._add_button.clicked.connect(lambda: self.add_requested.emit(self._grid_index))
         self._move_add_button()
@@ -398,11 +401,14 @@ class KSGrid(QWidget):
         for kd, btn in zip(self._keys, self._buttons):
             if kd.bg_color or kd.text_color:
                 self._style_button(btn, kd.bg_color, kd.text_color)
-        apply_key_radius(self, self._buttons)
+        self._fit_key_radius()
+
+    def _fit_key_radius(self) -> None:
+        self._key_radius = apply_key_radius(self, self._buttons, self._key_radius)
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        shrink_key_radius(self, self._buttons)
+        self._key_radius = shrink_key_radius(self, self._buttons, self._key_radius)
         self._resize_timer.start()
 
     def apply_color_all(self, bg: str | None = None, text: str | None = None) -> None:
@@ -411,7 +417,7 @@ class KSGrid(QWidget):
             self.apply_color(i, bg=bg, text=text)
 
     def _style_button(self, btn: QPushButton, bg: str, text: str) -> None:
-        btn.setProperty("padKey", True)
+        btn.setProperty(Prop.PAD_KEY, True)
         parts = ['QPushButton[padKey="true"] {']
         if bg := _key_color(bg):
             parts.append(f"background-color: {bg};")
@@ -451,7 +457,7 @@ class CustomPad(QWidget):
         super().__init__(parent)
         self._pad_id = pad_id
         # Scopes the keypad rules of the app stylesheet
-        self.setProperty("uiRole", "keypad")
+        self.setProperty(Prop.UI_ROLE, UiRole.KEYPAD)
         PictureLayer(self, PictureTarget.CUSTOM_PAD)
         self._settings_key = f"custom_pad/{pad_id}/layout"
         self._label = f"CustomPad {pad_id}"
@@ -574,19 +580,19 @@ class CustomPad(QWidget):
         self._rows_spin.valueChanged.connect(self._on_rows_changed)
         self._toolbar.addWidget(self._rows_spin)
 
-        rename_btn = IconButton("insert-text", "Rename pad", "", None, self._toolbar)
+        rename_btn = IconButton(Icon.INSERT_TEXT, "Rename pad", "", None, self._toolbar)
         rename_btn.clicked.connect(self._rename_pad)
         self._toolbar.addWidget(rename_btn)
 
-        save_btn = IconButton("document-save", "Save pad", "", None, self._toolbar)
+        save_btn = IconButton(Icon.DOCUMENT_SAVE, "Save pad", "", None, self._toolbar)
         save_btn.clicked.connect(lambda: self._toggle_edit(False))
         self._toolbar.addWidget(save_btn)
 
-        remove_keys_btn = IconButton("edit-delete", "Remove keys", "", None, self._toolbar)
+        remove_keys_btn = IconButton(Icon.EDIT_DELETE, "Remove keys", "", None, self._toolbar)
         remove_keys_btn.clicked.connect(self._confirm_remove_all_keys)
         self._toolbar.addWidget(remove_keys_btn)
 
-        remove_pad_btn = IconButton("edit-delete-shred", "Remove pad", "", None, self._toolbar)
+        remove_pad_btn = IconButton(Icon.EDIT_DELETE_SHRED, "Remove pad", "", None, self._toolbar)
         remove_pad_btn.clicked.connect(self._confirm_remove_pad)
         self._toolbar.addWidget(remove_pad_btn)
 
@@ -687,7 +693,7 @@ class CustomPad(QWidget):
             menu = parent_menu.addMenu(title)
         else:
             menu = QMenu(parent)
-        menu.setProperty("customPadMenu", True)
+        menu.setProperty(Prop.CUSTOM_PAD_MENU, True)
         return menu
 
     # ------------------------------------------------------------------

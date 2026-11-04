@@ -43,17 +43,6 @@ QWidget[uiRole="keypad"] QPushButton[keypadRole="action"][pressed="true"] {
     background-color: $keypad_action_pressed_color;
 }
 
-QWidget[uiRole="keypad"] QPushButton[keypadRole="equals"] {
-    background-color: $keypad_equals_color;
-    color: $keypad_equals_text_color;
-    border-color: $keypad_equals_border_color;
-}
-
-QWidget[uiRole="keypad"] QPushButton[keypadRole="equals"]:pressed,
-QWidget[uiRole="keypad"] QPushButton[keypadRole="equals"][pressed="true"] {
-    background-color: $keypad_equals_pressed_color;
-}
-
 QWidget[uiRole="keypad"] QPushButton[keypadRole="trig"] {
     background-color: $keypad_trig_color;
     color: $keypad_trig_text_color;

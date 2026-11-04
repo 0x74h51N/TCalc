@@ -97,7 +97,7 @@ def test_every_qss_placeholder_resolves(variant):
     assert leftovers == []
 
 
-KEYPAD_FAMILIES = ("primary", "secondary", "accent", "action")
+KEYPAD_FAMILIES = ("secondary", "accent", "action")
 
 
 def test_light_keypad_colors_are_light():

@@ -3,9 +3,6 @@ name = "Dark"
 
 [colors]
 # Primary colors
-primary = "#4a4f5a"
-primary_hover = "#3e434d"
-primary_text = "#ffffff"
 
 # Secondary colors
 secondary = "#3f4450"
