@@ -42,7 +42,7 @@ def test_sets_have_identical_keys(variant):
 
 @pytest.mark.parametrize(
     ("variant", "base"),
-    [("dark", "dark"), ("light", "light"), ("kitty", "light"), ("retro", "dark")],
+    [("dark", "dark"), ("light", "light"), ("kitty", "light"), ("retro", "light")],
 )
 def test_base_is_the_light_or_dark_family(variant, base):
     assert load_theme(variant).base == base

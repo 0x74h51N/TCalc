@@ -183,14 +183,14 @@ def test_look_override_reaches_stylesheet_and_python(write_theme):
 # buttons get their own rules; the option, history button, fraction and toast radii leave the
 # stylesheet, since Python fits them to the widget; their raised edge's shadow is a fixed dark
 # color, not background_dark (white in light); keys, memory and option buttons get raised
-# edge rules that apply only under a theme with an edge width
+# edge rules that apply only under a theme with an edge width (retro, now a 1995 desktop)
 @pytest.mark.parametrize(
     "variant, sha256",
     [
         ("light", "558812b732395425547f824c561561ac2656f6a9c610536ea11adcc45248d5ac"),
         ("dark", "44c20c9c3bebd364a5897311527e19d1d01f1514983deb613af526c6719cbc4f"),
         ("kitty", "c441457edf11d8717c9aad4313f4885357623e25dcf8417e0737f0dbadb77e56"),
-        ("retro", "1250de8f967302faf878341bd233a6df611657d73ffb8ab60423d78280de1506"),
+        ("retro", "81739c77bcf9b536a78e030a238b39c036553819c883b3726a528b5d5188b1a9"),
         ("sponge", "69a7f7ef8762b52762de13a5989720e4d0973653b072764460bb034ba12a6988"),
     ],
 )
