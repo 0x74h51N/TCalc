@@ -19,7 +19,6 @@ key_radius = 0
 icon_button_radius = 0
 tooltip_radius = 0
 option_radius = 0
-spinbox_radius = 0
 
 [colors]
 # Green CRT glass with scanlines (the gradient repeats every 0.8% of the height)

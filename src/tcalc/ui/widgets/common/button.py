@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Mapping, Sequence
 
 from PySide6.QtCore import QSize, Signal
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QButtonGroup,
     QGridLayout,
@@ -163,7 +164,7 @@ class OptionGroup(QWidget):
 
 
 class KSSpinBox(QSpinBox):
-    """Spin box with a prefix label, range, and optional fixed width."""
+    """Spin box with a prefix label, range, its own font and optional fixed width."""
 
     def __init__(
         self,
@@ -172,10 +173,12 @@ class KSSpinBox(QSpinBox):
         min_val: int,
         max_val: int,
         value: int,
+        font: QFont,
         width: int | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        self.setFont(font)
         self.setButtonSymbols(QSpinBox.ButtonSymbols.PlusMinus)
         self.setPrefix(prefix)
         self.setRange(min_val, max_val)
