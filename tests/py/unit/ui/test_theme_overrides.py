@@ -8,16 +8,12 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import re
-from collections import Counter
-from pathlib import Path
 
 import pytest
 from pytest import param
 
-from tcalc import theme
 from tcalc.theme import PictureTarget, custom_themes, load_theme
-from tcalc.ui.config import CONFIG, STYLESHEET_TABLES, int_fields
+from tcalc.ui.look import DEFAULT_LOOK
 from tcalc.ui.styles import _build_stylesheet
 
 DARK_ACCENT = "#343842"
@@ -35,61 +31,61 @@ def _restore_dark():
     "body, values, expected, logged",
     [
         param(
-            "[[spacing]]\nkey_radius = 9\n[fonts]\nsize_default = 11\n",
-            lambda t: (t.ui.style.key_radius, t.ui.fonts.size_default),
-            (CONFIG.style.key_radius, 11),
-            "theme user [spacing]: expected a table, got list",
-            id="spacing array",
+            "[[keypad]]\nradius = 9\n[fonts]\nsize_default = 11\n",
+            lambda t: (t.look.keypad.radius, t.look.fonts.size_default),
+            (DEFAULT_LOOK.keypad.radius, 11),
+            "theme user.keypad: expected a table, got list",
+            id="area array",
         ),
         param(
-            '[spacing]\nkey_radius = "9"\ntooltip_radius = 7\n',
-            lambda t: (t.ui.style.key_radius, t.ui.style.tooltip_radius),
-            (CONFIG.style.key_radius, 7),
-            "theme user [spacing].key_radius: expected int, got str",
-            id="spacing wrong type",
+            '[keypad]\nradius = "9"\n[tooltip]\nradius = 7\n',
+            lambda t: (t.look.keypad.radius, t.look.tooltip.radius),
+            (DEFAULT_LOOK.keypad.radius, 7),
+            "theme user.keypad.radius: expected int, got str",
+            id="area wrong type",
         ),
         param(
-            "[spacing]\nnope = 3\nkey_radius = 7\n",
-            lambda t: (t.ui.style.key_radius,),
+            "[keypad]\nnope = 3\nradius = 7\n",
+            lambda t: (t.look.keypad.radius,),
             (7,),
-            "theme user [spacing].nope: unknown name",
-            id="spacing unknown name",
+            "theme user.keypad.nope: unknown key",
+            id="area unknown key",
         ),
         param(
-            '[spacing]\ntooltip_radius = 7\nkey_radius = "9"\nfrac_toggle_radius = 40\n',
+            '[tooltip]\nradius = 7\n[keypad]\nradius = "9"\n[result]\nfrac_toggle_radius = 40\n',
             lambda t: (
-                t.ui.style.key_radius,
-                t.ui.style.tooltip_radius,
-                t.ui.calc.display.result.frac_toggle_radius,
+                t.look.keypad.radius,
+                t.look.tooltip.radius,
+                t.look.result.frac_toggle_radius,
             ),
-            (CONFIG.style.key_radius, 7, 40),
-            "theme user [spacing].key_radius: expected int, got str",
-            id="spacing good, wrong type, good",
+            (DEFAULT_LOOK.keypad.radius, 7, 40),
+            "theme user.keypad.radius: expected int, got str",
+            id="area good, wrong type, good",
         ),
         param(
-            '[fonts]\nsize_default = 11\n[[spacing]]\nkey_radius = 9\n[colors]\nprimary = "#ff0000"\n',
-            lambda t: (t.ui.style.key_radius, t.ui.fonts.size_default, t.colors["primary"]),
-            (CONFIG.style.key_radius, 11, "#ff0000"),
-            "theme user [spacing]: expected a table, got list",
+            '[fonts]\nsize_default = 11\n[[keypad]]\nradius = 9\n[colors]\nprimary = "#ff0000"\n',
+            lambda t: (t.look.keypad.radius, t.look.fonts.size_default, t.colors["primary"]),
+            (DEFAULT_LOOK.keypad.radius, 11, "#ff0000"),
+            "theme user.keypad: expected a table, got list",
             id="good table, array, good table",
         ),
         param(
-            "[[fonts]]\nsize_default = 30\n[spacing]\nkey_radius = 7\n",
-            lambda t: (t.ui.fonts.size_default, t.ui.style.key_radius),
-            (CONFIG.fonts.size_default, 7),
-            "theme user [fonts]: expected a table, got list",
+            "[[fonts]]\nsize_default = 30\n[keypad]\nradius = 7\n",
+            lambda t: (t.look.fonts.size_default, t.look.keypad.radius),
+            (DEFAULT_LOOK.fonts.size_default, 7),
+            "theme user.fonts: expected a table, got list",
             id="fonts array",
         ),
         param(
-            '[fonts]\nsize_default = "big"\nmenu_size = 20\n',
-            lambda t: (t.ui.fonts.size_default, t.ui.fonts.menu_size),
-            (CONFIG.fonts.size_default, 20),
-            "theme user [fonts].size_default: expected int, got str",
+            '[fonts]\nsize_default = "big"\nfamily_monospace = "VT323"\n',
+            lambda t: (t.look.fonts.size_default, t.look.fonts.family_monospace),
+            (DEFAULT_LOOK.fonts.size_default, "VT323"),
+            "theme user.fonts.size_default: expected int, got str",
             id="fonts wrong type",
         ),
         param(
             '[[colors]]\naccent = "#ff0000"\n[fonts]\nsize_default = 11\n',
-            lambda t: (t.colors["accent"], t.ui.fonts.size_default),
+            lambda t: (t.colors["accent"], t.look.fonts.size_default),
             (DARK_ACCENT, 11),
             "theme user [colors]: expected a table, got list",
             id="colors array",
@@ -102,22 +98,43 @@ def _restore_dark():
             id="color value not text",
         ),
         param(
-            '[[color_usage]]\npicker_text_color = "accent"\n[fonts]\nsize_default = 11\n',
-            lambda t: (t.ui.color_usage.picker_text_color, t.ui.fonts.size_default),
-            (CONFIG.color_usage.picker_text_color, 11),
-            "theme user [color_usage]: expected a table, got list",
-            id="color_usage array",
+            '[[picker]]\ntext_color = "accent"\n[fonts]\nsize_default = 11\n',
+            lambda t: (t.look.picker.text_color, t.look.fonts.size_default),
+            (DEFAULT_LOOK.picker.text_color, 11),
+            "theme user.picker: expected a table, got list",
+            id="color area array",
         ),
         param(
-            '[color_usage]\npicker_text_color = "nope"\nicon_color = "accent"\n',
-            lambda t: (t.ui.color_usage.picker_text_color, t.ui.color_usage.icon_color),
-            (CONFIG.color_usage.picker_text_color, "accent"),
-            "theme user [color_usage].picker_text_color: 'nope' is not one of its colors",
-            id="color_usage missing color",
+            '[picker]\ntext_color = "nope"\n[icons]\ncolor = "accent"\n',
+            lambda t: (t.look.picker.text_color, t.look.icons.color),
+            (DEFAULT_LOOK.picker.text_color, "accent"),
+            "theme user.picker.text_color: 'nope' is not one of its colors",
+            id="missing color",
+        ),
+        param(
+            "[keypad]\nradius = 7\n",
+            lambda t: (t.look.keypad.radius, t.look.keypad.min_pt),
+            (7, DEFAULT_LOOK.keypad.min_pt),
+            "",
+            id="one key of an area",
+        ),
+        param(
+            "[keypad.custom]\nspin_font_size = 20\n",
+            lambda t: t.look.keypad,
+            DEFAULT_LOOK.keypad,
+            "theme user.keypad.custom: unknown key",
+            id="behavior table",
+        ),
+        param(
+            "[spacing]\nkey_radius = 7\n",
+            lambda t: t.look,
+            DEFAULT_LOOK,
+            "theme user.spacing: unknown key",
+            id="old format",
         ),
         param(
             'pictures = "x"\n[fonts]\nsize_default = 11\n',
-            lambda t: (t.pictures, t.ui.fonts.size_default),
+            lambda t: (t.pictures, t.look.fonts.size_default),
             ((), 11),
             "theme user [[pictures]]: expected a list, got str",
             id="pictures not an array",
@@ -146,14 +163,14 @@ def test_broken_part_falls_back(write_theme, caplog, body, values, expected, log
         assert custom_themes()[variant] == "User"
         theme = load_theme(variant)
     assert values(theme) == expected
-    assert logged in [r.getMessage() for r in caplog.records]
-    assert load_theme("dark").ui == CONFIG
+    assert {r.getMessage() for r in caplog.records} == ({logged} if logged else set())
+    assert load_theme("dark").look == DEFAULT_LOOK
 
 
-def test_spacing_override_reaches_stylesheet_and_python(write_theme):
-    theme = load_theme(write_theme("[spacing]\nfrac_toggle_radius = 40\nkey_radius = 7\n"))
-    assert theme.ui.calc.display.result.frac_toggle_radius == 40
-    assert theme.ui.style.key_radius == 7
+def test_look_override_reaches_stylesheet_and_python(write_theme):
+    theme = load_theme(write_theme("[result]\nfrac_toggle_radius = 40\n[keypad]\nradius = 7\n"))
+    assert theme.look.result.frac_toggle_radius == 40
+    assert theme.look.keypad.radius == 7
     assert "border-radius: 40px" in _build_stylesheet()
 
 
@@ -173,26 +190,3 @@ def test_spacing_override_reaches_stylesheet_and_python(write_theme):
 def test_bundled_themes_style_unchanged(variant, sha256):
     load_theme(variant)
     assert hashlib.sha256(_build_stylesheet().encode()).hexdigest() == sha256
-
-
-def test_stylesheet_names_are_unique():
-    names = [
-        row.prefix + name for row in STYLESHEET_TABLES for name in int_fields(row.table(CONFIG))
-    ]
-    names += int_fields(CONFIG.fonts)
-    assert [name for name, n in Counter(names).items() if n > 1] == []
-
-
-def test_no_stylesheet_table_read_through_config():
-    """A theme can override these tables, so a read through CONFIG would miss the theme."""
-    src = Path(theme.__file__).parent
-    paths = "|".join(re.escape(".".join(row.path)) for row in STYLESHEET_TABLES)
-    read = re.compile(rf"\bCONFIG\.(?:{paths})\b")
-    offenders = [
-        f"{path.relative_to(src)}:{n}"
-        for path in sorted(src.rglob("*.py"))
-        if path.name != "theme.py"
-        for n, line in enumerate(path.read_text().splitlines(), 1)
-        if read.search(line)
-    ]
-    assert offenders == []

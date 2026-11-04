@@ -113,7 +113,7 @@ def test_themes_and_icons_do_not_depend_on_the_working_directory(tmp_path, monke
 def test_theme_sets_the_monospace_font(write_theme):
     theme = load_theme(write_theme('[fonts]\nfamily_monospace = "VT323"'))
     try:
-        assert theme.ui.fonts.family_monospace == "VT323"
+        assert theme.look.fonts.family_monospace == "VT323"
     finally:
         load_theme("dark")
 

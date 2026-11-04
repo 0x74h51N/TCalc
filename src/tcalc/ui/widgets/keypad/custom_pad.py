@@ -42,6 +42,7 @@ from tcalc.ui.widgets.common.types import GridLayout, KeyDef, KeySettings, PadLa
 from tcalc.ui.widgets.utils import apply_key_radius, key_fit_timer, shrink_key_radius
 
 from ...config import CONFIG
+from ...look import DEFAULT_LOOK
 
 _cfg = CONFIG.keypad.custom
 
@@ -51,8 +52,8 @@ _ROLE = "custom"
 
 
 def _spin_font() -> QFont:
-    # CONFIG, not the theme: a theme font would overflow the fixed spin box width
-    return QFont(CONFIG.fonts.family_default, _cfg.spin_font_size)
+    # The default look, not the theme: a theme font would overflow the fixed spin box width
+    return QFont(DEFAULT_LOOK.fonts.family_default, _cfg.spin_font_size)
 
 
 # ---------------------------------------------------------------------------

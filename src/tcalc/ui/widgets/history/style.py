@@ -21,7 +21,7 @@ def apply_history_style(list_widget: QListWidget) -> None:
         | Qt.TextInteractionFlag.TextSelectableByKeyboard,
     )
 
-    font = QFont(get_theme().ui.fonts.family_monospace, CONFIG.history.style.font_size)
+    font = QFont(get_theme().look.fonts.family_monospace, CONFIG.history.style.font_size)
     font.setStyleHint(QFont.StyleHint.TypeWriter)
     list_widget.setFont(font)
 

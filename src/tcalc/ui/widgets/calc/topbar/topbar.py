@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.app_state import AngleUnit
-from tcalc.theme import get_theme
+from tcalc.ui.config import CONFIG
 from tcalc.ui.widgets.common import KeyButton, OptionGroup
 from tcalc.ui.widgets.common.types import KeyDef
 
@@ -32,7 +32,7 @@ class TopBar(QWidget):
 
         self._buttons: dict[str, QPushButton] = {}
 
-        topbar = get_theme().ui.calc.topbar
+        topbar = CONFIG.calc.topbar
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(

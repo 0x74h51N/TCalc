@@ -22,7 +22,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from tcalc.ui.config import ColorPlace, PresetConfig
+from tcalc.ui.config import PresetConfig
+from tcalc.ui.look import ColorPlace
 from tcalc.ui.utils import get_icon
 from tcalc.ui.widgets.math.painter.symbol_icon import ICON_BOX, needs_math_render, theme_symbol_icon
 
@@ -35,7 +36,7 @@ class KeyButton(QPushButton):
     def __init__(self, key_def: KeyDef, role: str, parent: QWidget | None = None) -> None:
         if needs_math_render(key_def.label):
             super().__init__("", parent)
-            self.setIcon(theme_symbol_icon(key_def.label, lambda u: u.key_symbol_color))
+            self.setIcon(theme_symbol_icon(key_def.label, lambda look: look.keypad.symbol_color))
             self.setIconSize(ICON_BOX)
         else:
             super().__init__(key_def.label, parent)

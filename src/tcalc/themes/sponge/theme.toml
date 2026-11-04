@@ -5,20 +5,29 @@ base = "light"
 [fonts]
 family_default = "Some Time Later"
 size_default = 18
-keypad_min_pt = 14
-keypad_max_pt = 20
-menu_size = 16
-picker_size = 18
 
-[color_usage]
-picker_text_color = "text_primary"
+[keypad]
+min_pt = 14
+max_pt = 20
+radius = 5
 
-[spacing]
-key_radius = 5
-icon_button_radius = 5
-tooltip_radius = 5
-option_radius = 5
+[menu]
+font_size = 16
 
+[picker]
+font_size = 18
+text_color = "text_primary"
+
+[icon_button]
+radius = 5
+
+[tooltip]
+radius = 5
+
+[options]
+radius = 5
+
+[result]
 frac_toggle_radius = 40
 
 # Sponge holes (holes.svg, drawn for TCalc) on the yellow surfaces, the sea floor behind the whole window

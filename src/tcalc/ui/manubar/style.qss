@@ -3,21 +3,21 @@ QMenu {
     color: $menu_text_color;
     border: 1px solid $menu_border_color;
     padding: ${menu_padding}px;
-    font-size: ${menu_size}px;
+    font-size: ${menu_font_size}px;
 }
 
 /* Native items and the custom-preset row (a QWidgetAction QPushButton that
    can't inherit QMenu::item) share one look. */
 QMenu::item,
 QPushButton[presetRow="true"] {
-    padding: ${item_padding_vertical}px ${item_padding_horizontal}px;
-    border-radius: ${item_border_radius}px;
+    padding: ${menu_item_padding_vertical}px ${menu_item_padding_horizontal}px;
+    border-radius: ${menu_item_border_radius}px;
     border: 1px solid transparent;
 }
 
 QMenu::item {
-    margin: ${item_margin}px 0;
-    min-width: ${item_min_width}px;
+    margin: ${menu_item_margin}px 0;
+    min-width: ${menu_item_min_width}px;
 }
 
 QPushButton[presetRow="true"] {
@@ -40,12 +40,12 @@ QMenu::item:disabled {
 }
 
 QMenu::icon {
-    padding-left: ${icon_padding_left}px;
-    padding-right: ${icon_padding_right}px;
+    padding-left: ${menu_icon_padding_left}px;
+    padding-right: ${menu_icon_padding_right}px;
 }
 
 QMenu::separator {
-    height: ${separator_height}px;
+    height: ${menu_separator_height}px;
     background: $menu_separator_color;
-    margin: ${separator_margin_vertical}px ${separator_margin_horizontal}px;
+    margin: ${menu_separator_margin_vertical}px ${menu_separator_margin_horizontal}px;
 }

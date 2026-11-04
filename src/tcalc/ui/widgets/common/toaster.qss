@@ -1,7 +1,7 @@
 Toaster {
     color: $toast_text_color;
     padding: ${toast_pad_y}px ${toast_pad_x}px;
-    border-radius: ${toast_border_radius}px;
+    border-radius: ${toast_radius}px;
     font-size: ${toast_font_size}px;
 }
 

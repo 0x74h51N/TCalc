@@ -20,7 +20,8 @@ from PySide6.QtWidgets import (
 )
 from shiboken6 import isValid
 
-from tcalc.theme import PictureTarget, get_theme
+from tcalc.theme import PictureTarget
+from tcalc.ui.config import CONFIG
 from tcalc.ui.widgets.common.picture_layer import PictureLayer
 
 from .expression import Expression
@@ -34,7 +35,7 @@ class Display(QWidget):
         super().__init__(parent)
         self.setObjectName("displayWidget")
 
-        self._config = get_theme().ui.calc.display
+        self._config = CONFIG.calc.display
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(
             self._config.margin,

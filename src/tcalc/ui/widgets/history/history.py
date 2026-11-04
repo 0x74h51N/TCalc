@@ -118,7 +118,7 @@ class History(QWidget):
     def _apply_theme_font(self) -> None:
         # Only the family: the side panel scales the size
         font = self.list.font()
-        font.setFamily(get_theme().ui.fonts.family_monospace)
+        font.setFamily(get_theme().look.fonts.family_monospace)
         self.list.setFont(font)
 
     def set_mode(self, mode: RenderMode):

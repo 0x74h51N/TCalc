@@ -13,7 +13,7 @@ QPushButton[uiRole="iconButton"] {
     border-top-color: $icon_button_light_color;
     border-left-color: $icon_button_light_color;
     border-radius: ${icon_button_radius}px;
-    padding: ${icon_padding}px;
+    padding: ${icon_button_padding}px;
 }
 
 QPushButton[uiRole="iconButton"]:hover {
@@ -37,9 +37,9 @@ QPushButton[uiRole="toolbarToggle"] {
 
 QRadioButton[optionRole="option"] {
     background-color: transparent;
-    color: $option_text_color;
-    border-radius: ${option_radius}px;
-    padding: ${option_padding_y}px ${option_padding_x}px;
+    color: $options_text_color;
+    border-radius: ${options_radius}px;
+    padding: ${options_padding_y}px ${options_padding_x}px;
     spacing: 0px;
 }
 
@@ -49,10 +49,10 @@ QRadioButton[optionRole="option"]::indicator {
 }
 
 QRadioButton[optionRole="option"]:hover {
-    background-color: $option_hover_color;
+    background-color: $options_hover_color;
 }
 
 QRadioButton[optionRole="option"]:checked {
-    background-color: $option_checked_color;
-    color: $option_checked_text_color;
+    background-color: $options_checked_color;
+    color: $options_checked_text_color;
 }

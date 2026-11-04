@@ -14,7 +14,7 @@ from shiboken6 import getCppPointer
 
 from tcalc.core.ops import Operation
 from tcalc.theme import get_theme, load_theme
-from tcalc.ui.config import CONFIG
+from tcalc.ui.look import DEFAULT_LOOK
 from tcalc.ui.styles import apply_theme, init_styles
 from tcalc.ui.widgets.common.picker import SearchablePicker
 from tcalc.ui.widgets.keypad import custom_pad
@@ -57,10 +57,10 @@ class TestAppPalette:
 
 
 def _assert_fixed_font(qapp):
-    assert qapp.font().family() == CONFIG.fonts.family_default
-    assert qapp.font().pointSize() == CONFIG.fonts.size_default
+    assert qapp.font().family() == DEFAULT_LOOK.fonts.family_default
+    assert qapp.font().pointSize() == DEFAULT_LOOK.fonts.size_default
     menu = QMenu()  # platform themes give menus a font of their own
-    assert qapp.font(menu).family() == CONFIG.fonts.family_default
+    assert qapp.font(menu).family() == DEFAULT_LOOK.fonts.family_default
 
 
 def test_app_font_is_fixed_from_config(styled):
@@ -76,14 +76,14 @@ def test_scheme_switch_keeps_style_and_fonts(styled):
 
 
 def test_theme_sets_the_menu_font_size(styled, write_theme):
-    apply_theme(styled, write_theme("[fonts]\nmenu_size = 21\n"))
+    apply_theme(styled, write_theme("[menu]\nfont_size = 21\n"))
     menu = QMenu()
     menu.ensurePolished()
     assert menu.font().pixelSize() == 21
 
 
 def test_theme_sets_the_picker_font_size(styled, write_theme):
-    apply_theme(styled, write_theme("[fonts]\npicker_size = 17\n"))
+    apply_theme(styled, write_theme("[picker]\nfont_size = 17\n"))
     picker = SearchablePicker([("sin", None)])
     view = picker.findChild(QListView)
     view.ensurePolished()
@@ -91,7 +91,7 @@ def test_theme_sets_the_picker_font_size(styled, write_theme):
 
 
 def test_theme_picks_which_color_a_place_uses(styled, write_theme):
-    apply_theme(styled, write_theme('[color_usage]\npicker_text_color = "accent_text"\n'))
+    apply_theme(styled, write_theme('[picker]\ntext_color = "accent_text"\n'))
     picker = SearchablePicker([("sin", None)])
     view = picker.findChild(QListView)
     view.ensurePolished()
