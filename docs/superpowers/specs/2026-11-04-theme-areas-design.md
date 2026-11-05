@@ -80,9 +80,43 @@ Today's values by area; the new field name drops the area (`[color_usage] histor
 
 The converter in `typed_tables.py` types its hints and values instead of `Any`, and no value falls back to a bare `str`: a color place is a `ColorName` and a font family a `FontFamily` (each a `NewType`), and a color place is found by its type instead of its name. Icon names are the members of an `Icon` enum, and a test keeps them equal to the bundled icon files. Fields with the same shape are one nested dataclass: the seven keypad roles are `[keypad.<role>]` tables of one `KeyRoleLook`, with the stylesheet name joined by `_` so no QSS changes. The Qt properties a QSS selector reads (`uiRole`, `keypadRole`, ...) and their values are named once in Python as enums, and a test fails when a QSS selector names one that Python does not define. Qt properties used only as Python state (`keyRadius`, `_expr_connected`, `_aw_scheduled`) become typed attributes, and the QSS rules no code can reach (`[presetRow]`, `[active]` in the menu bar) go.
 
+## Shared types (owner's review of Part 3)
+
+This section is the schema as it stands; the area keys above and the themes' keys in the plan's Tasks 2 to 9 are the steps on the way to it. One setting's difference does not make a dataclass, and there is no inheritance between look types. A button has one type, `Button`, wherever it stands; text is `Text` (a color and a font range), a frame is `Panel`, and `Colors`, `Edge`, `FontRange` and `Insets` are the small parts. A setting one place does not draw exists there without effect.
+
+- `Colors`: `color: ColorName`, `text_color: ColorName`.
+- `Edge`: `width: int`, `light_color: ColorName`, `shadow_color: ColorName`.
+- `FontRange`: `min_pt: int`, `max_pt: int`.
+- `Insets`: `y: int`, `x: int`.
+- `Text`: `color: ColorName`, `font: FontRange`.
+- `Button`: `color: ColorName`, `hover_color: ColorName`, `pressed_color: ColorName`, `text: Text`, `disabled: Colors`, `checked: Colors`, `radius: int`, `edge: Edge`, `padding: Insets`.
+- `Panel`: `background_color: ColorName`, `text: Text`, `border_color: ColorName`, `hover_color: ColorName`, `separator_color: ColorName`, `list_background_color: ColorName`, `radius: int`, `padding: Insets`.
+- `FontsLook`: `family_default: FontFamily`, `size_default: int`, `family_monospace: FontFamily`.
+- `PaletteLook`: `window_color: ColorName`, `window_text_color: ColorName`, `base_color: ColorName`, `text_color: ColorName`, `button_color: ColorName`, `button_text_color: ColorName`, `highlight_color: ColorName`, `highlighted_text_color: ColorName`, `icon_color: ColorName`.
+- `ExpressionLook`: `text: Text`, `selection: Colors`, `slot_focus_color: ColorName`.
+- `DisplayLook`: `background_color: ColorName`, `expression: ExpressionLook`, `radical_line_color: ColorName`, `radical_symbol_color: ColorName`, `status_text_color: ColorName`, `status_error_text_color: ColorName`, `divider_height: int`, `root_border_width: int`.
+- `ResultLook`: `text: Text`, `fraction: Button`.
+- `KeypadLook`: `button: Button`, `number: Button`, `operator: Button`, `action: Button`, `trig: Button`, `function: Button`, `power: Button`, `hover_border_color: ColorName`, `symbol_color: ColorName`, `compact_padding: Insets`.
+- `CustomPadLook`: `add_key: Button`, `spinbox: Button`, `spinbox_focus_border_color: ColorName`, `toolbar_separator_color: ColorName`, `menu: Panel`.
+- `MenuLook`: `panel: Panel`, `item: Button`, `selected_border_color: ColorName`, `constants_symbol_color: ColorName`, `item_margin: int`, `item_min_width: int`, `icon_padding_left: int`, `icon_padding_right: int`, `separator_height: int`, `separator_margin: Insets`.
+- `HistoryLook`: `background_color: ColorName`, `text: Text`, `row_color: ColorName`, `alternate_row_color: ColorName`, `selected: Colors`, `math_font_size: int`, `expression: Text`, `result: Text`, `icon_button_size: int`, `button: Button`, `copy: Button`, `delete: Button`, `clear: Button`, `mode: Button`.
+- `ToastLook`: `text: Text`, `info_color: ColorName`, `warn_color: ColorName`, `error_color: ColorName`, `padding: Insets`, `radius: int`.
+- `Look`: `fonts: FontsLook`, `palette: PaletteLook`, `display: DisplayLook`, `result: ResultLook`, `memory: Button`, `keypad: KeypadLook`, `custom_pad: CustomPadLook`, `picker: Panel`, `menu: MenuLook`, `history: HistoryLook`, `options: Button`, `tooltip: Panel`, `toast: ToastLook`, `dock: Text`, `tabs: Text`.
+
+Where the settings live:
+
+- `Button`: `memory`, `options`, `result.fraction`, `keypad.button` and its kinds `number`, `operator`, `action`, `trig`, `function`, `power`, `history.button` and its kinds `copy`, `delete`, `clear`, `mode`, `custom_pad.add_key`, `custom_pad.spinbox`, `menu.item` (checked is the selected item).
+- `Panel`: `tooltip`, `picker`, `custom_pad.menu`, `menu.panel`.
+- A fixed font size is the `min_pt` of its range: the options, `history.mode`, `Panel`, `toast`, `dock`, `tabs`.
+- The icon of an icon button is its `text.color`; the single-color icons are `palette.icon_color`.
+
+Shared buttons: `[keypad.button]` and `[history.button]` are where that area's buttons start. `with_shared_buttons` lays them under each of the area's `Button` tables before `build` and `override`, and a value in the button's own table wins, so a kind writes only what differs or all of its settings. There is no shared table across areas. A key's radius, edge, padding, font, disabled and checked are read from `keypad.button`; the copy and delete hover, pressed, radius and edge from `history.button`.
+
+A key's hover is its own color unless a theme gives one: `transparent` and `none` would show what is behind the key (findings, `typed-config.md`). `look.toml` writes a button's parts as inline tables, at most two levels deep; a theme may use either form.
+
 ## Themes and template
 
-`kitty`, `retro` and `sponge` move their `[fonts]`, `[spacing]` and `[color_usage]` values into the area tables (`[keypad] radius`, `[result] frac_toggle_radius`, `[picker] text_color`...). `light.toml` and `dark.toml` stay palettes. `theme-template.toml` lists the area tables with their fields as comments and points to `look.toml` for the defaults.
+`kitty`, `retro` and `sponge` move their `[fonts]`, `[spacing]` and `[color_usage]` values into the area tables (`[keypad.button] radius`, `[result.fraction] radius`, `[picker.text] color`...). `light.toml` and `dark.toml` stay palettes. `theme-template.toml` lists the area tables with their fields as comments and points to `look.toml` for the defaults. It also says how the shared buttons work.
 
 ## Verification
 
