@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QMenu
 from tcalc.app_state import AppState, KeypadPreset
 from tcalc.theme import ThemeChoice
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, ViewOperations
+from tcalc.ui.icon import Icon
 from tcalc.ui.utils import get_icon
 
 if TYPE_CHECKING:
@@ -70,7 +71,7 @@ class MenuActionItem(MenuItem[TMenuContext], Generic[TMenuContext]):
     """Single unified action item. Type determines callback behavior."""
 
     text: str
-    icon: str = ""
+    icon: Icon | None = None
     checkable: bool = False
     enabled: bool = True
     item_type: MenuActionType = MenuActionType.OPS
@@ -122,7 +123,7 @@ class SubmenuItem(MenuItem[TMenuContext], Generic[TMenuContext]):
     """A submenu container. Adds a child QMenu and populates it with *items*."""
 
     text: str
-    icon: str = ""
+    icon: Icon | None = None
     items: tuple[MenuItem, ...] = ()
 
     def add_to(self, menu: QMenu, ctx: TMenuContext) -> list[tuple[MenuActionItem, QAction]]:

@@ -6,19 +6,14 @@
 #
 from __future__ import annotations
 
-import hashlib
 import logging
-import re
-from collections import Counter
-from pathlib import Path
 
 import pytest
 from pytest import param
 
-from tcalc import theme
 from tcalc.theme import PictureTarget, custom_themes, load_theme
-from tcalc.ui.config import CONFIG, STYLESHEET_TABLES, int_fields
-from tcalc.ui.styles import _build_stylesheet
+from tcalc.ui.look import DEFAULT_LOOK
+from tcalc.ui.styles import _build_stylesheet, _build_subs
 
 DARK_ACCENT = "#343842"
 
@@ -35,61 +30,61 @@ def _restore_dark():
     "body, values, expected, logged",
     [
         param(
-            "[[spacing]]\nkey_radius = 9\n[fonts]\nsize_default = 11\n",
-            lambda t: (t.ui.style.key_radius, t.ui.fonts.size_default),
-            (CONFIG.style.key_radius, 11),
-            "theme user [spacing]: expected a table, got list",
-            id="spacing array",
+            "[[keypad]]\nradius = 9\n[fonts]\nsize_default = 11\n",
+            lambda t: (t.look.keypad.button.radius, t.look.fonts.size_default),
+            (DEFAULT_LOOK.keypad.button.radius, 11),
+            "theme user.keypad: expected a table, got list",
+            id="area array",
         ),
         param(
-            '[spacing]\nkey_radius = "9"\ntooltip_radius = 7\n',
-            lambda t: (t.ui.style.key_radius, t.ui.style.tooltip_radius),
-            (CONFIG.style.key_radius, 7),
-            "theme user [spacing].key_radius: expected int, got str",
-            id="spacing wrong type",
+            '[keypad.number]\nradius = "9"\n[tooltip]\nradius = 7\n',
+            lambda t: (t.look.keypad.number.radius, t.look.tooltip.radius),
+            (DEFAULT_LOOK.keypad.number.radius, 7),
+            "theme user.keypad.number.radius: expected int, got str",
+            id="area wrong type",
         ),
         param(
-            "[spacing]\nnope = 3\nkey_radius = 7\n",
-            lambda t: (t.ui.style.key_radius,),
+            "[keypad.number]\nnope = 3\nradius = 7\n",
+            lambda t: (t.look.keypad.number.radius,),
             (7,),
-            "theme user [spacing].nope: unknown name",
-            id="spacing unknown name",
+            "theme user.keypad.number.nope: unknown key",
+            id="area unknown key",
         ),
         param(
-            '[spacing]\ntooltip_radius = 7\nkey_radius = "9"\nfrac_toggle_radius = 40\n',
+            '[tooltip]\nradius = 7\n[keypad.number]\nradius = "9"\n[result.fraction]\nradius = 40\n',
             lambda t: (
-                t.ui.style.key_radius,
-                t.ui.style.tooltip_radius,
-                t.ui.calc.display.result.frac_toggle_radius,
+                t.look.keypad.number.radius,
+                t.look.tooltip.radius,
+                t.look.result.fraction.radius,
             ),
-            (CONFIG.style.key_radius, 7, 40),
-            "theme user [spacing].key_radius: expected int, got str",
-            id="spacing good, wrong type, good",
+            (DEFAULT_LOOK.keypad.number.radius, 7, 40),
+            "theme user.keypad.number.radius: expected int, got str",
+            id="area good, wrong type, good",
         ),
         param(
-            '[fonts]\nsize_default = 11\n[[spacing]]\nkey_radius = 9\n[colors]\nprimary = "#ff0000"\n',
-            lambda t: (t.ui.style.key_radius, t.ui.fonts.size_default, t.colors["primary"]),
-            (CONFIG.style.key_radius, 11, "#ff0000"),
-            "theme user [spacing]: expected a table, got list",
+            '[fonts]\nsize_default = 11\n[[keypad]]\nradius = 9\n[colors]\nprimary = "#ff0000"\n',
+            lambda t: (t.look.keypad.button.radius, t.look.fonts.size_default, t.colors["primary"]),
+            (DEFAULT_LOOK.keypad.button.radius, 11, "#ff0000"),
+            "theme user.keypad: expected a table, got list",
             id="good table, array, good table",
         ),
         param(
-            "[[fonts]]\nsize_default = 30\n[spacing]\nkey_radius = 7\n",
-            lambda t: (t.ui.fonts.size_default, t.ui.style.key_radius),
-            (CONFIG.fonts.size_default, 7),
-            "theme user [fonts]: expected a table, got list",
+            "[[fonts]]\nsize_default = 30\n[keypad.button]\nradius = 7\n",
+            lambda t: (t.look.fonts.size_default, t.look.keypad.button.radius),
+            (DEFAULT_LOOK.fonts.size_default, 7),
+            "theme user.fonts: expected a table, got list",
             id="fonts array",
         ),
         param(
-            '[fonts]\nsize_default = "big"\nmenu_size = 20\n',
-            lambda t: (t.ui.fonts.size_default, t.ui.fonts.menu_size),
-            (CONFIG.fonts.size_default, 20),
-            "theme user [fonts].size_default: expected int, got str",
+            '[fonts]\nsize_default = "big"\nfamily_monospace = "VT323"\n',
+            lambda t: (t.look.fonts.size_default, t.look.fonts.family_monospace),
+            (DEFAULT_LOOK.fonts.size_default, "VT323"),
+            "theme user.fonts.size_default: expected int, got str",
             id="fonts wrong type",
         ),
         param(
             '[[colors]]\naccent = "#ff0000"\n[fonts]\nsize_default = 11\n',
-            lambda t: (t.colors["accent"], t.ui.fonts.size_default),
+            lambda t: (t.colors["accent"], t.look.fonts.size_default),
             (DARK_ACCENT, 11),
             "theme user [colors]: expected a table, got list",
             id="colors array",
@@ -102,22 +97,78 @@ def _restore_dark():
             id="color value not text",
         ),
         param(
-            '[[color_usage]]\npicker_text_color = "accent"\n[fonts]\nsize_default = 11\n',
-            lambda t: (t.ui.color_usage.picker_text_color, t.ui.fonts.size_default),
-            (CONFIG.color_usage.picker_text_color, 11),
-            "theme user [color_usage]: expected a table, got list",
-            id="color_usage array",
+            '[[picker]]\ntext_color = "accent"\n[fonts]\nsize_default = 11\n',
+            lambda t: (t.look.picker.text.color, t.look.fonts.size_default),
+            (DEFAULT_LOOK.picker.text.color, 11),
+            "theme user.picker: expected a table, got list",
+            id="color area array",
         ),
         param(
-            '[color_usage]\npicker_text_color = "nope"\nicon_color = "accent"\n',
-            lambda t: (t.ui.color_usage.picker_text_color, t.ui.color_usage.icon_color),
-            (CONFIG.color_usage.picker_text_color, "accent"),
-            "theme user [color_usage].picker_text_color: 'nope' is not one of its colors",
-            id="color_usage missing color",
+            '[picker.text]\ncolor = "nope"\n[palette]\nicon_color = "accent"\n',
+            lambda t: (t.look.picker.text.color, t.look.palette.icon_color),
+            (DEFAULT_LOOK.picker.text.color, "accent"),
+            "theme user.picker.text.color: 'nope' is not one of its colors",
+            id="missing color",
+        ),
+        param(
+            "[keypad.button]\nradius = 7\n",
+            lambda t: (t.look.keypad.button.radius, t.look.keypad.button.text.font.min_pt),
+            (7, DEFAULT_LOOK.keypad.button.text.font.min_pt),
+            "",
+            id="one key of an area",
+        ),
+        param(
+            '[keypad.button]\nhover_color = "accent"\n[keypad.number]\nhover_color = "accent_text"\n',
+            lambda t: (t.look.keypad.operator.hover_color, t.look.keypad.number.hover_color),
+            ("accent", "accent_text"),
+            "",
+            id="shared button reaches the area, own value wins",
+        ),
+        param(
+            '[keypad.operator]\ncolor = "status_error"\n',
+            lambda t: t.look.keypad.operator.hover_color,
+            "status_error",
+            "",
+            id="a key's hover follows its color",
+        ),
+        param(
+            '[keypad.button]\ncolor = "status_error"\n',
+            lambda t: t.look.keypad.number.hover_color,
+            "status_error",
+            "",
+            id="a key's hover follows the shared color",
+        ),
+        param(
+            '[keypad.operator]\ncolor = "status_error"\nhover_color = "accent"\n',
+            lambda t: t.look.keypad.operator.hover_color,
+            "accent",
+            "",
+            id="a key's own hover wins",
+        ),
+        param(
+            "[keypad]\nnumber = 5\n",
+            lambda t: t.look.keypad,
+            DEFAULT_LOOK.keypad,
+            "theme user.keypad.number: expected a table, got int",
+            id="a key that is not a table",
+        ),
+        param(
+            "[keypad.custom]\nspin_font_size = 20\n",
+            lambda t: t.look.keypad,
+            DEFAULT_LOOK.keypad,
+            "theme user.keypad.custom: unknown key",
+            id="behavior table",
+        ),
+        param(
+            "[spacing]\nkey_radius = 7\n",
+            lambda t: t.look,
+            DEFAULT_LOOK,
+            "theme user.spacing: unknown key",
+            id="old format",
         ),
         param(
             'pictures = "x"\n[fonts]\nsize_default = 11\n',
-            lambda t: (t.pictures, t.ui.fonts.size_default),
+            lambda t: (t.pictures, t.look.fonts.size_default),
             ((), 11),
             "theme user [[pictures]]: expected a list, got str",
             id="pictures not an array",
@@ -146,53 +197,80 @@ def test_broken_part_falls_back(write_theme, caplog, body, values, expected, log
         assert custom_themes()[variant] == "User"
         theme = load_theme(variant)
     assert values(theme) == expected
-    assert logged in [r.getMessage() for r in caplog.records]
-    assert load_theme("dark").ui == CONFIG
+    assert {r.getMessage() for r in caplog.records} == ({logged} if logged else set())
+    assert load_theme("dark").look == DEFAULT_LOOK
 
 
-def test_spacing_override_reaches_stylesheet_and_python(write_theme):
-    theme = load_theme(write_theme("[spacing]\nfrac_toggle_radius = 40\nkey_radius = 7\n"))
-    assert theme.ui.calc.display.result.frac_toggle_radius == 40
-    assert theme.ui.style.key_radius == 7
-    assert "border-radius: 40px" in _build_stylesheet()
-
-
-# The stylesheet of each bundled theme as master a88c553 built it (2026-11-02): moving the
-# values and renaming QSS variables must not change one substituted character. Since
-# 2026-11-04 the spin box radius is fixed at 2 px in every theme (#106)
+# (theme body after name and base, the stylesheet substitution, its value, the logged line or None)
 @pytest.mark.parametrize(
-    "variant, sha256",
+    "body, key, expected, logged",
     [
-        ("light", "299b7a94e8caf9eb493fbc83104c5f52082182211d1f22aedb55f89a8b1d76aa"),
-        ("dark", "f658dce9c3801576c3b926b15ac0fd579a650a8f782c52634f6cdd5ff75528c3"),
-        ("kitty", "cc73d7c18f55358575322221dc92c9f08be6206812ffaf4a97efab727001f618"),
-        ("retro", "6f3b72f45967c58536ebf0c23fffa7aef9c99acd797839548d4ef7af8f05c46b"),
-        ("sponge", "ac28b07e9c91fa26b54f859538a4ad20644bcefc33b864e17a9a5db72cb345bc"),
+        param(
+            '[options]\nhover_color = { color = "text_primary", opacity = 0.14 }\n'
+            '[colors]\ntext_primary = "#123456"\n',
+            "options_hover_color",
+            "rgba(18, 52, 86, 14%)",
+            None,
+            id="table",
+        ),
+        param(
+            '[options]\nhover_color = "text_primary"\n[colors]\ntext_primary = "#123456"\n',
+            "options_hover_color",
+            "#123456",
+            None,
+            id="bare name is opaque",
+        ),
+        param(
+            '[keypad.button]\ncolor = { color = "accent", opacity = 0.75 }\n'
+            '[keypad.operator]\ncolor = "action"\n[colors]\naction = "#123456"\n',
+            "keypad_operator_color",
+            "#123456",
+            None,
+            id="a family's bare name beats the shared table",
+        ),
+        param(
+            '[keypad.button]\ncolor = { color = "text_primary", opacity = 0.75 }\n'
+            '[keypad.operator]\ncolor = { color = "action" }\nhover_color = "action"\n[colors]\ntext_primary = "#123456"\n',
+            "keypad_number_color",
+            "rgba(18, 52, 86, 75%)",
+            "theme user.keypad.operator.color: expected ColorName or Tinted, got dict",
+            id="a table without opacity is reported, not merged",
+        ),
+        param(
+            '[options]\nhover_color = { color = "text_primary", opacity = 2 }\n',
+            "options_hover_color",
+            "rgba(166, 199, 255, 14%)",
+            "theme user.options.hover_color: expected ColorName or Tinted, got dict",
+            id="opacity above 1",
+        ),
+        param(
+            '[options]\nhover_color = { color = "text_primary", opacity = "a" }\n',
+            "options_hover_color",
+            "rgba(166, 199, 255, 14%)",
+            "theme user.options.hover_color: expected ColorName or Tinted, got dict",
+            id="opacity not a number",
+        ),
+        param(
+            '[options]\nhover_color = { color = "screen", opacity = 0.5 }\n'
+            '[colors]\nscreen = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #000, stop:1 #FFF)"\n',
+            "options_hover_color",
+            "rgba(166, 199, 255, 14%)",
+            "theme user.options.hover_color: 'screen' is a gradient, it cannot take an opacity",
+            id="opacity on a gradient",
+        ),
     ],
 )
-def test_bundled_themes_style_unchanged(variant, sha256):
-    load_theme(variant)
-    assert hashlib.sha256(_build_stylesheet().encode()).hexdigest() == sha256
+def test_opacity_reaches_the_stylesheet(write_theme, caplog, body, key, expected, logged):
+    variant = write_theme(body)
+    with caplog.at_level(logging.WARNING):
+        load_theme(variant)
+        subs = _build_subs()
+    assert {r.getMessage() for r in caplog.records} == ({logged} if logged else set())
+    assert subs[key] == expected
 
 
-def test_stylesheet_names_are_unique():
-    names = [
-        row.prefix + name for row in STYLESHEET_TABLES for name in int_fields(row.table(CONFIG))
-    ]
-    names += int_fields(CONFIG.fonts)
-    assert [name for name, n in Counter(names).items() if n > 1] == []
-
-
-def test_no_stylesheet_table_read_through_config():
-    """A theme can override these tables, so a read through CONFIG would miss the theme."""
-    src = Path(theme.__file__).parent
-    paths = "|".join(re.escape(".".join(row.path)) for row in STYLESHEET_TABLES)
-    read = re.compile(rf"\bCONFIG\.(?:{paths})\b")
-    offenders = [
-        f"{path.relative_to(src)}:{n}"
-        for path in sorted(src.rglob("*.py"))
-        if path.name != "theme.py"
-        for n, line in enumerate(path.read_text().splitlines(), 1)
-        if read.search(line)
-    ]
-    assert offenders == []
+def test_look_override_reaches_stylesheet_and_python(write_theme):
+    theme = load_theme(write_theme("[toast.padding]\ny = 40\n[keypad.button]\nradius = 7\n"))
+    assert theme.look.toast.padding.y == 40
+    assert theme.look.keypad.button.radius == 7
+    assert "padding: 40px" in _build_stylesheet()

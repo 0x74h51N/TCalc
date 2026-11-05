@@ -3,15 +3,55 @@ name = "Kitty"
 # Built-in theme it builds on; this file holds only what differs from it
 base = "light"
 
-# Overrides of the UI config's [fonts]
+# Overrides of the look's areas (look.toml)
 [fonts]
 # Miniver-Regular.ttf in this folder (OFL-1.1, see OFL-Miniver.txt)
 family_default = "Miniver"
 size_default = 14
-picker_size = 14
-# Keypad key font range (pt)
-keypad_min_pt = 10
-keypad_max_pt = 16
+
+[picker.text.font]
+min_pt = 14
+
+[keypad.button]
+radius = 15
+
+# Key font range (pt)
+[keypad.button.text.font]
+min_pt = 10
+max_pt = 16
+
+[menu.panel.text.font]
+min_pt = 16
+
+[tooltip]
+radius = 14
+
+[options]
+radius = 14
+
+[options.text.font]
+min_pt = 18
+
+[history.result.font]
+min_pt = 12
+max_pt = 15
+
+[history]
+icon_button_size = 20
+
+[history.button]
+radius = 10
+
+[history.mode]
+radius = 7
+
+[history.mode.text.font]
+min_pt = 14
+
+[memory]
+radius = 15
+
+
 
 # Line-art kitty in the display's top right corner (kitty.svg, CC0, see CREDITS.txt)
 [[pictures]]
@@ -35,19 +75,31 @@ opacity = 0.25
 margin = 10
 tint = "accent_text"
 
+# Dock titles and tabs at the app font size, as before they had a setting
+[dock.font]
+min_pt = 14
+
+[tabs.font]
+min_pt = 14
+
+[memory.text]
+color = "accent_text"
+
+[result.fraction.text]
+color = "accent_text"
+
 [colors]
-# Translucent keys let the keypad picture through
-primary = "rgba(255, 255, 255, 80%)"
-primary_hover = "rgba(255, 214, 231, 90%)"
-primary_text = "#3A1F2B"
-secondary = "rgba(255, 192, 217, 75%)"
-secondary_hover = "rgba(255, 160, 199, 85%)"
+primary = "#FF3D8B"
+primary_hover = "#FF5C9E"
+primary_text = "#2A0F1C"
+secondary = "#FFC9DF"
+secondary_hover = "#FFAACD"
 secondary_text = "#3A1F2B"
-accent = "rgba(255, 141, 184, 80%)"
-accent_hover = "rgba(255, 110, 165, 90%)"
+accent = "#FF9EC3"
+accent_hover = "#FF7AAC"
 accent_text = "#B00028"
-action = "rgba(230, 0, 51, 75%)"
-action_hover = "rgba(200, 0, 45, 85%)"
+action = "#EC3962"
+action_hover = "#D0224A"
 action_text = "#FFFFFF"
 background_dark = "#FFF5F9"
 background_dark_alt = "#FFEAF2"
@@ -57,22 +109,13 @@ background = "#FFE4EF"
 text_primary = "#3A1F2B"
 text_secondary = "#7A3E5A"
 border_light = "#F8C3D9"
-border_focus = "#E60033"
 status_error = "#D0002E"
-selection_background = "#FF9CC2"
-selection_text = "#3A1F2B"
 control = "#FFC2DA"
 control_hover = "#FFD6E7"
-control_accent = "#E60033"
 icon = "#7A3E5A"
-control_bg = "rgba(230, 0, 51, 6%)"
-control_bg_hover = "rgba(230, 0, 51, 10%)"
-control_bg_pressed = "rgba(230, 0, 51, 16%)"
-control_disabled_bg = "rgba(230, 0, 51, 4%)"
-control_disabled_text = "rgba(230, 0, 51, 40%)"
-option_checked_bg = "rgba(230, 0, 51, 10%)"
-option_hover_bg = "rgba(230, 0, 51, 6%)"
-toast_info_bg = "rgba(255, 214, 231, 90%)"
-toast_warn_bg = "rgba(255, 212, 0, 30%)"
-toast_error_bg = "rgba(208, 0, 46, 20%)"
+control_bg = "#E60033"
+control_disabled_text = "#E60033"
+toast_info_bg = "#FFD6E7"
+toast_warn_bg = "#FFDB6C"
+toast_error_bg = "#ED90A8"
 screen = "#FFF5F9"

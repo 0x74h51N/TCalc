@@ -10,21 +10,39 @@ import dataclasses
 import json
 import re
 
+import calc_native
 import pytest
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction, QColor, QFont, QStyleHints
-from PySide6.QtWidgets import QApplication, QDockWidget, QMenu, QWidget
+from PySide6.QtTest import QTest
+from PySide6.QtWidgets import (
+    QApplication,
+    QDockWidget,
+    QLabel,
+    QMenu,
+    QRadioButton,
+    QTabBar,
+    QWidget,
+)
 
 import tcalc.app_state as app_state_mod
 import tcalc.ui.widgets.keypad.keypad as keypad_mod
-from tcalc.app_state import get_app_state
+from tcalc.app_state import DockKind, get_app_state
 from tcalc.core.ops import Operation
+from tcalc.core.parser import tokenize
 from tcalc.theme import ThemeChoice, ThemeMode, get_theme, load_theme
+from tcalc.ui.icon import Icon
+from tcalc.ui.look import ColorName
+from tcalc.ui.props import KeypadRole, Prop, UiRole
 from tcalc.ui.styles import apply_theme, sync_theme
 from tcalc.ui.widgets.calc.display.display import Display
-from tcalc.ui.widgets.common.button import KeyButton
+from tcalc.ui.widgets.calc.display.result.result import Result
+from tcalc.ui.widgets.calc.topbar.topbar import TopBar
+from tcalc.ui.widgets.common.button import IconButton, KeyButton, KSSpinBox, OptionGroup
 from tcalc.ui.widgets.common.toaster import Toaster, ToastLevel
 from tcalc.ui.widgets.common.types import GridLayout, KeyDef, KeySettings, PadLayout
+from tcalc.ui.widgets.history.history import History, HistoryItem
+from tcalc.ui.widgets.history.storage import HistoryEntry
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad, KSGrid, _add_operation
 from tcalc.ui.widgets.keypad.widgets import MainKeypad
 from tcalc.ui.widgets.side_panel.side_panel import SidePanel
@@ -128,6 +146,42 @@ def test_keypad_rules_are_scoped(qapp, window):
     assert leaking == [] and bare == []
 
 
+def test_equals_key_paints_the_theme_primary(qapp, window, _user_themes):
+    (_user_themes / "blue").mkdir(parents=True)
+    (_user_themes / "blue" / "theme.toml").write_text(
+        'name = "Blue"\nbase = "dark"\n[colors]\nprimary = "#123456"\n'
+    )
+    apply_theme(qapp, "blue")
+    key = next(b for b in window.numpad._buttons.values() if b.text() == "=")
+    # Beside the label and past the rounded corner: the key's own face
+    pixel = key.grab().toImage().pixelColor(key.width() // 8, key.height() // 2)
+    assert pixel.name() == "#123456"
+
+
+def test_checked_key_paints_primary_with_its_text(qapp, window, _user_themes):
+    (_user_themes / "blue").mkdir(parents=True)
+    (_user_themes / "blue" / "theme.toml").write_text(
+        'name = "Blue"\nbase = "dark"\n[colors]\nprimary = "#123456"\nprimary_text = "#FFEE00"\n'
+    )
+    apply_theme(qapp, "blue")
+    key = next(b for b in window.findChildren(KeyButton) if b.text() == "Shift")
+    key.setChecked(True)
+    image = key.grab().toImage()
+    assert image.pixelColor(key.width() // 8, key.height() // 2).name() == "#123456"
+    colors = [image.pixelColor(x, y) for x in range(image.width()) for y in range(image.height())]
+    # Antialiased text never reaches the exact color: yellow pixels, not the role's text
+    assert any(c.red() > 150 and c.blue() < 64 for c in colors)
+
+
+def test_pressing_a_checked_key_shows_its_pressed_color(qapp, window):
+    apply_theme(qapp, "dark")
+    key = next(b for b in window.findChildren(KeyButton) if b.text() == "Shift")
+    key.setChecked(True)
+    key.setDown(True)
+    pixel = key.grab().toImage().pixelColor(key.width() // 8, key.height() // 2)
+    assert pixel.name().upper() == get_theme().colors["action_hover"].upper()
+
+
 def test_user_key_colors_survive_switch(qapp, window):
     key = QWidget(window)
     key.setStyleSheet("background: #123456;")
@@ -143,6 +197,72 @@ def test_side_panel_fonts_stay_scaled_after_switch(qapp, window, monkeypatch):
     assert window.history.clear_button.font().pointSize() <= 10
 
 
+# (theme table pinning a font range at 20pt, the widgets it scales, the dark range's top)
+@pytest.mark.parametrize(
+    "table, widgets, dark_max",
+    [
+        param(
+            "[history.text.font]\nmin_pt = 20\nmax_pt = 20",
+            lambda w: [w.history.list],
+            12,
+            id="history list",
+        ),
+        param(
+            "[history.clear.text.font]\nmin_pt = 20\nmax_pt = 20",
+            lambda w: [w.history.clear_button],
+            10,
+            id="clear history",
+        ),
+        param(
+            "[memory.text.font]\nmin_pt = 20\nmax_pt = 20",
+            lambda w: list(w.memory_bar.font_targets),
+            13,
+            id="memory bar",
+        ),
+        param(
+            "[result.text.font]\nmin_pt = 20\nmax_pt = 20",
+            lambda w: [w.findChild(Result).result_label],
+            32,
+            id="result",
+        ),
+        param(
+            "[display.expression.text.font]\nmin_pt = 20\nmax_pt = 20",
+            lambda w: w.findChild(Display).editor.expression_inputs(),
+            26,
+            id="expression",
+        ),
+        param(
+            "[keypad.button.text.font]\nmin_pt = 20\nmax_pt = 20",
+            lambda w: list(w.numpad._buttons.values()),
+            16,
+            id="keys",
+        ),
+    ],
+)
+def test_font_range_follows_the_theme(qapp, window, _user_themes, table, widgets, dark_max):
+    (_user_themes / "big").mkdir(parents=True)
+    (_user_themes / "big" / "theme.toml").write_text(f'name = "Big"\nbase = "dark"\n{table}')
+    # The window's first font pass is on a debounce timer: a switch has to come after it to prove
+    # anything
+    QTest.qWait(300)
+    apply_theme(qapp, "big")
+    qapp.processEvents()
+    assert {w.font().pointSize() for w in widgets(window)} == {20}
+    apply_theme(qapp, "dark")
+    qapp.processEvents()
+    assert max(w.font().pointSize() for w in widgets(window)) <= dark_max
+
+
+def test_open_fraction_button_takes_the_theme_padding(qapp, window, _user_themes):
+    (_user_themes / "tight").mkdir(parents=True)
+    (_user_themes / "tight" / "theme.toml").write_text(
+        'name = "Tight"\nbase = "dark"\n[result.fraction.padding]\nx = 1\n'
+    )
+    apply_theme(qapp, "tight")
+    button = window.findChild(Result)._frac_btn
+    assert button.iconSize().width() == button.width() - 2
+
+
 def test_history_takes_the_theme_monospace_font(qapp, window, _user_themes):
     (_user_themes / "mono").mkdir(parents=True)
     (_user_themes / "mono" / "theme.toml").write_text(
@@ -155,7 +275,8 @@ def test_history_takes_the_theme_monospace_font(qapp, window, _user_themes):
 def test_toast_is_styled_by_level_not_inline(qapp, window):
     toaster = Toaster(window)
     toaster.show_toast("x", ToastLevel.ERROR)
-    assert toaster.styleSheet() == "" and toaster.property("toastLevel") == "error"
+    # Its own sheet holds only the radius it fits
+    assert "background" not in toaster.styleSheet() and toaster.property("toastLevel") == "error"
 
 
 def _view_menu(window) -> QMenu:
@@ -268,6 +389,165 @@ def test_keys_are_as_round_as_they_fit(qtbot, extreme_theme, window, pad, grow):
     assert _fully_round(min(keys, key=lambda k: min(k.width(), k.height())))
 
 
+@pytest.fixture
+def round_theme(_user_themes) -> str:
+    """A dark-based user theme whose every radius is far above what a widget fits."""
+    folder = _user_themes / "round"
+    folder.mkdir(parents=True)
+    tables = ["[options]", "[history.mode]", "[history.button]", "[toast]", "[memory]"]
+    body = "".join(f"{table}\nradius = 100\n" for table in tables)
+    (folder / "theme.toml").write_text(
+        f'name = "Round"\nbase = "dark"\n{body}[result.fraction]\nradius = 100\n'
+    )
+    return "round"
+
+
+def _checked_option(window, text: str) -> QWidget:
+    return next(b for b in window.findChildren(QRadioButton) if b.text() == text)
+
+
+def _history_item(window) -> HistoryItem:
+    history = window.findChild(History)
+    tokens = tokenize("1+2")
+    history.update_history(
+        HistoryEntry("1+2", "3", tokens, calc_native.tokens_to_flat_text(tokens.tokens))
+    )
+    return history.list.itemWidget(history.list.item(0))
+
+
+def _history_copy_button(window) -> QWidget:
+    button = _history_item(window)._copy_btn
+    button.show()
+    return button
+
+
+def _fraction_button(window) -> QWidget:
+    button = window.findChild(Result)._frac_btn
+    button.show()
+    return button
+
+
+def test_dock_titles_and_tabs_follow_the_theme(qapp, window, _user_themes):
+    docks = window._docks
+    for kind in (DockKind.NUMPAD, DockKind.HISTORY):
+        docks[kind].show()
+    window.tabifyDockWidget(docks[DockKind.NUMPAD], docks[DockKind.HISTORY])
+    qapp.processEvents()
+    tabs = next(t for t in window.findChildren(QTabBar) if t.isVisible())
+    height = tabs.tabSizeHint(0).height()
+    (_user_themes / "docky").mkdir(parents=True)
+    (_user_themes / "docky" / "theme.toml").write_text(
+        'name = "Docky"\nbase = "dark"\n'
+        '[dock]\ncolor = "status_error"\n[dock.font]\nmin_pt = 21\n'
+        '[tabs]\ncolor = "status_error"\n[tabs.font]\nmin_pt = 21\n'
+    )
+    apply_theme(qapp, "docky")
+    qapp.processEvents()
+    error = get_theme().qcolor(ColorName("status_error"))
+    title = docks[DockKind.HISTORY].titleBarWidget().findChild(QLabel)
+    assert title.font().pointSize() == 21
+    assert title.palette().color(title.foregroundRole()) == error
+    assert tabs.tabSizeHint(0).height() > height
+    image = tabs.grab().toImage()
+    pixels = (image.pixelColor(x, y) for y in range(image.height()) for x in range(image.width()))
+    assert any(p == error for p in pixels)
+
+
+def _toast(window) -> QWidget:
+    toast = _history_item(window).toaster
+    toast.show_toast("Copied")
+    return toast
+
+
+@pytest.mark.parametrize("window", [{"theme": "round"}], indirect=True)
+@pytest.mark.parametrize(
+    "shown",
+    [
+        param(lambda w: _checked_option(w, "Deg"), id="option group"),
+        param(lambda w: _checked_option(w, "Flat"), id="history modes"),
+        param(_history_copy_button, id="history item button"),
+        param(_fraction_button, id="fraction toggle"),
+        param(_toast, id="toast"),
+        param(lambda w: w.findChild(TopBar).get_button("MC"), id="memory button"),
+    ],
+)
+def test_a_radius_above_the_widget_is_as_round_as_it_fits(qtbot, round_theme, window, shown):
+    widget = shown(window)
+    # The default preset hides the history dock and the angle group
+    parent = widget
+    while parent is not None:
+        parent.show()
+        parent = parent.parentWidget()
+    qtbot.wait(KEY_SETTLE_MS)
+    assert widget.isVisible()
+    assert not _square(widget)
+    assert _fully_round(widget)
+
+
+@pytest.fixture
+def edged_theme(_user_themes) -> str:
+    """A dark-based user theme with a raised edge on every button area."""
+    folder = _user_themes / "edged"
+    folder.mkdir(parents=True)
+    tables = ["[keypad.button.edge]", "[memory.edge]", "[options.edge]", "[history.mode.edge]"]
+    edge = 'width = 2\nlight_color = "accent_text"\n'
+    body = "".join(f"{table}\n{edge}" for table in tables)
+    (folder / "theme.toml").write_text(f'name = "Edged"\nbase = "dark"\n{body}')
+    return "edged"
+
+
+def _option(window, text: str) -> QWidget:
+    return next(b for b in window.findChildren(QRadioButton) if b.text() == text)
+
+
+@pytest.mark.parametrize("window", [{"theme": "edged"}], indirect=True)
+@pytest.mark.parametrize(
+    "shown",
+    [
+        param(lambda w: w.findChild(MainKeypad).findChildren(KeyButton)[0], id="keypad key"),
+        param(lambda w: w.findChild(TopBar).get_button("MC"), id="memory button"),
+        param(lambda w: _option(w, "Rad"), id="option group"),
+        param(lambda w: _option(w, "Math"), id="history modes"),
+    ],
+)
+def test_raised_edge_reaches_every_button_area(qtbot, edged_theme, window, shown):
+    widget = shown(window)
+    parent = widget
+    while parent is not None:
+        parent.show()
+        parent = parent.parentWidget()
+    qtbot.wait(KEY_SETTLE_MS)
+    top = widget.window()
+    origin = widget.mapTo(top, widget.rect().topLeft())
+    edge = top.grab().toImage().pixelColor(origin.x() + widget.width() // 2, origin.y())
+    assert edge.name().upper() == get_theme().qcolor(ColorName("accent_text")).name().upper()
+
+
+@pytest.mark.parametrize(
+    "make",
+    [
+        param(
+            lambda host: KeyButton(
+                KeyDef(label="+", operation=Operation.ADD, tooltip="add"), KeypadRole.OPERATOR, host
+            ),
+            id="key",
+        ),
+        param(lambda host: IconButton(Icon.EDIT_COPY, "Copy", parent=host), id="icon button"),
+        param(
+            lambda host: OptionGroup([(1, "A")], 1, lambda look: look.options, host).buttons()[1],
+            id="option",
+        ),
+        param(lambda host: KSSpinBox("x", "Rows", 1, 9, 3, QFont(), parent=host), id="spin box"),
+    ],
+)
+def test_tooltip_window_corners_are_see_through(qapp, make):
+    host = QWidget()
+    # Qt makes the tooltip window a child of the widget and polishes it before it shows
+    tip = QLabel(make(host), Qt.WindowType.ToolTip)
+    tip.ensurePolished()
+    assert tip.testAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+
+
 @pytest.mark.parametrize("name", ["apply_key_radius", "apply_scaled_fonts"])
 def test_main_keypad_restyles_keys_once_per_resize_burst(qapp, qtbot, window, monkeypatch, name):
     keypad = MainKeypad()
@@ -292,7 +572,7 @@ def _custom_grid() -> QWidget:
 def _show_settled(qapp, qtbot, theme: str, pad: QWidget) -> QWidget:
     apply_theme(qapp, theme)
     host = QWidget()
-    host.setProperty("uiRole", "keypad")
+    host.setProperty(Prop.UI_ROLE, UiRole.KEYPAD)
     qtbot.addWidget(host)
     pad.setParent(host)
     pad.resize(400, 400)

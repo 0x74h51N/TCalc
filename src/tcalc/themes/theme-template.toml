@@ -9,7 +9,7 @@
 #        macOS    ~/Library/Application Support/TCalc/themes/
 #   2. Copy this file into it as theme.toml.
 #   3. Uncomment and change only what you want; a color you leave out comes from `base`, any
-#      other value from the app defaults in src/tcalc/ui/config.toml.
+#      other value from the defaults in src/tcalc/ui/look.toml.
 #   4. Put the theme's own files (pictures, fonts) in the same folder.
 #   5. Open View > Theme; the theme shows up there. Its fonts load when TCalc starts, so
 #      restart once after adding a font.
@@ -17,7 +17,8 @@
 #
 # Every key below is optional except `name` and `base`. A key TCalc does not know or a value of
 # the wrong type is logged and skipped; the rest of the theme still applies.
-# Colors take any QSS color: "#RRGGBB", "#AARRGGBB", "rgba(r, g, b, a%)" or a color name.
+# Colors are opaque: "#RRGGBB" or a color name. An alpha value is logged and skipped. How see-through
+# a place is belongs to that place: hover_color = { color = "primary", opacity = 0.14 }
 
 
 # --- Identity ---------------------------------------------------------------------------
@@ -30,34 +31,305 @@
 # base = "dark"
 
 
-# --- Fonts ------------------------------------------------------------------------------
-# Font files (.ttf/.otf) in the theme folder are loaded at startup; use their family name.
-# Unset keys keep the app defaults (src/tcalc/ui/config.toml [fonts]).
+# --- Areas ------------------------------------------------------------------------------
+# One table per UI area; this file is a partial copy of src/tcalc/ui/look.toml, which holds
+# the defaults. Everything below is those defaults. Set only the fields you change; a table or
+# field you leave out keeps its default. A field named color or ending in _color names a color
+# of this file's [colors] (or of `base`), never a color. Keys, buttons and toasts cap a radius
+# at half their shorter side, so a large radius makes them as round as they fit.
+#
+# Buttons take the same keys everywhere; a key that part of the UI does not draw has no effect.
+# A key's table can be written on one line or as a table of its own, not both for the same key:
+#   edge = { width = 2, light_color = "button_highlight" }
+#   [keypad.button.edge]
+#   width = 2
+#
+# Shared buttons: [keypad.button] sets what all the keypad keys (number, operator, action, trig,
+# function, power) start from, [history.button] what the history's buttons (copy, delete, clear,
+# mode) start from. So you can set one thing for all of them there, then give each kind only the
+# settings you want different; or leave the shared table out and write each kind in full:
+#   [keypad.button]
+#   radius = 15                         # every key
+#   [keypad.operator]
+#   hover_color = "accent_hover"        # only the operators; they keep the radius above
+# A key's hover is its own color unless a theme gives it one.
+# Font files (.ttf/.otf) in the theme folder are loaded at startup; use their family name in
+# [fonts].
+
 
 # [fonts]
-# family_default = "Sans Serif"   # app font: menus, labels, keys, display (not the custom pad spin boxes)
-# size_default = 9                # app font size (pt)
-# family_monospace = "Monospace"  # history list font
-# keypad_min_pt = 8               # smallest key label size (pt); keys scale with the keypad
-# keypad_max_pt = 16              # largest key label size (pt)
-# menu_size = 14                  # menu item size (px): View, Settings... dropdowns
-# picker_size = 9                 # searchable picker size (pt)
+#   Fixed app font, independent of the theme and of desktop font settings (e.g. GTK's)
+# family_default = "Sans Serif"
+# size_default = 9
+# family_monospace = "Monospace"
 
+# [palette]
+#   Qt palette: widgets without a stylesheet (dialogs, scrollbars, line edits...)
+# window_color = "background"
+# window_text_color = "text_primary"
+# base_color = "background_dark"
+# text_color = "text_primary"
+# button_color = "background_light"
+# button_text_color = "text_primary"
+# highlight_color = "primary"
+# highlighted_text_color = "primary_text"
+#   Single-color icons
+# icon_color = "icon"
 
-# --- Spacing ----------------------------------------------------------------------------
-# Corner radii (px), by default those of src/tcalc/ui/config.toml [style]; 0 gives square
-# corners. Qt draws a radius above half the widget's shorter side as square corners;
-# keypad keys cap theirs at half of the smallest key.
+# [display]
+# background_color = "screen"
+# radical_line_color = "text_primary"
+# radical_symbol_color = "text_primary"
+# status_text_color = "text_secondary"
+# status_error_text_color = "status_error"
+# divider_height = 1
+# root_border_width = 2
 
-# [spacing]
-# key_radius = 2           # keypad and custom pad keys
-# icon_button_radius = 2   # icon buttons
-# tooltip_radius = 2       # tooltips
-# option_radius = 2        # option groups (Deg / Rad / Grad, Math / Flat / Raw...)
-# Any number of these src/tcalc/ui/config.toml tables can be overridden here by name: [style],
-# [style.option_group] (as option_<name>), [manubar.style], [calc.style], [calc.topbar],
-# [calc.display], [calc.display.result] and [toast] (as toast_<name>); e.g.
-# frac_toggle_radius = 4 (the fraction / decimal toggle)
+# [display.expression]
+# slot_focus_color = "background_light"
+# text = { color = "text_secondary", font = { min_pt = 14, max_pt = 26 } }
+# selection = { color = "primary", text_color = "primary_text" }
+
+# [result]
+# text = { color = "text_primary", font = { min_pt = 24, max_pt = 32 } }
+
+#   The fraction toggle; text_color is its icon
+# [result.fraction]
+# color = { color = "control_bg", opacity = 0.06 }
+# hover_color = { color = "control_bg", opacity = 0.10 }
+# pressed_color = { color = "control_bg", opacity = 0.16 }
+# radius = 4
+# text = { color = "primary", font = { min_pt = 9, max_pt = 13 } }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+# padding = { y = 6, x = 6 }
+
+# [memory]
+# color = { color = "control_bg", opacity = 0.06 }
+# hover_color = { color = "control_bg", opacity = 0.10 }
+# pressed_color = { color = "control_bg", opacity = 0.16 }
+# radius = 0
+# text = { color = "primary", font = { min_pt = 9, max_pt = 13 } }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+# padding = { y = 8, x = 14 }
+
+# [keypad]
+# hover_border_color = "primary"
+# symbol_color = "secondary_text"
+# compact_padding = { y = 4, x = 8 }
+
+#   Where every key starts; a key's hover is its own color unless a theme gives one
+# [keypad.button]
+# color = "secondary"
+# hover_color = "secondary"
+# pressed_color = "secondary_hover"
+# radius = 2
+# text = { color = "secondary_text", font = { min_pt = 8, max_pt = 16 } }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+# padding = { y = 0, x = 0 }
+
+# [keypad.operator]
+# color = "accent"
+# hover_color = "accent"
+# pressed_color = "accent_hover"
+# text = { color = "accent_text" }
+
+# [keypad.equals]
+# color = "primary"
+# hover_color = "primary"
+# pressed_color = "primary_hover"
+# text = { color = "primary_text" }
+
+# [keypad.action]
+# color = "action"
+# hover_color = "action"
+# pressed_color = "action_hover"
+# text = { color = "action_text" }
+
+# [keypad.trig]
+# color = "action"
+# hover_color = "action"
+# pressed_color = "action_hover"
+# text = { color = "action_text" }
+
+# [keypad.function]
+# color = "accent"
+# hover_color = "accent"
+# pressed_color = "accent_hover"
+# text = { color = "accent_text" }
+
+# [custom_pad]
+# spinbox_focus_border_color = "primary"
+# toolbar_separator_color = "control"
+
+#   The add key of the custom pad
+# [custom_pad.add_key]
+# color = "control"
+# hover_color = "control_hover"
+# pressed_color = "control_hover"
+# radius = 2
+# text = { color = "text_primary", font = { min_pt = 8, max_pt = 16 } }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+# padding = { y = 0, x = 0 }
+
+#   The row and column spin boxes
+# [custom_pad.spinbox]
+# color = "control"
+# hover_color = "control_hover"
+# pressed_color = "control_hover"
+# radius = 2
+# text = { color = "text_primary", font = { min_pt = 8, max_pt = 16 } }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+# padding = { y = 0, x = 0 }
+
+# [custom_pad.menu]
+# background_color = "background_medium"
+# border_color = "border_light"
+# hover_color = "primary"
+# separator_color = "control"
+# list_background_color = "background_dark"
+# radius = 2
+# text = { color = "text_primary", font = { min_pt = 9, max_pt = 9 } }
+# padding = { y = 0, x = 0 }
+
+#   The searchable picker; font in pt
+# [picker]
+# background_color = "background_medium"
+# border_color = "border_light"
+# hover_color = { color = "primary", opacity = 0.14 }
+# separator_color = "border_light"
+# list_background_color = "background_dark"
+# radius = 2
+# text = { color = "text_primary", font = { min_pt = 9, max_pt = 9 } }
+# padding = { y = 0, x = 0 }
+
+# [menu]
+# selected_border_color = "primary"
+# constants_symbol_color = "text_primary"
+# item_margin = 2
+# item_min_width = 70
+# icon_padding_left = 6
+# icon_padding_right = 4
+# separator_height = 1
+# separator_margin = { y = 4, x = 2 }
+
+#   The menu's frame; font in px
+# [menu.panel]
+# background_color = "background_medium"
+# border_color = "border_light"
+# hover_color = { color = "primary", opacity = 0.14 }
+# separator_color = "border_light"
+# list_background_color = "background_dark"
+# radius = 2
+# text = { color = "text_primary", font = { min_pt = 14, max_pt = 14 } }
+# padding = { y = 4, x = 4 }
+
+#   A menu item; checked is the selected item
+# [menu.item]
+# color = "background_medium"
+# hover_color = { color = "primary", opacity = 0.14 }
+# pressed_color = { color = "primary", opacity = 0.14 }
+# radius = 6
+# text = { color = "text_primary", font = { min_pt = 9, max_pt = 13 } }
+# disabled = { color = "background_medium", text_color = "text_secondary" }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+# padding = { y = 4, x = 12 }
+
+# [history]
+# background_color = "background_dark"
+# row_color = "background_dark_alt"
+# alternate_row_color = "background_dark"
+#   Math mode render size (pt)
+# math_font_size = 17
+#   The copy and delete buttons of an item (px)
+# icon_button_size = 22
+#   The list's font range (pt)
+#   The Clear History button
+# text = { color = "text_secondary", font = { min_pt = 7, max_pt = 12 } }
+# selected = { color = { color = "primary", opacity = 0.24 }, text_color = "text_secondary" }
+# delete = { text = { color = "status_error" } }
+# clear = { text = { color = "text_primary", font = { min_pt = 7, max_pt = 10 } } }
+
+#   An item's expression (also in math mode)
+# [history.expression]
+# color = "text_secondary"
+# font = { min_pt = 10, max_pt = 15 }
+
+#   An item's result
+# [history.result]
+# color = "text_secondary"
+# font = { min_pt = 7, max_pt = 12 }
+
+#   Where the history's buttons start; the copy and delete hover, pressed, radius and edge are read from here
+# [history.button]
+# color = "background_light"
+# hover_color = { color = "primary", opacity = 0.14 }
+# pressed_color = "background_dark"
+# radius = 2
+# text = { color = "icon", font = { min_pt = 7, max_pt = 12 } }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 1, light_color = "border_light", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+# padding = { y = 0, x = 0 }
+
+#   The Math / Flat / Raw buttons, an option group of their own
+# [history.mode]
+# hover_color = { color = "primary", opacity = 0.14 }
+# pressed_color = { color = "primary", opacity = 0.14 }
+# radius = 2
+# text = { color = "text_secondary", font = { min_pt = 9, max_pt = 9 } }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+# padding = { y = 4, x = 10 }
+
+#   Option groups (Deg/Rad/Grad...)
+# [options]
+# color = "background"
+# hover_color = { color = "primary", opacity = 0.14 }
+# pressed_color = { color = "primary", opacity = 0.14 }
+# radius = 2
+# text = { color = "text_secondary", font = { min_pt = 9, max_pt = 9 } }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+# padding = { y = 4, x = 10 }
+
+# [tooltip]
+# background_color = "background_dark"
+# border_color = "border_light"
+# hover_color = { color = "primary", opacity = 0.14 }
+# separator_color = "border_light"
+# list_background_color = "background_dark"
+# radius = 2
+# text = { color = "text_secondary", font = { min_pt = 9, max_pt = 9 } }
+# padding = { y = 2, x = 2 }
+
+# [toast]
+# info_color = { color = "toast_info_bg", opacity = 0.90 }
+# warn_color = { color = "toast_warn_bg", opacity = 0.55 }
+# error_color = { color = "toast_error_bg", opacity = 0.55 }
+# radius = 4
+# text = { color = "text_primary", font = { min_pt = 13, max_pt = 13 } }
+# padding = { y = 6, x = 10 }
+
+#   The title bar of a dock
+# [dock]
+# color = "text_primary"
+# font = { min_pt = 9, max_pt = 9 }
+
+#   The tab bar of docks stacked as tabs; a tab background or radius would drop the style's own tab
+# [tabs]
+# color = "text_primary"
+# font = { min_pt = 9, max_pt = 9 }
 
 
 # --- Pictures ---------------------------------------------------------------------------
@@ -78,18 +350,7 @@
 # tint = "accent_text"      # optional: repaint the picture in one of the colors below
 #                           # (handy for line art); leave out to keep its own colors
 #
-# Translucent key colors (rgba with alpha < 100%) let a keypad picture show through.
-
-
-# --- Color usage ----------------------------------------------------------------------
-# Which of the colors below each place uses. Every place and its default color is listed in
-# src/tcalc/ui/config.toml [color_usage]; copy the lines you want here and pick another color
-# name. The value is a color name, not a color.
-
-# [color_usage]
-# picker_text_color = "text_primary"     # Add Operation picker items
-# history_row_color = "background_dark_alt"
-# operator_key_text_color = "accent_text"
+# A key color with an opacity, color = { color = "secondary", opacity = 0.75 }, lets a keypad picture show through.
 
 
 # --- Colors -----------------------------------------------------------------------------
@@ -112,9 +373,6 @@
 # action = "#2f353d"               # ⌫ C +/- ↵ and trig keys
 # action_hover = "#252a31"
 # action_text = "#a6c7ff"
-# primary = "#4a4f5a"              # equals key
-# primary_hover = "#3e434d"
-# primary_text = "#ffffff"
 
 # Surfaces
 # background = "#1E1E1E"           # window background: menu bar, behind keypads, dock titles
@@ -129,26 +387,23 @@
 
 # Lines and selection
 # border_light = "#444957"         # menu borders and separators, keypad borders
-# border_focus = "#5a606d"         # focus outline, checked menu item border, equals key border
-# selection_background = "#3a3d47" # selected text and items, menu hover/checked
-# selection_text = "#ffffff"
+# primary = "#A6C7FF"              # the color of emphasis: selected, checked, focus, the main action
+# primary_hover = "#8FB4F5"        # a primary surface when pressed
+# primary_text = "#1E1E1E"         # on primary; at least 4.5:1 on primary and on primary_hover
+#                                  # memory and fraction text need 4.5:1 on background: name another color there if primary cannot
 
 # Other controls (option groups, memory and fraction buttons, angle toggle)
 # control = "#343842"
 # control_hover = "#2a2c33"
-# control_accent = "#f3d199"       # active/accent mark on controls
-# control_bg = "rgba(52, 56, 66, 20%)"          # memory bar and fraction button
-# control_bg_hover = "rgba(52, 56, 66, 28%)"
-# control_bg_pressed = "rgba(52, 56, 66, 38%)"
-# control_disabled_bg = "rgba(42, 44, 51, 10%)" # disabled keys and controls
-# control_disabled_text = "rgba(243, 209, 153, 30%)"
-# option_checked_bg = "rgba(52, 56, 66, 25%)"   # checked option in option groups
-# option_hover_bg = "rgba(42, 44, 51, 35%)"
+# control_bg = "#677596"               # memory bar and fraction button
+# control_disabled_text = "#F3D199"
+# button_highlight = "#FFFFFF"           # the raised edge's lit side
+# button_shadow = "#000000"             # the raised edge's shadow side
 
 # Icons and messages
 # icon = "#fcfcfc"                 # single-color icons (colored icons keep their colors)
 # status_error = "#d94040"         # error message under the result
-# toast_info_bg = "rgba(63, 68, 80, 55%)"       # notification backgrounds
-# toast_warn_bg = "rgba(224, 168, 40, 55%)"
-# toast_error_bg = "rgba(217, 64, 64, 55%)"
+# toast_info_bg = "#32353D"             # notification backgrounds
+# toast_warn_bg = "#E0A828"
+# toast_error_bg = "#D94040"
 

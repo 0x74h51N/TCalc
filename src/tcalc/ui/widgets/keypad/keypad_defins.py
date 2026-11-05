@@ -1,4 +1,5 @@
 from tcalc.core.ops import Operation
+from tcalc.ui.props import KeypadRole
 from tcalc.ui.widgets.keypad.utils import KeyDef, ShiftedDef
 
 # Custom labels for buttons (where symbol differs from display)
@@ -64,6 +65,9 @@ MATH_OPERATOR_KEYS: list[KeyDef] = [
     KeyDef(
         label=Operation.PERCENT.symbol, operation=Operation.PERCENT, row=0, col=0, tooltip="percent"
     ),
+]
+
+EQUALS_KEYS: list[KeyDef] = [
     KeyDef(
         label=Operation.EQUALS.symbol,
         operation=Operation.EQUALS,
@@ -220,15 +224,22 @@ POWER_KEYS: list[KeyDef] = [
     KeyDef(label="π", operation="π", row=1, col=1, tooltip="pi"),
 ]
 
-FUNCTION_GROUP: dict[str, list[KeyDef]] = {"function": FUNCTION_KEYS}
+FUNCTION_GROUP: dict[KeypadRole, list[KeyDef]] = {KeypadRole.FUNCTION: FUNCTION_KEYS}
 
-TRIG_POWER_GROUP: dict[str, list[KeyDef]] = {"trig": TRIG_KEYS, "power": POWER_KEYS}
+TRIG_POWER_GROUP: dict[KeypadRole, list[KeyDef]] = {
+    KeypadRole.TRIG: TRIG_KEYS,
+    KeypadRole.POWER: POWER_KEYS,
+}
 
 # Key Groups
 
-NORMAL_MODE_KEYS: dict[str, list[KeyDef]] = {
-    "digit": NUMBER_KEYS,
-    "operator": MATH_OPERATOR_KEYS,
+NORMAL_MODE_KEYS: dict[KeypadRole, list[KeyDef]] = {
+    KeypadRole.DIGIT: NUMBER_KEYS,
+    KeypadRole.OPERATOR: MATH_OPERATOR_KEYS,
+    KeypadRole.EQUALS: EQUALS_KEYS,
 }
 
-SIDEBAR_KEYS: dict[str, list[KeyDef]] = {"operator": PARANTHES_KEYS, "action": ACTION_KEYS}
+SIDEBAR_KEYS: dict[KeypadRole, list[KeyDef]] = {
+    KeypadRole.OPERATOR: PARANTHES_KEYS,
+    KeypadRole.ACTION: ACTION_KEYS,
+}

@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 
 from tcalc.core.ops import Operation
 from tcalc.theme import PictureTarget, get_theme
+from tcalc.ui.props import KeypadRole, Prop, UiRole
 from tcalc.ui.widgets.keypad.utils import (
     KeyDef,
     add_keys_to_grid,
@@ -35,9 +36,15 @@ from ...config import CONFIG
 from ...styles import theme_events
 from ..common.button import KeyButton
 from ..common.picture_layer import PictureLayer
-from ..utils import apply_key_radius, apply_scaled_fonts, key_fit_timer, shrink_key_radius
+from ..utils import (
+    apply_key_radius,
+    apply_scaled_fonts,
+    key_fit_timer,
+    set_raised,
+    shrink_key_radius,
+)
 
-GridDef = tuple[dict[str, list[KeyDef]], int]
+GridDef = tuple[dict[KeypadRole, list[KeyDef]], int]
 
 
 class Keypad(QWidget):
@@ -51,6 +58,7 @@ class Keypad(QWidget):
         super().__init__(parent)
 
         self._buttons: dict[str, QPushButton] = {}
+        self._key_radius: int | None = None
         self._shiftable_buttons: list[QPushButton] = []
         self._op_buttons: dict[Operation, QPushButton] = {}
 
@@ -63,8 +71,11 @@ class Keypad(QWidget):
 
         self._grid_widgets: list[QWidget] = []
         # Scopes the keypad rules of the app stylesheet
-        self.setProperty("uiRole", "keypad")
+        self.setProperty(Prop.UI_ROLE, UiRole.KEYPAD)
         theme_events.applied.connect(self._update_key_radius)
+        self._update_raised()
+        theme_events.applied.connect(self._update_raised)
+        theme_events.applied.connect(self._update_button_fonts)
 
         cfg = CONFIG.keypad
         self._resize_timer = key_fit_timer(self, self._fit_keys)
@@ -128,7 +139,7 @@ class Keypad(QWidget):
         self._update_button_fonts()
         QTimer.singleShot(0, self._update_button_fonts)
 
-    def _add_key(self, key_def: KeyDef, role: str, grid: QGridLayout) -> None:
+    def _add_key(self, key_def: KeyDef, role: KeypadRole, grid: QGridLayout) -> None:
         button = KeyButton(key_def, role, grid.parentWidget() or self)
         button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
@@ -198,11 +209,19 @@ class Keypad(QWidget):
 
     def _update_button_fonts(self) -> None:
         # A theme may set its own key font range
-        fonts = get_theme().ui.fonts
-        apply_scaled_fonts(self, self._buttons.values(), fonts.keypad_min_pt, fonts.keypad_max_pt)
+        keypad = get_theme().look.keypad
+        apply_scaled_fonts(
+            self,
+            self._buttons.values(),
+            keypad.button.text.font.min_pt,
+            keypad.button.text.font.max_pt,
+        )
+
+    def _update_raised(self) -> None:
+        set_raised(self, get_theme().look.keypad.button.edge.width > 0)
 
     def _update_key_radius(self) -> None:
-        apply_key_radius(self, self._buttons.values())
+        self._key_radius = apply_key_radius(self, self._buttons.values(), self._key_radius)
 
     def _fit_keys(self) -> None:
         self._update_button_fonts()
@@ -210,7 +229,7 @@ class Keypad(QWidget):
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
-        shrink_key_radius(self, self._buttons.values())
+        self._key_radius = shrink_key_radius(self, self._buttons.values(), self._key_radius)
         self._resize_timer.start()
 
     def changeEvent(self, event: QEvent) -> None:

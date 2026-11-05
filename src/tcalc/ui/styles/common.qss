@@ -3,29 +3,40 @@ QToolTip {
     border: 1px solid $tooltip_border_color;
     border-radius: ${tooltip_radius}px;
     color: $tooltip_text_color;
-    padding: ${tooltip_padding}px;
+    padding: ${tooltip_padding_y}px ${tooltip_padding_x}px;
 }
 
+QLabel#dockTitle {
+    color: $dock_color;
+    font-size: ${dock_font_min_pt}pt;
+}
+
+QTabBar::tab {
+    color: $tabs_color;
+    font-size: ${tabs_font_min_pt}pt;
+}
+
+/* The same in every theme: only the history items' buttons have a look of their own */
 QPushButton[uiRole="iconButton"] {
-    background-color: $icon_button_color;
-    color: $icon_button_text_color;
-    border: 1px solid $icon_button_shadow_color;
-    border-top-color: $icon_button_light_color;
-    border-left-color: $icon_button_light_color;
-    border-radius: ${icon_button_radius}px;
-    padding: ${icon_padding}px;
+    background-color: $palette_button_color;
+    color: $palette_button_text_color;
+    border: 1px solid $palette_base_color;
+    border-top-color: $palette_highlight_color;
+    border-left-color: $palette_highlight_color;
+    border-radius: 2px;
+    padding: 4px;
 }
 
 QPushButton[uiRole="iconButton"]:hover {
-    background-color: $icon_button_hover_color;
+    background-color: $palette_highlight_color;
 }
 
 QPushButton[uiRole="iconButton"]:pressed {
-    background-color: $icon_button_pressed_color;
-    border-top-color: $icon_button_shadow_color;
-    border-left-color: $icon_button_shadow_color;
-    border-bottom-color: $icon_button_light_color;
-    border-right-color: $icon_button_light_color;
+    background-color: $palette_base_color;
+    border-top-color: $palette_base_color;
+    border-left-color: $palette_base_color;
+    border-bottom-color: $palette_highlight_color;
+    border-right-color: $palette_highlight_color;
 }
 
 QPushButton[uiRole="toolbarToggle"] {
@@ -37,10 +48,10 @@ QPushButton[uiRole="toolbarToggle"] {
 
 QRadioButton[optionRole="option"] {
     background-color: transparent;
-    color: $option_text_color;
-    border-radius: ${option_radius}px;
-    padding: ${option_padding_y}px ${option_padding_x}px;
+    color: $options_text_color;
+    padding: ${options_padding_y}px ${options_padding_x}px;
     spacing: 0px;
+    font-size: ${options_text_font_min_pt}pt;
 }
 
 QRadioButton[optionRole="option"]::indicator {
@@ -49,10 +60,24 @@ QRadioButton[optionRole="option"]::indicator {
 }
 
 QRadioButton[optionRole="option"]:hover {
-    background-color: $option_hover_color;
+    background-color: $options_hover_color;
 }
 
 QRadioButton[optionRole="option"]:checked {
-    background-color: $option_checked_color;
-    color: $option_checked_text_color;
+    background-color: $options_checked_color;
+    color: $options_checked_text_color;
+}
+
+/* A border, even 0 px, drops the style's own button frame: edges only where a theme asks */
+QWidget[raised="true"] QRadioButton[optionRole="option"] {
+    border: ${options_edge_width}px solid $options_edge_shadow_color;
+    border-top-color: $options_edge_light_color;
+    border-left-color: $options_edge_light_color;
+}
+
+QWidget[raised="true"] QRadioButton[optionRole="option"]:checked {
+    border-top-color: $options_edge_shadow_color;
+    border-left-color: $options_edge_shadow_color;
+    border-bottom-color: $options_edge_light_color;
+    border-right-color: $options_edge_light_color;
 }

@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import asdict
 from pathlib import Path
 from string import Template
 
 from PySide6.QtCore import QObject, Qt, Signal
-from PySide6.QtGui import QFont, QFontDatabase, QPalette
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QApplication
 
 from ..app_state import get_app_state
 from ..theme import custom_theme_folders, get_theme, load_theme
-from .config import STYLESHEET_TABLES, int_fields
+from .look import ColorField, look_fields, qss_name
 
 
 class _ThemeEvents(QObject):
@@ -25,20 +24,22 @@ _UI_DIR = Path(__file__).parent
 _QSS_FILES = sorted(_UI_DIR.rglob("*.qss"), key=lambda p: (p.name != "common.qss", p))
 
 
+def qss_color(value: str, opacity: float) -> str:
+    # QSS has no opacity for a background: the alpha is written here, once, on the way out
+    if opacity == 1.0:
+        return value
+    color = QColor(value)
+    return f"rgba({color.red()}, {color.green()}, {color.blue()}, {round(opacity * 100)}%)"
+
+
 def _build_subs() -> dict[str, str]:
-    """Template substitutions: the active theme's colors, the color each place uses, and the
-    numbers of its stylesheet tables and fonts."""
+    """Template substitutions: each look field by its qss_name, a color place as the color."""
     theme = get_theme()
-    ui = theme.ui
-    numbers = [(row.prefix, row.table(ui)) for row in STYLESHEET_TABLES] + [("", ui.fonts)]
     return {
-        **theme.colors,
-        **{place: theme.colors[color] for place, color in asdict(ui.color_usage).items()},
-        **{
-            prefix + name: str(value)
-            for prefix, table in numbers
-            for name, value in int_fields(table).items()
-        },
+        qss_name(f): qss_color(theme.colors[f.color], f.opacity)
+        if isinstance(f, ColorField)
+        else str(f.value)
+        for f in look_fields(theme.look)
     }
 
 
@@ -53,19 +54,17 @@ def _build_palette() -> QPalette:
     """Map theme tokens onto Qt palette roles, so un-styled widgets don't fall back to the OS
     scheme (a light OS theme would otherwise leak into dialogs, menus, scrollbars...)."""
     theme = get_theme()
-    usage = theme.ui.color_usage
+    usage = theme.look.palette
     role = QPalette.ColorRole
     # (button, window) constructor derives the 3D shades and disabled colors itself
-    palette = QPalette(
-        theme.qcolor(usage.palette_button_color), theme.qcolor(usage.palette_window_color)
-    )
+    palette = QPalette(theme.qcolor(usage.button_color), theme.qcolor(usage.window_color))
     for r, color in (
-        (role.WindowText, usage.palette_window_text_color),
-        (role.Base, usage.palette_base_color),
-        (role.Text, usage.palette_text_color),
-        (role.ButtonText, usage.palette_button_text_color),
-        (role.Highlight, usage.palette_highlight_color),
-        (role.HighlightedText, usage.palette_highlighted_text_color),
+        (role.WindowText, usage.window_text_color),
+        (role.Base, usage.base_color),
+        (role.Text, usage.text_color),
+        (role.ButtonText, usage.button_text_color),
+        (role.Highlight, usage.highlight_color),
+        (role.HighlightedText, usage.highlighted_text_color),
     ):
         palette.setColor(r, theme.qcolor(color))
     return palette
@@ -86,7 +85,7 @@ def init_styles(app: QApplication, variant: str) -> None:
 
 
 def _app_font() -> QFont:
-    fonts = get_theme().ui.fonts
+    fonts = get_theme().look.fonts
     return QFont(fonts.family_default, fonts.size_default)
 
 

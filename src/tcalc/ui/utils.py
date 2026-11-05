@@ -13,11 +13,13 @@ from functools import partial
 from pathlib import Path
 
 from PySide6.QtCore import QRect, QSize, Qt
-from PySide6.QtGui import QIcon, QIconEngine, QPainter, QPixmap
+from PySide6.QtGui import QColor, QIcon, QIconEngine, QPainter, QPixmap
 
-from tcalc.theme import Theme, get_theme, qcolor
+from tcalc.theme import Theme, get_theme
+from tcalc.ui.icon import Icon
 
-from .config import CONFIG, ColorPlace
+from .config import CONFIG
+from .look import ColorPlace
 
 # Every icon the UI shows, by file stem; bundled so no desktop icon theme is needed
 ICONS_DIR = Path(__file__).parents[1] / "assets" / "icons"
@@ -37,7 +39,7 @@ def _apply_tint(icon: QIcon, tint: str | None) -> QIcon:
     tinted = pm.copy()
     painter = QPainter(tinted)
     painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-    painter.fillRect(tinted.rect(), qcolor(tint))
+    painter.fillRect(tinted.rect(), QColor(tint))
     painter.end()
     return QIcon(tinted)
 
@@ -88,28 +90,27 @@ def theme_icon(build: Callable[[], QIcon]) -> QIcon:
     return QIcon(_ThemeIconEngine(build))
 
 
-def _load_icon(name: str, tint: ColorPlace | None) -> QIcon:
+def _load_icon(name: Icon, tint: ColorPlace | None) -> QIcon:
     theme = get_theme()
     path = ICONS_DIR / theme.base / f"{name}.svg"
     if not path.exists():
         path = ICONS_DIR / f"{name}.svg"
-    usage = theme.ui.color_usage
     if tint is not None:
-        color: str | None = theme.colors[tint(usage)]
+        color: str | None = theme.colors[tint(theme.look)]
     elif name not in CONFIG.icons.untinted:
-        color = theme.colors[usage.icon_color]
+        color = theme.colors[theme.look.palette.icon_color]
     else:
         color = None
     return _apply_tint(QIcon(str(path)), color)
 
 
-def get_icon(name: str, tint: ColorPlace | None = None) -> QIcon:
+def get_icon(name: Icon | None, tint: ColorPlace | None = None) -> QIcon:
     """Icon *name* for the active theme, tinted with the color of the place *tint* picks or
     the icon color.
 
     ``assets/icons/<base>/<name>.svg`` (the theme's light/dark family) wins over ``assets/icons/<name>.svg``;
     icons in ``[icons].untinted`` keep their own colors unless *tint* is given.
     """
-    if not name:
+    if name is None:
         return QIcon()
     return theme_icon(partial(_load_icon, name, tint))

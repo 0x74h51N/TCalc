@@ -20,6 +20,7 @@ class DockTitleBar(QWidget):
     def __init__(self, dock: QDockWidget) -> None:
         super().__init__(dock)
         label = QLabel(dock.windowTitle())
+        label.setObjectName("dockTitle")
         dock.windowTitleChanged.connect(label.setText)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(4, 2, 2, 2)

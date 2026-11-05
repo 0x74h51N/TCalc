@@ -10,15 +10,20 @@ from __future__ import annotations
 import calc_native
 import pytest
 from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QColor, QPalette
+from PySide6.QtWidgets import QApplication, QWidget
+from pytest import param
 
 from tcalc.app_state import RenderMode, get_app_state
 from tcalc.core.parser import tokenize
 from tcalc.theme import load_theme
 from tcalc.ui.config import CONFIG
 from tcalc.ui.styles import apply_theme
+from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.history.history import History, HistoryItem
 from tcalc.ui.widgets.history.storage import HistoryEntry
 from tcalc.ui.widgets.history.utils import wrap_expression
+from tests.py.unit.ui.test_icons import _opaque_color
 
 
 @pytest.fixture
@@ -264,6 +269,206 @@ class TestHistoryItemWidget:
         inside = viewport.mapTo(history, QPoint(1, 1))
         row_margin = w.mapTo(history, QPoint(1, w._expr_scroll.y() + 1))
         assert image.pixelColor(inside) == image.pixelColor(row_margin)
+
+
+# ===================================================================
+# Theme
+# ===================================================================
+
+
+@pytest.fixture
+def apply_user_theme(qapp, _user_themes):
+    """Writes a user theme with *table* on *base* and applies it; the app is dark afterwards."""
+    old_palette, old_sheet = qapp.palette(), qapp.styleSheet()
+
+    def apply(table: str, base: str = "dark") -> None:
+        (_user_themes / "t").mkdir(parents=True)
+        (_user_themes / "t" / "theme.toml").write_text(f'name = "T"\nbase = "{base}"\n{table}')
+        apply_theme(qapp, "t")
+        qapp.processEvents()
+
+    yield apply
+    load_theme("dark")
+    qapp.setPalette(old_palette)
+    qapp.setStyleSheet(old_sheet)
+    qapp.processEvents()
+
+
+def _text_color(widget: QWidget) -> str:
+    widget.ensurePolished()
+    return widget.palette().color(QPalette.ColorRole.WindowText).name().upper()
+
+
+def _pixel(button: QWidget, x: int, y: int) -> str:
+    """Color at (*x*, *y*) of *button* as its item draws it; a button's own grab skips the corners."""
+    button.show()
+    QApplication.processEvents()
+    pos = button.pos()
+    return (
+        button.parentWidget().grab().toImage().pixelColor(pos.x() + x, pos.y() + y).name().upper()
+    )
+
+
+def _polished(widget: QWidget) -> QWidget:
+    widget.ensurePolished()
+    return widget
+
+
+def _mode_button(history: History, mode: RenderMode) -> QWidget:
+    return history._history_modes._buttons[mode]
+
+
+# (theme table, what the history shows, the expected value: a color name of the dark theme or a number)
+@pytest.mark.parametrize(
+    "table, shown, expected",
+    [
+        param(
+            '[history.expression]\ncolor = "accent_text"',
+            lambda h: _text_color(_item_widget(h, 0).expression_label),
+            "accent_text",
+            id="expression color",
+        ),
+        param(
+            '[history.result]\ncolor = "accent_text"',
+            lambda h: _text_color(_item_widget(h, 0).result_label),
+            "accent_text",
+            id="result color",
+        ),
+        param(
+            "[history.result.font]\nmin_pt = 20\nmax_pt = 20",
+            lambda h: _item_widget(h, 0).result_label.font().pointSize(),
+            20,
+            id="result font range",
+        ),
+        param(
+            '[history.copy.text]\ncolor = "status_error"',
+            lambda h: _opaque_color(_item_widget(h, 0)._copy_btn.icon()).name().upper(),
+            "status_error",
+            id="copy icon color",
+        ),
+        param(
+            '[history.delete.text]\ncolor = "accent_text"',
+            lambda h: _opaque_color(_item_widget(h, 0)._remove_btn.icon()).name().upper(),
+            "accent_text",
+            id="delete icon color",
+        ),
+        param(
+            '[history.copy]\ncolor = "accent_text"',
+            lambda h: _pixel(_item_widget(h, 0)._copy_btn, 2, 11),
+            "accent_text",
+            id="copy button color",
+        ),
+        param(
+            '[history.delete]\ncolor = "accent_text"',
+            lambda h: _pixel(_item_widget(h, 0)._remove_btn, 2, 11),
+            "accent_text",
+            id="delete button color",
+        ),
+        param(
+            '[history.button.edge]\nlight_color = "accent_text"',
+            lambda h: _pixel(_item_widget(h, 0)._copy_btn, 11, 0),
+            "accent_text",
+            id="raised edge light side",
+        ),
+        param(
+            '[history.button.edge]\nshadow_color = "accent_text"',
+            lambda h: _pixel(_item_widget(h, 0)._copy_btn, 11, 21),
+            "accent_text",
+            id="raised edge shadow side",
+        ),
+        param(
+            '[history.button]\nradius = 11\n[history.copy]\ncolor = "accent_text"',
+            lambda h: (
+                _pixel(_item_widget(h, 0)._copy_btn, 2, 2)
+                == load_theme("t").colors["accent_text"].upper()
+            ),
+            False,
+            id="radius rounds the corner",
+        ),
+        param(
+            '[history.clear.text]\ncolor = "accent_text"',
+            lambda h: _text_color(h.clear_button),
+            "accent_text",
+            id="clear text color",
+        ),
+        param(
+            '[history.mode.text]\ncolor = "accent_text"',
+            lambda h: _text_color(_mode_button(h, RenderMode.MATH)),
+            "accent_text",
+            id="mode text color",
+        ),
+        param(
+            "[history.mode.text.font]\nmin_pt = 15",
+            lambda h: _mode_button(h, RenderMode.MATH).font().pointSize(),
+            15,
+            id="mode font size",
+        ),
+        param(
+            "[options.text.font]\nmin_pt = 15",
+            lambda h: _mode_button(h, RenderMode.MATH).font().pointSize(),
+            9,
+            id="options font size leaves the history modes",
+        ),
+        param(
+            "[options.text.font]\nmin_pt = 15",
+            lambda h: (
+                _polished(OptionGroup([(1, "A")], 1, lambda look: look.options, h)._buttons[1])
+                .font()
+                .pointSize()
+            ),
+            15,
+            id="options font size",
+        ),
+    ],
+)
+def test_theme_reaches_the_history(history, qapp, apply_user_theme, table, shown, expected):
+    _add(history, "1+2", "3", qapp)
+    apply_user_theme(table)
+    history.update_fonts()
+    if isinstance(expected, str):
+        expected = load_theme("t").colors[expected].upper()
+    assert shown(history) == expected
+
+
+def test_checked_mode_button_paints_primary_with_its_text(history, qapp, apply_user_theme):
+    apply_user_theme('[colors]\nprimary = "#123456"\nprimary_text = "#FFEE00"\n')
+    button = _mode_button(history, RenderMode.FLAT)
+    assert button.isChecked()
+    image = button.grab().toImage()
+    colors = [image.pixelColor(x, y) for x in range(image.width()) for y in range(image.height())]
+    assert "#123456" in {c.name() for c in colors}
+    # Antialiased text never reaches the exact color: yellow pixels, not the old text's
+    assert any(c.red() > 150 and c.blue() < 64 for c in colors)
+
+
+@pytest.mark.parametrize("base", ["dark", "light"])
+def test_raised_edge_shadow_is_darker_than_the_button(history, qapp, apply_user_theme, base):
+    _add(history, "1+2", "3", qapp)
+    apply_user_theme("", base)
+    button = _item_widget(history, 0)._copy_btn
+    shadow, face = QColor(_pixel(button, 11, 21)), QColor(_pixel(button, 2, 11))
+    assert shadow.lightness() < face.lightness()
+
+
+def test_open_items_take_the_theme_sizes(history, qapp, apply_user_theme):
+    _add(history, "1+2", "3", qapp)
+    history.set_mode(RenderMode.MATH)
+    item = _item_widget(history, 0)
+    apply_user_theme("[history]\nicon_button_size = 30\nmath_font_size = 40")
+    qapp.processEvents()
+    margin = item.layout().contentsMargins().bottom()
+    assert (item._copy_btn.width(), item._remove_btn.width(), item._font.pointSize()) == (
+        30,
+        30,
+        40,
+    )
+    assert item._copy_btn.y() == item.height() - margin - 30
+
+
+def test_icon_button_size_applies_to_new_items(history, qapp, apply_user_theme):
+    apply_user_theme("[history]\nicon_button_size = 30")
+    _add(history, "1+2", "3", qapp)
+    assert _item_widget(history, 0)._copy_btn.width() == 30
 
 
 # ===================================================================

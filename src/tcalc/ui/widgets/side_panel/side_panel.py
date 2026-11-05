@@ -13,11 +13,15 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget
 
+from tcalc.theme import get_theme
 from tcalc.ui.config import CONFIG
+from tcalc.ui.look import FontRange, Look
 from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.utils import apply_scaled_fonts
 
 _FontTargets = Iterable[QWidget] | Callable[[], Iterable[QWidget]]
+# A theme may set the range, so it is read from the look on every fit
+_PickFontRange = Callable[[Look], FontRange]
 
 
 class SidePanel(QWidget):
@@ -27,7 +31,9 @@ class SidePanel(QWidget):
         super().__init__(parent)
         self.setObjectName("sidePanel")
         self._parent = parent
-        self._font_targets: list[tuple[_FontTargets, int, int, Callable[[], None] | None]] = []
+        self._font_targets: list[
+            tuple[_FontTargets, _PickFontRange, Callable[[], None] | None]
+        ] = []
 
         self.setBackgroundRole(QPalette.ColorRole.Base)
         self.setAutoFillBackground(True)
@@ -57,21 +63,22 @@ class SidePanel(QWidget):
         self._layout.addWidget(divider)
 
     def _update_fonts(self) -> None:
-        for targets, min_pt, max_pt, callback in self._font_targets:
+        look = get_theme().look
+        for targets, font_range, callback in self._font_targets:
             widgets = targets() if callable(targets) else targets
-            apply_scaled_fonts(self, widgets, min_pt, max_pt)
+            fonts = font_range(look)
+            apply_scaled_fonts(self, widgets, fonts.min_pt, fonts.max_pt)
             if callback is not None:
                 callback()
 
     def register_font_targets(
         self,
         targets: _FontTargets,
-        min_pt: int,
-        max_pt: int,
+        font_range: _PickFontRange,
         callback: Callable[[], None] | None = None,
     ) -> None:
-        """Register *targets* for font scaling between *min_pt* and *max_pt*."""
-        self._font_targets.append((targets, min_pt, max_pt, callback))
+        """Register *targets* for font scaling within the range *font_range* picks from the look."""
+        self._font_targets.append((targets, font_range, callback))
 
     def update_fonts(self) -> None:
         self._update_fonts()

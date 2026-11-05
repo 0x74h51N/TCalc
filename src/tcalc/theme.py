@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-import re
 import tomllib
 from dataclasses import dataclass
 from enum import Enum
@@ -15,24 +14,31 @@ from PySide6.QtCore import QStandardPaths, Qt
 from PySide6.QtGui import QColor
 
 from tcalc.typed_tables import TableError, build, override, values
-from tcalc.ui.config import CONFIG, STYLESHEET_TABLES, ColorUsage, StyleTable, UiConfig, int_fields
+from tcalc.ui.look import (
+    DEFAULT_LOOK,
+    ColorField,
+    ColorName,
+    Look,
+    look_fields,
+    with_shared_buttons,
+)
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
 
 _log = logging.getLogger(__name__)
 
-_QSS_RGBA = re.compile(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*(%?)\s*)?\)")
 
-
-def qcolor(value: str) -> QColor:
-    """A theme color value as a QColor; QColor reads names and #hex but not QSS rgba()."""
-    m = _QSS_RGBA.fullmatch(value.strip())
-    if m is None:
-        return QColor(value)
-    r, g, b, a, percent = m.groups()
-    alpha = 255 if a is None else int(float(a) * 255 / 100 + 0.5) if percent else int(a)
-    return QColor(int(r), int(g), int(b), alpha)
+def _opaque(colors: dict[str, str], where: str) -> dict[str, str]:
+    # Opacity belongs to the place that uses a color; a theme that writes it here gets its base's
+    kept = {}
+    for name, value in colors.items():
+        color = QColor(value)
+        if (name == "screen" and "gradient" in value) or (color.isValid() and color.alpha() == 255):
+            kept[name] = value
+        else:
+            _log.warning("%s [colors].%s: %r is not an opaque color", where, name, value)
+    return kept
 
 
 # Themes that ship with the package: Light and Dark as tcalc/themes/<variant>.toml, and the
@@ -162,7 +168,7 @@ class ThemePicture:
     fit: PictureFit = PictureFit.CONTAIN
     opacity: float = 1.0
     margin: int = 0  # px from the component's edges
-    tint: str = ""  # theme color key to repaint the picture in; empty keeps its colors
+    tint: ColorName = ColorName("")  # theme color to repaint the picture in; empty keeps its colors
 
 
 class ThemeError(Exception):
@@ -182,13 +188,13 @@ def custom_themes() -> dict[str, str]:
 
 
 class Theme:
-    """A theme: its colors, and the UI config with its overrides, resolved once on load."""
+    """A theme: its colors, and the look with its overrides, resolved once on load."""
 
     variant: str
     name: str
     base: str
-    colors: dict[str, str]
-    ui: UiConfig
+    colors: dict[ColorName, str]
+    look: Look
     pictures: tuple[ThemePicture, ...]
 
     def __init__(self, variant: str = "dark"):
@@ -204,34 +210,36 @@ class Theme:
             raise ThemeError(f"base must be one of {BUILT_IN_VARIANTS}, not {self.base!r}")
         base = _read(self.base) if self.base != variant else {}
         where = f"theme {variant}"
-        self.colors = {
+        colors = {
             **values(base.get("colors", {}), str, f"theme {self.base} [colors]"),
-            **values(data.get("colors", {}), str, f"{where} [colors]"),
+            **_opaque(values(data.get("colors", {}), str, f"{where} [colors]"), where),
         }
-        self.ui = _spacing(
-            dataclasses.replace(
-                CONFIG,
-                fonts=override(CONFIG.fonts, data.get("fonts", {}), f"{where} [fonts]"),
-                color_usage=self._color_usage(
-                    data.get("color_usage", {}), f"{where} [color_usage]"
-                ),
+        self.colors = {ColorName(name): color for name, color in colors.items()}
+        look = override(
+            DEFAULT_LOOK,
+            with_shared_buttons(
+                {k: v for k, v in data.items() if k not in ("name", "base", "colors", "pictures")},
             ),
-            data.get("spacing", {}),
-            f"{where} [spacing]",
+            where,
         )
+        self.look = self._known_colors(look, where)
         self.pictures = self._pictures(data.get("pictures", []), f"{where} [[pictures]]")
 
-    def _color_usage(self, table: object, where: str) -> ColorUsage:
-        usage = override(CONFIG.color_usage, table, where)
-        missing = {
-            place: color
-            for place, color in dataclasses.asdict(usage).items()
-            if color not in self.colors
-        }
-        for place, color in missing.items():
-            _log.warning("%s.%s: %r is not one of its colors", where, place, color)
-        defaults = dataclasses.asdict(CONFIG.color_usage)
-        return dataclasses.replace(usage, **{place: defaults[place] for place in missing})
+    def _known_colors(self, look: Look, where: str) -> Look:
+        """*look* with each place naming a color the theme lacks set back to the default's."""
+        for field in look_fields(look):
+            if not isinstance(field, ColorField):
+                continue
+            place = ".".join(field.path)
+            if field.color not in self.colors:
+                _log.warning("%s.%s: %r is not one of its colors", where, place, field.color)
+                look = _restored(look, DEFAULT_LOOK, field.path)
+            elif field.opacity != 1.0 and not QColor(self.colors[field.color]).isValid():
+                _log.warning(
+                    "%s.%s: %r is a gradient, it cannot take an opacity", where, place, field.color
+                )
+                look = _restored(look, DEFAULT_LOOK, field.path)
+        return look
 
     def _pictures(self, entries: object, where: str) -> tuple[ThemePicture, ...]:
         if not isinstance(entries, list):
@@ -250,38 +258,22 @@ class Theme:
             pictures.append(dataclasses.replace(picture, file=_folder(self.variant) / picture.file))
         return tuple(pictures)
 
-    def qcolor(self, name: str) -> QColor:
+    def qcolor(self, name: ColorName) -> QColor:
         """Theme color *name* as a QColor."""
-        return qcolor(self.colors[name])
+        return QColor(self.colors[name])
 
     @property
     def scheme(self) -> Qt.ColorScheme:
         return Qt.ColorScheme.Light if self.base == "light" else Qt.ColorScheme.Dark
 
 
-def _spacing(ui: UiConfig, table: object, where: str) -> UiConfig:
-    """*ui* with a theme's [spacing] applied; a name is a STYLESHEET_TABLES row's prefix and field."""
-    owners = {
-        row.prefix + field: (row, field)
-        for row in STYLESHEET_TABLES
-        for field in int_fields(row.table(ui))
-    }
-    changed: dict[StyleTable, dict[str, int]] = {}
-    for name, value in values(table, int, where).items():
-        if name not in owners:
-            _log.warning("%s.%s: unknown name", where, name)
-            continue
-        row, field = owners[name]
-        changed.setdefault(row, {})[field] = value
-    for row, fields in changed.items():
-        ui = _replaced(ui, row.path, dataclasses.replace(row.table(ui), **fields))
-    return ui
-
-
-def _replaced[T: DataclassInstance](obj: T, path: tuple[str, ...], value: object) -> T:
-    head, *rest = path
-    inner = _replaced(getattr(obj, head), tuple(rest), value) if rest else value
-    return dataclasses.replace(obj, **{head: inner})
+def _restored[T: DataclassInstance](table: T, default: T, path: tuple[str, ...]) -> T:
+    """*table* with the field at *path* taken from *default*."""
+    key, *rest = path
+    value = getattr(default, key)
+    if rest:
+        value = _restored(getattr(table, key), value, tuple(rest))
+    return dataclasses.replace(table, **{key: value})
 
 
 def _folder(variant: str) -> Path:

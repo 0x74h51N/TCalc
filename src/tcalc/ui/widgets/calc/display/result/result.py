@@ -20,11 +20,14 @@ from PySide6.QtWidgets import (
 )
 
 from tcalc.core.utils import CalcValue
+from tcalc.theme import get_theme
 from tcalc.ui.config import ResultConfig
+from tcalc.ui.props import Prop, StatusKind
+from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.common.button import IconButton
 from tcalc.ui.widgets.history.utils import wrap_expression
 from tcalc.ui.widgets.math import ExpressionSlot, InputKind, MathRender
-from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
+from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts, fit_radius
 
 
 class Result(QWidget):
@@ -49,7 +52,7 @@ class Result(QWidget):
         )
 
         self._result_font = QFont()
-        self._result_font.setPointSize(self._config.font_size)
+        self._result_font.setPointSize(get_theme().look.result.text.font.min_pt)
         self._result_font.setBold(True)
 
         self.result_label = QLabel("0")
@@ -75,18 +78,21 @@ class Result(QWidget):
         self._res_slot.hide()
         self._row_layout.addWidget(self._res_slot, 1)
         btn_size = self._config.btn_size
-        btn_padding = self._config.btn_padding
         self._frac_btn_tooltip = "Show as fraction"
         self._decimal_tooltip = "Show as decimal"
         self._frac_btn = IconButton(
             icon_name=self._config.frac_icon,
             tooltip=self._frac_btn_tooltip,
             size=btn_size,
-            padding=btn_padding,
-            tint=lambda u: u.fraction_icon_color,
+            padding=get_theme().look.result.fraction.padding.x,
+            tint=lambda look: look.result.fraction.text.color,
             parent=self,
         )
         self._frac_btn.setObjectName("fracToggleBtn")
+        self._frac_radius: int | None = None
+        self._fit_frac_radius()
+        theme_events.applied.connect(self._fit_frac_radius)
+        theme_events.applied.connect(self._apply_frac_padding)
         self._frac_btn.hide()
         self._frac_btn.clicked.connect(self._toggle_fraction_view)
         self._row_layout.addWidget(self._frac_btn, 0)
@@ -95,6 +101,7 @@ class Result(QWidget):
         self._resize_timer.setSingleShot(True)
         self._resize_timer.setInterval(self._config.resize_debounce_ms)
         self._resize_timer.timeout.connect(self._on_resize_settled)
+        theme_events.applied.connect(self._on_resize_settled)
 
         self.status_label = QLabel("", self)
         self.status_label.setObjectName("statusLabel")
@@ -108,12 +115,21 @@ class Result(QWidget):
         self.setAutoFillBackground(True)
         QTimer.singleShot(0, self._update_fonts)
 
+    def _apply_frac_padding(self) -> None:
+        self._frac_btn.set_size(self._config.btn_size, get_theme().look.result.fraction.padding.x)
+
+    def _fit_frac_radius(self) -> None:
+        radius = get_theme().look.result.fraction.radius
+        self._frac_radius = fit_radius(
+            self, "QPushButton#fracToggleBtn", radius, self._config.btn_size, self._frac_radius
+        )
+
     def update_res(
         self,
         result_text: str,
         result: CalcValue | None,
         status_text: str = "",
-        status_kind: str = "",
+        status_kind: StatusKind | None = None,
     ) -> None:
         self.setUpdatesEnabled(False)
         try:
@@ -139,13 +155,13 @@ class Result(QWidget):
         finally:
             self.setUpdatesEnabled(True)
 
-    def _apply_status(self, status_text: str, status_kind: str) -> None:
+    def _apply_status(self, status_text: str, status_kind: StatusKind | None) -> None:
         if not status_text:
             self.status_label.hide()
             self.status_label.setText("")
             return
         self.status_label.setText(status_text)
-        self.status_label.setProperty("statusKind", status_kind or "info")
+        self.status_label.setProperty(Prop.STATUS_KIND, status_kind)
         self.status_label.style().unpolish(self.status_label)
         self.status_label.style().polish(self.status_label)
         self.status_label.show()
@@ -181,8 +197,9 @@ class Result(QWidget):
 
     def _update_fonts(self) -> None:
         norm = self._config.font_norm
-        base_font = self._config.font_size
-        max_pt = self._config.max_pt
+        look = get_theme().look.result
+        base_font = look.text.font.min_pt
+        max_pt = look.text.font.max_pt
         line_edits = self._res_slot.line_edits()
         self._res_render.update_line_fonts(line_edits, self, base_font - norm, max_pt - norm)
         for le in line_edits:
