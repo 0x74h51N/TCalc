@@ -90,11 +90,13 @@ class IconButton(QPushButton):
         self.setProperty(Prop.UI_ROLE, UiRole.ICON_BUTTON)
 
         if size is not None:
-            self.setFixedSize(size, size)
+            self.set_size(size, padding)
 
-            icon_size = size - (padding * 2)
-            self.setIconSize(QSize(icon_size, icon_size))
-            self.setContentsMargins(padding, padding, padding, padding)
+    def set_size(self, size: int, padding: int = 4) -> None:
+        self.setFixedSize(size, size)
+        icon_size = size - (padding * 2)
+        self.setIconSize(QSize(icon_size, icon_size))
+        self.setContentsMargins(padding, padding, padding, padding)
 
     def update_icon(self, icon_name: Icon) -> None:
         self.setIcon(get_icon(icon_name, self._tint))

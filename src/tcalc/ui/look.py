@@ -125,6 +125,7 @@ class KeypadLook:
     button: Button
     number: Button
     operator: Button
+    equals: Button
     action: Button
     trig: Button
     function: Button
@@ -247,6 +248,13 @@ def _merged(base: Toml, over: Toml) -> Toml:
     return base | {k: _merged(base[k], v) if k in base else v for k, v in over.items()}
 
 
+def _hover_follows_color(key: Toml) -> Toml:
+    # number = 5 stays as it is for override to report
+    if isinstance(key, dict) and "color" in key and "hover_color" not in key:
+        return key | {"hover_color": key["color"]}
+    return key
+
+
 def with_shared_buttons(table: dict[str, Toml]) -> dict[str, Toml]:
     # An area's [x.button] is where its other buttons start; each one writes only what differs
     spread = dict(table)
@@ -262,6 +270,14 @@ def with_shared_buttons(table: dict[str, Toml]) -> dict[str, Toml]:
                 if hint is Button and key != "button":
                     area[key] = _merged(shared, area.get(key, {}))
         spread[name] = area
+    # A key has no hover of its own: one recolored by a theme must not hover to the old color
+    keypad = spread["keypad"]
+    if isinstance(keypad, dict):
+        hints = field_hints(KeypadLook)
+        spread["keypad"] = {
+            key: _hover_follows_color(value) if hints.get(key) is Button else value
+            for key, value in keypad.items()
+        }
     return spread
 
 

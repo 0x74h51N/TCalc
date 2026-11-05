@@ -84,6 +84,12 @@ hover_color = "accent"
 pressed_color = "accent_hover"
 text = { color = "accent_text" }
 
+[keypad.equals]
+color = "primary"
+hover_color = "primary"
+pressed_color = "primary_hover"
+text = { color = "primary_text" }
+
 [keypad.action]
 color = "action"
 hover_color = "action"

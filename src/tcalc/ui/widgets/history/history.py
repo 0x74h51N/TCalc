@@ -82,6 +82,7 @@ class History(QWidget):
         theme_events.applied.connect(self._apply_theme_font)
         self._icon_button_radius: int | None = None
         self._fit_icon_button_radius()
+        theme_events.applied.connect(self._apply_theme_sizes)
         theme_events.applied.connect(self._fit_icon_button_radius)
         layout.addWidget(self.list, 1)
 
@@ -130,6 +131,11 @@ class History(QWidget):
         font = self.list.font()
         font.setFamily(get_theme().look.fonts.family_monospace)
         self.list.setFont(font)
+
+    def _apply_theme_sizes(self) -> None:
+        changed = [item for item in self._item_widgets if item.apply_theme_sizes()]
+        if changed:
+            self._update_widget_fonts(changed, force_layout=True)
 
     def _fit_icon_button_radius(self) -> None:
         look = get_theme().look.history
@@ -421,6 +427,25 @@ class HistoryItem(QWidget):
 
         self.set_display_mode(mode, defer_layout=True)
 
+    def apply_theme_sizes(self) -> bool:
+        """The theme's sizes on an open row; True when its layout has to follow."""
+        look = get_theme().look.history
+        changed = False
+        if look.icon_button_size != self._btn_size:
+            self._btn_size = look.icon_button_size
+            self._copy_btn.set_size(self._btn_size)
+            self._remove_btn.set_size(self._btn_size)
+            self._place_buttons()
+            changed = True
+        # Painting is the slow part of a switch: only when the size really changed
+        if (
+            self._current_render_mode is RenderMode.MATH
+            and self._font.pointSize() != look.math_font_size
+        ):
+            self._math_paint()
+            changed = True
+        return changed
+
     def _math_paint(self) -> None:
         f = QFont(self.parrent.font())
         f.setPointSize(get_theme().look.history.math_font_size)
@@ -523,7 +548,9 @@ class HistoryItem(QWidget):
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
+        self._place_buttons()
 
+    def _place_buttons(self) -> None:
         margin = style.item_margin
         y = self.height() - margin - self._btn_size
         self._copy_btn.move(margin, y)

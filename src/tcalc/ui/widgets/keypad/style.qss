@@ -14,6 +14,10 @@ QWidget[uiRole="keypad"] QPushButton[keypadRole="operator"]:hover {
     background-color: $keypad_operator_hover_color;
 }
 
+QWidget[uiRole="keypad"] QPushButton[keypadRole="equals"]:hover {
+    background-color: $keypad_equals_hover_color;
+}
+
 QWidget[uiRole="keypad"] QPushButton[keypadRole="action"]:hover {
     background-color: $keypad_action_hover_color;
 }
@@ -53,6 +57,16 @@ QWidget[uiRole="keypad"] QPushButton[keypadRole="operator"] {
 QWidget[uiRole="keypad"] QPushButton[keypadRole="operator"]:pressed,
 QWidget[uiRole="keypad"] QPushButton[keypadRole="operator"][pressed="true"] {
     background-color: $keypad_operator_pressed_color;
+}
+
+QWidget[uiRole="keypad"] QPushButton[keypadRole="equals"] {
+    background-color: $keypad_equals_color;
+    color: $keypad_equals_text_color;
+}
+
+QWidget[uiRole="keypad"] QPushButton[keypadRole="equals"]:pressed,
+QWidget[uiRole="keypad"] QPushButton[keypadRole="equals"][pressed="true"] {
+    background-color: $keypad_equals_pressed_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="action"] {

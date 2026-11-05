@@ -37,6 +37,7 @@ class UiRole(StrEnum):
 class KeypadRole(StrEnum):
     DIGIT = "digit"
     OPERATOR = "operator"
+    EQUALS = "equals"
     ACTION = "action"
     TRIG = "trig"
     FUNCTION = "function"

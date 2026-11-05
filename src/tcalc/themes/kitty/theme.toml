@@ -84,6 +84,9 @@ min_pt = 14
 
 [colors]
 # Translucent keys let the keypad picture through
+primary = "#FF3D8B"
+primary_hover = "#E62E78"
+primary_text = "#FFFFFF"
 secondary = "rgba(255, 192, 217, 75%)"
 secondary_hover = "rgba(255, 160, 199, 85%)"
 secondary_text = "#3A1F2B"

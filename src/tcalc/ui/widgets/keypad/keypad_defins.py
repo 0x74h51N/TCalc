@@ -65,6 +65,9 @@ MATH_OPERATOR_KEYS: list[KeyDef] = [
     KeyDef(
         label=Operation.PERCENT.symbol, operation=Operation.PERCENT, row=0, col=0, tooltip="percent"
     ),
+]
+
+EQUALS_KEYS: list[KeyDef] = [
     KeyDef(
         label=Operation.EQUALS.symbol,
         operation=Operation.EQUALS,
@@ -233,6 +236,7 @@ TRIG_POWER_GROUP: dict[KeypadRole, list[KeyDef]] = {
 NORMAL_MODE_KEYS: dict[KeypadRole, list[KeyDef]] = {
     KeypadRole.DIGIT: NUMBER_KEYS,
     KeypadRole.OPERATOR: MATH_OPERATOR_KEYS,
+    KeypadRole.EQUALS: EQUALS_KEYS,
 }
 
 SIDEBAR_KEYS: dict[KeypadRole, list[KeyDef]] = {

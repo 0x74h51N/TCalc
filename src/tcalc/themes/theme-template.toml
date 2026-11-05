@@ -138,6 +138,12 @@
 # pressed_color = "accent_hover"
 # text = { color = "accent_text" }
 
+# [keypad.equals]
+# color = "primary"
+# hover_color = "primary"
+# pressed_color = "primary_hover"
+# text = { color = "primary_text" }
+
 # [keypad.action]
 # color = "action"
 # hover_color = "action"
@@ -380,6 +386,9 @@
 
 # Lines and selection
 # border_light = "#444957"         # menu borders and separators, keypad borders
+# primary = "#4a4f5a"              # the = key
+# primary_hover = "#3e434d"
+# primary_text = "#ffffff"
 # border_focus = "#5a606d"         # focus outline, checked menu item border
 # selection_background = "#3a3d47" # selected text and items, menu hover/checked
 # selection_text = "#ffffff"

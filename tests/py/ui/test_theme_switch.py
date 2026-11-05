@@ -14,6 +14,7 @@ import calc_native
 import pytest
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction, QColor, QFont, QStyleHints
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
@@ -145,6 +146,18 @@ def test_keypad_rules_are_scoped(qapp, window):
     assert leaking == [] and bare == []
 
 
+def test_equals_key_paints_the_theme_primary(qapp, window, _user_themes):
+    (_user_themes / "blue").mkdir(parents=True)
+    (_user_themes / "blue" / "theme.toml").write_text(
+        'name = "Blue"\nbase = "dark"\n[colors]\nprimary = "#123456"\n'
+    )
+    apply_theme(qapp, "blue")
+    key = next(b for b in window.numpad._buttons.values() if b.text() == "=")
+    # Beside the label and past the rounded corner: the key's own face
+    pixel = key.grab().toImage().pixelColor(key.width() // 8, key.height() // 2)
+    assert pixel.name() == "#123456"
+
+
 def test_user_key_colors_survive_switch(qapp, window):
     key = QWidget(window)
     key.setStyleSheet("background: #123456;")
@@ -182,19 +195,48 @@ def test_side_panel_fonts_stay_scaled_after_switch(qapp, window, monkeypatch):
             13,
             id="memory bar",
         ),
+        param(
+            "[result.text.font]\nmin_pt = 20\nmax_pt = 20",
+            lambda w: [w.findChild(Result).result_label],
+            32,
+            id="result",
+        ),
+        param(
+            "[display.expression.text.font]\nmin_pt = 20\nmax_pt = 20",
+            lambda w: w.findChild(Display).editor.expression_inputs(),
+            26,
+            id="expression",
+        ),
+        param(
+            "[keypad.button.text.font]\nmin_pt = 20\nmax_pt = 20",
+            lambda w: list(w.numpad._buttons.values()),
+            16,
+            id="keys",
+        ),
     ],
 )
-def test_side_panel_font_range_follows_the_theme(
-    qapp, window, _user_themes, table, widgets, dark_max
-):
+def test_font_range_follows_the_theme(qapp, window, _user_themes, table, widgets, dark_max):
     (_user_themes / "big").mkdir(parents=True)
     (_user_themes / "big" / "theme.toml").write_text(f'name = "Big"\nbase = "dark"\n{table}')
+    # The window's first font pass is on a debounce timer: a switch has to come after it to prove
+    # anything
+    QTest.qWait(300)
     apply_theme(qapp, "big")
     qapp.processEvents()
     assert {w.font().pointSize() for w in widgets(window)} == {20}
     apply_theme(qapp, "dark")
     qapp.processEvents()
     assert max(w.font().pointSize() for w in widgets(window)) <= dark_max
+
+
+def test_open_fraction_button_takes_the_theme_padding(qapp, window, _user_themes):
+    (_user_themes / "tight").mkdir(parents=True)
+    (_user_themes / "tight" / "theme.toml").write_text(
+        'name = "Tight"\nbase = "dark"\n[result.fraction.padding]\nx = 1\n'
+    )
+    apply_theme(qapp, "tight")
+    button = window.findChild(Result)._frac_btn
+    assert button.iconSize().width() == button.width() - 2
 
 
 def test_history_takes_the_theme_monospace_font(qapp, window, _user_themes):

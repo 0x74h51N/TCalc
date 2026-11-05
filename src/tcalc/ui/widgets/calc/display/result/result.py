@@ -92,6 +92,7 @@ class Result(QWidget):
         self._frac_radius: int | None = None
         self._fit_frac_radius()
         theme_events.applied.connect(self._fit_frac_radius)
+        theme_events.applied.connect(self._apply_frac_padding)
         self._frac_btn.hide()
         self._frac_btn.clicked.connect(self._toggle_fraction_view)
         self._row_layout.addWidget(self._frac_btn, 0)
@@ -100,6 +101,7 @@ class Result(QWidget):
         self._resize_timer.setSingleShot(True)
         self._resize_timer.setInterval(self._config.resize_debounce_ms)
         self._resize_timer.timeout.connect(self._on_resize_settled)
+        theme_events.applied.connect(self._on_resize_settled)
 
         self.status_label = QLabel("", self)
         self.status_label.setObjectName("statusLabel")
@@ -112,6 +114,9 @@ class Result(QWidget):
         self.setBackgroundRole(QPalette.ColorRole.Base)
         self.setAutoFillBackground(True)
         QTimer.singleShot(0, self._update_fonts)
+
+    def _apply_frac_padding(self) -> None:
+        self._frac_btn.set_size(self._config.btn_size, get_theme().look.result.fraction.padding.x)
 
     def _fit_frac_radius(self) -> None:
         radius = get_theme().look.result.fraction.radius

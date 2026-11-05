@@ -25,6 +25,8 @@ def apply_scaled_fonts(
     max_pt: int,
 ) -> None:
     """Scale font size of targets between min_pt and max_pt based on sample widget size."""
+    # A theme that sets only min_pt can land above the default max_pt: that size, not a shrink
+    max_pt = max(min_pt, max_pt)
     size = sample.size()
     if not size.isValid():
         size = sample.sizeHint()
@@ -52,6 +54,8 @@ def apply_scaled_fonts(
 
 def round_tooltip(event: QChildEvent) -> None:
     """Qt rounds only the tooltip's border; its window corners stay filled unless see-through."""
+    # Called from each class that has a tooltip, not from an application eventFilter: a pad can
+    # hold hundreds of keys, and a filter would run in Python for every event of every widget
     child = event.child()
     if (
         event.type() == QEvent.Type.ChildPolished

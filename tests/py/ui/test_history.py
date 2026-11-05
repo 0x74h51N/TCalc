@@ -445,6 +445,21 @@ def test_raised_edge_shadow_is_darker_than_the_button(history, qapp, apply_user_
     assert shadow.lightness() < face.lightness()
 
 
+def test_open_items_take_the_theme_sizes(history, qapp, apply_user_theme):
+    _add(history, "1+2", "3", qapp)
+    history.set_mode(RenderMode.MATH)
+    item = _item_widget(history, 0)
+    apply_user_theme("[history]\nicon_button_size = 30\nmath_font_size = 40")
+    qapp.processEvents()
+    margin = item.layout().contentsMargins().bottom()
+    assert (item._copy_btn.width(), item._remove_btn.width(), item._font.pointSize()) == (
+        30,
+        30,
+        40,
+    )
+    assert item._copy_btn.y() == item.height() - margin - 30
+
+
 def test_icon_button_size_applies_to_new_items(history, qapp, apply_user_theme):
     apply_user_theme("[history]\nicon_button_size = 30")
     _add(history, "1+2", "3", qapp)

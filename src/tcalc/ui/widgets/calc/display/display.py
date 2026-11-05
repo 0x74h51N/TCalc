@@ -22,6 +22,7 @@ from shiboken6 import isValid
 
 from tcalc.theme import PictureTarget
 from tcalc.ui.config import CONFIG
+from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.common.picture_layer import PictureLayer
 
 from .expression import Expression
@@ -94,6 +95,7 @@ class Display(QWidget):
         PictureLayer(self, PictureTarget.DISPLAY)
 
         QTimer.singleShot(0, self._update_fonts)
+        theme_events.applied.connect(self._update_fonts)
 
     def _update_fonts(self) -> None:
         self.editor.update_input_fonts(self._expr_scroll)
