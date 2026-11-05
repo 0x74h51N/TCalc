@@ -48,7 +48,7 @@ jobs:
           breaking=""
           for pr in $(git log --merges --first-parent --format=%s "$last"..HEAD | sed -nE 's/^Merge pull request #([0-9]+) .*/\1/p'); do
             body=$(gh pr view "$pr" --json body --jq .body)
-            answer=$(printf '%s\n' "$body" | python scripts/pr_body.py breaking)
+            answer=$(printf '%s\n' "$body" | python scripts/pr_body.py)
             if [ "$answer" = yes ]; then
               breaking="$breaking $pr"
             fi

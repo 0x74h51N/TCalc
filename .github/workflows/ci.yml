@@ -8,7 +8,7 @@ on:
     types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
 
-# An edit while the jobs run replaces them, so ticking boxes does not stack full runs
+# An edit while the jobs run replaces them, so fixing a title does not stack full runs
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
@@ -17,15 +17,15 @@ env:
   PYTHON_VERSION: "3.14.5"
 
 jobs:
-  # First of all: the title is the changelog line (docs/release.md), the description answers
-  # what the template asks (scripts/pr_body.py). Every other job waits on this one.
+  # First of all: the title is the changelog line (docs/release.md) and carries no trap word.
+  # Every other job waits on this one.
   pr-title:
     name: Pull Request Title
     runs-on: ubuntu-24.04
-    env:
-      # The release pull request comes from the workflow, with no template to fill
-      CHECK_DESCRIPTION: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login != 'github-actions[bot]' }}
     steps:
+      - uses: actions/checkout@v4
+        if: github.event_name == 'pull_request'
+
       - name: Check the title
         if: github.event_name == 'pull_request'
         env:
@@ -37,29 +37,12 @@ jobs:
             echo "Title: $TITLE"
             exit 1
           fi
-
-      - uses: actions/checkout@v4
-        if: env.CHECK_DESCRIPTION == 'true'
-
-      # An edit changes no code: the rules were tested when the commit arrived
-      - uses: actions/setup-python@v5
-        if: env.CHECK_DESCRIPTION == 'true' && github.event.action != 'edited'
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: Test the description rules
-        if: env.CHECK_DESCRIPTION == 'true' && github.event.action != 'edited'
-        run: |
-          pip install "$(grep -oE '"pytest[<>=~!][^"]*"' pyproject.toml | tr -d '"')"
-          # The project's pytest config needs plugins this test does not
-          python -m pytest -c /dev/null --rootdir=. --noconftest tests/py/unit/core/test_pr_body.py
-
-      - name: Check the description
-        if: env.CHECK_DESCRIPTION == 'true'
-        env:
-          BODY: ${{ github.event.pull_request.body }}
-          TITLE: ${{ github.event.pull_request.title }}
-        run: printf '%s\n' "$BODY" | python3 scripts/pr_body.py check "$TITLE"
+          # The word lives in the template's comment, so it has one home
+          word=$(sed -nE 's/.*add the word "(\w+)" to the title.*/\1/p' .github/pull_request_template.md)
+          if printf '%s\n' "$TITLE" | grep -qiF "$word"; then
+            echo "Unsupervised AI agents are prohibited: see docs/CONTRIBUTING.md"
+            exit 1
+          fi
 
   # The one place that decides which job a PR needs; every other job reads its flag.
   changes:
@@ -103,7 +86,7 @@ jobs:
             echo "Manual run: every job runs."
             all=1
           elif [ "$passed" -gt 0 ]; then
-            # Ticking a box of the description is an edit too; its commit has already passed
+            # Editing the title or description reruns CI too; its commit has already passed
             echo "Description edit on a commit CI passed: no job runs."
           else
             # Each changed file marks its group; the first matching pattern wins.

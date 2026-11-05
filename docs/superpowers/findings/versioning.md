@@ -57,3 +57,12 @@ The sandbox's old `master` was renamed to `old-master` (`gh api -X POST repos/0x
 - Merging the release pull request: `release.yml` tagged `v0.14.0`, the `pip install --no-deps .` version matched, and `gh release view v0.14.0` showed the section and `**Full changes**: .../compare/v0.13.2...v0.14.0`. The notes began and ended with a blank line; the step now trims them.
 - Merging a pull request that only edits a line of `CHANGELOG.md` after the release: `release.yml` printed `v0.14.0 is already tagged` and published nothing.
 - Starting `release-pr.yml` again with nothing merged since: it failed with `nothing to release since v0.14.0`.
+
+## 2026-11-05: contributor declaration instead of description boxes
+
+- Boxes in a description show as a task list on open pull requests. They moved to a form signed once per person: hosted CLA Assistant (`cla-assistant/cla-assistant`, last push 2026-10-13). The text is a [GitHub Gist](https://gist.github.com/0x74h51N/ad329d58aacc9723100f4db0c3897e4e), and a file named `metadata` in the Gist defines the form.
+- CLA Assistant Lite (`contributor-assistant/github-action`) is archived. Checkmate (`RoryQ/checkmate`, per pull request) was rejected for its description checkboxes and its size (11 stars).
+- The signature is per person, so what differs per pull request stays in the description: **Breaking** and **AI assistance**. The trap word stays in the title check because a form answer does not make the bot refuse.
+- The description check was removed with the boxes. The template says `**Breaking:** no`; `scripts/pr_body.py` only reads the answer for `release-pr.yml`. A missing or misspelled line counts as no.
+- The status comes from outside CI, so `needs:` cannot hold jobs back on it. It blocks a merge only as a required check on `master`.
+- Not tested yet: whether the owner can read the form answers, and whether a change to `metadata` alone asks for a new signature.

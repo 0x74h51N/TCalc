@@ -98,7 +98,7 @@ Contributions made directly through GitHub's web editor are not accepted for cod
 
 7. Open a Pull Request from your fork to `master` of the original repository.
 
-Every Pull Request must have a clear scope, explain the problem being solved, describe the implementation, and document the tests performed. Its template asks who is submitting and carries a checklist; CI checks them before anything else, and until they pass no other check runs. Every box you tick is a claim you answer for.
+Every Pull Request must have a clear scope, explain the problem being solved, describe the implementation, and document the tests performed. CI checks its title before anything else, and until it passes no other check runs. On your first Pull Request, CLA Assistant asks you to sign the contributor declaration, a statement of how you work and not a license. Every line you sign is a claim you answer for.
 
 ## Pull requests
 
@@ -107,7 +107,7 @@ Every Pull Request must have a clear scope, explain the problem being solved, de
 - Commit messages are one short line in the log's style: `type/scope: what changed`, lower case, present tense (`fix/ui: bundle every icon under assets/icons`).
 - The title is the changelog line: `type/scope: what changed`, written for people who use TCalc when the change is user-visible. CI checks it. Pull requests are merged on GitHub with a merge commit.
 - A maintainer sets the milestone the work serves (if any) and the `type:` and `area:` labels. Releases and their procedure are in [release.md](release.md).
-- The description follows the template: what changed and why, what a reviewer should look at first, how it was tested, and whether the change is breaking (`**Breaking:** yes` or `no`, as [release.md](release.md#version) defines it).
+- The description follows the template: what changed and why, what a reviewer should look at first, how it was tested, and whether the change is breaking (the template says `**Breaking:** no`; change it to yes if [release.md](release.md#version) says so).
 - A bug fix comes with a test that fails without the fix. Where tests go and how they are written is in [tests.md](rules/ai/tests.md); it applies to people as much as to AI assistants.
 - CI also runs the clang-tidy diff at the tip of the branch.
 - Everything written into the repository (code, comments, docs, commit messages) is in English.
