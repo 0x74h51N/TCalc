@@ -15,7 +15,14 @@ from PySide6.QtCore import QStandardPaths, Qt
 from PySide6.QtGui import QColor
 
 from tcalc.typed_tables import TableError, build, override, values
-from tcalc.ui.look import DEFAULT_LOOK, ColorField, ColorName, Look, look_fields
+from tcalc.ui.look import (
+    DEFAULT_LOOK,
+    ColorField,
+    ColorName,
+    Look,
+    look_fields,
+    with_shared_buttons,
+)
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
@@ -211,7 +218,9 @@ class Theme:
         self.colors = {ColorName(name): color for name, color in colors.items()}
         look = override(
             DEFAULT_LOOK,
-            {k: v for k, v in data.items() if k not in ("name", "base", "colors", "pictures")},
+            with_shared_buttons(
+                {k: v for k, v in data.items() if k not in ("name", "base", "colors", "pictures")},
+            ),
             where,
         )
         self.look = self._known_colors(look, where)

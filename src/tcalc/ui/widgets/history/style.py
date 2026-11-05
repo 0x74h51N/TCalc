@@ -22,7 +22,7 @@ def apply_history_style(list_widget: QListWidget) -> None:
     )
 
     look = get_theme().look
-    font = QFont(look.fonts.family_monospace, look.history.font_size)
+    font = QFont(look.fonts.family_monospace, look.history.text.font.min_pt)
     font.setStyleHint(QFont.StyleHint.TypeWriter)
     list_widget.setFont(font)
 

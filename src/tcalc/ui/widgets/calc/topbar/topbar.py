@@ -82,7 +82,7 @@ class TopBar(QWidget):
         theme_events.applied.connect(self._update_raised)
 
     def _update_raised(self) -> None:
-        set_raised(self._memory_widget, get_theme().look.memory.edge_width > 0)
+        set_raised(self._memory_widget, get_theme().look.memory.edge.width > 0)
 
     def _fit_memory_radius(self) -> None:
         side = shortest_side(self._buttons.values())

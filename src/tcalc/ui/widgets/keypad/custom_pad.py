@@ -494,7 +494,7 @@ class CustomPad(QWidget):
         self._insert_toolbar()
 
     def _update_raised(self) -> None:
-        set_raised(self, get_theme().look.keypad.edge_width > 0)
+        set_raised(self, get_theme().look.keypad.button.edge.width > 0)
 
     # -- Properties --------------------------------------------------------
     @property

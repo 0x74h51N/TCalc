@@ -36,6 +36,22 @@
 # field you leave out keeps its default. A field named color or ending in _color names a color
 # of this file's [colors] (or of `base`), never a color. Keys, buttons and toasts cap a radius
 # at half their shorter side, so a large radius makes them as round as they fit.
+#
+# Buttons take the same keys everywhere; a key that part of the UI does not draw has no effect.
+# A key's table can be written on one line or as a table of its own, not both for the same key:
+#   edge = { width = 2, light_color = "button_highlight" }
+#   [keypad.button.edge]
+#   width = 2
+#
+# Shared buttons: [keypad.button] sets what all the keypad keys (number, operator, action, trig,
+# function, power) start from, [history.button] what the history's buttons (copy, delete, clear,
+# mode) start from. So you can set one thing for all of them there, then give each kind only the
+# settings you want different; or leave the shared table out and write each kind in full:
+#   [keypad.button]
+#   radius = 15                         # every key
+#   [keypad.operator]
+#   hover_color = "accent_hover"        # only the operators; they keep the radius above
+# A key's hover is its own color unless a theme gives it one.
 # Font files (.ttf/.otf) in the theme folder are loaded at startup; use their family name in
 # [fonts].
 
@@ -56,244 +72,257 @@
 # button_text_color = "text_primary"
 # highlight_color = "selection_background"
 # highlighted_text_color = "selection_text"
-
-# [icons]
-# color = "icon"
+#   Single-color icons
+# icon_color = "icon"
 
 # [display]
 # background_color = "screen"
-# expression_text_color = "text_secondary"
-# expression_selection_color = "selection_background"
-# expression_selection_text_color = "selection_text"
-# expression_slot_focus_color = "background_light"
 # radical_line_color = "selection_text"
 # radical_symbol_color = "text_primary"
 # status_text_color = "text_secondary"
 # status_error_text_color = "status_error"
 # divider_height = 1
 # root_border_width = 2
-# expression_font_size = 14
-# expr_max_pt = 26
+
+# [display.expression]
+# slot_focus_color = "background_light"
+# text = { color = "text_secondary", font = { min_pt = 14, max_pt = 26 } }
+# selection = { color = "selection_background", text_color = "selection_text" }
 
 # [result]
-# text_color = "text_primary"
-# fraction_button_color = "control_bg"
-# fraction_button_hover_color = "control_bg_hover"
-# fraction_button_pressed_color = "control_bg_pressed"
-# fraction_icon_color = "control_accent"
-# font_size = 24
-# max_pt = 32
-# btn_padding = 6
-# frac_toggle_radius = 4
+# text = { color = "text_primary", font = { min_pt = 24, max_pt = 32 } }
+
+#   The fraction toggle; text_color is its icon
+# [result.fraction]
+# color = "control_bg"
+# hover_color = "control_bg_hover"
+# pressed_color = "control_bg_pressed"
+# radius = 4
+# text = { color = "control_accent", font = { min_pt = 9, max_pt = 13 } }
+# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
+# checked = { color = "option_checked_bg", text_color = "control_accent" }
+# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# padding = { y = 6, x = 6 }
 
 # [memory]
-# button_color = "control_bg"
-# button_text_color = "control_accent"
-# button_hover_color = "control_bg_hover"
-# button_pressed_color = "control_bg_pressed"
-# button_disabled_color = "control_disabled_bg"
-# button_disabled_text_color = "control_disabled_text"
-#   Memory button layout (px)
-# pad_y = 8
-# pad_x = 14
+# color = "control_bg"
+# hover_color = "control_bg_hover"
+# pressed_color = "control_bg_pressed"
 # radius = 0
-#   A raised edge (px, 0 for none): top and left, then bottom and right; pressed swaps them
-# edge_width = 0
-# edge_light_color = "selection_background"
-# edge_shadow_color = "button_shadow"
-#   Memory bar font range (pt)
-# font_size = 9
-# max_pt = 13
+# text = { color = "control_accent", font = { min_pt = 9, max_pt = 13 } }
+# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
+# checked = { color = "option_checked_bg", text_color = "control_accent" }
+# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# padding = { y = 8, x = 14 }
 
 # [keypad]
 # hover_border_color = "accent_text"
-# checked_color = "action_hover"
-# disabled_color = "control_disabled_bg"
-# disabled_text_color = "control_disabled_text"
 # symbol_color = "secondary_text"
-#   Corner radius (px)
-# radius = 2
-#   A raised edge (px, 0 for none): top and left, then bottom and right; pressed swaps them
-# edge_width = 0
-# edge_light_color = "selection_background"
-# edge_shadow_color = "button_shadow"
-#   Base keypad button padding (px)
-# button_padding = 0
-# compact_pad_y = 4
-# compact_pad_x = 8
-#   Keypad key font range (pt)
-# min_pt = 8
-# max_pt = 16
+# compact_padding = { y = 4, x = 8 }
 
-# [keypad.number]
+#   Where every key starts; a key's hover is its own color unless a theme gives one
+# [keypad.button]
 # color = "secondary"
-# text_color = "secondary_text"
+# hover_color = "secondary"
 # pressed_color = "secondary_hover"
+# radius = 2
+# text = { color = "secondary_text", font = { min_pt = 8, max_pt = 16 } }
+# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
+# checked = { color = "action_hover", text_color = "secondary_text" }
+# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# padding = { y = 0, x = 0 }
 
 # [keypad.operator]
 # color = "accent"
-# text_color = "accent_text"
+# hover_color = "accent"
 # pressed_color = "accent_hover"
+# text = { color = "accent_text" }
 
 # [keypad.action]
 # color = "action"
-# text_color = "action_text"
+# hover_color = "action"
 # pressed_color = "action_hover"
+# text = { color = "action_text" }
 
 # [keypad.trig]
 # color = "action"
-# text_color = "action_text"
+# hover_color = "action"
 # pressed_color = "action_hover"
+# text = { color = "action_text" }
 
 # [keypad.function]
 # color = "accent"
-# text_color = "accent_text"
+# hover_color = "accent"
 # pressed_color = "accent_hover"
-
-# [keypad.power]
-# color = "secondary"
-# text_color = "secondary_text"
-# pressed_color = "secondary_hover"
+# text = { color = "accent_text" }
 
 # [custom_pad]
-# add_key_color = "control"
-# add_key_hover_color = "control_hover"
-# spinbox_color = "control"
-# spinbox_text_color = "text_primary"
 # spinbox_focus_border_color = "control_accent"
 # toolbar_separator_color = "control"
-# menu_background_color = "background_medium"
-# menu_text_color = "text_primary"
-# menu_border_color = "border_light"
-# menu_selected_color = "selection_background"
-# menu_separator_color = "control"
 
+#   The add key of the custom pad
+# [custom_pad.add_key]
+# color = "control"
+# hover_color = "control_hover"
+# pressed_color = "control_hover"
+# radius = 2
+# text = { color = "text_primary", font = { min_pt = 8, max_pt = 16 } }
+# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
+# checked = { color = "option_checked_bg", text_color = "control_accent" }
+# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# padding = { y = 0, x = 0 }
+
+#   The row and column spin boxes
+# [custom_pad.spinbox]
+# color = "control"
+# hover_color = "control_hover"
+# pressed_color = "control_hover"
+# radius = 2
+# text = { color = "text_primary", font = { min_pt = 8, max_pt = 16 } }
+# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
+# checked = { color = "option_checked_bg", text_color = "control_accent" }
+# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# padding = { y = 0, x = 0 }
+
+# [custom_pad.menu]
+# background_color = "background_medium"
+# border_color = "border_light"
+# hover_color = "selection_background"
+# separator_color = "control"
+# list_background_color = "background_dark"
+# radius = 2
+# text = { color = "text_primary", font = { min_pt = 9, max_pt = 9 } }
+# padding = { y = 0, x = 0 }
+
+#   The searchable picker; font in pt
 # [picker]
 # background_color = "background_medium"
 # border_color = "border_light"
-# list_background_color = "background_dark"
-# text_color = "text_primary"
 # hover_color = "selection_background"
-#   Searchable picker font (pt)
-# font_size = 9
+# separator_color = "border_light"
+# list_background_color = "background_dark"
+# radius = 2
+# text = { color = "text_primary", font = { min_pt = 9, max_pt = 9 } }
+# padding = { y = 0, x = 0 }
 
 # [menu]
-# background_color = "background_medium"
-# text_color = "text_primary"
-# border_color = "border_light"
-# selected_color = "selection_background"
-# selected_text_color = "selection_text"
 # selected_border_color = "border_focus"
-# disabled_text_color = "text_secondary"
-# separator_color = "border_light"
 # constants_symbol_color = "text_primary"
-# item_padding_horizontal = 12
-# item_padding_vertical = 4
 # item_margin = 2
 # item_min_width = 70
-# item_border_radius = 6
 # icon_padding_left = 6
 # icon_padding_right = 4
 # separator_height = 1
-# separator_margin_vertical = 4
-# separator_margin_horizontal = 2
-# padding = 4
-#   Menu bar font (px)
-# font_size = 14
+# separator_margin = { y = 4, x = 2 }
+
+#   The menu's frame; font in px
+# [menu.panel]
+# background_color = "background_medium"
+# border_color = "border_light"
+# hover_color = "selection_background"
+# separator_color = "border_light"
+# list_background_color = "background_dark"
+# radius = 2
+# text = { color = "text_primary", font = { min_pt = 14, max_pt = 14 } }
+# padding = { y = 4, x = 4 }
+
+#   A menu item; checked is the selected item
+# [menu.item]
+# color = "background_medium"
+# hover_color = "selection_background"
+# pressed_color = "selection_background"
+# radius = 6
+# text = { color = "text_primary", font = { min_pt = 9, max_pt = 13 } }
+# disabled = { color = "background_medium", text_color = "text_secondary" }
+# checked = { color = "selection_background", text_color = "selection_text" }
+# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# padding = { y = 4, x = 12 }
 
 # [history]
 # background_color = "background_dark"
-# text_color = "text_secondary"
 # row_color = "background_dark_alt"
 # alternate_row_color = "background_dark"
-# selected_color = "selection_background"
-# selected_text_color = "selection_text"
-#   Font ranges (pt): the list, an item's expression, the Clear History button
-# font_size = 7
-# max_pt = 12
-# expr_min_pt = 10
-# expr_max_pt = 15
-# clear_min_pt = 7
-# clear_max_pt = 10
 #   Math mode render size (pt)
 # math_font_size = 17
-#   An item's expression (also in math mode) and result
-# expression_color = "text_secondary"
-# result_color = "text_secondary"
-# result_min_pt = 7
-# result_max_pt = 12
-# clear_color = "background_light"
-# clear_text_color = "text_primary"
+#   The copy and delete buttons of an item (px)
+# icon_button_size = 22
+#   The list's font range (pt)
+#   The Clear History button
+# text = { color = "text_secondary", font = { min_pt = 7, max_pt = 12 } }
+# selected = { color = "selection_background", text_color = "selection_text" }
+# delete = { text = { color = "status_error" } }
+# clear = { text = { color = "text_primary", font = { min_pt = 7, max_pt = 10 } } }
+
+#   An item's expression (also in math mode)
+# [history.expression]
+# color = "text_secondary"
+# font = { min_pt = 10, max_pt = 15 }
+
+#   An item's result
+# [history.result]
+# color = "text_secondary"
+# font = { min_pt = 7, max_pt = 12 }
+
+#   Where the history's buttons start; the copy and delete hover, pressed, radius and edge are read from here
+# [history.button]
+# color = "background_light"
+# hover_color = "selection_background"
+# pressed_color = "background_dark"
+# radius = 2
+# text = { color = "icon", font = { min_pt = 7, max_pt = 12 } }
+# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
+# checked = { color = "option_checked_bg", text_color = "control_accent" }
+# edge = { width = 1, light_color = "selection_background", shadow_color = "button_shadow" }
+# padding = { y = 0, x = 0 }
 
 #   The Math / Flat / Raw buttons, an option group of their own
 # [history.mode]
-# text_color = "text_secondary"
 # hover_color = "option_hover_bg"
-# checked_color = "option_checked_bg"
-# checked_text_color = "control_accent"
+# pressed_color = "option_hover_bg"
 # radius = 2
-#   A raised edge (px, 0 for none): top and left, then bottom and right; pressed swaps them
-# edge_width = 0
-# edge_light_color = "selection_background"
-# edge_shadow_color = "button_shadow"
-# padding_y = 4
-# padding_x = 10
-# font_size = 9
-
-#   The copy and delete buttons of an item
-# [history.icon_button]
-# size = 22
-# radius = 2
-# hover_color = "selection_background"
-# pressed_color = "background_dark"
-#   The raised edge: top and left, then bottom and right; pressed swaps them
-# light_color = "selection_background"
-# shadow_color = "button_shadow"
-# copy_color = "background_light"
-# copy_icon_color = "icon"
-# delete_color = "background_light"
-# delete_icon_color = "status_error"
+# text = { color = "text_secondary", font = { min_pt = 9, max_pt = 9 } }
+# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# padding = { y = 4, x = 10 }
 
 #   Option groups (Deg/Rad/Grad...)
 # [options]
-# text_color = "text_secondary"
+# color = "background"
 # hover_color = "option_hover_bg"
-# checked_color = "option_checked_bg"
-# checked_text_color = "control_accent"
+# pressed_color = "option_hover_bg"
 # radius = 2
-#   A raised edge (px, 0 for none): top and left, then bottom and right; pressed swaps them
-# edge_width = 0
-# edge_light_color = "selection_background"
-# edge_shadow_color = "button_shadow"
-# padding_y = 4
-# padding_x = 10
-# font_size = 9
+# text = { color = "text_secondary", font = { min_pt = 9, max_pt = 9 } }
+# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
+# checked = { color = "option_checked_bg", text_color = "control_accent" }
+# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# padding = { y = 4, x = 10 }
 
 # [tooltip]
 # background_color = "background_dark"
 # border_color = "border_light"
-# text_color = "text_secondary"
+# hover_color = "selection_background"
+# separator_color = "border_light"
+# list_background_color = "background_dark"
 # radius = 2
-# padding = 2
+# text = { color = "text_secondary", font = { min_pt = 9, max_pt = 9 } }
+# padding = { y = 2, x = 2 }
 
 # [toast]
-# text_color = "text_primary"
 # info_color = "toast_info_bg"
 # warn_color = "toast_warn_bg"
 # error_color = "toast_error_bg"
-# pad_y = 6
-# pad_x = 10
 # radius = 4
-# font_size = 13
+# text = { color = "text_primary", font = { min_pt = 13, max_pt = 13 } }
+# padding = { y = 6, x = 10 }
 
+#   The title bar of a dock
 # [dock]
-# title_color = "text_primary"
-# title_font_size = 9
+# color = "text_primary"
+# font = { min_pt = 9, max_pt = 9 }
 
+#   The tab bar of docks stacked as tabs; a tab background or radius would drop the style's own tab
 # [tabs]
-#   The tab bar of docks stacked as tabs
-# text_color = "text_primary"
-# font_size = 9
+# color = "text_primary"
+# font = { min_pt = 9, max_pt = 9 }
 
 
 # --- Pictures ---------------------------------------------------------------------------

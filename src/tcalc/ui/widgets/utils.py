@@ -96,7 +96,7 @@ def apply_key_radius(
     side = shortest_side(keys)
     if side is None:
         return applied
-    return fit_radius(container, KEY_SELECTOR, get_theme().look.keypad.radius, side, applied)
+    return fit_radius(container, KEY_SELECTOR, get_theme().look.keypad.button.radius, side, applied)
 
 
 def key_fit_timer(container: QWidget, fit: Callable[[], None]) -> QTimer:
@@ -113,7 +113,7 @@ def shrink_key_radius(
 ) -> int | None:
     """Refits at once only a radius the keys shrank below, which Qt squares until the next fit."""
     side = shortest_side(keys)
-    radius = get_theme().look.keypad.radius
+    radius = get_theme().look.keypad.button.radius
     if (
         side is None or applied is None or min(radius, side // 2) >= applied
     ):  # None before launch fit

@@ -31,46 +31,46 @@ def _restore_dark():
     [
         param(
             "[[keypad]]\nradius = 9\n[fonts]\nsize_default = 11\n",
-            lambda t: (t.look.keypad.radius, t.look.fonts.size_default),
-            (DEFAULT_LOOK.keypad.radius, 11),
+            lambda t: (t.look.keypad.button.radius, t.look.fonts.size_default),
+            (DEFAULT_LOOK.keypad.button.radius, 11),
             "theme user.keypad: expected a table, got list",
             id="area array",
         ),
         param(
-            '[keypad]\nradius = "9"\n[tooltip]\nradius = 7\n',
-            lambda t: (t.look.keypad.radius, t.look.tooltip.radius),
-            (DEFAULT_LOOK.keypad.radius, 7),
-            "theme user.keypad.radius: expected int, got str",
+            '[keypad.number]\nradius = "9"\n[tooltip]\nradius = 7\n',
+            lambda t: (t.look.keypad.number.radius, t.look.tooltip.radius),
+            (DEFAULT_LOOK.keypad.number.radius, 7),
+            "theme user.keypad.number.radius: expected int, got str",
             id="area wrong type",
         ),
         param(
-            "[keypad]\nnope = 3\nradius = 7\n",
-            lambda t: (t.look.keypad.radius,),
+            "[keypad.number]\nnope = 3\nradius = 7\n",
+            lambda t: (t.look.keypad.number.radius,),
             (7,),
-            "theme user.keypad.nope: unknown key",
+            "theme user.keypad.number.nope: unknown key",
             id="area unknown key",
         ),
         param(
-            '[tooltip]\nradius = 7\n[keypad]\nradius = "9"\n[result]\nfrac_toggle_radius = 40\n',
+            '[tooltip]\nradius = 7\n[keypad.number]\nradius = "9"\n[result.fraction]\nradius = 40\n',
             lambda t: (
-                t.look.keypad.radius,
+                t.look.keypad.number.radius,
                 t.look.tooltip.radius,
-                t.look.result.frac_toggle_radius,
+                t.look.result.fraction.radius,
             ),
-            (DEFAULT_LOOK.keypad.radius, 7, 40),
-            "theme user.keypad.radius: expected int, got str",
+            (DEFAULT_LOOK.keypad.number.radius, 7, 40),
+            "theme user.keypad.number.radius: expected int, got str",
             id="area good, wrong type, good",
         ),
         param(
             '[fonts]\nsize_default = 11\n[[keypad]]\nradius = 9\n[colors]\nprimary = "#ff0000"\n',
-            lambda t: (t.look.keypad.radius, t.look.fonts.size_default, t.colors["primary"]),
-            (DEFAULT_LOOK.keypad.radius, 11, "#ff0000"),
+            lambda t: (t.look.keypad.button.radius, t.look.fonts.size_default, t.colors["primary"]),
+            (DEFAULT_LOOK.keypad.button.radius, 11, "#ff0000"),
             "theme user.keypad: expected a table, got list",
             id="good table, array, good table",
         ),
         param(
-            "[[fonts]]\nsize_default = 30\n[keypad]\nradius = 7\n",
-            lambda t: (t.look.fonts.size_default, t.look.keypad.radius),
+            "[[fonts]]\nsize_default = 30\n[keypad.button]\nradius = 7\n",
+            lambda t: (t.look.fonts.size_default, t.look.keypad.button.radius),
             (DEFAULT_LOOK.fonts.size_default, 7),
             "theme user.fonts: expected a table, got list",
             id="fonts array",
@@ -98,24 +98,31 @@ def _restore_dark():
         ),
         param(
             '[[picker]]\ntext_color = "accent"\n[fonts]\nsize_default = 11\n',
-            lambda t: (t.look.picker.text_color, t.look.fonts.size_default),
-            (DEFAULT_LOOK.picker.text_color, 11),
+            lambda t: (t.look.picker.text.color, t.look.fonts.size_default),
+            (DEFAULT_LOOK.picker.text.color, 11),
             "theme user.picker: expected a table, got list",
             id="color area array",
         ),
         param(
-            '[picker]\ntext_color = "nope"\n[icons]\ncolor = "accent"\n',
-            lambda t: (t.look.picker.text_color, t.look.icons.color),
-            (DEFAULT_LOOK.picker.text_color, "accent"),
-            "theme user.picker.text_color: 'nope' is not one of its colors",
+            '[picker.text]\ncolor = "nope"\n[palette]\nicon_color = "accent"\n',
+            lambda t: (t.look.picker.text.color, t.look.palette.icon_color),
+            (DEFAULT_LOOK.picker.text.color, "accent"),
+            "theme user.picker.text.color: 'nope' is not one of its colors",
             id="missing color",
         ),
         param(
-            "[keypad]\nradius = 7\n",
-            lambda t: (t.look.keypad.radius, t.look.keypad.min_pt),
-            (7, DEFAULT_LOOK.keypad.min_pt),
+            "[keypad.button]\nradius = 7\n",
+            lambda t: (t.look.keypad.button.radius, t.look.keypad.button.text.font.min_pt),
+            (7, DEFAULT_LOOK.keypad.button.text.font.min_pt),
             "",
             id="one key of an area",
+        ),
+        param(
+            '[keypad.button]\nhover_color = "accent"\n[keypad.number]\nhover_color = "accent_text"\n',
+            lambda t: (t.look.keypad.operator.hover_color, t.look.keypad.number.hover_color),
+            ("accent", "accent_text"),
+            "",
+            id="shared button reaches the area, own value wins",
         ),
         param(
             "[keypad.custom]\nspin_font_size = 20\n",
@@ -167,7 +174,7 @@ def test_broken_part_falls_back(write_theme, caplog, body, values, expected, log
 
 
 def test_look_override_reaches_stylesheet_and_python(write_theme):
-    theme = load_theme(write_theme("[toast]\npad_y = 40\n[keypad]\nradius = 7\n"))
-    assert theme.look.toast.pad_y == 40
-    assert theme.look.keypad.radius == 7
+    theme = load_theme(write_theme("[toast.padding]\ny = 40\n[keypad.button]\nradius = 7\n"))
+    assert theme.look.toast.padding.y == 40
+    assert theme.look.keypad.button.radius == 7
     assert "padding: 40px" in _build_stylesheet()

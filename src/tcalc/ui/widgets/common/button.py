@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 from tcalc.theme import get_theme
 from tcalc.ui.config import PresetConfig
 from tcalc.ui.icon import Icon
-from tcalc.ui.look import ColorPlace, Look, OptionsLook
+from tcalc.ui.look import Button, ColorPlace, Look
 from tcalc.ui.props import KeypadRole, OptionRole, Prop, UiRole
 from tcalc.ui.styles import theme_events
 from tcalc.ui.utils import get_icon
@@ -127,7 +127,7 @@ class OptionGroup(QWidget):
         self,
         options: Sequence[tuple[object, str]],
         current: object,
-        look: Callable[[Look], OptionsLook],
+        look: Callable[[Look], Button],
         parent: QWidget | None = None,
         tooltips: Mapping[object, str] | None = None,
     ) -> None:
@@ -168,7 +168,7 @@ class OptionGroup(QWidget):
         self._update_raised()
 
     def _update_raised(self) -> None:
-        set_raised(self, self._look(get_theme().look).edge_width > 0)
+        set_raised(self, self._look(get_theme().look).edge.width > 0)
 
     def _fit_radius(self) -> None:
         side = shortest_side(self._buttons.values())

@@ -9,36 +9,44 @@ base = "light"
 family_default = "Miniver"
 size_default = 14
 
-[picker]
-font_size = 14
+[picker.text.font]
+min_pt = 14
 
-[keypad]
-# Key font range (pt)
-min_pt = 10
-max_pt = 16
+[keypad.button]
 radius = 15
 
-[menu]
-font_size = 16
+# Key font range (pt)
+[keypad.button.text.font]
+min_pt = 10
+max_pt = 16
+
+[menu.panel.text.font]
+min_pt = 16
 
 [tooltip]
 radius = 14
 
 [options]
 radius = 14
-font_size= 18
+
+[options.text.font]
+min_pt = 18
+
+[history.result.font]
+min_pt = 12
+max_pt = 15
 
 [history]
-result_min_pt = 12
-result_max_pt = 15
+icon_button_size = 20
 
-[history.icon_button]
-size = 20
+[history.button]
 radius = 10
 
 [history.mode]
 radius = 7
-font_size = 14
+
+[history.mode.text.font]
+min_pt = 14
 
 [memory]
 radius = 15
@@ -68,11 +76,11 @@ margin = 10
 tint = "accent_text"
 
 # Dock titles and tabs at the app font size, as before they had a setting
-[dock]
-title_font_size = 14
+[dock.font]
+min_pt = 14
 
-[tabs]
-font_size = 14
+[tabs.font]
+min_pt = 14
 
 [colors]
 # Translucent keys let the keypad picture through

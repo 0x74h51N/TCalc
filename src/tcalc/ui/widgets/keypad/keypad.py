@@ -209,10 +209,15 @@ class Keypad(QWidget):
     def _update_button_fonts(self) -> None:
         # A theme may set its own key font range
         keypad = get_theme().look.keypad
-        apply_scaled_fonts(self, self._buttons.values(), keypad.min_pt, keypad.max_pt)
+        apply_scaled_fonts(
+            self,
+            self._buttons.values(),
+            keypad.button.text.font.min_pt,
+            keypad.button.text.font.max_pt,
+        )
 
     def _update_raised(self) -> None:
-        set_raised(self, get_theme().look.keypad.edge_width > 0)
+        set_raised(self, get_theme().look.keypad.button.edge.width > 0)
 
     def _update_key_radius(self) -> None:
         self._key_radius = apply_key_radius(self, self._buttons.values(), self._key_radius)

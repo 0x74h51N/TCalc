@@ -76,14 +76,14 @@ def test_scheme_switch_keeps_style_and_fonts(styled):
 
 
 def test_theme_sets_the_menu_font_size(styled, write_theme):
-    apply_theme(styled, write_theme("[menu]\nfont_size = 21\n"))
+    apply_theme(styled, write_theme("[menu.panel.text.font]\nmin_pt = 21\n"))
     menu = QMenu()
     menu.ensurePolished()
     assert menu.font().pixelSize() == 21
 
 
 def test_theme_sets_the_picker_font_size(styled, write_theme):
-    apply_theme(styled, write_theme("[picker]\nfont_size = 17\n"))
+    apply_theme(styled, write_theme("[picker.text.font]\nmin_pt = 17\n"))
     picker = SearchablePicker([("sin", None)])
     view = picker.findChild(QListView)
     view.ensurePolished()
@@ -91,7 +91,7 @@ def test_theme_sets_the_picker_font_size(styled, write_theme):
 
 
 def test_theme_picks_which_color_a_place_uses(styled, write_theme):
-    apply_theme(styled, write_theme('[picker]\ntext_color = "accent_text"\n'))
+    apply_theme(styled, write_theme('[picker.text]\ncolor = "accent_text"\n'))
     picker = SearchablePicker([("sin", None)])
     view = picker.findChild(QListView)
     view.ensurePolished()

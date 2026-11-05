@@ -323,61 +323,61 @@ def _mode_button(history: History, mode: RenderMode) -> QWidget:
     "table, shown, expected",
     [
         param(
-            '[history]\nexpression_color = "accent_text"',
+            '[history.expression]\ncolor = "accent_text"',
             lambda h: _text_color(_item_widget(h, 0).expression_label),
             "accent_text",
             id="expression color",
         ),
         param(
-            '[history]\nresult_color = "accent_text"',
+            '[history.result]\ncolor = "accent_text"',
             lambda h: _text_color(_item_widget(h, 0).result_label),
             "accent_text",
             id="result color",
         ),
         param(
-            "[history]\nresult_min_pt = 20\nresult_max_pt = 20",
+            "[history.result.font]\nmin_pt = 20\nmax_pt = 20",
             lambda h: _item_widget(h, 0).result_label.font().pointSize(),
             20,
             id="result font range",
         ),
         param(
-            '[history.icon_button]\ncopy_icon_color = "status_error"',
+            '[history.copy.text]\ncolor = "status_error"',
             lambda h: _opaque_color(_item_widget(h, 0)._copy_btn.icon()).name().upper(),
             "status_error",
             id="copy icon color",
         ),
         param(
-            '[history.icon_button]\ndelete_icon_color = "accent_text"',
+            '[history.delete.text]\ncolor = "accent_text"',
             lambda h: _opaque_color(_item_widget(h, 0)._remove_btn.icon()).name().upper(),
             "accent_text",
             id="delete icon color",
         ),
         param(
-            '[history.icon_button]\ncopy_color = "accent_text"',
+            '[history.copy]\ncolor = "accent_text"',
             lambda h: _pixel(_item_widget(h, 0)._copy_btn, 2, 11),
             "accent_text",
             id="copy button color",
         ),
         param(
-            '[history.icon_button]\ndelete_color = "accent_text"',
+            '[history.delete]\ncolor = "accent_text"',
             lambda h: _pixel(_item_widget(h, 0)._remove_btn, 2, 11),
             "accent_text",
             id="delete button color",
         ),
         param(
-            '[history.icon_button]\nlight_color = "accent_text"',
+            '[history.button.edge]\nlight_color = "accent_text"',
             lambda h: _pixel(_item_widget(h, 0)._copy_btn, 11, 0),
             "accent_text",
             id="raised edge light side",
         ),
         param(
-            '[history.icon_button]\nshadow_color = "accent_text"',
+            '[history.button.edge]\nshadow_color = "accent_text"',
             lambda h: _pixel(_item_widget(h, 0)._copy_btn, 11, 21),
             "accent_text",
             id="raised edge shadow side",
         ),
         param(
-            '[history.icon_button]\ncopy_color = "accent_text"\nradius = 11',
+            '[history.button]\nradius = 11\n[history.copy]\ncolor = "accent_text"',
             lambda h: (
                 _pixel(_item_widget(h, 0)._copy_btn, 2, 2)
                 == load_theme("t").colors["accent_text"].upper()
@@ -386,37 +386,37 @@ def _mode_button(history: History, mode: RenderMode) -> QWidget:
             id="radius rounds the corner",
         ),
         param(
-            '[history]\nclear_text_color = "accent_text"',
+            '[history.clear.text]\ncolor = "accent_text"',
             lambda h: _text_color(h.clear_button),
             "accent_text",
             id="clear text color",
         ),
         param(
-            '[history.mode]\ntext_color = "accent_text"',
+            '[history.mode.text]\ncolor = "accent_text"',
             lambda h: _text_color(_mode_button(h, RenderMode.MATH)),
             "accent_text",
             id="mode text color",
         ),
         param(
-            '[history.mode]\ntext_color = "accent_text"',
+            '[history.mode.text]\ncolor = "accent_text"',
             lambda h: _text_color(_mode_button(h, RenderMode.FLAT)),
             "control_accent",
             id="mode checked text keeps its default",
         ),
         param(
-            "[history.mode]\nfont_size = 15",
+            "[history.mode.text.font]\nmin_pt = 15",
             lambda h: _mode_button(h, RenderMode.MATH).font().pointSize(),
             15,
             id="mode font size",
         ),
         param(
-            "[options]\nfont_size = 15",
+            "[options.text.font]\nmin_pt = 15",
             lambda h: _mode_button(h, RenderMode.MATH).font().pointSize(),
             9,
             id="options font size leaves the history modes",
         ),
         param(
-            "[options]\nfont_size = 15",
+            "[options.text.font]\nmin_pt = 15",
             lambda h: (
                 _polished(OptionGroup([(1, "A")], 1, lambda look: look.options, h)._buttons[1])
                 .font()
@@ -446,7 +446,7 @@ def test_raised_edge_shadow_is_darker_than_the_button(history, qapp, apply_user_
 
 
 def test_icon_button_size_applies_to_new_items(history, qapp, apply_user_theme):
-    apply_user_theme("[history.icon_button]\nsize = 30")
+    apply_user_theme("[history]\nicon_button_size = 30")
     _add(history, "1+2", "3", qapp)
     assert _item_widget(history, 0)._copy_btn.width() == 30
 

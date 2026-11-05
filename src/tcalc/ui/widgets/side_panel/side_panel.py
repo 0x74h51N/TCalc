@@ -15,13 +15,13 @@ from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget
 
 from tcalc.theme import get_theme
 from tcalc.ui.config import CONFIG
-from tcalc.ui.look import Look
+from tcalc.ui.look import FontRange, Look
 from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.utils import apply_scaled_fonts
 
 _FontTargets = Iterable[QWidget] | Callable[[], Iterable[QWidget]]
 # A theme may set the range, so it is read from the look on every fit
-_FontRange = Callable[[Look], tuple[int, int]]
+_PickFontRange = Callable[[Look], FontRange]
 
 
 class SidePanel(QWidget):
@@ -31,7 +31,9 @@ class SidePanel(QWidget):
         super().__init__(parent)
         self.setObjectName("sidePanel")
         self._parent = parent
-        self._font_targets: list[tuple[_FontTargets, _FontRange, Callable[[], None] | None]] = []
+        self._font_targets: list[
+            tuple[_FontTargets, _PickFontRange, Callable[[], None] | None]
+        ] = []
 
         self.setBackgroundRole(QPalette.ColorRole.Base)
         self.setAutoFillBackground(True)
@@ -64,14 +66,15 @@ class SidePanel(QWidget):
         look = get_theme().look
         for targets, font_range, callback in self._font_targets:
             widgets = targets() if callable(targets) else targets
-            apply_scaled_fonts(self, widgets, *font_range(look))
+            fonts = font_range(look)
+            apply_scaled_fonts(self, widgets, fonts.min_pt, fonts.max_pt)
             if callback is not None:
                 callback()
 
     def register_font_targets(
         self,
         targets: _FontTargets,
-        font_range: _FontRange,
+        font_range: _PickFontRange,
         callback: Callable[[], None] | None = None,
     ) -> None:
         """Register *targets* for font scaling within the range *font_range* picks from the look."""

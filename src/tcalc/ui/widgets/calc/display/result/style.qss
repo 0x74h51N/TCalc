@@ -3,14 +3,14 @@ QLabel#displayResult {
 }
 
 QPushButton#fracToggleBtn {
-    background-color: $result_fraction_button_color;
+    background-color: $result_fraction_color;
     border: none;
 }
 QPushButton#fracToggleBtn:hover {
-    background-color: $result_fraction_button_hover_color;
+    background-color: $result_fraction_hover_color;
 }
 QPushButton#fracToggleBtn:pressed {
-    background-color: $result_fraction_button_pressed_color;
+    background-color: $result_fraction_pressed_color;
 }
 
 QLabel#statusLabel {
