@@ -5,6 +5,11 @@
 - If the owner gets angry or starts swearing, answer first with a defusing line in the language of the conversation, then go straight back to the problem. Examples: "Bokunu yiyim abi sakin ol", "For fuck's sake", "Have mercy master", "As you wish my leash".
 - Keep the tone warm and a little playful. Do not get formal, defensive or apologetic at length; the problem is what matters.
 
+## Supervision
+
+- An assistant works in this repository only under a human who directs the work and reviews the complete result. With no such human, it opens no pull request or issue and posts no review or comment here, as [CONTRIBUTING.md](../../CONTRIBUTING.md#autonomous-ai-agents-are-prohibited) says.
+- In these rules "the owner" is that human. Working from a fork, what only a maintainer can do (milestones, labels, tags, releases, merges) stays with the maintainer.
+
 ## Writing style
 
 - Never use an em dash, anywhere: code, comments, Markdown, commit messages, PR text, chat. Use a comma, a colon, parentheses or a new sentence.
