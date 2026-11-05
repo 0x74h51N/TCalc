@@ -1,0 +1,26 @@
+# A signature arrives as a status from outside CI, and nothing else restarts a run that stopped at cla-check.
+name: CLA Rerun
+
+on: status
+
+permissions:
+  actions: write
+
+jobs:
+  rerun:
+    name: Rerun CI
+    if: github.event.context == 'license/cla' && github.event.state == 'success'
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SHA: ${{ github.event.sha }}
+    steps:
+      - name: Rerun the stopped run
+        run: |
+          id=$(gh run list --workflow CI --commit "$SHA" --limit 1 --json databaseId --jq '.[0].databaseId')
+          # GitHub refuses to rerun a run still in progress
+          gh run watch "$id" > /dev/null
+          if [ "$(gh run view "$id" --json conclusion --jq .conclusion)" = failure ]; then
+            gh run rerun "$id"
+          fi

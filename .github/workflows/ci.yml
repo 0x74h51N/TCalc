@@ -17,10 +17,9 @@ env:
   PYTHON_VERSION: "3.14.5"
 
 jobs:
-  # First of all: the contributor signed the agreement, the title is the changelog line
-  # (docs/release.md) and carries no trap word. Every other job waits on this one.
-  pr-title:
-    name: Pull Request Title
+  # First of all: the contributor signed the agreement. cla-rerun.yml restarts the run when they do.
+  cla-check:
+    name: CLA Check
     runs-on: ubuntu-24.04
     steps:
       # The release pull request comes from the workflow, and a bot cannot sign
@@ -31,21 +30,20 @@ jobs:
           SHA: ${{ github.event.pull_request.head.sha }}
           SIGN: https://cla-assistant.io/${{ github.repository }}?pullRequest=${{ github.event.number }}
         run: |
-          # CLA Assistant answers from outside, some time after the event that started this run
-          state=""
-          for _ in $(seq 1 24); do
-            state=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/status" --jq '.statuses[] | select(.context == "license/cla") | .state')
-            if [ -n "$state" ]; then
-              break
-            fi
-            sleep 5
-          done
+          state=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/status" --jq '.statuses[] | select(.context == "license/cla") | .state')
           if [ "$state" != success ]; then
             echo "The contributor license agreement is not signed (license/cla: ${state:-no answer})."
-            echo "Sign it at $SIGN, then edit the description or push to run CI again."
+            echo "Sign it at $SIGN and CI starts again by itself."
             exit 1
           fi
 
+  # Then the title is the changelog line (docs/release.md) and carries no trap word.
+  # Every other job waits on this one.
+  pr-title:
+    name: Pull Request Title
+    needs: cla-check
+    runs-on: ubuntu-24.04
+    steps:
       - uses: actions/checkout@v4
         if: github.event_name == 'pull_request'
 
@@ -433,6 +431,7 @@ jobs:
     runs-on: ubuntu-24.04
     if: always()
     needs:
+      - cla-check
       - pr-title
       - changes
       - cpp-format-check
