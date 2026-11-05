@@ -53,7 +53,7 @@ QPushButton#clearHistory:!hover:!pressed {
 QWidget#historyModes QRadioButton[optionRole="option"] {
     color: $history_mode_text_color;
     padding: ${history_mode_padding_y}px ${history_mode_padding_x}px;
-    font-size: ${history_mode_font_size}pt;
+    font-size: ${history_mode_text_font_min_pt}pt;
 }
 
 QWidget#historyModes QRadioButton[optionRole="option"]:hover {
@@ -78,17 +78,17 @@ QWidget#historyModes[raised="true"] QRadioButton[optionRole="option"]:checked {
 
 /* The copy and delete buttons of an item */
 QWidget#historyItem QPushButton[uiRole="iconButton"] {
-    border: 1px solid $history_icon_button_shadow_color;
-    border-top-color: $history_icon_button_light_color;
-    border-left-color: $history_icon_button_light_color;
+    border: ${history_button_edge_width}px solid $history_button_edge_shadow_color;
+    border-top-color: $history_button_edge_light_color;
+    border-left-color: $history_button_edge_light_color;
 }
-QWidget#historyItem QPushButton[uiRole="iconButton"]:hover { background-color: $history_icon_button_hover_color; }
+QWidget#historyItem QPushButton[uiRole="iconButton"]:hover { background-color: $history_button_hover_color; }
 QWidget#historyItem QPushButton[uiRole="iconButton"]:pressed {
-    background-color: $history_icon_button_pressed_color;
-    border-top-color: $history_icon_button_shadow_color;
-    border-left-color: $history_icon_button_shadow_color;
-    border-bottom-color: $history_icon_button_light_color;
-    border-right-color: $history_icon_button_light_color;
+    background-color: $history_button_pressed_color;
+    border-top-color: $history_button_edge_shadow_color;
+    border-left-color: $history_button_edge_shadow_color;
+    border-bottom-color: $history_button_edge_light_color;
+    border-right-color: $history_button_edge_light_color;
 }
-QWidget#historyItem QPushButton#historyCopy:!hover:!pressed { background-color: $history_icon_button_copy_color; }
-QWidget#historyItem QPushButton#historyDelete:!hover:!pressed { background-color: $history_icon_button_delete_color; }
+QWidget#historyItem QPushButton#historyCopy:!hover:!pressed { background-color: $history_copy_color; }
+QWidget#historyItem QPushButton#historyDelete:!hover:!pressed { background-color: $history_delete_color; }

@@ -7,7 +7,7 @@ from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import TYPE_CHECKING, NewType
 
-from tcalc.typed_tables import build, field_hints, is_dataclass_type
+from tcalc.typed_tables import Toml, build, field_hints, is_dataclass_type
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
@@ -17,6 +17,62 @@ LOOK_PATH = Path(__file__).parent / "look.toml"
 # A color of the theme's [colors], by name
 ColorName = NewType("ColorName", str)
 FontFamily = NewType("FontFamily", str)
+
+
+@dataclass(frozen=True, slots=True)
+class Colors:
+    color: ColorName
+    text_color: ColorName
+
+
+@dataclass(frozen=True, slots=True)
+class Edge:
+    width: int
+    light_color: ColorName
+    shadow_color: ColorName
+
+
+@dataclass(frozen=True, slots=True)
+class FontRange:
+    min_pt: int
+    max_pt: int
+
+
+@dataclass(frozen=True, slots=True)
+class Insets:
+    y: int
+    x: int
+
+
+@dataclass(frozen=True, slots=True)
+class Text:
+    color: ColorName
+    font: FontRange
+
+
+@dataclass(frozen=True, slots=True)
+class Button:
+    color: ColorName
+    hover_color: ColorName
+    pressed_color: ColorName
+    text: Text
+    disabled: Colors
+    checked: Colors
+    radius: int
+    edge: Edge
+    padding: Insets
+
+
+@dataclass(frozen=True, slots=True)
+class Panel:
+    background_color: ColorName
+    text: Text
+    border_color: ColorName
+    hover_color: ColorName
+    separator_color: ColorName
+    list_background_color: ColorName
+    radius: int
+    padding: Insets
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,247 +92,116 @@ class PaletteLook:
     button_text_color: ColorName
     highlight_color: ColorName
     highlighted_text_color: ColorName
+    icon_color: ColorName
 
 
 @dataclass(frozen=True, slots=True)
-class IconsLook:
-    color: ColorName
+class ExpressionLook:
+    text: Text
+    selection: Colors
+    slot_focus_color: ColorName
 
 
 @dataclass(frozen=True, slots=True)
 class DisplayLook:
     background_color: ColorName
-    expression_text_color: ColorName
-    expression_selection_color: ColorName
-    expression_selection_text_color: ColorName
-    expression_slot_focus_color: ColorName
+    expression: ExpressionLook
     radical_line_color: ColorName
     radical_symbol_color: ColorName
     status_text_color: ColorName
     status_error_text_color: ColorName
     divider_height: int
     root_border_width: int
-    expression_font_size: int
-    expr_max_pt: int
 
 
 @dataclass(frozen=True, slots=True)
 class ResultLook:
-    text_color: ColorName
-    fraction_button_color: ColorName
-    fraction_button_hover_color: ColorName
-    fraction_button_pressed_color: ColorName
-    fraction_icon_color: ColorName
-    font_size: int
-    max_pt: int
-    btn_padding: int
-    frac_toggle_radius: int
-
-
-@dataclass(frozen=True, slots=True)
-class MemoryLook:
-    button_color: ColorName
-    button_text_color: ColorName
-    button_hover_color: ColorName
-    button_pressed_color: ColorName
-    button_disabled_color: ColorName
-    button_disabled_text_color: ColorName
-    pad_y: int
-    pad_x: int
-    radius: int
-    edge_width: int
-    edge_light_color: ColorName
-    edge_shadow_color: ColorName
-    font_size: int
-    max_pt: int
-
-
-@dataclass(frozen=True, slots=True)
-class KeyRoleLook:
-    color: ColorName
-    text_color: ColorName
-    pressed_color: ColorName
+    text: Text
+    fraction: Button
 
 
 @dataclass(frozen=True, slots=True)
 class KeypadLook:
-    number: KeyRoleLook
-    operator: KeyRoleLook
-    action: KeyRoleLook
-    trig: KeyRoleLook
-    function: KeyRoleLook
-    power: KeyRoleLook
+    button: Button
+    number: Button
+    operator: Button
+    action: Button
+    trig: Button
+    function: Button
+    power: Button
     hover_border_color: ColorName
-    checked_color: ColorName
-    disabled_color: ColorName
-    disabled_text_color: ColorName
     symbol_color: ColorName
-    radius: int
-    edge_width: int
-    edge_light_color: ColorName
-    edge_shadow_color: ColorName
-    button_padding: int
-    compact_pad_y: int
-    compact_pad_x: int
-    min_pt: int
-    max_pt: int
+    compact_padding: Insets
 
 
 @dataclass(frozen=True, slots=True)
 class CustomPadLook:
-    add_key_color: ColorName
-    add_key_hover_color: ColorName
-    spinbox_color: ColorName
-    spinbox_text_color: ColorName
+    add_key: Button
+    spinbox: Button
     spinbox_focus_border_color: ColorName
     toolbar_separator_color: ColorName
-    menu_background_color: ColorName
-    menu_text_color: ColorName
-    menu_border_color: ColorName
-    menu_selected_color: ColorName
-    menu_separator_color: ColorName
-
-
-@dataclass(frozen=True, slots=True)
-class PickerLook:
-    background_color: ColorName
-    border_color: ColorName
-    list_background_color: ColorName
-    text_color: ColorName
-    hover_color: ColorName
-    font_size: int
+    menu: Panel
 
 
 @dataclass(frozen=True, slots=True)
 class MenuLook:
-    background_color: ColorName
-    text_color: ColorName
-    border_color: ColorName
-    selected_color: ColorName
-    selected_text_color: ColorName
+    panel: Panel
+    item: Button
     selected_border_color: ColorName
-    disabled_text_color: ColorName
-    separator_color: ColorName
     constants_symbol_color: ColorName
-    item_padding_horizontal: int
-    item_padding_vertical: int
     item_margin: int
     item_min_width: int
-    item_border_radius: int
     icon_padding_left: int
     icon_padding_right: int
     separator_height: int
-    separator_margin_vertical: int
-    separator_margin_horizontal: int
-    padding: int
-    font_size: int
-
-
-@dataclass(frozen=True, slots=True)
-class OptionsLook:
-    text_color: ColorName
-    hover_color: ColorName
-    checked_color: ColorName
-    checked_text_color: ColorName
-    radius: int
-    edge_width: int
-    edge_light_color: ColorName
-    edge_shadow_color: ColorName
-    padding_y: int
-    padding_x: int
-    font_size: int
-
-
-@dataclass(frozen=True, slots=True)
-class HistoryIconButtonLook:
-    size: int
-    radius: int
-    hover_color: ColorName
-    pressed_color: ColorName
-    light_color: ColorName
-    shadow_color: ColorName
-    copy_color: ColorName
-    copy_icon_color: ColorName
-    delete_color: ColorName
-    delete_icon_color: ColorName
+    separator_margin: Insets
 
 
 @dataclass(frozen=True, slots=True)
 class HistoryLook:
     background_color: ColorName
-    text_color: ColorName
+    text: Text
     row_color: ColorName
     alternate_row_color: ColorName
-    selected_color: ColorName
-    selected_text_color: ColorName
-    font_size: int
-    max_pt: int
-    expr_min_pt: int
-    expr_max_pt: int
-    clear_min_pt: int
-    clear_max_pt: int
+    selected: Colors
     math_font_size: int
-    expression_color: ColorName
-    result_color: ColorName
-    result_min_pt: int
-    result_max_pt: int
-    clear_color: ColorName
-    clear_text_color: ColorName
-    mode: OptionsLook
-    icon_button: HistoryIconButtonLook
-
-
-@dataclass(frozen=True, slots=True)
-class TooltipLook:
-    background_color: ColorName
-    border_color: ColorName
-    text_color: ColorName
-    radius: int
-    padding: int
+    expression: Text
+    result: Text
+    icon_button_size: int
+    button: Button
+    copy: Button
+    delete: Button
+    clear: Button
+    mode: Button
 
 
 @dataclass(frozen=True, slots=True)
 class ToastLook:
-    text_color: ColorName
+    text: Text
     info_color: ColorName
     warn_color: ColorName
     error_color: ColorName
-    pad_y: int
-    pad_x: int
+    padding: Insets
     radius: int
-    font_size: int
-
-
-@dataclass(frozen=True, slots=True)
-class DockLook:
-    title_color: ColorName
-    title_font_size: int
-
-
-@dataclass(frozen=True, slots=True)
-class TabsLook:
-    text_color: ColorName
-    font_size: int
 
 
 @dataclass(frozen=True, slots=True)
 class Look:
     fonts: FontsLook
     palette: PaletteLook
-    icons: IconsLook
     display: DisplayLook
     result: ResultLook
-    memory: MemoryLook
+    memory: Button
     keypad: KeypadLook
     custom_pad: CustomPadLook
-    picker: PickerLook
+    picker: Panel
     menu: MenuLook
     history: HistoryLook
-    options: OptionsLook
-    tooltip: TooltipLook
+    options: Button
+    tooltip: Panel
     toast: ToastLook
-    dock: DockLook
-    tabs: TabsLook
+    dock: Text
+    tabs: Text
 
 
 # Picks a place from the look; a caller that resolves its color on every theme switch keeps it
@@ -316,5 +241,29 @@ def qss_name(field: LookField) -> str:
     return "_".join(field.path)
 
 
+def _merged(base: Toml, over: Toml) -> Toml:
+    if not (isinstance(base, dict) and isinstance(over, dict)):
+        return over
+    return base | {k: _merged(base[k], v) if k in base else v for k, v in over.items()}
+
+
+def with_shared_buttons(table: dict[str, Toml]) -> dict[str, Toml]:
+    # An area's [x.button] is where its other buttons start; each one writes only what differs
+    spread = dict(table)
+    for name, cls in (("keypad", KeypadLook), ("history", HistoryLook)):
+        area = table.get(name, {})
+        # [[keypad]] stays as it is for override to report
+        if not isinstance(area, dict):
+            continue
+        area = dict(area)
+        if "button" in area:
+            shared = area["button"]
+            for key, hint in field_hints(cls).items():
+                if hint is Button and key != "button":
+                    area[key] = _merged(shared, area.get(key, {}))
+        spread[name] = area
+    return spread
+
+
 with open(LOOK_PATH, "rb") as _file:
-    DEFAULT_LOOK: Look = build(Look, tomllib.load(_file), "look")
+    DEFAULT_LOOK: Look = build(Look, with_shared_buttons(tomllib.load(_file)), "look")

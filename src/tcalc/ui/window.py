@@ -175,11 +175,11 @@ class MainWindow(QMainWindow):
     def _register_font_targets(self) -> None:
         self.side_panel.register_font_targets(
             self.memory_bar.font_targets,
-            lambda look: (look.memory.font_size, look.memory.max_pt),
+            lambda look: look.memory.text.font,
         )
         self.side_panel.register_font_targets(
             [self.history.list],
-            lambda look: (look.history.font_size, look.history.max_pt),
+            lambda look: look.history.text.font,
             # Debounced side-panel resize: re-wrap + force refresh_layout so
             # each item's QListWidget cell size is recomputed against the
             # final viewport width (initial wrap can lock in a too-tall hint
@@ -188,7 +188,7 @@ class MainWindow(QMainWindow):
         )
         self.side_panel.register_font_targets(
             [self.history.clear_button],
-            lambda look: (look.history.clear_min_pt, look.history.clear_max_pt),
+            lambda look: look.history.clear.text.font,
         )
 
     def _setup_controller(self) -> None:

@@ -1,14 +1,14 @@
 QMenu {
-    background: $menu_background_color;
-    color: $menu_text_color;
-    border: 1px solid $menu_border_color;
-    padding: ${menu_padding}px;
-    font-size: ${menu_font_size}px;
+    background: $menu_panel_background_color;
+    color: $menu_panel_text_color;
+    border: 1px solid $menu_panel_border_color;
+    padding: ${menu_panel_padding_y}px ${menu_panel_padding_x}px;
+    font-size: ${menu_panel_text_font_min_pt}px;
 }
 
 QMenu::item {
-    padding: ${menu_item_padding_vertical}px ${menu_item_padding_horizontal}px;
-    border-radius: ${menu_item_border_radius}px;
+    padding: ${menu_item_padding_y}px ${menu_item_padding_x}px;
+    border-radius: ${menu_item_radius}px;
     border: 1px solid transparent;
     margin: ${menu_item_margin}px 0;
     min-width: ${menu_item_min_width}px;
@@ -16,13 +16,13 @@ QMenu::item {
 
 QMenu::item:selected,
 QMenu::item:checked {
-    background: $menu_selected_color;
-    color: $menu_selected_text_color;
+    background: $menu_item_checked_color;
+    color: $menu_item_checked_text_color;
     border: 1px solid $menu_selected_border_color;
 }
 
 QMenu::item:disabled {
-    color: $menu_disabled_text_color;
+    color: $menu_item_disabled_text_color;
 }
 
 QMenu::icon {
@@ -32,6 +32,6 @@ QMenu::icon {
 
 QMenu::separator {
     height: ${menu_separator_height}px;
-    background: $menu_separator_color;
-    margin: ${menu_separator_margin_vertical}px ${menu_separator_margin_horizontal}px;
+    background: $menu_panel_separator_color;
+    margin: ${menu_separator_margin_y}px ${menu_separator_margin_x}px;
 }

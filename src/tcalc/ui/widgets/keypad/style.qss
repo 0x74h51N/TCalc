@@ -1,11 +1,33 @@
 QWidget[uiRole="keypad"] QPushButton[keypadRole] {
     background-color: $keypad_number_color;
     color: $keypad_number_text_color;
-    padding: ${keypad_button_padding}px;
+    padding: ${keypad_button_padding_y}px ${keypad_button_padding_x}px;
 }
 
+/* Before :disabled, :checked and :pressed: at the same weight the later rule wins */
 QWidget[uiRole="keypad"] QPushButton[keypadRole]:hover {
     border: 1px solid $keypad_hover_border_color;
+    background-color: $keypad_number_hover_color;
+}
+
+QWidget[uiRole="keypad"] QPushButton[keypadRole="operator"]:hover {
+    background-color: $keypad_operator_hover_color;
+}
+
+QWidget[uiRole="keypad"] QPushButton[keypadRole="action"]:hover {
+    background-color: $keypad_action_hover_color;
+}
+
+QWidget[uiRole="keypad"] QPushButton[keypadRole="trig"]:hover {
+    background-color: $keypad_trig_hover_color;
+}
+
+QWidget[uiRole="keypad"] QPushButton[keypadRole="function"]:hover {
+    background-color: $keypad_function_hover_color;
+}
+
+QWidget[uiRole="keypad"] QPushButton[keypadRole="power"]:hover {
+    background-color: $keypad_power_hover_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole]:pressed,
@@ -14,13 +36,13 @@ QWidget[uiRole="keypad"] QPushButton[keypadRole][pressed="true"] {
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole]:disabled {
-    background-color: $keypad_disabled_color;
-    color: $keypad_disabled_text_color;
-    border-color: $keypad_disabled_color;
+    background-color: $keypad_button_disabled_color;
+    color: $keypad_button_disabled_text_color;
+    border-color: $keypad_button_disabled_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole]:checked {
-    background-color: $keypad_checked_color;
+    background-color: $keypad_button_checked_color;
 }
 
 QWidget[uiRole="keypad"] QPushButton[keypadRole="operator"] {
@@ -76,23 +98,23 @@ QWidget[uiRole="keypad"] QPushButton[keypadRole="power"][pressed="true"] {
 QWidget[uiRole="keypad"] QPushButton[keypadRole="trig"],
 QWidget[uiRole="keypad"] QPushButton[keypadRole="function"],
 QWidget[uiRole="keypad"] QPushButton[keypadRole="power"] {
-    padding: ${keypad_compact_pad_y}px ${keypad_compact_pad_x}px;
+    padding: ${keypad_compact_padding_y}px ${keypad_compact_padding_x}px;
 }
 
 /* A border, even 0 px, drops the style's own button frame: edges only where a theme asks */
 QWidget[uiRole="keypad"][raised="true"] QPushButton[keypadRole] {
-    border: ${keypad_edge_width}px solid $keypad_edge_shadow_color;
-    border-top-color: $keypad_edge_light_color;
-    border-left-color: $keypad_edge_light_color;
+    border: ${keypad_button_edge_width}px solid $keypad_button_edge_shadow_color;
+    border-top-color: $keypad_button_edge_light_color;
+    border-left-color: $keypad_button_edge_light_color;
 }
 
 QWidget[uiRole="keypad"][raised="true"] QPushButton[keypadRole]:pressed,
 QWidget[uiRole="keypad"][raised="true"] QPushButton[keypadRole][pressed="true"],
 QWidget[uiRole="keypad"][raised="true"] QPushButton[keypadRole]:checked {
-    border-top-color: $keypad_edge_shadow_color;
-    border-left-color: $keypad_edge_shadow_color;
-    border-bottom-color: $keypad_edge_light_color;
-    border-right-color: $keypad_edge_light_color;
+    border-top-color: $keypad_button_edge_shadow_color;
+    border-left-color: $keypad_button_edge_shadow_color;
+    border-bottom-color: $keypad_button_edge_light_color;
+    border-right-color: $keypad_button_edge_light_color;
 }
 
 /* Custom pad toolbar */
@@ -117,7 +139,7 @@ QMenu[customPadMenu="true"] {
 }
 
 QMenu[customPadMenu="true"]::item:selected {
-    background-color: $custom_pad_menu_selected_color;
+    background-color: $custom_pad_menu_hover_color;
 }
 
 /* Searchable picker popup */
@@ -129,7 +151,7 @@ SearchablePicker {
 SearchablePicker QLineEdit {
     background-color: $picker_list_background_color;
     color: $picker_text_color;
-    font-size: ${picker_font_size}pt;
+    font-size: ${picker_text_font_min_pt}pt;
     border: 1px solid $picker_border_color;
     padding: 2px 4px;
 }
@@ -137,7 +159,7 @@ SearchablePicker QLineEdit {
 SearchablePicker QListView {
     background-color: $picker_list_background_color;
     color: $picker_text_color;
-    font-size: ${picker_font_size}pt;
+    font-size: ${picker_text_font_min_pt}pt;
     border: none;
 }
 

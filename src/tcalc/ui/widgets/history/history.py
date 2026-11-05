@@ -132,9 +132,13 @@ class History(QWidget):
         self.list.setFont(font)
 
     def _fit_icon_button_radius(self) -> None:
-        look = get_theme().look.history.icon_button
+        look = get_theme().look.history
         self._icon_button_radius = fit_radius(
-            self, ICON_BUTTON_SELECTOR, look.radius, look.size, self._icon_button_radius
+            self,
+            ICON_BUTTON_SELECTOR,
+            look.button.radius,
+            look.icon_button_size,
+            self._icon_button_radius,
         )
 
     def set_mode(self, mode: RenderMode):
@@ -365,13 +369,13 @@ class HistoryItem(QWidget):
         self._layout.setSpacing(style.item_spacing)
 
         # Action buttons (absolute positioned, bottom-left, outside layout)
-        self._btn_size = get_theme().look.history.icon_button.size
+        self._btn_size = get_theme().look.history.icon_button_size
         self._copy_btn = IconButton(
             Icon.EDIT_COPY,
             tooltip="Copy expression",
             size=self._btn_size,
             parent=self,
-            tint=lambda look: look.history.icon_button.copy_icon_color,
+            tint=lambda look: look.history.copy.text.color,
         )
         self._copy_btn.setObjectName("historyCopy")
         self._copy_btn.hide()
@@ -382,7 +386,7 @@ class HistoryItem(QWidget):
             tooltip="Remove from history",
             size=self._btn_size,
             parent=self,
-            tint=lambda look: look.history.icon_button.delete_icon_color,
+            tint=lambda look: look.history.delete.text.color,
         )
         self._remove_btn.setObjectName("historyDelete")
         self._remove_btn.hide()
@@ -474,8 +478,15 @@ class HistoryItem(QWidget):
         sample = self.parrent
         look = get_theme().look.history
         if self._current_render_mode is not RenderMode.MATH:
-            apply_scaled_fonts(sample, self.expression_label, look.expr_min_pt, look.expr_max_pt)
-        apply_scaled_fonts(sample, self.result_label, look.result_min_pt, look.result_max_pt)
+            apply_scaled_fonts(
+                sample,
+                self.expression_label,
+                look.expression.font.min_pt,
+                look.expression.font.max_pt,
+            )
+        apply_scaled_fonts(
+            sample, self.result_label, look.result.font.min_pt, look.result.font.max_pt
+        )
 
     def refresh_layout(self) -> None:
         """Recalculate item row height for QListWidget after font/mode changes in disgusting way."""

@@ -165,19 +165,19 @@ def test_side_panel_fonts_stay_scaled_after_switch(qapp, window, monkeypatch):
     "table, widgets, dark_max",
     [
         param(
-            "[history]\nfont_size = 20\nmax_pt = 20",
+            "[history.text.font]\nmin_pt = 20\nmax_pt = 20",
             lambda w: [w.history.list],
             12,
             id="history list",
         ),
         param(
-            "[history]\nclear_min_pt = 20\nclear_max_pt = 20",
+            "[history.clear.text.font]\nmin_pt = 20\nmax_pt = 20",
             lambda w: [w.history.clear_button],
             10,
             id="clear history",
         ),
         param(
-            "[memory]\nfont_size = 20\nmax_pt = 20",
+            "[memory.text.font]\nmin_pt = 20\nmax_pt = 20",
             lambda w: list(w.memory_bar.font_targets),
             13,
             id="memory bar",
@@ -328,10 +328,10 @@ def round_theme(_user_themes) -> str:
     """A dark-based user theme whose every radius is far above what a widget fits."""
     folder = _user_themes / "round"
     folder.mkdir(parents=True)
-    tables = ["[options]", "[history.mode]", "[history.icon_button]", "[toast]", "[memory]"]
+    tables = ["[options]", "[history.mode]", "[history.button]", "[toast]", "[memory]"]
     body = "".join(f"{table}\nradius = 100\n" for table in tables)
     (folder / "theme.toml").write_text(
-        f'name = "Round"\nbase = "dark"\n{body}[result]\nfrac_toggle_radius = 100\n'
+        f'name = "Round"\nbase = "dark"\n{body}[result.fraction]\nradius = 100\n'
     )
     return "round"
 
@@ -372,8 +372,8 @@ def test_dock_titles_and_tabs_follow_the_theme(qapp, window, _user_themes):
     (_user_themes / "docky").mkdir(parents=True)
     (_user_themes / "docky" / "theme.toml").write_text(
         'name = "Docky"\nbase = "dark"\n'
-        '[dock]\ntitle_color = "status_error"\ntitle_font_size = 21\n'
-        '[tabs]\ntext_color = "status_error"\nfont_size = 21\n'
+        '[dock]\ncolor = "status_error"\n[dock.font]\nmin_pt = 21\n'
+        '[tabs]\ncolor = "status_error"\n[tabs.font]\nmin_pt = 21\n'
     )
     apply_theme(qapp, "docky")
     qapp.processEvents()
@@ -423,8 +423,8 @@ def edged_theme(_user_themes) -> str:
     """A dark-based user theme with a raised edge on every button area."""
     folder = _user_themes / "edged"
     folder.mkdir(parents=True)
-    tables = ["[keypad]", "[memory]", "[options]", "[history.mode]"]
-    edge = 'edge_width = 2\nedge_light_color = "accent_text"\n'
+    tables = ["[keypad.button.edge]", "[memory.edge]", "[options.edge]", "[history.mode.edge]"]
+    edge = 'width = 2\nlight_color = "accent_text"\n'
     body = "".join(f"{table}\n{edge}" for table in tables)
     (folder / "theme.toml").write_text(f'name = "Edged"\nbase = "dark"\n{body}')
     return "edged"

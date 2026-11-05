@@ -14,82 +14,120 @@ size_default = 18
 base_color = "background"
 
 [display]
-expression_selection_color = "selection_background"
-expression_selection_text_color = "selection_text"
-expression_slot_focus_color = "control_hover"
 radical_line_color = "text_primary"
 radical_symbol_color = "text_primary"
 
-[result]
-fraction_icon_color = "text_primary"
-frac_toggle_radius = 0
+[display.expression]
+slot_focus_color = "control_hover"
 
-[picker]
-font_size = 18
+[display.expression.selection]
+color = "selection_background"
+text_color = "selection_text"
 
-[menu]
-item_border_radius = 0
-font_size = 16
+[result.fraction]
+radius = 0
+
+[result.fraction.text]
+color = "text_primary"
+
+[picker.text.font]
+min_pt = 18
+
+[menu.panel.text.font]
+min_pt = 16
+
+[menu.item]
+radius = 0
 
 # VT323 draws small, so every text area is a few points larger
-[keypad]
+[keypad.button]
+radius = 0
+
+[keypad.button.text.font]
 min_pt = 14
 max_pt = 24
-radius = 0
+
 # Raised keys, lit from the top left
-edge_width = 2
-edge_light_color = "button_highlight"
+[keypad.button.edge]
+width = 2
+light_color = "button_highlight"
 
 [memory]
 radius = 0
-edge_width = 2
-edge_light_color = "button_highlight"
-font_size = 14
+
+[memory.edge]
+width = 2
+light_color = "button_highlight"
+
+[memory.text.font]
+min_pt = 14
 max_pt = 18
 
 [options]
 radius = 0
-edge_width = 2
-edge_light_color = "button_highlight"
-font_size = 18
 
-[history]
-font_size = 14
+[options.text.font]
+min_pt = 18
+
+[options.edge]
+width = 2
+light_color = "button_highlight"
+
+[history.text.font]
+min_pt = 14
 max_pt = 18
-expr_min_pt = 14
-expr_max_pt = 20
-clear_min_pt = 12
-clear_max_pt = 15
-result_min_pt = 16
-result_max_pt = 20
+
+[history.expression.font]
+min_pt = 14
+max_pt = 20
+
+[history.clear.text.font]
+min_pt = 12
+max_pt = 15
+
+[history.result.font]
+min_pt = 16
+max_pt = 20
 
 [history.mode]
 radius = 0
-edge_width = 2
-edge_light_color = "button_highlight"
-font_size = 16
 
-[history.icon_button]
-radius = 0
+[history.mode.text.font]
+min_pt = 16
+
+[history.mode.edge]
+width = 2
 light_color = "button_highlight"
-copy_color = "background"
-delete_color = "background"
+
+[history.button]
+radius = 0
 hover_color = "control_hover"
 pressed_color = "control_bg_pressed"
+
+[history.button.edge]
+light_color = "button_highlight"
+
+[history.copy]
+color = "background"
+
+[history.delete]
+color = "background"
 
 [tooltip]
 radius = 0
 
 [toast]
 radius = 0
-font_size = 18
+
+[toast.text.font]
+min_pt = 18
 
 # Dock titles and tabs at the app font size, as before they had a setting
-[dock]
-title_font_size = 18
+[dock.font]
+min_pt = 18
 
-[tabs]
-font_size = 18
+[tabs.font]
+min_pt = 18
 
 [colors]
 # The 1995 desktop: a gray face, a dark gray shadow under raised keys, navy selection

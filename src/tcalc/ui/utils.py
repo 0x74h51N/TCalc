@@ -98,7 +98,7 @@ def _load_icon(name: Icon, tint: ColorPlace | None) -> QIcon:
     if tint is not None:
         color: str | None = theme.colors[tint(theme.look)]
     elif name not in CONFIG.icons.untinted:
-        color = theme.colors[theme.look.icons.color]
+        color = theme.colors[theme.look.palette.icon_color]
     else:
         color = None
     return _apply_tint(QIcon(str(path)), color)

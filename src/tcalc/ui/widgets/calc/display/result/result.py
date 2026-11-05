@@ -52,7 +52,7 @@ class Result(QWidget):
         )
 
         self._result_font = QFont()
-        self._result_font.setPointSize(get_theme().look.result.font_size)
+        self._result_font.setPointSize(get_theme().look.result.text.font.min_pt)
         self._result_font.setBold(True)
 
         self.result_label = QLabel("0")
@@ -84,8 +84,8 @@ class Result(QWidget):
             icon_name=self._config.frac_icon,
             tooltip=self._frac_btn_tooltip,
             size=btn_size,
-            padding=get_theme().look.result.btn_padding,
-            tint=lambda look: look.result.fraction_icon_color,
+            padding=get_theme().look.result.fraction.padding.x,
+            tint=lambda look: look.result.fraction.text.color,
             parent=self,
         )
         self._frac_btn.setObjectName("fracToggleBtn")
@@ -114,7 +114,7 @@ class Result(QWidget):
         QTimer.singleShot(0, self._update_fonts)
 
     def _fit_frac_radius(self) -> None:
-        radius = get_theme().look.result.frac_toggle_radius
+        radius = get_theme().look.result.fraction.radius
         self._frac_radius = fit_radius(
             self, "QPushButton#fracToggleBtn", radius, self._config.btn_size, self._frac_radius
         )
@@ -193,8 +193,8 @@ class Result(QWidget):
     def _update_fonts(self) -> None:
         norm = self._config.font_norm
         look = get_theme().look.result
-        base_font = look.font_size
-        max_pt = look.max_pt
+        base_font = look.text.font.min_pt
+        max_pt = look.text.font.max_pt
         line_edits = self._res_slot.line_edits()
         self._res_render.update_line_fonts(line_edits, self, base_font - norm, max_pt - norm)
         for le in line_edits:

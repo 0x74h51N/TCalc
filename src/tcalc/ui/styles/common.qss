@@ -3,17 +3,17 @@ QToolTip {
     border: 1px solid $tooltip_border_color;
     border-radius: ${tooltip_radius}px;
     color: $tooltip_text_color;
-    padding: ${tooltip_padding}px;
+    padding: ${tooltip_padding_y}px ${tooltip_padding_x}px;
 }
 
 QLabel#dockTitle {
-    color: $dock_title_color;
-    font-size: ${dock_title_font_size}pt;
+    color: $dock_color;
+    font-size: ${dock_font_min_pt}pt;
 }
 
 QTabBar::tab {
-    color: $tabs_text_color;
-    font-size: ${tabs_font_size}pt;
+    color: $tabs_color;
+    font-size: ${tabs_font_min_pt}pt;
 }
 
 /* The same in every theme: only the history items' buttons have a look of their own */
@@ -51,7 +51,7 @@ QRadioButton[optionRole="option"] {
     color: $options_text_color;
     padding: ${options_padding_y}px ${options_padding_x}px;
     spacing: 0px;
-    font-size: ${options_font_size}pt;
+    font-size: ${options_text_font_min_pt}pt;
 }
 
 QRadioButton[optionRole="option"]::indicator {

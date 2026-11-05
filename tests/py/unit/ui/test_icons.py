@@ -112,10 +112,10 @@ def test_red_icon_stays_red_after_switch():
 @pytest.mark.usefixtures("qapp")
 def test_tint_follows_a_switch():
     load_theme("dark")
-    icon = get_icon(Icon.FRAC, lambda look: look.result.fraction_icon_color)
+    icon = get_icon(Icon.FRAC, lambda look: look.result.fraction.text.color)
     theme = load_theme("light")
     try:
-        assert _opaque_color(icon) == theme.qcolor(theme.look.result.fraction_icon_color)
+        assert _opaque_color(icon) == theme.qcolor(theme.look.result.fraction.text.color)
     finally:
         load_theme("dark")
 
