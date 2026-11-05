@@ -41,13 +41,21 @@ jobs:
         id: version
         env:
           BUMP: ${{ inputs.bump }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           last=$(git describe --tags --abbrev=0 --match 'v[0-9]*')
+          breaking=""
+          for pr in $(git log --merges --first-parent --format=%s "$last"..HEAD | sed -nE 's/^Merge pull request #([0-9]+) .*/\1/p'); do
+            body=$(gh pr view "$pr" --json body --jq .body)
+            if printf '%s\n' "$body" | python scripts/pr_body.py breaking; then
+              breaking="$breaking $pr"
+            fi
+          done
           IFS=. read -r major minor patch <<< "${last#v}"
           case "$BUMP" in
             auto)
-              if git log --merges --first-parent --format=%b "$last"..HEAD | grep -q '^feat[/:]'; then
+              if [ -n "$breaking" ] || git log --merges --first-parent --format=%b "$last"..HEAD | grep -q '^feat[/:]'; then
                 version="$major.$((minor + 1)).0"
               else
                 version="$major.$minor.$((patch + 1))"
@@ -67,12 +75,14 @@ jobs:
               ;;
           esac
           echo "last=$last" >> "$GITHUB_OUTPUT"
+          echo "breaking=$breaking" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Write the changelog section
         env:
           LAST: ${{ steps.version.outputs.last }}
           VERSION: ${{ steps.version.outputs.version }}
+          BREAKING: ${{ steps.version.outputs.breaking }}
         run: |
           set -euo pipefail
           git-cliff --unreleased --tag "v$VERSION" --strip all > section.md
@@ -81,11 +91,15 @@ jobs:
             exit 1
           fi
           git-cliff --unreleased --tag "v$VERSION" --prepend CHANGELOG.md
+          for pr in $BREAKING; do
+            sed -i -E "s/^- (.* \(#$pr\))$/- **Breaking:** \1/" section.md CHANGELOG.md
+          done
 
       - name: Open the pull request
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
+          BREAKING: ${{ steps.version.outputs.breaking }}
         run: |
           set -euo pipefail
           branch="release/v$VERSION"
@@ -99,6 +113,13 @@ jobs:
             echo "Generated from the pull request titles merged since the last release. Polish a line here before merging; the merge tags \`v$VERSION\` and publishes the release."
             echo
             cat section.md
+            # A title type outside the changelog has no line to mark
+            for pr in $BREAKING; do
+              if ! grep -q "(#$pr)$" section.md; then
+                echo
+                echo "#$pr answered Breaking: yes and has no line above: add one."
+              fi
+            done
             milestones=$(gh api "repos/$GITHUB_REPOSITORY/milestones" --jq '.[] | select(.open_issues == 0 and .closed_issues > 0) | "- " + .title')
             if [ -n "$milestones" ]; then
               echo

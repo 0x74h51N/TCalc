@@ -4,16 +4,65 @@ on:
   pull_request:
     branches:
       - master
+    # A fixed description has to reach the jobs it held back
+    types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
 
 env:
   PYTHON_VERSION: "3.14.5"
 
 jobs:
+  # First of all: the title is the changelog line (docs/release.md), the description answers
+  # what the template asks (scripts/pr_body.py). Every other job waits on this one.
+  pr-title:
+    name: Pull Request Title
+    runs-on: ubuntu-24.04
+    env:
+      # The release pull request comes from the workflow, with no template to fill
+      CHECK_DESCRIPTION: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login != 'github-actions[bot]' }}
+    steps:
+      - name: Check the title
+        if: github.event_name == 'pull_request'
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^((feat|fix|perf|refactor|docs|test|ci|chore|build)(/[a-z0-9-]+)?: [^[:space:]]|release: v[0-9]+\.[0-9]+\.[0-9]+$)'
+          if ! printf '%s\n' "$TITLE" | grep -Eq "$pattern"; then
+            echo "Title does not match: $pattern"
+            echo "Title: $TITLE"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        if: env.CHECK_DESCRIPTION == 'true'
+
+      - uses: actions/setup-python@v5
+        if: env.CHECK_DESCRIPTION == 'true'
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Test the description rules
+        if: env.CHECK_DESCRIPTION == 'true'
+        run: |
+          pip install "$(grep -oE '"pytest[<>=~!][^"]*"' pyproject.toml | tr -d '"')"
+          # The project's pytest config needs plugins this test does not
+          python -m pytest -c /dev/null --rootdir=. --noconftest tests/py/unit/core/test_pr_body.py
+
+      - name: Check the description
+        if: env.CHECK_DESCRIPTION == 'true'
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: printf '%s\n' "$BODY" | python scripts/pr_body.py check "$TITLE"
+
   # The one place that decides which job a PR needs; every other job reads its flag.
   changes:
     name: Changed Paths
+    needs: pr-title
     runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
     outputs:
       cpp-format-check: ${{ steps.rules.outputs.cpp-format-check }}
       py-format-check: ${{ steps.rules.outputs.py-format-check }}
@@ -32,6 +81,8 @@ jobs:
         id: rules
         env:
           EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -40,6 +91,9 @@ jobs:
           if [ "$EVENT" = workflow_dispatch ]; then
             echo "Manual run: every job runs."
             all=1
+          elif [ "$ACTION" = edited ] && [ "$(gh run list --workflow CI --commit "$HEAD_SHA" --status success --json databaseId --jq length)" != 0 ]; then
+            # Ticking a box of the description is an edit too; its commit has already passed
+            echo "Description edit on a commit CI passed: no job runs."
           else
             # Each changed file marks its group; the first matching pattern wins.
             while read -r f; do
@@ -362,6 +416,7 @@ jobs:
     runs-on: ubuntu-24.04
     if: always()
     needs:
+      - pr-title
       - changes
       - cpp-format-check
       - py-format-check

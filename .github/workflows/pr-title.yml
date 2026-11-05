@@ -1,7 +1,8 @@
 name: PR Title
 
-# The title is the changelog line (docs/release.md). Its own workflow, so editing a
-# pull request's description or title reruns only this check, not the whole CI.
+# The title is the changelog line (docs/release.md) and the description answers what the
+# template asks (scripts/pr_body.py). Its own workflow, so editing a pull request's
+# description or title reruns only this check, not the whole CI.
 on:
   pull_request:
     branches:
@@ -10,6 +11,9 @@ on:
 
 permissions:
   contents: read
+
+env:
+  PYTHON_VERSION: "3.14.5"
 
 jobs:
   pr-title:
@@ -26,3 +30,25 @@ jobs:
             echo "Title: $TITLE"
             exit 1
           fi
+      # The release pull request comes from the workflow, with no template to fill
+      - uses: actions/checkout@v4
+        if: ${{ github.event.pull_request.user.login != 'github-actions[bot]' }}
+
+      - uses: actions/setup-python@v5
+        if: ${{ github.event.pull_request.user.login != 'github-actions[bot]' }}
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      # Here and not in ci.yml: its path filter skips a change to the script or the template alone
+      - name: Test the description rules
+        if: ${{ github.event.pull_request.user.login != 'github-actions[bot]' }}
+        run: |
+          pip install "$(grep -oE '"pytest[<>=~!][^"]*"' pyproject.toml | tr -d '"')"
+          # The project's pytest config needs plugins this test does not
+          python -m pytest -c /dev/null --rootdir=. --noconftest tests/py/unit/core/test_pr_body.py
+
+      - name: Check the description
+        if: ${{ github.event.pull_request.user.login != 'github-actions[bot]' }}
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+        run: printf '%s\n' "$BODY" | python scripts/pr_body.py check
