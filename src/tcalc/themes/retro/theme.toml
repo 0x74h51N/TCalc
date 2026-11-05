@@ -21,11 +21,14 @@ radical_symbol_color = "text_primary"
 slot_focus_color = "control_hover"
 
 [display.expression.selection]
-color = "selection_background"
-text_color = "selection_text"
+color = "primary"
+text_color = "primary_text"
 
 [result.fraction]
 radius = 0
+color = "control_bg"
+hover_color = "control_hover"
+pressed_color = "secondary_hover"
 
 [result.fraction.text]
 color = "text_primary"
@@ -37,6 +40,8 @@ min_pt = 18
 min_pt = 16
 
 [menu.item]
+hover_color = "control_hover"
+pressed_color = "control_hover"
 radius = 0
 
 # VT323 draws small, so every text area is a few points larger
@@ -51,19 +56,26 @@ max_pt = 24
 [keypad.button.edge]
 width = 2
 light_color = "button_highlight"
+shadow_color = "button_shadow"
 
 [memory]
 radius = 0
+color = "control_bg"
+hover_color = "control_hover"
+pressed_color = "secondary_hover"
 
 [memory.edge]
 width = 2
 light_color = "button_highlight"
+shadow_color = "button_shadow"
 
 [memory.text.font]
 min_pt = 14
 max_pt = 18
 
 [options]
+hover_color = "control_hover"
+pressed_color = "control_hover"
 radius = 0
 
 [options.text.font]
@@ -72,6 +84,7 @@ min_pt = 18
 [options.edge]
 width = 2
 light_color = "button_highlight"
+shadow_color = "button_shadow"
 
 [history.text.font]
 min_pt = 14
@@ -90,6 +103,8 @@ min_pt = 16
 max_pt = 20
 
 [history.mode]
+hover_color = "control_hover"
+pressed_color = "control_hover"
 radius = 0
 
 [history.mode.text.font]
@@ -98,14 +113,16 @@ min_pt = 16
 [history.mode.edge]
 width = 2
 light_color = "button_highlight"
+shadow_color = "button_shadow"
 
 [history.button]
 radius = 0
 hover_color = "control_hover"
-pressed_color = "control_bg_pressed"
+pressed_color = "secondary_hover"
 
 [history.button.edge]
 light_color = "button_highlight"
+shadow_color = "button_shadow"
 
 [history.copy]
 color = "background"
@@ -114,9 +131,13 @@ color = "background"
 color = "background"
 
 [tooltip]
+hover_color = "control_hover"
 radius = 0
 
 [toast]
+info_color = "toast_info_bg"
+warn_color = "toast_warn_bg"
+error_color = "toast_error_bg"
 radius = 0
 
 [toast.text.font]
@@ -129,15 +150,85 @@ min_pt = 18
 [tabs.font]
 min_pt = 18
 
+[result.fraction.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[memory.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[keypad.button.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[options.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[custom_pad.add_key.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[custom_pad.spinbox.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[history.button.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[keypad]
+hover_border_color = "action_text"
+
+[keypad.equals]
+color = "secondary"
+hover_color = "secondary"
+pressed_color = "secondary_hover"
+
+[keypad.equals.text]
+color = "action_text"
+
+[keypad.button.checked]
+color = "control_hover"
+text_color = "action_text"
+
+[history.mode.checked]
+color = "control_hover"
+text_color = "action_text"
+
+[options.checked]
+color = "control_hover"
+text_color = "action_text"
+
+[memory.text]
+color = "action_text"
+
+[custom_pad]
+spinbox_focus_border_color = "action_text"
+
+[menu]
+selected_border_color = "text_primary"
+
+[picker]
+hover_color = "control_hover"
+
+[menu.panel]
+hover_color = "control_hover"
+
+[history.selected]
+color = "control_hover"
+text_color = "text_primary"
+
 [colors]
 # The 1995 desktop: a gray face, a dark gray shadow under raised keys, navy selection
 button_shadow = "#404040"
 # The display is a white field, as the calculator of the era
 screen = "#FFFFFF"
 # Keys: digits navy, operators and actions red, as the calculator of the era
-primary = "#C0C0C0"
-primary_hover = "#A8A8A8"
-primary_text = "#800000"
+primary = "#000080"
+primary_hover = "#0000A0"
+primary_text = "#FFFFFF"
 secondary = "#C0C0C0"
 secondary_hover = "#A8A8A8"
 secondary_text = "#000080"
@@ -156,21 +247,12 @@ background = "#C0C0C0"
 text_primary = "#000000"
 text_secondary = "#000000"
 border_light = "#808080"
-border_focus = "#000000"
 status_error = "#C00000"
-selection_background = "#000080"
-selection_text = "#FFFFFF"
 control = "#C0C0C0"
 control_hover = "#CDCDCD"
-control_accent = "#800000"
 icon = "#000000"
 control_bg = "#C0C0C0"
-control_bg_hover = "#CDCDCD"
-control_bg_pressed = "#A8A8A8"
-control_disabled_bg = "#C0C0C0"
 control_disabled_text = "#808080"
-option_checked_bg = "#DCDCDC"
-option_hover_bg = "#CDCDCD"
 toast_info_bg = "#C0C0C0"
 toast_warn_bg = "#FFFFE1"
 toast_error_bg = "#FFB0B0"

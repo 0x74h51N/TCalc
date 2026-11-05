@@ -12,7 +12,7 @@ import logging
 
 import calc_native
 from PySide6.QtCore import QPoint, QSettings, Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QAbstractButton,
     QColorDialog,
@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 
 from tcalc.core.constants import CONST_BY_ID
 from tcalc.core.ops import Operation
-from tcalc.theme import PictureTarget, get_theme, qcolor
+from tcalc.theme import PictureTarget, get_theme
 from tcalc.typed_tables import TableError, build
 from tcalc.ui.icon import Icon
 from tcalc.ui.props import KeypadRole, Prop, UiRole
@@ -732,7 +732,7 @@ class CustomPad(QWidget):
         # Built on open, so it lists the active theme's colors
         if self._color_picker is not None:
             self._color_picker.deleteLater()
-        colors = [(name, qcolor(value)) for name, value in get_theme().colors.items()]
+        colors = [(name, QColor(value)) for name, value in get_theme().colors.items()]
         self._color_picker = self._make_picker(
             [("Custom Color...", None)]
             + [(name, f"${name}", color) for name, color in colors if color.isValid()],

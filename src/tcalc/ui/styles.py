@@ -4,7 +4,7 @@ from pathlib import Path
 from string import Template
 
 from PySide6.QtCore import QObject, Qt, Signal
-from PySide6.QtGui import QFont, QFontDatabase, QPalette
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QApplication
 
 from ..app_state import get_app_state
@@ -24,11 +24,21 @@ _UI_DIR = Path(__file__).parent
 _QSS_FILES = sorted(_UI_DIR.rglob("*.qss"), key=lambda p: (p.name != "common.qss", p))
 
 
+def qss_color(value: str, opacity: float) -> str:
+    # QSS has no opacity for a background: the alpha is written here, once, on the way out
+    if opacity == 1.0:
+        return value
+    color = QColor(value)
+    return f"rgba({color.red()}, {color.green()}, {color.blue()}, {round(opacity * 100)}%)"
+
+
 def _build_subs() -> dict[str, str]:
     """Template substitutions: each look field by its qss_name, a color place as the color."""
     theme = get_theme()
     return {
-        qss_name(f): theme.colors[f.color] if isinstance(f, ColorField) else str(f.value)
+        qss_name(f): qss_color(theme.colors[f.color], f.opacity)
+        if isinstance(f, ColorField)
+        else str(f.value)
         for f in look_fields(theme.look)
     }
 

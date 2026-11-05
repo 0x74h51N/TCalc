@@ -17,7 +17,8 @@
 #
 # Every key below is optional except `name` and `base`. A key TCalc does not know or a value of
 # the wrong type is logged and skipped; the rest of the theme still applies.
-# Colors take any QSS color: "#RRGGBB", "#AARRGGBB", "rgba(r, g, b, a%)" or a color name.
+# Colors are opaque: "#RRGGBB" or a color name. An alpha value is logged and skipped. How see-through
+# a place is belongs to that place: hover_color = { color = "primary", opacity = 0.14 }
 
 
 # --- Identity ---------------------------------------------------------------------------
@@ -70,14 +71,14 @@
 # text_color = "text_primary"
 # button_color = "background_light"
 # button_text_color = "text_primary"
-# highlight_color = "selection_background"
-# highlighted_text_color = "selection_text"
+# highlight_color = "primary"
+# highlighted_text_color = "primary_text"
 #   Single-color icons
 # icon_color = "icon"
 
 # [display]
 # background_color = "screen"
-# radical_line_color = "selection_text"
+# radical_line_color = "text_primary"
 # radical_symbol_color = "text_primary"
 # status_text_color = "text_secondary"
 # status_error_text_color = "status_error"
@@ -87,36 +88,36 @@
 # [display.expression]
 # slot_focus_color = "background_light"
 # text = { color = "text_secondary", font = { min_pt = 14, max_pt = 26 } }
-# selection = { color = "selection_background", text_color = "selection_text" }
+# selection = { color = "primary", text_color = "primary_text" }
 
 # [result]
 # text = { color = "text_primary", font = { min_pt = 24, max_pt = 32 } }
 
 #   The fraction toggle; text_color is its icon
 # [result.fraction]
-# color = "control_bg"
-# hover_color = "control_bg_hover"
-# pressed_color = "control_bg_pressed"
+# color = { color = "control_bg", opacity = 0.06 }
+# hover_color = { color = "control_bg", opacity = 0.10 }
+# pressed_color = { color = "control_bg", opacity = 0.16 }
 # radius = 4
-# text = { color = "control_accent", font = { min_pt = 9, max_pt = 13 } }
-# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
-# checked = { color = "option_checked_bg", text_color = "control_accent" }
-# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# text = { color = "primary", font = { min_pt = 9, max_pt = 13 } }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 6, x = 6 }
 
 # [memory]
-# color = "control_bg"
-# hover_color = "control_bg_hover"
-# pressed_color = "control_bg_pressed"
+# color = { color = "control_bg", opacity = 0.06 }
+# hover_color = { color = "control_bg", opacity = 0.10 }
+# pressed_color = { color = "control_bg", opacity = 0.16 }
 # radius = 0
-# text = { color = "control_accent", font = { min_pt = 9, max_pt = 13 } }
-# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
-# checked = { color = "option_checked_bg", text_color = "control_accent" }
-# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# text = { color = "primary", font = { min_pt = 9, max_pt = 13 } }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 8, x = 14 }
 
 # [keypad]
-# hover_border_color = "accent_text"
+# hover_border_color = "primary"
 # symbol_color = "secondary_text"
 # compact_padding = { y = 4, x = 8 }
 
@@ -127,9 +128,9 @@
 # pressed_color = "secondary_hover"
 # radius = 2
 # text = { color = "secondary_text", font = { min_pt = 8, max_pt = 16 } }
-# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
-# checked = { color = "action_hover", text_color = "secondary_text" }
-# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 0, x = 0 }
 
 # [keypad.operator]
@@ -163,7 +164,7 @@
 # text = { color = "accent_text" }
 
 # [custom_pad]
-# spinbox_focus_border_color = "control_accent"
+# spinbox_focus_border_color = "primary"
 # toolbar_separator_color = "control"
 
 #   The add key of the custom pad
@@ -173,9 +174,9 @@
 # pressed_color = "control_hover"
 # radius = 2
 # text = { color = "text_primary", font = { min_pt = 8, max_pt = 16 } }
-# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
-# checked = { color = "option_checked_bg", text_color = "control_accent" }
-# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 0, x = 0 }
 
 #   The row and column spin boxes
@@ -185,15 +186,15 @@
 # pressed_color = "control_hover"
 # radius = 2
 # text = { color = "text_primary", font = { min_pt = 8, max_pt = 16 } }
-# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
-# checked = { color = "option_checked_bg", text_color = "control_accent" }
-# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 0, x = 0 }
 
 # [custom_pad.menu]
 # background_color = "background_medium"
 # border_color = "border_light"
-# hover_color = "selection_background"
+# hover_color = "primary"
 # separator_color = "control"
 # list_background_color = "background_dark"
 # radius = 2
@@ -204,7 +205,7 @@
 # [picker]
 # background_color = "background_medium"
 # border_color = "border_light"
-# hover_color = "selection_background"
+# hover_color = { color = "primary", opacity = 0.14 }
 # separator_color = "border_light"
 # list_background_color = "background_dark"
 # radius = 2
@@ -212,7 +213,7 @@
 # padding = { y = 0, x = 0 }
 
 # [menu]
-# selected_border_color = "border_focus"
+# selected_border_color = "primary"
 # constants_symbol_color = "text_primary"
 # item_margin = 2
 # item_min_width = 70
@@ -225,7 +226,7 @@
 # [menu.panel]
 # background_color = "background_medium"
 # border_color = "border_light"
-# hover_color = "selection_background"
+# hover_color = { color = "primary", opacity = 0.14 }
 # separator_color = "border_light"
 # list_background_color = "background_dark"
 # radius = 2
@@ -235,13 +236,13 @@
 #   A menu item; checked is the selected item
 # [menu.item]
 # color = "background_medium"
-# hover_color = "selection_background"
-# pressed_color = "selection_background"
+# hover_color = { color = "primary", opacity = 0.14 }
+# pressed_color = { color = "primary", opacity = 0.14 }
 # radius = 6
 # text = { color = "text_primary", font = { min_pt = 9, max_pt = 13 } }
 # disabled = { color = "background_medium", text_color = "text_secondary" }
-# checked = { color = "selection_background", text_color = "selection_text" }
-# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 4, x = 12 }
 
 # [history]
@@ -255,7 +256,7 @@
 #   The list's font range (pt)
 #   The Clear History button
 # text = { color = "text_secondary", font = { min_pt = 7, max_pt = 12 } }
-# selected = { color = "selection_background", text_color = "selection_text" }
+# selected = { color = { color = "primary", opacity = 0.24 }, text_color = "text_secondary" }
 # delete = { text = { color = "status_error" } }
 # clear = { text = { color = "text_primary", font = { min_pt = 7, max_pt = 10 } } }
 
@@ -272,40 +273,40 @@
 #   Where the history's buttons start; the copy and delete hover, pressed, radius and edge are read from here
 # [history.button]
 # color = "background_light"
-# hover_color = "selection_background"
+# hover_color = { color = "primary", opacity = 0.14 }
 # pressed_color = "background_dark"
 # radius = 2
 # text = { color = "icon", font = { min_pt = 7, max_pt = 12 } }
-# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
-# checked = { color = "option_checked_bg", text_color = "control_accent" }
-# edge = { width = 1, light_color = "selection_background", shadow_color = "button_shadow" }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 1, light_color = "border_light", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 0, x = 0 }
 
 #   The Math / Flat / Raw buttons, an option group of their own
 # [history.mode]
-# hover_color = "option_hover_bg"
-# pressed_color = "option_hover_bg"
+# hover_color = { color = "primary", opacity = 0.14 }
+# pressed_color = { color = "primary", opacity = 0.14 }
 # radius = 2
 # text = { color = "text_secondary", font = { min_pt = 9, max_pt = 9 } }
-# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 4, x = 10 }
 
 #   Option groups (Deg/Rad/Grad...)
 # [options]
 # color = "background"
-# hover_color = "option_hover_bg"
-# pressed_color = "option_hover_bg"
+# hover_color = { color = "primary", opacity = 0.14 }
+# pressed_color = { color = "primary", opacity = 0.14 }
 # radius = 2
 # text = { color = "text_secondary", font = { min_pt = 9, max_pt = 9 } }
-# disabled = { color = "control_disabled_bg", text_color = "control_disabled_text" }
-# checked = { color = "option_checked_bg", text_color = "control_accent" }
-# edge = { width = 0, light_color = "selection_background", shadow_color = "button_shadow" }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 4, x = 10 }
 
 # [tooltip]
 # background_color = "background_dark"
 # border_color = "border_light"
-# hover_color = "selection_background"
+# hover_color = { color = "primary", opacity = 0.14 }
 # separator_color = "border_light"
 # list_background_color = "background_dark"
 # radius = 2
@@ -313,9 +314,9 @@
 # padding = { y = 2, x = 2 }
 
 # [toast]
-# info_color = "toast_info_bg"
-# warn_color = "toast_warn_bg"
-# error_color = "toast_error_bg"
+# info_color = { color = "toast_info_bg", opacity = 0.90 }
+# warn_color = { color = "toast_warn_bg", opacity = 0.55 }
+# error_color = { color = "toast_error_bg", opacity = 0.55 }
 # radius = 4
 # text = { color = "text_primary", font = { min_pt = 13, max_pt = 13 } }
 # padding = { y = 6, x = 10 }
@@ -349,7 +350,7 @@
 # tint = "accent_text"      # optional: repaint the picture in one of the colors below
 #                           # (handy for line art); leave out to keep its own colors
 #
-# Translucent key colors (rgba with alpha < 100%) let a keypad picture show through.
+# A key color with an opacity, color = { color = "secondary", opacity = 0.75 }, lets a keypad picture show through.
 
 
 # --- Colors -----------------------------------------------------------------------------
@@ -386,31 +387,23 @@
 
 # Lines and selection
 # border_light = "#444957"         # menu borders and separators, keypad borders
-# primary = "#4a4f5a"              # the = key
-# primary_hover = "#3e434d"
-# primary_text = "#ffffff"
-# border_focus = "#5a606d"         # focus outline, checked menu item border
-# selection_background = "#3a3d47" # selected text and items, menu hover/checked
-# selection_text = "#ffffff"
+# primary = "#A6C7FF"              # the color of emphasis: selected, checked, focus, the main action
+# primary_hover = "#8FB4F5"        # a primary surface when pressed
+# primary_text = "#1E1E1E"         # on primary; at least 4.5:1 on primary and on primary_hover
+#                                  # memory and fraction text need 4.5:1 on background: name another color there if primary cannot
 
 # Other controls (option groups, memory and fraction buttons, angle toggle)
 # control = "#343842"
 # control_hover = "#2a2c33"
-# control_accent = "#f3d199"       # active/accent mark on controls
-# control_bg = "rgba(52, 56, 66, 20%)"          # memory bar and fraction button
-# control_bg_hover = "rgba(52, 56, 66, 28%)"
-# control_bg_pressed = "rgba(52, 56, 66, 38%)"
-# control_disabled_bg = "rgba(42, 44, 51, 10%)" # disabled keys and controls
-# control_disabled_text = "rgba(243, 209, 153, 30%)"
-# option_checked_bg = "rgba(52, 56, 66, 25%)"   # checked option in option groups
-# option_hover_bg = "rgba(42, 44, 51, 35%)"
+# control_bg = "#677596"               # memory bar and fraction button
+# control_disabled_text = "#F3D199"
 # button_highlight = "#FFFFFF"           # the raised edge's lit side
-# button_shadow = "rgba(0, 0, 0, 40%)"   # the raised edge's shadow side
+# button_shadow = "#000000"             # the raised edge's shadow side
 
 # Icons and messages
 # icon = "#fcfcfc"                 # single-color icons (colored icons keep their colors)
 # status_error = "#d94040"         # error message under the result
-# toast_info_bg = "rgba(63, 68, 80, 55%)"       # notification backgrounds
-# toast_warn_bg = "rgba(224, 168, 40, 55%)"
-# toast_error_bg = "rgba(217, 64, 64, 55%)"
+# toast_info_bg = "#32353D"             # notification backgrounds
+# toast_warn_bg = "#E0A828"
+# toast_error_bg = "#D94040"
 

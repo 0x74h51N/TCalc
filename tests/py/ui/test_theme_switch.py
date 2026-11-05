@@ -158,6 +158,30 @@ def test_equals_key_paints_the_theme_primary(qapp, window, _user_themes):
     assert pixel.name() == "#123456"
 
 
+def test_checked_key_paints_primary_with_its_text(qapp, window, _user_themes):
+    (_user_themes / "blue").mkdir(parents=True)
+    (_user_themes / "blue" / "theme.toml").write_text(
+        'name = "Blue"\nbase = "dark"\n[colors]\nprimary = "#123456"\nprimary_text = "#FFEE00"\n'
+    )
+    apply_theme(qapp, "blue")
+    key = next(b for b in window.findChildren(KeyButton) if b.text() == "Shift")
+    key.setChecked(True)
+    image = key.grab().toImage()
+    assert image.pixelColor(key.width() // 8, key.height() // 2).name() == "#123456"
+    colors = [image.pixelColor(x, y) for x in range(image.width()) for y in range(image.height())]
+    # Antialiased text never reaches the exact color: yellow pixels, not the role's text
+    assert any(c.red() > 150 and c.blue() < 64 for c in colors)
+
+
+def test_pressing_a_checked_key_shows_its_pressed_color(qapp, window):
+    apply_theme(qapp, "dark")
+    key = next(b for b in window.findChildren(KeyButton) if b.text() == "Shift")
+    key.setChecked(True)
+    key.setDown(True)
+    pixel = key.grab().toImage().pixelColor(key.width() // 8, key.height() // 2)
+    assert pixel.name().upper() == get_theme().colors["action_hover"].upper()
+
+
 def test_user_key_colors_survive_switch(qapp, window):
     key = QWidget(window)
     key.setStyleSheet("background: #123456;")

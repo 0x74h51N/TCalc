@@ -40,3 +40,9 @@ Red at 50% on a white widget, `pixelColor` of the grab; repaint is 20 `grab()` c
 - `QGraphicsOpacityEffect` at 0.5: `#ff8080`, 11.17 ms, about 2.2 times the cost.
 
 Blending the color over the surface into an opaque value was not probed: it cannot show a picture behind a key. No bundled theme does that (kitty's pictures target `display` and `history`), but `PictureTarget` offers the keypads, the custom pad and the window to any theme, and sponge paints a `window` picture.
+
+## 2026-11-05: primary as the color of emphasis, seen offscreen (`refactor/theme-areas`)
+
+Full windows of dark, light, kitty, retro and sponge, with a checked Shift, a selected history row and an open menu row: each paints `primary` on the equals key, the checked key, the checked mode button and the menu row; retro keeps gray faces and navy only on menu rows. Not seen in a real window on a desktop session. Focus borders on kitty and sponge not exercised by this pass.
+
+The `test_history` row "mode checked text keeps its default" had passed by coincidence: it reads the palette, which never sees a `:checked` rule, and dark's `control_accent` equalled `accent_text`.
