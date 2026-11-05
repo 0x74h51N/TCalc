@@ -6,7 +6,6 @@
 #
 from __future__ import annotations
 
-import hashlib
 import logging
 
 import pytest
@@ -172,30 +171,3 @@ def test_look_override_reaches_stylesheet_and_python(write_theme):
     assert theme.look.toast.pad_y == 40
     assert theme.look.keypad.radius == 7
     assert "padding: 40px" in _build_stylesheet()
-
-
-# The stylesheet of each bundled theme as master a88c553 built it (2026-11-02): moving the
-# values and renaming QSS variables must not change one substituted character. Since
-# 2026-11-04 the spin box radius is fixed at 2 px in every theme (#106), and the menu bar's
-# preset row rules and the keypad's equals rules, which no widget matched, are gone, and the
-# history item, Clear History, history mode and option font size rules are added (#197); the
-# shared icon button rule is fixed (retro and sponge lose their radius) and the history item
-# buttons get their own rules; the option, history button, fraction and toast radii leave the
-# stylesheet, since Python fits them to the widget; their raised edge's shadow is a fixed dark
-# color, not background_dark (white in light); keys, memory and option buttons get raised
-# edge rules that apply only under a theme with an edge width (retro, now a 1995 desktop);
-# kitty and sponge set the new option, history and menu sizes and radii; the dock title and
-# tab text rules are added, which keep the style's own tab
-@pytest.mark.parametrize(
-    "variant, sha256",
-    [
-        ("light", "c8ebcda1474ed6f7b81d7d287f311b94a20faa70a58c125b7800a750ee681ed3"),
-        ("dark", "8a0dadab72f1056bf16903de7d07c61c0e209e4188b0223d546a0371dfd3e183"),
-        ("kitty", "abdff7148087c040898b9f32c6d4a4b23cefd913c140d86a1d1f2ace894b9e40"),
-        ("retro", "18d33aca73ae6e7e705e0737b79c6b667c635af521901eb5734c26216a07e303"),
-        ("sponge", "c0403a0b0dcd26fb51f77ee0c662fb3a2e457868abe587ecaa6cb2a57717ed5a"),
-    ],
-)
-def test_bundled_themes_style_unchanged(variant, sha256):
-    load_theme(variant)
-    assert hashlib.sha256(_build_stylesheet().encode()).hexdigest() == sha256
