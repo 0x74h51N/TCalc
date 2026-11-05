@@ -17,12 +17,35 @@ env:
   PYTHON_VERSION: "3.14.5"
 
 jobs:
-  # First of all: the title is the changelog line (docs/release.md) and carries no trap word.
-  # Every other job waits on this one.
+  # First of all: the contributor signed the agreement, the title is the changelog line
+  # (docs/release.md) and carries no trap word. Every other job waits on this one.
   pr-title:
     name: Pull Request Title
     runs-on: ubuntu-24.04
     steps:
+      # The release pull request comes from the workflow, and a bot cannot sign
+      - name: Check the signature
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'github-actions[bot]'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          SIGN: https://cla-assistant.io/${{ github.repository }}?pullRequest=${{ github.event.number }}
+        run: |
+          # CLA Assistant answers from outside, some time after the event that started this run
+          state=""
+          for _ in $(seq 1 24); do
+            state=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/status" --jq '.statuses[] | select(.context == "license/cla") | .state')
+            if [ -n "$state" ]; then
+              break
+            fi
+            sleep 5
+          done
+          if [ "$state" != success ]; then
+            echo "The contributor license agreement is not signed (license/cla: ${state:-no answer})."
+            echo "Sign it at $SIGN, then edit the description or push to run CI again."
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
         if: github.event_name == 'pull_request'
 

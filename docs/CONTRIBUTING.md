@@ -98,7 +98,7 @@ Contributions made directly through GitHub's web editor are not accepted for cod
 
 7. Open a Pull Request from your fork to `master` of the original repository.
 
-Every Pull Request must have a clear scope, explain the problem being solved, describe the implementation, and document the tests performed. CI checks its title before anything else, and until it passes no other check runs. On your first Pull Request, CLA Assistant asks you to sign the contributor declaration, a statement of how you work and not a license. Every line you sign is a claim you answer for.
+Every Pull Request must have a clear scope, explain the problem being solved, describe the implementation, and document the tests performed. On your first Pull Request, CLA Assistant asks you to sign the contributor license agreement: you submit your work under the project's license (GPL-3.0-or-later), you have the right to, and you work as this document says. Every line you sign is a claim you answer for. CI checks the signature and the title before anything else, and until they pass no other check runs; after signing, edit the description or push to run it again.
 
 ## Pull requests
 
