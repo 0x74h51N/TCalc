@@ -3,6 +3,9 @@ name = "Light"
 
 [colors]
 # Primary colors
+primary = "#C9D6EE"
+primary_hover = "#B8C8E6"
+primary_text = "#1E1F24"
 
 # Secondary colors
 secondary = "#FFFFFF"

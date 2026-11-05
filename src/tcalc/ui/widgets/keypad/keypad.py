@@ -75,6 +75,7 @@ class Keypad(QWidget):
         theme_events.applied.connect(self._update_key_radius)
         self._update_raised()
         theme_events.applied.connect(self._update_raised)
+        theme_events.applied.connect(self._update_button_fonts)
 
         cfg = CONFIG.keypad
         self._resize_timer = key_fit_timer(self, self._fit_keys)

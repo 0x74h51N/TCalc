@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QSizePolicy, QWidget
 from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.common.toaster import Toaster, ToastLevel
 from tcalc.ui.widgets.common.utils import Align, reposition
+from tcalc.ui.widgets.utils import apply_scaled_fonts
 
 
 class TestOptionGroup:
@@ -180,3 +181,11 @@ class TestReposition:
         orphan.resize(20, 20)
         reposition(orphan, Align.CENTER, Align.CENTER)
         orphan.deleteLater()
+
+
+def test_a_lone_min_above_the_default_max_never_scales_backwards(qapp):
+    # [history.result] font = { min_pt = 20 } keeps the default max_pt = 12
+    sample, target = QWidget(), QWidget()
+    sample.resize(2000, 2000)
+    apply_scaled_fonts(sample, target, 20, 12)
+    assert target.font().pointSize() == 20

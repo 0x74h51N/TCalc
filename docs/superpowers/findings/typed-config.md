@@ -27,3 +27,16 @@ A stylesheet `background-color` of `transparent` or `none` on `:hover` does not 
 ```
 
 A bad value in `[keypad.button]` is logged once per key table, because the shared table is spread before `override` checks it. The owner chose this over a separate check for a single line of log.
+
+## 2026-11-05: ways to get a see-through color from a theme (PySide6 6.12.0, offscreen, branch `refactor/theme-areas`)
+
+Red at 50% on a white widget, `pixelColor` of the grab; repaint is 20 `grab()` calls over 300 `QPushButton`s:
+
+- `background-color: rgba(255,0,0,50%)`: `#ff8080`, 4.88 ms per repaint. The documented form.
+- `background-color: #80FF0000`: `#ff7f7f`, 5.07 ms. Works, but the Color type in the style sheet reference lists only `#rrggbb`.
+- Opaque `#FF0000`, for comparison: 5.00 ms.
+- `opacity: 128` in the QSS rule: `#ff0000`, no effect. The reference says the property is "only supported for tooltips".
+- `palette(button)` with an alpha `QColor` on the button's own palette: `#efefef`, the color did not arrive.
+- `QGraphicsOpacityEffect` at 0.5: `#ff8080`, 11.17 ms, about 2.2 times the cost.
+
+Blending the color over the surface into an opaque value was not probed: it cannot show a picture behind a key. No bundled theme does that (kitty's pictures target `display` and `history`), but `PictureTarget` offers the keypads, the custom pad and the window to any theme, and sponge paints a `window` picture.

@@ -21,7 +21,7 @@ from tcalc.ui.styles import apply_theme
 from tcalc.ui.widgets.common.button import KSSpinBox
 from tcalc.ui.widgets.common.constants_menu import CONSTANTS_BY_CATEGORY
 from tcalc.ui.widgets.common.types import GridLayout, KeySettings, PadLayout
-from tcalc.ui.widgets.keypad.custom_pad import CustomPad
+from tcalc.ui.widgets.keypad.custom_pad import CustomPad, _key_color
 
 DEFAULTS = CONFIG.keypad.custom
 CONSTANT = next(iter(CONSTANTS_BY_CATEGORY.values()))[0]
@@ -185,3 +185,12 @@ def test_toolbar_spin_boxes_keep_their_font_and_fit_in_every_theme(settings, the
     for spin in built_before + _spins(CustomPad(4)):
         assert (spin.font().family(), spin.font().pointSize()) == (font.family(), font.pointSize())
         assert spin.width() >= spin.sizeHint().width(), spin.prefix()
+
+
+@pytest.mark.parametrize("variant", ["dark", "light", "kitty", "retro", "sponge"])
+def test_a_saved_primary_key_keeps_its_color(qapp, variant):
+    load_theme(variant)
+    try:
+        assert _key_color("$primary")
+    finally:
+        load_theme("dark")

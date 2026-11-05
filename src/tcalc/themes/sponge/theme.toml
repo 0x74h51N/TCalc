@@ -101,6 +101,9 @@ action = "#D7262E"
 action_hover = "#B81E25"
 action_text = "#FFFFFF"
 # Equals: the sea
+primary = "#2E9BD6"
+primary_hover = "#2384BA"
+primary_text = "#FFFFFF"
 # Surfaces: sea water around the sponge
 background = "#9ADAF5"
 background_dark = "#FFFBD6"

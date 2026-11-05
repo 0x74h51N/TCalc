@@ -135,6 +135,9 @@ button_shadow = "#404040"
 # The display is a white field, as the calculator of the era
 screen = "#FFFFFF"
 # Keys: digits navy, operators and actions red, as the calculator of the era
+primary = "#C0C0C0"
+primary_hover = "#A8A8A8"
+primary_text = "#800000"
 secondary = "#C0C0C0"
 secondary_hover = "#A8A8A8"
 secondary_text = "#000080"
