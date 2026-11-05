@@ -14,20 +14,20 @@ AGENT = next(line for line in TEMPLATE.splitlines() if line.startswith("- [ ] Hu
 FREE = next(line for line in TEMPLATE.splitlines() if line.startswith("- [ ] I am not a slave"))
 
 
-def run(command: str, body: str, *title: str) -> int:
-    done = subprocess.run(
+def run(command: str, body: str, *title: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
         [sys.executable, SCRIPT, command, *title],
         input=body,
         capture_output=True,
         text=True,
         check=False,
     )
-    return done.returncode
 
 
 def filled(who: str = HUMAN, breaking: str = "**Breaking:** no") -> str:
     checklist = TEMPLATE[TEMPLATE.index("**Checklist:**") :].replace("- [ ]", "- [x]")
     head = TEMPLATE[: TEMPLATE.index("**Checklist:**")].replace("**Breaking:**", breaking)
+    head = head.replace('or "none"):', 'or "none"): none')
     return (head + checklist).replace(who, who.replace("[ ]", "[x]"))
 
 
@@ -45,6 +45,28 @@ def filled(who: str = HUMAN, breaking: str = "**Breaking:** no") -> str:
         param(filled().replace("\n", "\r\n"), 0, id="web editor line ends"),
         param(filled(AGENT), 0, id="humble servant"),
         param(filled(FREE), 1, id="free agent"),
+        param(filled(breaking="**Breaking:** yes or no"), 1, id="both words on the line"),
+        param(filled().replace('"none"): none', '"none"):'), 1, id="AI assistance left empty"),
+        param(
+            filled().replace('"none"): none', '"none"):\n\nClaude'),
+            0,
+            id="AI answer on the next line",
+        ),
+        param(
+            filled(breaking="**Breaking:** no\n\n```\n**Breaking:** yes\n```"),
+            0,
+            id="a quoted answer",
+        ),
+        param(
+            filled().replace(HUMAN.replace("[ ]", "[x]"), "```\n- [x] Human agent\n```"),
+            1,
+            id="a quoted tick",
+        ),
+        param(
+            filled(breaking="<!--\n**Breaking:** no"),
+            1,
+            id="answer after a comment that never closes",
+        ),
         param(filled().replace(FREE, FREE.replace("[ ]", "[x]")), 1, id="human and free agent"),
         param("", 1, id="empty"),
         param(TEMPLATE, 1, id="template left as it is"),
@@ -62,7 +84,7 @@ def filled(who: str = HUMAN, breaking: str = "**Breaking:** no") -> str:
     ],
 )
 def test_check(body: str, code: int) -> None:
-    assert run("check", body, "docs: a title") == code
+    assert run("check", body, "docs: a title").returncode == code
 
 
 # title, exit code of check
@@ -75,19 +97,21 @@ def test_check(body: str, code: int) -> None:
     ],
 )
 def test_trap_word_in_title(title: str, code: int) -> None:
-    assert run("check", filled(), title) == code
+    assert run("check", filled(), title).returncode == code
 
 
-# body, exit code of breaking
+# body, what breaking prints
 @pytest.mark.parametrize(
-    "body, code",
+    "body, answer",
     [
-        param("**Breaking:** yes", 0, id="yes"),
-        param("a\r\n**Breaking:** YES, history\r\nb", 0, id="yes with what is lost"),
-        param("**Breaking:** no", 1, id="no"),
-        param("<!--\n**Breaking:** yes\n-->", 1, id="only in a comment"),
-        param("merged before the line existed", 1, id="no line"),
+        param("**Breaking:** yes", "yes", id="yes"),
+        param("a\r\n**Breaking:** YES, history\r\nb", "yes", id="yes with what is lost"),
+        param("**Breaking:** no", "no", id="no"),
+        param("**Breaking:** yes or no", "no", id="both words on the line"),
+        param("<!--\n**Breaking:** yes\n-->", "no", id="only in a comment"),
+        param("merged before the line existed", "no", id="no line"),
     ],
 )
-def test_breaking(body: str, code: int) -> None:
-    assert run("breaking", body) == code
+def test_breaking(body: str, answer: str) -> None:
+    done = run("breaking", body)
+    assert (done.returncode, done.stdout.strip()) == (0, answer)

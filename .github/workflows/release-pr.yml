@@ -48,7 +48,8 @@ jobs:
           breaking=""
           for pr in $(git log --merges --first-parent --format=%s "$last"..HEAD | sed -nE 's/^Merge pull request #([0-9]+) .*/\1/p'); do
             body=$(gh pr view "$pr" --json body --jq .body)
-            if printf '%s\n' "$body" | python scripts/pr_body.py breaking; then
+            answer=$(printf '%s\n' "$body" | python scripts/pr_body.py breaking)
+            if [ "$answer" = yes ]; then
               breaking="$breaking $pr"
             fi
           done
@@ -86,7 +87,7 @@ jobs:
         run: |
           set -euo pipefail
           git-cliff --unreleased --tag "v$VERSION" --strip all > section.md
-          if ! grep -q '^### ' section.md; then
+          if ! grep -q '^### ' section.md && [ -z "$BREAKING" ]; then
             echo "nothing to release since $LAST"
             exit 1
           fi

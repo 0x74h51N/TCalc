@@ -6,7 +6,7 @@ TCalc is trunk-based: every pull request merges into `master` as soon as it is d
 
 - The version is derived from git tags by setuptools-scm; no file holds the number. A tag is `v` plus `MAJOR.MINOR.PATCH` (`v0.14.0`), annotated, with no pre-release suffix.
 - Before 1.0 a release with at least one pull request titled `feat` raises the minor, and a release with fixes only raises the patch.
-- A change that makes TCalc unable to read what an older version saved (the history file, `QSettings`, a theme or a custom pad file) is breaking and raises the minor even when it is a fix: start the workflow with `bump` set to `minor`, Every pull request answers this in its description (`**Breaking:** yes` or `no`, checked by `scripts/pr_body.py`), and after yes it says what users lose. With `auto` the workflow raises the minor for a yes and writes `**Breaking:**` in front of its line in the release pull request; a yes whose title type has no changelog line is named in that pull request's description, to add by hand.
+- A change that makes TCalc unable to read what an older version saved (the history file, `QSettings`, a theme or a custom pad file) is breaking and raises the minor even when it is a fix. Every pull request answers this in its description (`**Breaking:** yes` or `no`, checked by `scripts/pr_body.py`); after yes, a comma and what users lose. With `auto` the workflow raises the minor for a yes and writes `**Breaking:**` in front of its line in the release pull request; a yes whose title type has no changelog line is named in that pull request's description, to add by hand.
 - `1.0.0` comes when the v1 roadmap is done: start the workflow with `bump` set to `1.0.0`.
 - A published version is never moved or deleted. A broken one is marked `[YANKED]` in `CHANGELOG.md` and fixed by a patch release.
 
@@ -19,7 +19,7 @@ In the changelog `feat` goes under Added, `perf` under Changed and `fix` under F
 ## Procedure
 
 1. Start the `Release PR` workflow (`.github/workflows/release-pr.yml`) from the Actions tab with the `bump` input: `auto` (default), `minor`, or an exact version greater than the last tag.
-2. The workflow takes the last `v*` tag, computes the version, fails when no pull request with a changelog line merged since that tag, writes the section with git-cliff, and opens a pull request titled `release: vX.Y.Z` from the branch `release/vX.Y.Z`. Its description lists the section and the milestones that will close.
+2. The workflow takes the last `v*` tag, computes the version, fails when no pull request with a changelog line or a breaking yes merged since that tag, writes the section with git-cliff, and opens a pull request titled `release: vX.Y.Z` from the branch `release/vX.Y.Z`. Its description lists the section and the milestones that will close.
 3. The Actions bot opened the pull request, so its `ci.yml` run waits as `action_required`. Approve the run with one click; with only `CHANGELOG.md` changed the build jobs are skipped and `CI OK` passes. The repository needs the setting "Allow GitHub Actions to create and approve pull requests".
 4. Review the generated section like any other change: polish a line, move a line to `Removed`.
 5. Merge the pull request.

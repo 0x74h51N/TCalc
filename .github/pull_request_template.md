@@ -16,7 +16,7 @@ Closes #
 
 **Look at first:**
 
-<!-- Answer yes or no on the line below; CI checks it. After yes, say what users lose. What counts as breaking is under Version in docs/release.md. -->
+<!-- Answer yes or no on the line below; CI checks it. After yes, add a comma and what users lose. What counts as breaking is under Version in docs/release.md. -->
 
 **Breaking:**
 
