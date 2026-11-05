@@ -15,3 +15,15 @@ The spec moved `picker_size = 9` into `[fonts]` on the claim that the code's fal
 ## 2026-11-04, master f816fac: config keys nothing reads
 
 `grep -rn "\b<key>\b" src/tcalc tests`, leaving out `config.py` and `config.toml`, finds no read of `[history.style] result_min_pt`, `result_max_pt`, `wrap_padding_factor`, `item_padding` or `[history.math] scale_main`, `scale_aux`, `scale_script`. A history item's result has no font size of its own in config.
+
+## 2026-11-05, refactor/theme-areas 70d19e7: writing look.toml, and a hover that does nothing
+
+A stylesheet `background-color` of `transparent` or `none` on `:hover` does not keep the button's color: the button shows what is behind it (drawn with `State_MouseOver`, green button on blue: `#FF0000` hover `#ff0000`, `transparent` and `none` hover `#0000ff`). So a key without a hover of its own has `hover_color` equal to its `color`.
+
+`tomllib` takes no newline inside an inline table, so `{ ... }` stays on one line:
+
+```bash
+.venv/bin/python -c "import tomllib; tomllib.loads('[a]\ntext = {\n  color = 1,\n}\n')"
+```
+
+A bad value in `[keypad.button]` is logged once per key table, because the shared table is spread before `override` checks it. The owner chose this over a separate check for a single line of log.

@@ -269,3 +269,23 @@ The owner's review of Task 8 in the running app asked for these; each is one com
 - [ ] **Step 3: Implement**
 - [ ] **Step 4: Run, expect PASS; diff the built stylesheets and update the pins for the added rules only; open the app, tabify two docks and look in each bundled theme**
 - [ ] **Step 5: Add the fields to `theme-template.toml`; commit** `feat/theme: dock titles and dock tabs in the theme`
+
+## After Part 3: the owner's review of the schema
+
+### Task 10: one button type, shared buttons by area
+
+The look types and keys named in Tasks 2 to 9 are what each task wrote at the time; the spec's "Shared types" holds the schema as it stands.
+
+**Files:**
+- Modify: `src/tcalc/ui/look.py`, `src/tcalc/ui/look.toml`, every `.qss` that reads a renamed place, `src/tcalc/theme.py`, the three bundled themes, `src/tcalc/themes/theme-template.toml`, the readers `mypy` names.
+- Test: `tests/py/unit/ui/test_theme_overrides.py` (a row for the shared button; only key renames elsewhere, test restructuring is #205).
+
+**Interfaces:**
+- Consumes: `override` and its partial nested tables (Task 1), `build`, `field_hints`.
+- Produces: `Button`, `Text`, `Panel`, `Colors`, `Edge`, `FontRange`, `Insets`; `with_shared_buttons(table)`, run before `build` and `override`.
+
+- [x] **Remove the stylesheet hash test** `test/theme: remove the stylesheet hash`
+- [x] **One schema** `refactor/look: fix disgusting config type schema`: the types above, `[keypad.button]` and `[history.button]`, a hover color for each key kind, inline tables in `look.toml`, the sharing explained in the template
+
+Verified at that commit: `make typecheck`, `make py-test`, the stylesheets of the five themes against the previous commit (only the key hover rules and the `padding` spelling differ) and a window grab of each theme (only the blinking cursor differs).
+
