@@ -1,63 +1,258 @@
-# Bundled example custom theme: green phosphor CRT terminal: black keys, scanlined green screen
+# Bundled example custom theme: a 1995 desktop, gray raised keys around a white display
 name = "Retro"
 # Built-in theme it builds on; this file holds only what differs from it
-base = "dark"
+base = "light"
 
-# Overrides of the UI config's [fonts]
+# Overrides of the look's areas (look.toml); square corners everywhere
 [fonts]
 # VT323-Regular.ttf in this folder (OFL-1.1, see OFL-VT323.txt)
 family_default = "VT323"
 size_default = 18
-picker_size = 18
-# Keypad key font range (pt); VT323 draws small
-keypad_min_pt = 14
-keypad_max_pt = 24
 
-# Square corners
-[spacing]
-key_radius = 0
-icon_button_radius = 0
-tooltip_radius = 0
-option_radius = 0
+[palette]
+# Window parts follow the gray face; the lists keep their white
+base_color = "background"
+
+[display]
+radical_line_color = "text_primary"
+radical_symbol_color = "text_primary"
+
+[display.expression]
+slot_focus_color = "control_hover"
+
+[display.expression.selection]
+color = "primary"
+text_color = "primary_text"
+
+[result.fraction]
+radius = 0
+color = "control_bg"
+hover_color = "control_hover"
+pressed_color = "secondary_hover"
+
+[result.fraction.text]
+color = "text_primary"
+
+[picker.text.font]
+min_pt = 18
+
+[menu.panel.text.font]
+min_pt = 16
+
+[menu.item]
+hover_color = "control_hover"
+pressed_color = "control_hover"
+radius = 0
+
+# VT323 draws small, so every text area is a few points larger
+[keypad.button]
+radius = 0
+
+[keypad.button.text.font]
+min_pt = 14
+max_pt = 24
+
+# Raised keys, lit from the top left
+[keypad.button.edge]
+width = 2
+light_color = "button_highlight"
+shadow_color = "button_shadow"
+
+[memory]
+radius = 0
+color = "control_bg"
+hover_color = "control_hover"
+pressed_color = "secondary_hover"
+
+[memory.edge]
+width = 2
+light_color = "button_highlight"
+shadow_color = "button_shadow"
+
+[memory.text.font]
+min_pt = 14
+max_pt = 18
+
+[options]
+hover_color = "control_hover"
+pressed_color = "control_hover"
+radius = 0
+
+[options.text.font]
+min_pt = 18
+
+[options.edge]
+width = 2
+light_color = "button_highlight"
+shadow_color = "button_shadow"
+
+[history.text.font]
+min_pt = 14
+max_pt = 18
+
+[history.expression.font]
+min_pt = 14
+max_pt = 20
+
+[history.clear.text.font]
+min_pt = 12
+max_pt = 15
+
+[history.result.font]
+min_pt = 16
+max_pt = 20
+
+[history.mode]
+hover_color = "control_hover"
+pressed_color = "control_hover"
+radius = 0
+
+[history.mode.text.font]
+min_pt = 16
+
+[history.mode.edge]
+width = 2
+light_color = "button_highlight"
+shadow_color = "button_shadow"
+
+[history.button]
+radius = 0
+hover_color = "control_hover"
+pressed_color = "secondary_hover"
+
+[history.button.edge]
+light_color = "button_highlight"
+shadow_color = "button_shadow"
+
+[history.copy]
+color = "background"
+
+[history.delete]
+color = "background"
+
+[tooltip]
+hover_color = "control_hover"
+radius = 0
+
+[toast]
+info_color = "toast_info_bg"
+warn_color = "toast_warn_bg"
+error_color = "toast_error_bg"
+radius = 0
+
+[toast.text.font]
+min_pt = 18
+
+# Dock titles and tabs at the app font size, as before they had a setting
+[dock.font]
+min_pt = 18
+
+[tabs.font]
+min_pt = 18
+
+[result.fraction.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[memory.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[keypad.button.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[options.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[custom_pad.add_key.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[custom_pad.spinbox.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[history.button.disabled]
+color = "control_bg"
+text_color = "control_disabled_text"
+
+[keypad]
+hover_border_color = "action_text"
+
+[keypad.equals]
+color = "secondary"
+hover_color = "secondary"
+pressed_color = "secondary_hover"
+
+[keypad.equals.text]
+color = "action_text"
+
+[keypad.button.checked]
+color = "control_hover"
+text_color = "action_text"
+
+[history.mode.checked]
+color = "control_hover"
+text_color = "action_text"
+
+[options.checked]
+color = "control_hover"
+text_color = "action_text"
+
+[memory.text]
+color = "action_text"
+
+[custom_pad]
+spinbox_focus_border_color = "action_text"
+
+[menu]
+selected_border_color = "text_primary"
+
+[picker]
+hover_color = "control_hover"
+
+[menu.panel]
+hover_color = "control_hover"
+
+[history.selected]
+color = "control_hover"
+text_color = "text_primary"
 
 [colors]
-# Green CRT glass with scanlines (the gradient repeats every 0.8% of the height)
-screen = "qlineargradient(spread:repeat, x1:0, y1:0, x2:0, y2:0.01, stop:0 #0C4A0C, stop:0.5 #0C4A0C, stop:0.51 #083b08, stop:1 #063006)"
-primary = "#33FF33"
-primary_hover = "#66FF66"
-primary_text = "#000000"
-secondary = "#000000"
-secondary_hover = "#0A2A0A"
-secondary_text = "#33FF33"
-accent = "#000"
-accent_hover = "#0A2A0A"
-accent_text = "#7CFF7C"
-action = "#000000"
-action_hover = "#0A2A0A"
-action_text = "#B6FFB6"
-background_dark = "#000000"
-background_dark_alt = "#000A00"
-background_medium = "#001000"
-background_light = "#002000"
-background = "#070707"
-text_primary = "#33FF33"
-text_secondary = "#22B822"
-border_light = "#1A8A1A"
-border_focus = "#33FF33"
-status_error = "#FF3B3B"
-selection_background = "#33FF33"
-selection_text = "#000000"
-control = "#002000"
-control_hover = "#003800"
-control_accent = "#7CFF7C"
-icon = "#33FF33"
-control_bg = "rgba(51, 255, 51, 8%)"
-control_bg_hover = "rgba(51, 255, 51, 14%)"
-control_bg_pressed = "rgba(51, 255, 51, 22%)"
-control_disabled_bg = "rgba(51, 255, 51, 4%)"
-control_disabled_text = "rgba(51, 255, 51, 30%)"
-option_checked_bg = "rgba(51, 255, 51, 18%)"
-option_hover_bg = "rgba(51, 255, 51, 10%)"
-toast_info_bg = "rgba(0, 32, 0, 90%)"
-toast_warn_bg = "rgba(255, 176, 0, 35%)"
-toast_error_bg = "rgba(255, 59, 59, 35%)"
+# The 1995 desktop: a gray face, a dark gray shadow under raised keys, navy selection
+button_shadow = "#404040"
+# The display is a white field, as the calculator of the era
+screen = "#FFFFFF"
+# Keys: digits navy, operators and actions red, as the calculator of the era
+primary = "#000080"
+primary_hover = "#0000A0"
+primary_text = "#FFFFFF"
+secondary = "#C0C0C0"
+secondary_hover = "#A8A8A8"
+secondary_text = "#000080"
+accent = "#C0C0C0"
+accent_hover = "#A8A8A8"
+accent_text = "#800000"
+action = "#C0C0C0"
+action_hover = "#A8A8A8"
+action_text = "#800000"
+background_dark = "#FFFFFF"
+# History rows: white and a light gray zebra
+background_dark_alt = "#E0E0E0"
+background_medium = "#C0C0C0"
+background_light = "#C0C0C0"
+background = "#C0C0C0"
+text_primary = "#000000"
+text_secondary = "#000000"
+border_light = "#808080"
+status_error = "#C00000"
+control = "#C0C0C0"
+control_hover = "#CDCDCD"
+icon = "#000000"
+control_bg = "#C0C0C0"
+control_disabled_text = "#808080"
+toast_info_bg = "#C0C0C0"
+toast_warn_bg = "#FFFFE1"
+toast_error_bg = "#FFB0B0"

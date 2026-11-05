@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
 )
 from shiboken6 import isValid
 
+from tcalc.ui.props import Prop
 from tcalc.ui.widgets.utils import InputAlign
 
 from ..math_primitives import ParenGlyph
@@ -38,6 +39,15 @@ class InputKind(Enum):
     MAIN = "main"
     AUX = "aux"
     SCRIPT = "script"
+
+
+class ExprInput(QLineEdit):
+    """A slot's line edit, with the state the editor and the width fit keep on it."""
+
+    def __init__(self, parent: QWidget) -> None:
+        super().__init__("", parent)
+        self.registered = False
+        self.autowidth_scheduled = False
 
 
 class ExpressionNode(QWidget):
@@ -214,8 +224,8 @@ class ExpressionSlot(QWidget):
         self._direct_edits: list[QLineEdit] = []
         self._child_nodes: list[ExpressionNode] = []
 
-        self.setProperty("exprSlot", True)
-        self.setProperty("exprSlotKind", kind.value)
+        self.setProperty(Prop.EXPR_SLOT, True)
+        self.setProperty(Prop.EXPR_SLOT_KIND, kind.value)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         self._layout = QHBoxLayout(self)
@@ -245,34 +255,33 @@ class ExpressionSlot(QWidget):
         if self._editor is None:
             return
         for seg in self._segments:
-            if isinstance(seg, QLineEdit):
+            if isinstance(seg, ExprInput):
                 self._editor._register_input(seg)
             elif isinstance(seg, ExpressionNode):
                 seg.editor = self._editor
             elif isinstance(seg, ExpressionSlot):
                 seg.editor = self._editor
 
-    def _run_autowidth(self, le: QLineEdit) -> None:
-        try:
-            le.setProperty("_aw_scheduled", False)
-        except RuntimeError:
+    def _run_autowidth(self, le: ExprInput) -> None:
+        if not isValid(le):
             _log.debug("_run_autowidth: widget already deleted")
             return
+        le.autowidth_scheduled = False
         update_autowidth(le)
 
-    def schedule_autowidth(self, le: QLineEdit) -> None:
-        if le.property("_aw_scheduled"):
+    def schedule_autowidth(self, le: ExprInput) -> None:
+        if le.autowidth_scheduled:
             return
-        le.setProperty("_aw_scheduled", True)
+        le.autowidth_scheduled = True
         QTimer.singleShot(0, lambda le=le: self._run_autowidth(le))
 
-    def _create_input(self, key: str) -> QLineEdit:
+    def _create_input(self, key: str) -> ExprInput:
         """Create a new QLineEdit with proper styling and connections."""
-        le = QLineEdit("", self)
+        le = ExprInput(self)
         le.setObjectName(f"{self.EXPR_PREFIX}{key}")
         le.setAlignment(self._align.value)
-        le.setProperty("exprInput", True)
-        le.setProperty("LatexKind", self._kind.value)
+        le.setProperty(Prop.EXPR_INPUT, True)
+        le.setProperty(Prop.LATEX_KIND, self._kind.value)
         if self._editor is not None:
             self._editor._register_input(le)
             QTimer.singleShot(0, lambda: self.schedule_autowidth(le))

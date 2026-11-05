@@ -30,3 +30,65 @@ QWidget#historyItem QWidget[exprSlot="true"] QLineEdit {
     background: transparent;
     border: none;
 }
+
+QWidget#historyItem QLabel#historyExpression,
+QWidget#historyItem #historyPaintWidget {
+    color: $history_expression_color;
+}
+
+QWidget#historyItem QLabel#historyResult {
+    color: $history_result_color;
+}
+
+/* The Clear History button: hover and pressed stay the icon button's */
+QPushButton#clearHistory {
+    color: $history_clear_text_color;
+}
+
+QPushButton#clearHistory:!hover:!pressed {
+    background-color: $history_clear_color;
+}
+
+/* The Math / Flat / Raw buttons, an option group with its own look */
+QWidget#historyModes QRadioButton[optionRole="option"] {
+    color: $history_mode_text_color;
+    padding: ${history_mode_padding_y}px ${history_mode_padding_x}px;
+    font-size: ${history_mode_text_font_min_pt}pt;
+}
+
+QWidget#historyModes QRadioButton[optionRole="option"]:hover {
+    background-color: $history_mode_hover_color;
+}
+
+QWidget#historyModes QRadioButton[optionRole="option"]:checked {
+    background-color: $history_mode_checked_color;
+    color: $history_mode_checked_text_color;
+}
+QWidget#historyModes[raised="true"] QRadioButton[optionRole="option"] {
+    border: ${history_mode_edge_width}px solid $history_mode_edge_shadow_color;
+    border-top-color: $history_mode_edge_light_color;
+    border-left-color: $history_mode_edge_light_color;
+}
+QWidget#historyModes[raised="true"] QRadioButton[optionRole="option"]:checked {
+    border-top-color: $history_mode_edge_shadow_color;
+    border-left-color: $history_mode_edge_shadow_color;
+    border-bottom-color: $history_mode_edge_light_color;
+    border-right-color: $history_mode_edge_light_color;
+}
+
+/* The copy and delete buttons of an item */
+QWidget#historyItem QPushButton[uiRole="iconButton"] {
+    border: ${history_button_edge_width}px solid $history_button_edge_shadow_color;
+    border-top-color: $history_button_edge_light_color;
+    border-left-color: $history_button_edge_light_color;
+}
+QWidget#historyItem QPushButton[uiRole="iconButton"]:hover { background-color: $history_button_hover_color; }
+QWidget#historyItem QPushButton[uiRole="iconButton"]:pressed {
+    background-color: $history_button_pressed_color;
+    border-top-color: $history_button_edge_shadow_color;
+    border-left-color: $history_button_edge_shadow_color;
+    border-bottom-color: $history_button_edge_light_color;
+    border-right-color: $history_button_edge_light_color;
+}
+QWidget#historyItem QPushButton#historyCopy:!hover:!pressed { background-color: $history_copy_color; }
+QWidget#historyItem QPushButton#historyDelete:!hover:!pressed { background-color: $history_delete_color; }

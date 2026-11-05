@@ -2,6 +2,6 @@
 name = "Extreme"
 base = "light"
 
-[spacing]
+[keypad.button]
 # Larger than half of any key: Qt draws a radius above that as square corners
-key_radius = 500
+radius = 500

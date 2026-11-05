@@ -5,11 +5,11 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QAbstractItemView, QListWidget
 
 from tcalc.theme import get_theme
-from tcalc.ui.config import CONFIG
+from tcalc.ui.props import Prop, UiRole
 
 
 def apply_history_style(list_widget: QListWidget) -> None:
-    list_widget.setProperty("uiRole", "historyList")
+    list_widget.setProperty(Prop.UI_ROLE, UiRole.HISTORY_LIST)
 
     list_widget.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
     list_widget.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectItems)
@@ -21,7 +21,8 @@ def apply_history_style(list_widget: QListWidget) -> None:
         | Qt.TextInteractionFlag.TextSelectableByKeyboard,
     )
 
-    font = QFont(get_theme().ui.fonts.family_monospace, CONFIG.history.style.font_size)
+    look = get_theme().look
+    font = QFont(look.fonts.family_monospace, look.history.text.font.min_pt)
     font.setStyleHint(QFont.StyleHint.TypeWriter)
     list_widget.setFont(font)
 

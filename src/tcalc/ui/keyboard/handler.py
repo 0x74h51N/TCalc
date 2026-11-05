@@ -13,6 +13,8 @@ from PySide6.QtCore import QEvent, QObject, QTimer
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import QLineEdit
 
+from tcalc.ui.props import Prop
+
 from .keymap import OVERRIDE_SHORTCUTS, get_expression_action_for_key, get_operation_for_key
 
 if TYPE_CHECKING:
@@ -64,14 +66,14 @@ class KeyboardHandler(QObject):
             button = self._keypad.get_button(label)
             if button:
                 # Button pressed like tricks
-                button.setProperty("pressed", True)
+                button.setProperty(Prop.PRESSED, True)
                 button.style().unpolish(button)
                 button.style().polish(button)
                 button.click()
 
                 # Remove pressed property after delay
                 def reset():
-                    button.setProperty("pressed", False)
+                    button.setProperty(Prop.PRESSED, False)
                     button.style().unpolish(button)
                     button.style().polish(button)
 

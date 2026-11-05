@@ -10,10 +10,10 @@ from functools import cache
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QRect, QRunnable, QSize, Qt, QThreadPool, Signal
-from PySide6.QtGui import QImage, QImageReader, QMoveEvent, QPainter, QPaintEvent
+from PySide6.QtGui import QColor, QImage, QImageReader, QMoveEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import QStyle, QWidget
 
-from tcalc.theme import PictureTarget, ThemePicture, get_theme, qcolor
+from tcalc.theme import PictureTarget, ThemePicture, get_theme
 
 # A pass this much smaller shows the picture within tens of ms while the full one renders
 LOW_RES_DIVISOR = 8
@@ -53,7 +53,7 @@ def _render(picture: ThemePicture, size: QSize) -> QImage:
         # Keep the picture's shape, take the theme color
         painter = QPainter(image)
         painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-        painter.fillRect(image.rect(), qcolor(get_theme().colors[picture.tint]))
+        painter.fillRect(image.rect(), QColor(get_theme().colors[picture.tint]))
         painter.end()
     return image
 

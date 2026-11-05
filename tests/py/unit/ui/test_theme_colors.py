@@ -6,15 +6,16 @@
 #
 from __future__ import annotations
 
+import logging
 import tomllib
-from dataclasses import asdict
 from pathlib import Path
 
 import pytest
 from PySide6.QtGui import QColor
+from pytest import param
 
-from tcalc.theme import get_theme, load_theme, qcolor
-from tcalc.ui.config import CONFIG
+from tcalc.theme import BUILT_IN_DIR, get_theme, load_theme
+from tcalc.ui.styles import _build_subs
 
 UI_CONFIG = Path(__file__).parents[4] / "src" / "tcalc" / "ui" / "config.toml"
 
@@ -44,7 +45,7 @@ def test_sets_have_identical_keys(variant):
 
 @pytest.mark.parametrize(
     ("variant", "base"),
-    [("dark", "dark"), ("light", "light"), ("kitty", "light"), ("retro", "dark")],
+    [("dark", "dark"), ("light", "light"), ("kitty", "light"), ("retro", "light")],
 )
 def test_base_is_the_light_or_dark_family(variant, base):
     assert load_theme(variant).base == base
@@ -52,11 +53,7 @@ def test_base_is_the_light_or_dark_family(variant, base):
 
 def test_new_keys_match_old_dark_values():
     c = load_theme("dark").colors
-    assert (c["control"], c["control_hover"], c["control_accent"]) == (
-        c["accent"],
-        c["secondary_hover"],
-        c["accent_text"],
-    )
+    assert (c["control"], c["control_hover"]) == (c["accent"], c["secondary_hover"])
 
 
 def _values(table):
@@ -84,10 +81,40 @@ def test_alpha_helper_is_gone():
     assert not hasattr(tcalc.ui.utils, "rgba")
 
 
-def test_dark_alpha_values_match_old_look():
-    c = load_theme("dark").colors
-    assert c["control_bg"] == "rgba(52, 56, 66, 20%)"
-    assert c["toast_error_bg"] == "rgba(217, 64, 64, 55%)"
+@pytest.mark.parametrize("variant", ["dark", "light", "kitty", "retro", "sponge"])
+def test_bundled_theme_colors_are_opaque(variant):
+    # The raw file: the loader would have filtered out what this looks for
+    folder = BUILT_IN_DIR / variant
+    path = folder / "theme.toml" if folder.is_dir() else BUILT_IN_DIR / f"{variant}.toml"
+    colors = tomllib.loads(path.read_text())["colors"]
+    for name, value in colors.items():
+        if name != "screen" or "gradient" not in value:
+            assert QColor(value).isValid() and QColor(value).alpha() == 255, name
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        param("rgba(1, 2, 3, 50%)", id="rgba"),
+        param("#80123456", id="argb hex"),
+        param("RGBA(1, 2, 3, 50%)", id="rgba in capitals"),
+        param("rgb(10, 20, 30)", id="rgb, which QColor cannot read"),
+        param("notacolor", id="not a color"),
+    ],
+)
+def test_alpha_in_a_user_theme_takes_the_base_color(write_theme, caplog, value):
+    with caplog.at_level(logging.WARNING):
+        theme = load_theme(write_theme(f'[colors]\naccent = "{value}"\n'))
+    assert theme.colors["accent"] == load_theme("dark").colors["accent"]
+    assert {r.getMessage() for r in caplog.records} == {
+        f"theme user [colors].accent: {value!r} is not an opaque color"
+    }
+
+
+def test_gradient_screen_reaches_the_stylesheet(write_theme):
+    gradient = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #000000, stop:1 #FFFFFF)"
+    load_theme(write_theme(f'[colors]\nscreen = "{gradient}"\n'))
+    assert _build_subs()["display_background_color"] == gradient
 
 
 @pytest.mark.parametrize("variant", ["dark", "light", "kitty", "retro", "sponge"])
@@ -99,7 +126,7 @@ def test_every_qss_placeholder_resolves(variant):
     assert leftovers == []
 
 
-KEYPAD_FAMILIES = ("primary", "secondary", "accent", "action")
+KEYPAD_FAMILIES = ("secondary", "accent", "action")
 
 
 def test_light_keypad_colors_are_light():
@@ -124,26 +151,47 @@ def test_only_keypad_qss_uses_keypad_colors():
 
 def test_light_accent_is_orange():
     c = load_theme("light").colors
-    for key in ("accent_text", "control_accent"):
-        assert 15 <= QColor(c[key]).hue() <= 30, key
+    assert 15 <= QColor(c["accent_text"]).hue() <= 30
 
 
+def _luminance(value: str) -> float:
+    channels = [c / 255 for c in QColor(value).getRgb()[:3]]
+    r, g, b = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def _contrast(a: str, b: str) -> float:
+    high, low = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (high + 0.05) / (low + 0.05)
+
+
+_THEMES = ["dark", "light", "kitty", "retro", "sponge"]
+
+
+@pytest.mark.parametrize("variant", _THEMES)
+def test_primary_text_is_readable(variant):
+    c = load_theme(variant).colors
+    assert _contrast(c["primary_text"], c["primary"]) >= 4.5
+    assert _contrast(c["primary_text"], c["primary_hover"]) >= 4.5
+
+
+@pytest.mark.parametrize("variant", _THEMES)
 @pytest.mark.parametrize(
-    ("value", "rgba"),
+    "place",
     [
-        ("#123456", (0x12, 0x34, 0x56, 255)),
-        ("#80123456", (0x12, 0x34, 0x56, 0x80)),
-        ("red", (255, 0, 0, 255)),
-        ("rgba(246, 247, 251, 90%)", (246, 247, 251, 230)),
-        ("rgba(10,20,30,128)", (10, 20, 30, 128)),
-        ("rgb(10, 20, 30)", (10, 20, 30, 255)),
+        param(lambda look: look.memory.text.color, id="memory"),
+        param(lambda look: look.result.fraction.text.color, id="fraction"),
     ],
 )
-def test_theme_color_values_read_as_qss_does(value, rgba):
-    assert qcolor(value).getRgb() == rgba
+def test_control_text_is_readable_on_background(variant, place):
+    t = load_theme(variant)
+    assert _contrast(t.colors[place(t.look)], t.colors["background"]) >= 4.5
 
 
-@pytest.mark.parametrize("variant", ["light", "dark"])
-def test_builtin_themes_have_every_color_usage_color(variant):
-    colors = load_theme(variant).colors
-    assert [c for c in asdict(CONFIG.color_usage).values() if c not in colors] == []
+def test_only_primary_moves_the_hovers_and_the_selected_row(write_theme):
+    load_theme(write_theme('[colors]\nprimary = "#123456"\n'))
+    subs = _build_subs()
+    assert subs["options_hover_color"] == "rgba(18, 52, 86, 14%)"
+    assert subs["history_selected_color"] == "rgba(18, 52, 86, 24%)"
+    load_theme("dark")
+    assert _build_subs()["options_hover_color"] == "rgba(166, 199, 255, 14%)"

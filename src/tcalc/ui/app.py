@@ -26,6 +26,7 @@ from typing import Optional, Sequence
 from PySide6.QtWidgets import QApplication
 
 from tcalc.app_state import get_app_state
+from tcalc.ui.icon import Icon
 
 from .styles import init_styles, sync_theme
 from .utils import get_icon
@@ -44,7 +45,7 @@ def run_app(argv: Optional[Sequence[str]] = None, *, debug: bool = False) -> int
         logging.basicConfig(level=logging.DEBUG, format="%(name)s | %(message)s")
     app = QApplication(list(argv) if argv is not None else [])
     app.setApplicationName("TCalc")
-    app.setWindowIcon(get_icon("accessories-calculator"))
+    app.setWindowIcon(get_icon(Icon.ACCESSORIES_CALCULATOR))
 
     hints = app.styleHints()
     choice = get_app_state().theme

@@ -7,10 +7,10 @@
 
 from __future__ import annotations
 
-from typing import Mapping, Sequence
+from typing import Callable, Mapping, Sequence
 
-from PySide6.QtCore import QSize, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtCore import QChildEvent, QSize, Signal
+from PySide6.QtGui import QFont, QResizeEvent
 from PySide6.QtWidgets import (
     QButtonGroup,
     QGridLayout,
@@ -22,20 +22,26 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from tcalc.ui.config import ColorPlace, PresetConfig
+from tcalc.theme import get_theme
+from tcalc.ui.config import PresetConfig
+from tcalc.ui.icon import Icon
+from tcalc.ui.look import Button, ColorPlace, Look
+from tcalc.ui.props import KeypadRole, OptionRole, Prop, UiRole
+from tcalc.ui.styles import theme_events
 from tcalc.ui.utils import get_icon
 from tcalc.ui.widgets.math.painter.symbol_icon import ICON_BOX, needs_math_render, theme_symbol_icon
 
+from ..utils import fit_radius, key_fit_timer, round_tooltip, set_raised, shortest_side
 from .types import KeyDef
 
 
 class KeyButton(QPushButton):
     """Push button created from a ``KeyDef`` with grid placement support."""
 
-    def __init__(self, key_def: KeyDef, role: str, parent: QWidget | None = None) -> None:
+    def __init__(self, key_def: KeyDef, role: KeypadRole, parent: QWidget | None = None) -> None:
         if needs_math_render(key_def.label):
             super().__init__("", parent)
-            self.setIcon(theme_symbol_icon(key_def.label, lambda u: u.key_symbol_color))
+            self.setIcon(theme_symbol_icon(key_def.label, lambda look: look.keypad.symbol_color))
             self.setIconSize(ICON_BOX)
         else:
             super().__init__(key_def.label, parent)
@@ -48,7 +54,7 @@ class KeyButton(QPushButton):
             self.setCheckable(True)
 
         self.setObjectName("keypadButton")
-        self.setProperty("keypadRole", role)
+        self.setProperty(Prop.KEYPAD_ROLE, role)
         self.style().unpolish(self)
         self.style().polish(self)
 
@@ -56,13 +62,17 @@ class KeyButton(QPushButton):
         """Add this button to *grid* at the position specified in *key_def*."""
         grid.addWidget(self, key_def.row, key_def.col, key_def.rowspan, key_def.colspan)
 
+    def childEvent(self, event: QChildEvent) -> None:
+        round_tooltip(event)
+        super().childEvent(event)
+
 
 class IconButton(QPushButton):
     """Themed push button with an icon and optional label text."""
 
     def __init__(
         self,
-        icon_name: str,
+        icon_name: Icon,
         tooltip: str = "",
         text: str = "",
         size: int | None = None,
@@ -77,20 +87,37 @@ class IconButton(QPushButton):
         if tooltip:
             self.setToolTip(tooltip)
 
-        self.setProperty("uiRole", "iconButton")
+        self.setProperty(Prop.UI_ROLE, UiRole.ICON_BUTTON)
 
         if size is not None:
-            self.setFixedSize(size, size)
+            self.set_size(size, padding)
 
-            icon_size = size - (padding * 2)
-            self.setIconSize(QSize(icon_size, icon_size))
-            self.setContentsMargins(padding, padding, padding, padding)
+    def set_size(self, size: int, padding: int = 4) -> None:
+        self.setFixedSize(size, size)
+        icon_size = size - (padding * 2)
+        self.setIconSize(QSize(icon_size, icon_size))
+        self.setContentsMargins(padding, padding, padding, padding)
 
-    def update_icon(self, icon_name: str) -> None:
+    def update_icon(self, icon_name: Icon) -> None:
         self.setIcon(get_icon(icon_name, self._tint))
 
     def update_tooltip(self, tooltip: str) -> None:
         self.setToolTip(tooltip)
+
+    def childEvent(self, event: QChildEvent) -> None:
+        round_tooltip(event)
+        super().childEvent(event)
+
+
+OPTION_SELECTOR = f'QRadioButton[{Prop.OPTION_ROLE}="{OptionRole.OPTION}"]'
+
+
+class OptionButton(QRadioButton):
+    """One option of an OptionGroup."""
+
+    def childEvent(self, event: QChildEvent) -> None:
+        round_tooltip(event)
+        super().childEvent(event)
 
 
 class OptionGroup(QWidget):
@@ -102,10 +129,17 @@ class OptionGroup(QWidget):
         self,
         options: Sequence[tuple[object, str]],
         current: object,
+        look: Callable[[Look], Button],
         parent: QWidget | None = None,
         tooltips: Mapping[object, str] | None = None,
     ) -> None:
         super().__init__(parent)
+        self._look = look
+        self._applied_radius: int | None = None
+        # The buttons take their size from the layout and the theme font
+        self._fit_timer = key_fit_timer(self, self._fit_radius)
+        theme_events.applied.connect(self._fit_timer.start)
+        theme_events.applied.connect(self._update_raised)
 
         sp = QSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         sp.setRetainSizeWhenHidden(False)
@@ -119,8 +153,8 @@ class OptionGroup(QWidget):
         layout.setSpacing(4)
 
         for key, label in options:
-            btn = QRadioButton(label, self)
-            btn.setProperty("optionRole", "option")
+            btn = OptionButton(label, self)
+            btn.setProperty(Prop.OPTION_ROLE, OptionRole.OPTION)
             if tooltips is not None:
                 tooltip = tooltips.get(key)
                 if tooltip:
@@ -133,6 +167,22 @@ class OptionGroup(QWidget):
             self._buttons[current].setChecked(True)
 
         self._group.buttonToggled.connect(self._on_toggled)
+        self._update_raised()
+
+    def _update_raised(self) -> None:
+        set_raised(self, self._look(get_theme().look).edge.width > 0)
+
+    def _fit_radius(self) -> None:
+        side = shortest_side(self._buttons.values())
+        if side is not None:
+            radius = self._look(get_theme().look).radius
+            self._applied_radius = fit_radius(
+                self, OPTION_SELECTOR, radius, side, self._applied_radius
+            )
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._fit_timer.start()
 
     def _on_toggled(self, button: QRadioButton, checked: bool) -> None:
         if not checked:
@@ -186,6 +236,10 @@ class KSSpinBox(QSpinBox):
         self.setToolTip(tooltip)
         if width is not None:
             self.setFixedWidth(width)
+
+    def childEvent(self, event: QChildEvent) -> None:
+        round_tooltip(event)
+        super().childEvent(event)
 
 
 class CustomPresetActions(QWidget):

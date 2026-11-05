@@ -34,7 +34,7 @@ def _tokens(expr: str):
 def test_compute_status_empty_tokens_returns_blank():
     from tcalc.ui.controller.controller import _compute_status
 
-    assert _compute_status([]) == ("", "")
+    assert _compute_status([]) == ("", None)
 
 
 def test_compute_status_unclosed_bracket_arity0():
@@ -79,7 +79,7 @@ def test_compute_status_unclosed_paren_arity1_is_grouping_blank():
     from tcalc.ui.controller.controller import _compute_status
 
     # `(5` is plausible as grouping; do NOT label it as a 1-element point.
-    assert _compute_status(_tokens("(5")) == ("", "")
+    assert _compute_status(_tokens("(5")) == ("", None)
 
 
 def test_compute_status_unclosed_paren_arity2_is_point():
@@ -92,7 +92,7 @@ def test_compute_status_multi_token_returns_blank():
     from tcalc.ui.controller.controller import _compute_status
 
     # `1+[2,3` -> tokens: [N(1), Op(+), ParenToken]; status suppressed.
-    assert _compute_status(_tokens("1+[2,3")) == ("", "")
+    assert _compute_status(_tokens("1+[2,3")) == ("", None)
 
 
 def test_compute_status_single_constant_shows_name():
@@ -112,14 +112,14 @@ def test_compute_status_constant_with_more_tokens_blank():
     from tcalc.ui.controller.controller import _compute_status
 
     # Only a bare constant shows the name; anything else typed suppresses it.
-    assert _compute_status(_tokens("c+2")) == ("", "")
+    assert _compute_status(_tokens("c+2")) == ("", None)
 
 
 def test_compute_status_subscript_variable_not_constant_blank():
     from tcalc.ui.controller.controller import _compute_status
 
     # x_{2} is a subscripted variable, not a constant -> no name.
-    assert _compute_status(_tokens("x_{2}")) == ("", "")
+    assert _compute_status(_tokens("x_{2}")) == ("", None)
 
 
 def _make_stub_ctrl(expression: str, force: bool = False):

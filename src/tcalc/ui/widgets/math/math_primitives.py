@@ -102,7 +102,7 @@ class MathPrimitive(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         theme = get_theme()
-        pen = QPen(theme.qcolor(theme.ui.color_usage.radical_symbol_color))
+        pen = QPen(theme.qcolor(theme.look.display.radical_symbol_color))
         pen.setWidthF(self._pen_width)
         painter.setPen(pen)
         path = self.build_path(float(self.width()), float(self.height()))

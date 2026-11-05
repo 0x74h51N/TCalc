@@ -27,17 +27,21 @@ from PySide6.QtWidgets import (
 from tcalc.app_state import RenderMode, get_app_state
 from tcalc.theme import PictureTarget, get_theme
 from tcalc.ui.config import CONFIG
+from tcalc.ui.icon import Icon
+from tcalc.ui.props import Prop, UiRole
 from tcalc.ui.styles import theme_events
 from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.common.utils import Align
 from tcalc.ui.widgets.math import MathPainter, PaintCanvas
-from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts
+from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts, fit_radius
 
 from ..common import IconButton, Toaster, ToastLevel
 from ..common.picture_layer import PictureLayer
 from .storage import HistoryEntry, clear_history_file, load_history, save_history
 from .style import apply_history_style
 from .utils import wrap_expression
+
+ICON_BUTTON_SELECTOR = f'QWidget#historyItem QPushButton[{Prop.UI_ROLE}="{UiRole.ICON_BUTTON}"]'
 
 style = CONFIG.history.style
 
@@ -76,6 +80,10 @@ class History(QWidget):
 
         self.list.currentItemChanged.connect(self._on_current_changed)
         theme_events.applied.connect(self._apply_theme_font)
+        self._icon_button_radius: int | None = None
+        self._fit_icon_button_radius()
+        theme_events.applied.connect(self._apply_theme_sizes)
+        theme_events.applied.connect(self._fit_icon_button_radius)
         layout.addWidget(self.list, 1)
 
         btn_container = QHBoxLayout()
@@ -87,6 +95,7 @@ class History(QWidget):
         self._history_modes = OptionGroup(
             [(RenderMode.MATH, "Math"), (RenderMode.FLAT, "Flat"), (RenderMode.RAW, "Raw")],
             self._app_state.history_mode,
+            lambda look: look.history.mode,
             self,
             tooltips={
                 RenderMode.FLAT: "Formatted text",
@@ -94,6 +103,7 @@ class History(QWidget):
                 RenderMode.RAW: "Raw LaTeX",
             },
         )
+        self._history_modes.setObjectName("historyModes")
         self._history_modes.selection_changed.connect(self.set_mode)
 
         btn_container.addWidget(self._history_modes)
@@ -102,11 +112,12 @@ class History(QWidget):
 
         # Clear Button
         self.clear_button = IconButton(
-            "edit-clear-history",
+            Icon.EDIT_CLEAR_HISTORY,
             tooltip="Clears all history permanently from local storage",
             text="Clear History",
             parent=self,
         )
+        self.clear_button.setObjectName("clearHistory")
         self.clear_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.clear_button.clicked.connect(self.clear_history)
         btn_container.addWidget(self.clear_button, style.clear_button_stretch)
@@ -118,8 +129,23 @@ class History(QWidget):
     def _apply_theme_font(self) -> None:
         # Only the family: the side panel scales the size
         font = self.list.font()
-        font.setFamily(get_theme().ui.fonts.family_monospace)
+        font.setFamily(get_theme().look.fonts.family_monospace)
         self.list.setFont(font)
+
+    def _apply_theme_sizes(self) -> None:
+        changed = [item for item in self._item_widgets if item.apply_theme_sizes()]
+        if changed:
+            self._update_widget_fonts(changed, force_layout=True)
+
+    def _fit_icon_button_radius(self) -> None:
+        look = get_theme().look.history
+        self._icon_button_radius = fit_radius(
+            self,
+            ICON_BUTTON_SELECTOR,
+            look.button.radius,
+            look.icon_button_size,
+            self._icon_button_radius,
+        )
 
     def set_mode(self, mode: RenderMode):
         self._history_modes.set_current(mode)
@@ -339,6 +365,7 @@ class HistoryItem(QWidget):
 
         self._layout = QVBoxLayout(self)
         self.expression_label = QLabel(self)
+        self.expression_label.setObjectName("historyExpression")
         self.expression_label.setAlignment(InputAlign.RIGHT.value)
 
         self._display_widget: QWidget
@@ -348,16 +375,26 @@ class HistoryItem(QWidget):
         self._layout.setSpacing(style.item_spacing)
 
         # Action buttons (absolute positioned, bottom-left, outside layout)
-        self._btn_size = style.action_btn_size
+        self._btn_size = get_theme().look.history.icon_button_size
         self._copy_btn = IconButton(
-            "edit-copy", tooltip="Copy expression", size=self._btn_size, parent=self
+            Icon.EDIT_COPY,
+            tooltip="Copy expression",
+            size=self._btn_size,
+            parent=self,
+            tint=lambda look: look.history.copy.text.color,
         )
+        self._copy_btn.setObjectName("historyCopy")
         self._copy_btn.hide()
         self._copy_btn.clicked.connect(self.copy_clicked)
 
         self._remove_btn = IconButton(
-            "edit-delete", tooltip="Remove from history", size=self._btn_size, parent=self
+            Icon.EDIT_DELETE,
+            tooltip="Remove from history",
+            size=self._btn_size,
+            parent=self,
+            tint=lambda look: look.history.delete.text.color,
         )
+        self._remove_btn.setObjectName("historyDelete")
         self._remove_btn.hide()
         self._remove_btn.clicked.connect(self.remove_clicked)
 
@@ -380,6 +417,7 @@ class HistoryItem(QWidget):
         self._expr_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         # Result label
         self.result_label = QLabel(self)
+        self.result_label.setObjectName("historyResult")
         self.result_label.setAlignment(InputAlign.RIGHT.value)
         self.result_label.setText(self._wrap_text(entry.result))
 
@@ -389,10 +427,28 @@ class HistoryItem(QWidget):
 
         self.set_display_mode(mode, defer_layout=True)
 
+    def apply_theme_sizes(self) -> bool:
+        """The theme's sizes on an open row; True when its layout has to follow."""
+        look = get_theme().look.history
+        changed = False
+        if look.icon_button_size != self._btn_size:
+            self._btn_size = look.icon_button_size
+            self._copy_btn.set_size(self._btn_size)
+            self._remove_btn.set_size(self._btn_size)
+            self._place_buttons()
+            changed = True
+        # Painting is the slow part of a switch: only when the size really changed
+        if (
+            self._current_render_mode is RenderMode.MATH
+            and self._font.pointSize() != look.math_font_size
+        ):
+            self._math_paint()
+            changed = True
+        return changed
+
     def _math_paint(self) -> None:
-        base_font = CONFIG.history.math.base_font
         f = QFont(self.parrent.font())
-        f.setPointSize(base_font)
+        f.setPointSize(get_theme().look.history.math_font_size)
         self._font = f
         if self._entry.tokenized is not None:
             tree = self.painter.paint_tree(self._entry.tokenized, f)
@@ -443,15 +499,19 @@ class HistoryItem(QWidget):
         return self._wrap_text(self._entry.expression)
 
     def update_fonts(self) -> None:
-        """Update font scaling for expression inputs."""
+        """Update font scaling for the expression and the result."""
         sample = self.parrent
+        look = get_theme().look.history
         if self._current_render_mode is not RenderMode.MATH:
             apply_scaled_fonts(
                 sample,
                 self.expression_label,
-                style.expr_min_pt,
-                style.expr_max_pt,
+                look.expression.font.min_pt,
+                look.expression.font.max_pt,
             )
+        apply_scaled_fonts(
+            sample, self.result_label, look.result.font.min_pt, look.result.font.max_pt
+        )
 
     def refresh_layout(self) -> None:
         """Recalculate item row height for QListWidget after font/mode changes in disgusting way."""
@@ -488,7 +548,9 @@ class HistoryItem(QWidget):
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
+        self._place_buttons()
 
+    def _place_buttons(self) -> None:
         margin = style.item_margin
         y = self.height() - margin - self._btn_size
         self._copy_btn.move(margin, y)

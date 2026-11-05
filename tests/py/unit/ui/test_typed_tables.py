@@ -12,12 +12,15 @@ import logging
 import tomllib
 from dataclasses import dataclass
 from enum import Enum
+from typing import NewType
 
 import pytest
 from pytest import param
 
 from tcalc.typed_tables import TableError, build, override
 from tcalc.ui.config import CONFIG, CONFIG_PATH, UiConfig
+
+Name = NewType("Name", str)
 
 
 class Fit(Enum):
@@ -28,6 +31,7 @@ class Fit(Enum):
 @dataclass(frozen=True, slots=True)
 class Inner:
     n: int
+    k: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,6 +43,7 @@ class Outer:
     e: Fit
     t: tuple[str, ...]
     inner: Inner
+    name: Name
     opt: str = "x"
 
 
@@ -49,9 +54,10 @@ GOOD = {
     "b": True,
     "e": "cover",
     "t": ["p", "q"],
-    "inner": {"n": 2},
+    "inner": {"n": 2, "k": 3},
+    "name": "m",
 }
-BUILT = Outer(1, 0.5, "a", True, Fit.COVER, ("p", "q"), Inner(2))
+BUILT = Outer(1, 0.5, "a", True, Fit.COVER, ("p", "q"), Inner(2, 3), Name("m"))
 
 
 # (table, expected Outer or the TableError message)
@@ -72,6 +78,7 @@ BUILT = Outer(1, 0.5, "a", True, Fit.COVER, ("p", "q"), Inner(2))
         param({**GOOD, "i": "1"}, "outer.i: expected int, got str", id="wrong type"),
         param({**GOOD, "i": True}, "outer.i: expected int, got bool", id="bool for int"),
         param({**GOOD, "e": "fill"}, "outer.e: expected Fit, got str 'fill'", id="unknown enum"),
+        param({**GOOD, "name": 1}, "outer.name: expected str, got int", id="wrong new type"),
         param({**GOOD, "t": ["p", 1]}, "outer.t: expected str, got int", id="wrong item type"),
         param([GOOD], "outer: expected a table, got list", id="not a table"),
         param(
@@ -94,7 +101,14 @@ def test_build(table, expected):
 @pytest.mark.parametrize(
     "table, changed, warning",
     [
-        param({"i": 5, "inner": {"n": 7}}, {"i": 5, "inner": Inner(7)}, "", id="applies"),
+        param({"i": 5, "inner": {"n": 7}}, {"i": 5, "inner": Inner(7, 3)}, "", id="applies"),
+        param({"inner": {"z": 1}}, {}, "theme.inner.z: unknown key", id="nested unknown key"),
+        param(
+            {"inner": {"n": "7"}},
+            {},
+            "theme.inner.n: expected int, got str",
+            id="nested wrong type",
+        ),
         param({"i": 5, "z": 1}, {"i": 5}, "theme.z: unknown key", id="unknown key skipped"),
         param(
             {"i": "5", "s": "b"},
@@ -142,8 +156,8 @@ def test_config_toml_builds():
             id="unknown key",
         ),
         param(
-            lambda c: c["toast"].update(pad_y="6"),
-            "config.toast.pad_y: expected int, got str",
+            lambda c: c["side_panel"].update(margin="6"),
+            "config.side_panel.margin: expected int, got str",
             id="wrong type",
         ),
     ],

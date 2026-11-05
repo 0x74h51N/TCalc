@@ -1,0 +1,291 @@
+# Theme Areas Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** A theme sets everything about a UI area in that area's table, laid over the defaults in `look.toml` by `override`, with no name mapping; then the history, memory, dock, tab and option settings of #197.
+
+**Architecture:** `look.toml` holds every themable default under one table per area, read by the new `look.py` into a `Look` dataclass; `config.toml` keeps what no theme may touch. `Theme.look` is `override(default look, the theme's area tables)`, and the stylesheet substitutes every look field as `$<area>_<field>`.
+
+**Tech Stack:** Python 3.14, PySide6, TOML (`tomllib`), pytest.
+
+**Spec:** `docs/superpowers/specs/2026-11-04-theme-areas-design.md`
+
+## Global Constraints
+
+- A value is in `look.toml` when it is a color, a font size, a radius or a padding inside a widget's box; everything else stays in `config.toml`.
+- A look field is a color place exactly when its name is `color` or ends in `_color` (`look.is_color_place`); its value is a theme color name.
+- Every look field is substituted in QSS as `$<area>_<field>`; no other substitution exists.
+- No value changes. Part 1 leaves every bundled theme's built stylesheet byte for byte the same (the hash pins in `tests/py/unit/ui/test_theme_overrides.py` do not change).
+- A commit step stops for the owner's approval of the diff (`docs/rules/ai/git.md`). Run `make py-lint-fix` before each commit. Run single test files with `PYTHONPATH=src python -m pytest <file>`; `make py-test` once at the end of each part.
+- One PR (#201) on `refactor/theme-areas`, in three parts: Part 1, Part 2, Part 3, in order. The spec and this plan went in as its first commit.
+
+## Review Focus
+
+- A theme that sets one key of an area keeps the rest of the area (Task 1, Task 3).
+- A theme that writes a behavior table (`[keypad.custom] spin_font_size = 20`) changes nothing and logs it (Task 3).
+- A custom theme in the old format (`[spacing]`, `[color_usage]`) still loads; those tables are logged and skipped (Task 3).
+- A theme whose area table names a missing color keeps the default place and logs it (Task 3).
+- A theme switch after Part 2 changes the history and memory font ranges without a restart (Task 7).
+
+## Part 1: the restructure
+
+### Task 1: partial nested override
+
+**Files:**
+- Modify: `src/tcalc/typed_tables.py` (`override`)
+- Test: `tests/py/unit/ui/test_typed_tables.py` (`test_override` table)
+
+**Interfaces:**
+- Produces: `override(obj, table, where)` overrides a nested dataclass field from a sub-table with `override(getattr(obj, key), sub, f"{where}.{key}")` instead of `build`; an unknown nested key is logged as `<where>.<key>.<sub>: unknown key`. `build` is unchanged.
+
+- [ ] **Step 1: Give `Inner` a second field `k: int`, set `GOOD["inner"] = {"n": 2, "k": 3}` and `BUILT`'s `Inner(2, 3)`; the `applies` row of `test_override` now expects `"inner": Inner(7, 3)` from `{"inner": {"n": 7}}`. Add:**
+
+```python
+param({"inner": {"z": 1}}, {}, "theme.inner.z: unknown key", id="nested unknown key"),
+param({"inner": {"n": "7"}}, {}, "theme.inner.n: expected int, got str", id="nested wrong type"),
+```
+
+- [ ] **Step 2: Run, expect `nested partial` to FAIL with `theme.inner.k: missing`**
+
+Run: `PYTHONPATH=src python -m pytest tests/py/unit/ui/test_typed_tables.py -q`
+
+- [ ] **Step 3: In `_convert_keys`'s caller `override`, convert a key whose hint is a dataclass and whose value is a dict with a recursive `override`; leave `_convert` (used by `build`) as it is.**
+
+- [ ] **Step 4: Run, expect PASS**
+
+- [ ] **Step 5: Commit** `refactor/typed-tables: override a nested table partially`
+
+### Task 2: `look.toml` and `look.py`
+
+**Files:**
+- Create: `src/tcalc/ui/look.toml`, `src/tcalc/ui/look.py` (new module, argued in the spec: what every theme lays over, apart from `config.py`'s untouchable values)
+- Test: `tests/py/unit/ui/test_look.py` (new file: the look's own checks have no existing home; `test_typed_tables.py` is the converter's)
+
+**Interfaces:**
+- Produces: `LOOK_PATH: Path`, `DEFAULT_LOOK: Look`, `type ColorPlace = Callable[[Look], str]`, `def color_places(look: Look) -> dict[str, str]` (key `"<area>_<field>"`, value the color name, for every color place), `def is_color_place(field: str) -> bool`, and one frozen slots dataclass per area below, fields in this order, types `str` for `_color` and family fields, `int` otherwise. Values are copied from today's `config.toml`.
+
+Areas and fields (old name in parentheses when it differs; the QSS name is `<area>_<field>`):
+
+- `FontsLook` `[fonts]`: `family_default`, `size_default`, `family_monospace`.
+- `PaletteLook` `[palette]`: `window_color`, `window_text_color`, `base_color`, `text_color`, `button_color`, `button_text_color`, `highlight_color`, `highlighted_text_color` (all `palette_*`).
+- `IconsLook` `[icons]`: `color` (`icon_color`).
+- `DisplayLook` `[display]`: `background_color` (`display_background_color`), `expression_text_color`, `expression_selection_color`, `expression_selection_text_color`, `expression_slot_focus_color`, `radical_line_color`, `radical_symbol_color`, `status_text_color`, `status_error_text_color`, `divider_height`, `root_border_width`, `expression_font_size`, `expr_max_pt`.
+- `ResultLook` `[result]`: `text_color` (`result_text_color`), `fraction_button_color`, `fraction_button_hover_color`, `fraction_button_pressed_color`, `fraction_icon_color`, `font_size`, `max_pt`, `btn_padding`, `frac_toggle_radius`.
+- `MemoryLook` `[memory]`: `button_color`, `button_text_color`, `button_hover_color`, `button_pressed_color`, `button_disabled_color`, `button_disabled_text_color` (all `memory_button_*`), `pad_y`, `pad_x` (`memory_pad_*`).
+- `KeypadLook` `[keypad]`: for role in `number, operator, action, equals, trig, function, power`: `<role>_color`, `<role>_text_color`, `<role>_pressed_color` (`<role>_key_*`); `equals_border_color`, `hover_border_color`, `checked_color`, `disabled_color`, `disabled_text_color` (`key_*`), `symbol_color` (`key_symbol_color`), `radius` (`key_radius`), `button_padding`, `compact_pad_y`, `compact_pad_x`, `min_pt`, `max_pt` (`keypad_*_pt`).
+- `CustomPadLook` `[custom_pad]`: `add_key_color`, `add_key_hover_color`, `spinbox_color`, `spinbox_text_color`, `spinbox_focus_border_color`, `toolbar_separator_color`, `menu_background_color`, `menu_text_color`, `menu_border_color`, `menu_selected_color`, `menu_separator_color` (`pad_*`).
+- `PickerLook` `[picker]`: `background_color`, `border_color`, `list_background_color`, `text_color`, `hover_color` (`picker_*`), `font_size` (`picker_size`).
+- `MenuLook` `[menu]`: `background_color`, `text_color`, `border_color`, `selected_color`, `selected_text_color`, `selected_border_color`, `disabled_text_color`, `separator_color` (`menu_*`), `constants_symbol_color` (`constants_menu_symbol_color`), the eleven `[manubar.style]` fields with `menu_padding` as `padding`, `font_size` (`menu_size`).
+- `HistoryLook` `[history]`: `background_color`, `text_color`, `row_color`, `alternate_row_color`, `selected_color`, `selected_text_color` (`history_*`).
+- `OptionsLook` `[options]`: `text_color`, `hover_color`, `checked_color`, `checked_text_color` (`option_*`), `radius` (`option_radius`), `padding_y`, `padding_x`.
+- `IconButtonLook` `[icon_button]`: `color`, `text_color`, `hover_color`, `pressed_color`, `light_color`, `shadow_color` (`icon_button_*`), `radius`, `padding` (`icon_padding`).
+- `TooltipLook` `[tooltip]`: `background_color`, `border_color`, `text_color`, `radius`, `padding` (`tooltip_*`).
+- `ToastLook` `[toast]`: `text_color`, `info_color`, `warn_color`, `error_color`, `pad_y`, `pad_x`, `radius` (`border_radius`), `font_size`.
+- `Look`: one field per area, named as its table (`custom_pad: CustomPadLook`).
+
+- [ ] **Step 1: Write `tests/py/unit/ui/test_look.py`**
+
+```python
+def test_color_places_are_str():
+    for area in dataclasses.fields(Look):
+        table = getattr(DEFAULT_LOOK, area.name)
+        for f in dataclasses.fields(table):
+            if f.name.endswith("_color"):
+                assert type(getattr(table, f.name)) is str, f.name
+
+@pytest.mark.parametrize("variant", ["light", "dark"])
+def test_builtin_themes_have_every_color_place(variant):
+    colors = tomllib.loads((BUILT_IN_DIR / f"{variant}.toml").read_text())["colors"]
+    assert [c for c in color_places(DEFAULT_LOOK).values() if c not in colors] == []
+
+def test_qss_names_are_unique():
+    names = [
+        f"{a.name}_{f.name}"
+        for a in dataclasses.fields(Look)
+        for f in dataclasses.fields(getattr(DEFAULT_LOOK, a.name))
+    ]
+    assert [n for n, k in Counter(names).items() if k > 1] == []
+```
+
+- [ ] **Step 2: Run, expect FAIL on import (`tcalc.ui.look` missing)**
+
+- [ ] **Step 3: Write `look.toml` (the areas above, comments carried over from `config.toml`) and `look.py`.** Nothing reads them yet.
+
+- [ ] **Step 4: Run, expect PASS**
+
+- [ ] **Step 5: Commit** `refactor/theme: add the look tables beside the config`
+
+### Task 3: switch to the look, remove the flat names
+
+One task because the old and new paths cannot both feed the stylesheet: the hash pins hold only when the theme loader, the substitutions, the QSS names, the readers and the bundled themes change together.
+
+**Files:**
+- Modify: `src/tcalc/theme.py`, `src/tcalc/ui/styles.py`, `src/tcalc/ui/config.py`, `src/tcalc/ui/config.toml`, the eight `*.qss` files under `src/tcalc/ui/`, `src/tcalc/themes/{kitty,retro,sponge}/theme.toml`, and the readers: `ui/utils.py`, `ui/widgets/utils.py`, `ui/widgets/math/math_primitives.py`, `ui/widgets/math/painter/symbol_icon.py`, `ui/widgets/common/button.py`, `ui/widgets/common/constants_menu.py`, `ui/widgets/calc/display/display.py`, `ui/widgets/calc/display/expression/expression.py`, `ui/widgets/calc/display/result/result.py`, `ui/widgets/calc/topbar/topbar.py`, `ui/widgets/keypad/keypad.py`, `ui/widgets/history/history.py`, `ui/widgets/history/style.py`, `ui/widgets/keypad/custom_pad.py`
+- Test: `tests/py/unit/ui/test_theme_overrides.py`, `tests/py/unit/ui/test_theme_colors.py`, `tests/py/unit/ui/test_icons.py`, `tests/py/unit/ui/test_styles.py`, `tests/py/unit/ui/test_color_scheme.py`, `tests/py/unit/ui/test_typed_tables.py` (its `wrong type` row edits `c["toast"]`, which leaves `config.toml`: use `c["side_panel"].update(margin="6")`, message `config.side_panel.margin: expected int, got str`)
+
+**Interfaces:**
+- Consumes: Task 1 `override`, Task 2 `Look`, `DEFAULT_LOOK`, `ColorPlace`, `color_places`.
+- Produces: `Theme.look: Look` (replaces `Theme.ui`); `get_icon(name, tint: ColorPlace | None)` and `theme_symbol_icon(symbol, place: ColorPlace)` take a `Look` selector (`lambda look: look.result.fraction_icon_color`). `CONFIG` keeps `window`, `icons` (`untinted`), `side_panel`, `history` (`max_items`, `style`, `math`), `memory`, `keypad`, `calc` (`layout`, `display` = `margin`, `spacing`, `expression_height_factor`, `expression_min_height`, `scroll_anim_duration`, `scroll_anim_curve`; `display.result` = `height`, `font_norm`, `resize_debounce_ms`, `btn_size`, `frac_icon`, `decimal_icon`; `topbar` = `side_margin`, `top_margin`, `bottom_margin`, `grid_spacing`, `spacer_stretch`), `manubar.preset`. `Result(parent, config: ResultConfig)` reads its look from `get_theme().look.result`. `custom_pad._spin_font` takes its family from `DEFAULT_LOOK.fonts.family_default`: the default look, never the theme's (#106).
+
+- [ ] **Step 1: Rewrite the `test_theme_overrides.py` cases for area tables**
+
+The `test_broken_part_falls_back` rows use area tables (`[[keypad]]` for the array case, `[picker]\ntext_color = "nope"` for the missing color, logged as `theme user.picker.text_color: 'nope' is not one of its colors`), read `t.look.*`, and end with `assert load_theme("dark").look == DEFAULT_LOOK`. Add:
+
+```python
+param('[keypad]\nradius = 7\n', lambda t: (t.look.keypad.radius, t.look.keypad.min_pt), (7, DEFAULT_LOOK.keypad.min_pt), "", id="one key of an area"),
+param('[keypad.custom]\nspin_font_size = 20\n', lambda t: t.look.keypad, DEFAULT_LOOK.keypad, "theme user.keypad.custom: unknown key", id="behavior table"),
+param('[spacing]\nkey_radius = 7\n', lambda t: t.look, DEFAULT_LOOK, "theme user.spacing: unknown key", id="old format"),
+```
+`test_spacing_override_reaches_stylesheet_and_python` becomes `[result]\nfrac_toggle_radius = 40\n[keypad]\nradius = 7\n`. Delete `test_stylesheet_names_are_unique` (Task 2 has it) and `test_no_stylesheet_table_read_through_config`. Keep `test_bundled_themes_style_unchanged` and its hashes untouched. `test_theme_colors.py::test_builtin_themes_have_every_color_usage_color` is deleted (Task 2 has it).
+
+- [ ] **Step 2: Run the file, expect FAIL (`Theme` has no `look`)**
+
+- [ ] **Step 3: `Theme.__init__`: `self.look = override(DEFAULT_LOOK, {k: v for k, v in data.items() if k not in ("name", "base", "colors", "pictures")}, where)`, then each `color_places` entry missing from `self.colors` is logged and reset to `DEFAULT_LOOK`'s choice. Delete `ui`, `_spacing`, `_replaced`, `_color_usage`.**
+
+- [ ] **Step 4: `styles._build_subs` returns `{f"{area}_{field}": (theme.colors[v] if field.endswith("_color") else str(v)) ...}` over `Look`; `_build_palette` and `_app_font` read `look.palette` and `look.fonts`. Rename every `$name` in the QSS files to its `$<area>_<field>`.**
+
+- [ ] **Step 5: Move the readers to `get_theme().look.<area>` or `CONFIG`, per Interfaces; delete from `config.py` and `config.toml` what the spec's Removed list names, including the seven unread history keys.**
+
+- [ ] **Step 6: Convert `kitty`, `retro`, `sponge`: `[fonts]` keeps the three app fields, `keypad_*_pt` go to `[keypad] min_pt`/`max_pt`, `picker_size` to `[picker] font_size`, `menu_size` to `[menu] font_size`, `[spacing]` radii to `[keypad] radius`, `[icon_button] radius`, `[tooltip] radius`, `[options] radius`, `[result] frac_toggle_radius`, sponge's `[color_usage] picker_text_color` to `[picker] text_color`.**
+
+- [ ] **Step 7: Run, expect PASS with the hash pins unchanged**
+
+Run: `PYTHONPATH=src python -m pytest tests/py/unit/ui -q && make typecheck`
+Expected: all pass; `git diff tests/py/unit/ui/test_theme_overrides.py` shows no hash change.
+
+- [ ] **Step 8: Run `make py-test`; open the app with each bundled theme and compare it with `master`.**
+
+- [ ] **Step 9: Commit** `refactor/theme: one table per area in look.toml, no flat override names`
+
+### Task 4: template and findings
+
+**Files:**
+- Modify: `src/tcalc/themes/theme-template.toml`, `docs/superpowers/findings/typed-config.md`
+
+- [ ] **Step 1: The template lists each area table with its fields commented out and their defaults, says a theme file is a partial `look.toml`, and drops the `[spacing]` and `[color_usage]` sections.**
+
+- [ ] **Step 2: Update the 2026-11-02 entry of `typed-config.md` to the new flow (look.toml, `Theme.look`, `$<area>_<field>`), deleting what is no longer true.**
+
+- [ ] **Step 3: Commit** `docs/theme: describe the area tables`
+
+### Task 5: typed tables and typed values, no `Any` and no bare `str`
+
+The owner's follow-up from Task 1 review: the converter's hints and values are typed, not `Any`, and removing `Any` does not mean falling back to `object` or a bare `str`. A value says what it is by its type: a color name, an icon name, a font family, a group of fields with the same shape.
+
+**Files:**
+- Modify: `src/tcalc/typed_tables.py`, `src/tcalc/ui/look.py`, `src/tcalc/ui/look.toml`, `src/tcalc/ui/config.py`, `src/tcalc/theme.py`, `src/tcalc/ui/styles.py`, the readers of the moved keypad fields, `src/tcalc/themes/{kitty,retro,sponge}/theme.toml`, `tests/py/ui/themes/extreme/theme.toml`
+- Test: `tests/py/unit/ui/test_typed_tables.py`, `tests/py/unit/ui/test_look.py` (`make typecheck` is the main check)
+
+**Interfaces:**
+- `typed_tables.py`: `type Toml = int | float | bool | str | list[Toml] | dict[str, Toml]` is what a table holds (the input of `build`, `override`, `values`); `type Value = int | float | bool | str | Path | Enum | tuple[Value, ...] | DataclassInstance` is what a converted field holds (the converter's return); `type Hint = type | types.GenericAlias | NewType` is what a field may be declared as. A `NewType` field converts by its supertype and keeps the NewType. `_hints` is typed `Callable[[type], dict[str, Hint]]` at the `get_type_hints` boundary; `_is_dataclass_type(hint: Hint) -> TypeGuard[type[DataclassInstance]]`; the per-key converter is `Callable[[str, Toml, Hint, str], Value]`; `override` reads the current nested value as `DataclassInstance` before recursing; `values[V]` converts with its own check against `kind` and returns `dict[str, V]`. No `Any` and no `cast` in the file.
+- Named value types, each a `NewType` over `str`, declared beside the table that owns them: `ColorName` (`look.py`: every color place of the look; `Theme.colors: dict[ColorName, str]`), `IconName` (`config.py`: `untinted`, `frac_icon`, `decimal_icon`, `row_icon`, `rename_icon`, `update_icon`, `delete_icon`), `FontFamily` (`look.py`: `family_default`, `family_monospace`). A color place is a field whose type is `ColorName`: `is_color_place(name)` and its name rule go, `color_places` walks the look by type and recurses into nested tables.
+- Nested structure: the seven keypad roles share one shape, so `@dataclass(frozen=True, slots=True) class KeyRoleLook: color: ColorName; text_color: ColorName; pressed_color: ColorName` and `KeypadLook` has `number`, `operator`, `action`, `equals`, `trig`, `function`, `power: KeyRoleLook` in place of the 21 flat fields. `look.toml` and the themes write `[keypad.number] color = ...`. The stylesheet name is the path joined by `_` (`$keypad_number_color`), so no QSS file changes. Areas whose fields occur once keep them flat; no other group is merged into a shared shape.
+
+- [ ] **Step 1: Add a `test_typed_tables.py` row for a `NewType` field (built value equals the plain one, a wrong type is a TableError) and for a nested override of one role (`{"number": {"color": "x"}}` keeps the role's other fields); run, expect FAIL**
+- [ ] **Step 2: Implement the types above in `typed_tables.py`, `look.py`, `config.py`, `theme.py`, move the keypad role fields into `[keypad.<role>]` in `look.toml` and the four theme files, update their readers**
+- [ ] **Step 3: Run `PYTHONPATH=src python -m pytest tests/py/unit/ui/test_typed_tables.py tests/py/unit/ui/test_look.py tests/py/unit/ui/test_theme_overrides.py -q` and `make typecheck`; expect green with the hash pins unchanged, and `grep -n "Any\|cast(" src/tcalc/typed_tables.py` empty. Then `make py-test`**
+- [ ] **Step 4: Commit** `refactor/typed-tables: type the field hints and values`
+
+### Task 6: typed Qt properties and icon names
+
+Builds on Task 5. Every string a widget is styled by, and every icon name, is named once in Python, and a test fails when the QSS, the icon files and Python drift.
+
+**Files:**
+- Create: `src/tcalc/ui/props.py` (new module: the property names and values have no home today; they are shared by 12 widget files and 8 QSS files), `src/tcalc/ui/icon.py` (new module: `config.py` needs the icon names and cannot import `ui/utils.py`, which imports `CONFIG`)
+- Modify: the files with `setProperty`/`property` calls (`ui/keyboard/handler.py`, `ui/widgets/common/{toaster,toolbar,button,utils}.py`, `ui/widgets/history/style.py`, `ui/widgets/calc/display/result/result.py`, `ui/widgets/calc/display/expression/expression.py`, `ui/widgets/math/renderer/expression_node.py`, `ui/widgets/keypad/{keypad,custom_pad,keypad_defins,utils}.py`, `ui/widgets/calc/topbar/{topbar,defins}.py`, `ui/widgets/utils.py`, `ui/controller/controller.py`), the icon callers (`ui/app.py`, `ui/utils.py`, `ui/config.py`, `ui/manubar/{defins,menu_builder}.py`, `ui/manubar/menus/view.py`, `ui/widgets/history/history.py`), `src/tcalc/ui/manubar/style.qss`
+- Test: `tests/py/unit/ui/test_props.py` (new: the QSS-against-Python check has no existing home), the icon check goes into `tests/py/unit/ui/test_icons.py`
+
+**Interfaces:**
+- Produces: `class Prop(StrEnum)` with one member per property a QSS selector reads (`UI_ROLE = "uiRole"`, `KEYPAD_ROLE = "keypadRole"`, `PRESSED`, `ADD_BUTTON`, `PAD_KEY`, `TOAST_LEVEL`, `STATUS_KIND`, `OPTION_ROLE`, `EXPR_SLOT`, `EXPR_SLOT_KIND`, `EXPR_INPUT`, `LATEX_KIND`, `CUSTOM_PAD_MENU`); value enums `UiRole(StrEnum)` (`keypad`, `historyList`, `iconButton`, `toolbarToggle`), `KeypadRole(StrEnum)` (the roles the key tables pass: `digit`, `operator`, `action`, `trig`, `function`, `power`, `memory`, `custom`), `OptionRole(StrEnum)` (`option`), `StatusKind(StrEnum)` (`info`, `error`). Existing enums are reused for the others: `InputKind` for `exprSlotKind` and `LatexKind`, `ToastLevel` for `toastLevel` (its values made lowercase so Python passes the member, not `level.name.lower()`). The role tables are `dict[KeypadRole, list[KeyDef]]`. A widget calls `widget.setProperty(Prop.UI_ROLE, UiRole.KEYPAD)` directly: no wrapper function.
+- Produces: `class Icon(StrEnum)`, one member per icon file name under `assets/icons/` (`EDIT_DELETE = "edit-delete"`). `get_icon(name: Icon | None)`, `IconButton(icon: Icon, ...)`, the menu definitions' `icon: Icon | None`, and the config icon fields (`untinted: tuple[Icon, ...]`, `frac_icon`, `decimal_icon`, `row_icon`, `rename_icon`, `update_icon`, `delete_icon`) take the enum; `config.toml` keeps writing the file names (an enum is read by value).
+- Removed: the Qt-property caches `keyRadius` (`ui/widgets/utils.py`: `apply_key_radius` and `shrink_key_radius` take the applied radius and return the new one; `Keypad` and `KSGrid` keep it in `self._key_radius: int | None`), `_expr_connected` and `_aw_scheduled` (typed instance attributes of their classes). The dead QSS rules `[presetRow="true"]` and `[active="true"]` in `manubar/style.qss`, which no code sets. The unused `apply_button_style`.
+
+- [ ] **Step 1: Write `test_props.py`: every `[name]` and `[name="value"]` in the QSS files and in the inline stylesheets of `custom_pad.py` and `ui/widgets/utils.py` is a `Prop` member, and its value a member of that property's value enum (a table in the test maps each `Prop` to its value enum, or to `bool` for `"true"` properties). In `test_icons.py`, every `Icon` member has its `.svg` under `assets/icons/`, and every `.svg` there is a member.**
+- [ ] **Step 2: Run them, expect FAIL on the missing modules**
+- [ ] **Step 3: Implement `props.py` and `icon.py`, switch every call site, remove the three caches, the dead rules and `apply_button_style`**
+- [ ] **Step 4: Run `make typecheck`, the two test files, `test_theme_overrides.py`; the hash pins change only by the removed manubar rules: diff the built stylesheets against Task 5's commit and update the pins with that diff in the report. Then `make py-test`**
+- [ ] **Step 5: Commit** `refactor/ui: name the styling properties and icons once`
+
+## Part 2: history, memory and option groups
+
+### Task 7: history and memory font sizes in the look
+
+**Files:**
+- Modify: `look.toml`, `look.py`, `config.toml`, `config.py`, `ui/widgets/side_panel/side_panel.py`, `ui/window.py`, `ui/widgets/history/history.py`, `ui/widgets/history/style.py`, `src/tcalc/themes/theme-template.toml`
+- Test: `tests/py/ui/test_theme_switch.py`
+
+**Interfaces:**
+- Produces: `HistoryLook` gains `font_size`, `max_pt`, `expr_min_pt`, `expr_max_pt`, `clear_min_pt`, `clear_max_pt` (`clr_btn_*`), `action_btn_size`, `math_font_size` (`[history.math] base_font`); `MemoryLook` gains `font_size`, `max_pt`. All are `int`. `SidePanel.register_font_targets(targets, sizes: Callable[[Look], tuple[int, int]], callback=None)`: the range is resolved from `get_theme().look` each time fonts are applied.
+
+- [ ] **Step 1: Test in `test_theme_switch.py`: with a written theme `[history]\nfont_size = 11\nmax_pt = 11\n`, `apply_theme` to it and back to dark; the history list's `font().pointSize()` is 11, then the dark value.**
+- [ ] **Step 2: Run, expect FAIL (the range is fixed at registration)**
+- [ ] **Step 3: Move the fields, change `register_font_targets` and its three callers in `window.py`, read the rest through `get_theme().look.history`; add the fields to `theme-template.toml`**
+- [ ] **Step 4: Run the file and `tests/py/ui/test_history.py`, expect PASS; hash pins unchanged**
+- [ ] **Step 5: Commit** `feat/theme: history and memory font sizes in the theme`
+
+### Task 8: history colors and sizes per part
+
+**Files:**
+- Modify: `look.toml`, `look.py`, `ui/widgets/history/history.py`, `ui/widgets/history/style.qss`, `ui/styles/common.qss`, `src/tcalc/themes/theme-template.toml`
+- Test: `tests/py/ui/test_history.py`
+
+**Interfaces:**
+- Produces: `HistoryLook` gains `expression_color`, `result_color` (default `text_secondary`, today's list color), `result_min_pt`, `result_max_pt` (defaults the list's `font_size` and `max_pt`), `icon_button: HistoryIconButtonLook`, the `[history.icon_button]` table that replaces `[icon_button]` and `action_btn_size`: `size`, `radius`, `hover_color`, `pressed_color`, `light_color`, `shadow_color`, `copy_color`, `copy_icon_color` (default `icon`), `delete_color`, `delete_icon_color` (default `status_error`); the shared icon button rule reads `[palette]` with a fixed radius 2 and padding 4, `clear_text_color`, `clear_color` (defaults `[icon_button]`'s), and `mode: OptionsLook`, the `[history.mode]` table with today's `[options]` values as its defaults. `OptionsLook` gains `font_size` (default `size_default`'s value), so the mode buttons and the top bar's option groups both get a font size. Color fields are `ColorName`, sizes `int`. The mode buttons take `[history.mode]` through QSS rules on the group's object name `historyModes`; every other option group takes `[options]` from `common.qss`. `OptionGroup` itself does not change in this task (Task 8b gives it a look picker).
+
+- [ ] **Step 1: Params in `test_history.py`: a theme setting each new field reaches its widget (label palette/stylesheet color, label font size, icon tint by `test_icons._opaque_color`), `[history.mode] text_color` alone keeps the checked button's text color, `[options] font_size` reaches an `OptionGroup` button but not the history modes, and the default theme renders as before**
+- [ ] **Step 2: Run, expect FAIL**
+- [ ] **Step 3: Implement; QSS selectors on `#historyItem`, `#historyModes` and the clear button's object name; add the fields to `theme-template.toml`**
+- [ ] **Step 4: Run, expect PASS; diff the built stylesheets against Part 1 and update the pins only for the added rules**
+- [ ] **Step 5: Commit** `feat/theme: history expression, result, buttons and modes in the theme`
+
+### Task 8b: radii that fit, raised edges, retro (owner's review of Task 8)
+
+The owner's review of Task 8 in the running app asked for these; each is one commit.
+
+**Files:**
+- Modify: `ui/widgets/utils.py`, `ui/widgets/common/button.py`, `ui/widgets/common/toaster.py`, `ui/widgets/calc/topbar/topbar.py`, `ui/widgets/calc/display/result/result.py`, `ui/widgets/history/history.py`, `ui/widgets/keypad/keypad.py`, `ui/widgets/keypad/custom_pad.py`, `ui/props.py`, the QSS files of those widgets, `look.toml`, `look.py`, `theme-template.toml`, `dark.toml`, `light.toml`, `retro/theme.toml`
+- Test: `tests/py/ui/test_history.py`, `tests/py/ui/test_theme_switch.py`
+
+**Interfaces:**
+- Produces: `fit_radius(container, selector, radius, side, applied) -> int` and `shortest_side(widgets)` in `ui/widgets/utils.py`, on which `apply_key_radius` and `shrink_key_radius` now run; the option groups, the memory keys, the history item buttons, the fraction toggle and the toast fit their radius with it, so a radius larger than a button makes it as round as it fits. `[memory] radius`. `round_tooltip(event)`, called from `childEvent` of the widgets that carry tooltips, makes the tooltip window see-through so `[tooltip] radius` rounds the whole box. The colors `button_highlight` and `button_shadow`, the same in `dark` and `light`. `edge_width`, `edge_light_color`, `edge_shadow_color` in `[keypad]`, `[memory]`, `[options]` and `[history.mode]`, `edge_width = 0` by default; `set_raised(container, raised)` sets `Prop.RAISED` when the edge width is above 0, and the edge rules apply only under it. `OptionGroup(..., look: Callable[[Look], OptionsLook])`: the history passes `look.history.mode`, the top bar `look.options`.
+
+- [x] **Commit 1** `feat/theme: every button radius fits its button`: `fit_radius`, `[history.icon_button]`, `[memory] radius`, the tooltip box, `button_shadow`
+- [x] **Commit 2** `feat/theme: raised edges for keys, memory and option buttons`: the `edge_*` fields behind `Prop.RAISED`; the default themes render pixel for pixel as before
+- [x] **Commit 3** `feat/theme: retro as a 1995 desktop`: gray raised keys, a white display, a history zebra, larger VT323 sizes; retro's base is now `light`
+
+## Part 3: docks and tabs
+
+### Task 9: dock title and tab bar
+
+**Files:**
+- Modify: `look.toml`, `look.py`, `ui/widgets/common/dock_title_bar.py`, `ui/styles/common.qss`, `src/tcalc/themes/theme-template.toml`
+- Test: `tests/py/ui/test_theme_switch.py`
+
+**Interfaces:**
+- Produces: `DockLook` `[dock]`: `title_color` (default `text_primary`), `title_font_size` (default `size_default`'s value). `TabsLook` `[tabs]`: `text_color` (`text_primary`), `font_size` (9). Color fields are `ColorName`, sizes `int`. QSS: a `QTabBar::tab` rule in `common.qss`; `DockTitleBar`'s label gets an object name the dock rule selects. A tab background, selected or hover color or a radius drops the style's own tab (`findings/theme-radius.md`), so the tab box moves to #203 with the edges; kitty, retro and sponge set their app font size on both, as their titles and tabs had it.
+
+- [ ] **Step 1: Test: a theme's `[dock]` values reach a `DockTitleBar` label after `apply_theme`, and its `[tabs]` font size and text color reach the tabs of two tabified docks**
+- [ ] **Step 2: Run, expect FAIL**
+- [ ] **Step 3: Implement**
+- [ ] **Step 4: Run, expect PASS; diff the built stylesheets and update the pins for the added rules only; open the app, tabify two docks and look in each bundled theme**
+- [ ] **Step 5: Add the fields to `theme-template.toml`; commit** `feat/theme: dock titles and dock tabs in the theme`
+
+## After Part 3: the owner's review of the schema
+
+### Task 10: one button type, shared buttons by area
+
+The look types and keys named in Tasks 2 to 9 are what each task wrote at the time; the spec's "Shared types" holds the schema as it stands.
+
+**Files:**
+- Modify: `src/tcalc/ui/look.py`, `src/tcalc/ui/look.toml`, every `.qss` that reads a renamed place, `src/tcalc/theme.py`, the three bundled themes, `src/tcalc/themes/theme-template.toml`, the readers `mypy` names.
+- Test: `tests/py/unit/ui/test_theme_overrides.py` (a row for the shared button; only key renames elsewhere, test restructuring is #205).
+
+**Interfaces:**
+- Consumes: `override` and its partial nested tables (Task 1), `build`, `field_hints`.
+- Produces: `Button`, `Text`, `Panel`, `Colors`, `Edge`, `FontRange`, `Insets`; `with_shared_buttons(table)`, run before `build` and `override`.
+
+- [x] **Remove the stylesheet hash test** `test/theme: remove the stylesheet hash`
+- [x] **One schema** `refactor/look: fix disgusting config type schema`: the types above, `[keypad.button]` and `[history.button]`, a hover color for each key kind, inline tables in `look.toml`, the sharing explained in the template
+
+Verified at that commit: `make typecheck`, `make py-test`, the stylesheets of the five themes against the previous commit (only the key hover rules and the `padding` spelling differ) and a window grab of each theme (only the blinking cursor differs).
+

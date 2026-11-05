@@ -6,6 +6,7 @@ from PySide6.QtCore import SignalInstance
 from PySide6.QtWidgets import QGridLayout, QWidget
 
 from tcalc.core.ops import Operation
+from tcalc.ui.props import KeypadRole
 
 from ..common.types import KeyDef, ShiftedDef
 
@@ -21,9 +22,9 @@ def make_grid(spacing: int, parent: Optional[QWidget] = None) -> QGridLayout:
 
 
 def add_keys_to_grid(
-    roles_to_keys: dict[str, list[KeyDef]],
+    roles_to_keys: dict[KeypadRole, list[KeyDef]],
     grid: QGridLayout,
-    add_key: Callable[[KeyDef, str, QGridLayout], None],
+    add_key: Callable[[KeyDef, KeypadRole, QGridLayout], None],
 ) -> None:
     for role, keys in roles_to_keys.items():
         for key_def in keys:

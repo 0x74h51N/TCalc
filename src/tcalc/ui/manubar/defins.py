@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QMessageBox
 from tcalc.app_state import DockKind, KeypadPreset
 from tcalc.theme import ThemeChoice, ThemeMode
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, ViewOperations
+from tcalc.ui.icon import Icon
 
 from .menu_builder import MenuActionItem, MenuActionType, MenuSeparatorItem, SubmenuItem
 
@@ -18,7 +19,7 @@ def _coming_soon(ctx) -> None:
 FILE_MENU_ACTIONS: Tuple[MenuActionItem, ...] = (
     MenuActionItem(
         text="Quit",
-        icon="application-exit",
+        icon=Icon.APPLICATION_EXIT,
         item_type=MenuActionType.OPS,
         fn=FileOperations.quit,
     ),
@@ -27,32 +28,32 @@ FILE_MENU_ACTIONS: Tuple[MenuActionItem, ...] = (
 EDIT_MENU_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
     MenuActionItem(
         text="Undo",
-        icon="edit-undo",
+        icon=Icon.EDIT_UNDO,
         item_type=MenuActionType.OPS,
         fn=EditOperations.undo,
     ),
     MenuActionItem(
         text="Redo",
-        icon="edit-redo",
+        icon=Icon.EDIT_REDO,
         item_type=MenuActionType.OPS,
         fn=EditOperations.redo,
     ),
     MenuSeparatorItem(),
     MenuActionItem(
         text="Cut",
-        icon="edit-cut",
+        icon=Icon.EDIT_CUT,
         item_type=MenuActionType.OPS,
         fn=EditOperations.cut,
     ),
     MenuActionItem(
         text="Copy",
-        icon="edit-copy",
+        icon=Icon.EDIT_COPY,
         item_type=MenuActionType.OPS,
         fn=EditOperations.copy,
     ),
     MenuActionItem(
         text="Paste",
-        icon="edit-paste",
+        icon=Icon.EDIT_PASTE,
         item_type=MenuActionType.OPS,
         fn=EditOperations.paste,
     ),
@@ -62,11 +63,11 @@ EDIT_MENU_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
 VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     SubmenuItem(
         text="Theme",
-        icon="palette",
+        icon=Icon.PALETTE,
         items=(
             MenuActionItem(
                 text="Light",
-                icon="light_mode",
+                icon=Icon.LIGHT_MODE,
                 checkable=True,
                 item_type=MenuActionType.OPS,
                 fn=lambda ops: ops.set_theme(ThemeChoice(ThemeMode.LIGHT)),
@@ -74,7 +75,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             ),
             MenuActionItem(
                 text="Dark",
-                icon="dark_mode",
+                icon=Icon.DARK_MODE,
                 checkable=True,
                 item_type=MenuActionType.OPS,
                 fn=lambda ops: ops.set_theme(ThemeChoice(ThemeMode.DARK)),
@@ -82,7 +83,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             ),
             MenuActionItem(
                 text="System Default",
-                icon="computer",
+                icon=Icon.COMPUTER,
                 checkable=True,
                 item_type=MenuActionType.OPS,
                 fn=lambda ops: ops.set_theme(ThemeChoice(ThemeMode.SYSTEM)),
@@ -100,11 +101,11 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     MenuSeparatorItem(),
     SubmenuItem(
         text="Keypad Preset",
-        icon="applications-system-symbolic",
+        icon=Icon.APPLICATIONS_SYSTEM_SYMBOLIC,
         items=(
             MenuActionItem(
                 text="Simple",
-                icon="calculate",
+                icon=Icon.CALCULATE,
                 checkable=True,
                 item_type=MenuActionType.OPS,
                 fn=lambda ops: ops.set_preset(KeypadPreset.SIMPLE),
@@ -112,7 +113,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             ),
             MenuActionItem(
                 text="Science",
-                icon="applications-science-symbolic",
+                icon=Icon.APPLICATIONS_SCIENCE_SYMBOLIC,
                 checkable=True,
                 item_type=MenuActionType.OPS,
                 fn=lambda ops: ops.set_preset(KeypadPreset.SCIENCE),
@@ -120,7 +121,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             ),
             MenuActionItem(
                 text="Statistic (Coming Soon)",
-                icon="office-chart-bar",
+                icon=Icon.OFFICE_CHART_BAR,
                 checkable=True,
                 enabled=False,
                 item_type=MenuActionType.OPS,
@@ -130,7 +131,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             MenuSeparatorItem(),
             MenuActionItem(
                 text="Add Custom...",
-                icon="custom_pad",
+                icon=Icon.CUSTOM_PAD,
                 item_type=MenuActionType.OPS,
                 fn=ViewOperations.add_custom_preset,
             ),
@@ -138,7 +139,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     ),
     MenuActionItem(
         text="Angle Buttons",
-        icon="snap-angle-symbolic",
+        icon=Icon.SNAP_ANGLE_SYMBOLIC,
         checkable=True,
         item_type=MenuActionType.TOGGLE,
         checked_getter=lambda s: s.angle_visible,
@@ -147,11 +148,11 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     MenuSeparatorItem(),
     SubmenuItem(
         text="Keypads",
-        icon="keypads",
+        icon=Icon.KEYPADS,
         items=(
             MenuActionItem(
                 text="Numpad",
-                icon="numpad",
+                icon=Icon.NUMPAD,
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
                 checked_getter=lambda s: s.is_dock_open(DockKind.NUMPAD),
@@ -159,7 +160,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             ),
             MenuActionItem(
                 text="Functions Pad",
-                icon="func",
+                icon=Icon.FUNC,
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
                 checked_getter=lambda s: s.is_dock_open(DockKind.FUNCPAD),
@@ -167,7 +168,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             ),
             MenuActionItem(
                 text="Trig / Power Pad",
-                icon="trig",
+                icon=Icon.TRIG,
                 checkable=True,
                 item_type=MenuActionType.TOGGLE,
                 checked_getter=lambda s: s.is_dock_open(DockKind.TRIGPAD),
@@ -175,7 +176,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             ),
             MenuActionItem(
                 text="Constant Pad (Coming Soon)",
-                icon="format-text-symbol",
+                icon=Icon.FORMAT_TEXT_SYMBOL,
                 checkable=True,
                 enabled=False,
                 item_type=MenuActionType.TOGGLE,
@@ -185,7 +186,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
             MenuSeparatorItem(),
             MenuActionItem(
                 text="Add Custom Pad",
-                icon="custom_pad",
+                icon=Icon.CUSTOM_PAD,
                 item_type=MenuActionType.OPS,
                 fn=ViewOperations.add_custom_pad,
             ),
@@ -193,7 +194,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     ),
     MenuActionItem(
         text="History",
-        icon="document-open-recent",
+        icon=Icon.DOCUMENT_OPEN_RECENT,
         checkable=True,
         item_type=MenuActionType.TOGGLE,
         checked_getter=lambda s: s.is_dock_open(DockKind.HISTORY),
@@ -201,7 +202,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     ),
     MenuActionItem(
         text="Restore Default Layout",
-        icon="view-restore",
+        icon=Icon.VIEW_RESTORE,
         item_type=MenuActionType.OPS,
         fn=ViewOperations.restore_default_layout,
     ),
@@ -210,14 +211,14 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
 SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     MenuActionItem(
         text="Configure Keyboard Shortcuts...",
-        icon="input-keyboard",
+        icon=Icon.INPUT_KEYBOARD,
         enabled=False,
         item_type=MenuActionType.BUTTON,
         fn=_coming_soon,
     ),
     MenuActionItem(
         text="Configure TCalc...",
-        icon="configure",
+        icon=Icon.CONFIGURE,
         enabled=False,
         item_type=MenuActionType.BUTTON,
         fn=_coming_soon,

@@ -1,16 +1,29 @@
 QPushButton[keypadRole="memory"] {
-    background-color: $memory_button_color;
-    color: $memory_button_text_color;
+    background-color: $memory_color;
+    color: $memory_text_color;
     border: none;
-    padding: ${memory_pad_y}px ${memory_pad_x}px;
+    padding: ${memory_padding_y}px ${memory_padding_x}px;
 }
 QPushButton[keypadRole="memory"]:hover {
-    background-color: $memory_button_hover_color;
+    background-color: $memory_hover_color;
 }
 QPushButton[keypadRole="memory"]:pressed, QPushButton[keypadRole="memory"][pressed="true"] {
-    background-color: $memory_button_pressed_color;
+    background-color: $memory_pressed_color;
 }
 QPushButton[keypadRole="memory"]:disabled {
-    background-color: $memory_button_disabled_color;
-    color: $memory_button_disabled_text_color;
+    background-color: $memory_disabled_color;
+    color: $memory_disabled_text_color;
+}
+/* A border, even 0 px, drops the style's own button frame: edges only where a theme asks */
+QWidget[raised="true"] QPushButton[keypadRole="memory"] {
+    border: ${memory_edge_width}px solid $memory_edge_shadow_color;
+    border-top-color: $memory_edge_light_color;
+    border-left-color: $memory_edge_light_color;
+}
+QWidget[raised="true"] QPushButton[keypadRole="memory"]:pressed,
+QWidget[raised="true"] QPushButton[keypadRole="memory"][pressed="true"] {
+    border-top-color: $memory_edge_shadow_color;
+    border-left-color: $memory_edge_shadow_color;
+    border-bottom-color: $memory_edge_light_color;
+    border-right-color: $memory_edge_light_color;
 }

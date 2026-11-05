@@ -1,0 +1,277 @@
+# What every theme lays over: one table per UI area, read into the Look dataclass.
+# A *_color value is a color name from the theme's [colors], never a color.
+# A raised edge (px, 0 for none): top and left, then bottom and right; pressed swaps them
+
+[fonts]
+# Fixed app font, independent of the theme and of desktop font settings (e.g. GTK's)
+family_default = "Sans Serif"
+size_default = 9
+family_monospace = "Monospace"
+
+[palette]
+# Qt palette: widgets without a stylesheet (dialogs, scrollbars, line edits...)
+window_color = "background"
+window_text_color = "text_primary"
+base_color = "background_dark"
+text_color = "text_primary"
+button_color = "background_light"
+button_text_color = "text_primary"
+highlight_color = "primary"
+highlighted_text_color = "primary_text"
+# Single-color icons
+icon_color = "icon"
+
+[display]
+background_color = "screen"
+radical_line_color = "text_primary"
+radical_symbol_color = "text_primary"
+status_text_color = "text_secondary"
+status_error_text_color = "status_error"
+divider_height = 1
+root_border_width = 2
+
+[display.expression]
+slot_focus_color = "background_light"
+text = { color = "text_secondary", font = { min_pt = 14, max_pt = 26 } }
+selection = { color = "primary", text_color = "primary_text" }
+
+[result]
+text = { color = "text_primary", font = { min_pt = 24, max_pt = 32 } }
+
+# The fraction toggle; text_color is its icon
+[result.fraction]
+color = { color = "control_bg", opacity = 0.06 }
+hover_color = { color = "control_bg", opacity = 0.10 }
+pressed_color = { color = "control_bg", opacity = 0.16 }
+radius = 4
+text = { color = "primary", font = { min_pt = 9, max_pt = 13 } }
+disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+checked = { color = "primary", text_color = "primary_text" }
+edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+padding = { y = 6, x = 6 }
+
+[memory]
+color = { color = "control_bg", opacity = 0.06 }
+hover_color = { color = "control_bg", opacity = 0.10 }
+pressed_color = { color = "control_bg", opacity = 0.16 }
+radius = 0
+text = { color = "primary", font = { min_pt = 9, max_pt = 13 } }
+disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+checked = { color = "primary", text_color = "primary_text" }
+edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+padding = { y = 8, x = 14 }
+
+[keypad]
+hover_border_color = "primary"
+symbol_color = "secondary_text"
+compact_padding = { y = 4, x = 8 }
+
+# Where every key starts; a key's hover is its own color unless a theme gives one
+[keypad.button]
+color = "secondary"
+hover_color = "secondary"
+pressed_color = "secondary_hover"
+radius = 2
+text = { color = "secondary_text", font = { min_pt = 8, max_pt = 16 } }
+disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+checked = { color = "primary", text_color = "primary_text" }
+edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+padding = { y = 0, x = 0 }
+
+[keypad.operator]
+color = "accent"
+hover_color = "accent"
+pressed_color = "accent_hover"
+text = { color = "accent_text" }
+
+[keypad.equals]
+color = "primary"
+hover_color = "primary"
+pressed_color = "primary_hover"
+text = { color = "primary_text" }
+
+[keypad.action]
+color = "action"
+hover_color = "action"
+pressed_color = "action_hover"
+text = { color = "action_text" }
+
+[keypad.trig]
+color = "action"
+hover_color = "action"
+pressed_color = "action_hover"
+text = { color = "action_text" }
+
+[keypad.function]
+color = "accent"
+hover_color = "accent"
+pressed_color = "accent_hover"
+text = { color = "accent_text" }
+
+[custom_pad]
+spinbox_focus_border_color = "primary"
+toolbar_separator_color = "control"
+
+# The add key of the custom pad
+[custom_pad.add_key]
+color = "control"
+hover_color = "control_hover"
+pressed_color = "control_hover"
+radius = 2
+text = { color = "text_primary", font = { min_pt = 8, max_pt = 16 } }
+disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+checked = { color = "primary", text_color = "primary_text" }
+edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+padding = { y = 0, x = 0 }
+
+# The row and column spin boxes
+[custom_pad.spinbox]
+color = "control"
+hover_color = "control_hover"
+pressed_color = "control_hover"
+radius = 2
+text = { color = "text_primary", font = { min_pt = 8, max_pt = 16 } }
+disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+checked = { color = "primary", text_color = "primary_text" }
+edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+padding = { y = 0, x = 0 }
+
+[custom_pad.menu]
+background_color = "background_medium"
+border_color = "border_light"
+hover_color = "primary"
+separator_color = "control"
+list_background_color = "background_dark"
+radius = 2
+text = { color = "text_primary", font = { min_pt = 9, max_pt = 9 } }
+padding = { y = 0, x = 0 }
+
+# The searchable picker; font in pt
+[picker]
+background_color = "background_medium"
+border_color = "border_light"
+hover_color = { color = "primary", opacity = 0.14 }
+separator_color = "border_light"
+list_background_color = "background_dark"
+radius = 2
+text = { color = "text_primary", font = { min_pt = 9, max_pt = 9 } }
+padding = { y = 0, x = 0 }
+
+[menu]
+selected_border_color = "primary"
+constants_symbol_color = "text_primary"
+item_margin = 2
+item_min_width = 70
+icon_padding_left = 6
+icon_padding_right = 4
+separator_height = 1
+separator_margin = { y = 4, x = 2 }
+
+# The menu's frame; font in px
+[menu.panel]
+background_color = "background_medium"
+border_color = "border_light"
+hover_color = { color = "primary", opacity = 0.14 }
+separator_color = "border_light"
+list_background_color = "background_dark"
+radius = 2
+text = { color = "text_primary", font = { min_pt = 14, max_pt = 14 } }
+padding = { y = 4, x = 4 }
+
+# A menu item; checked is the selected item
+[menu.item]
+color = "background_medium"
+hover_color = { color = "primary", opacity = 0.14 }
+pressed_color = { color = "primary", opacity = 0.14 }
+radius = 6
+text = { color = "text_primary", font = { min_pt = 9, max_pt = 13 } }
+disabled = { color = "background_medium", text_color = "text_secondary" }
+checked = { color = "primary", text_color = "primary_text" }
+edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+padding = { y = 4, x = 12 }
+
+[history]
+background_color = "background_dark"
+row_color = "background_dark_alt"
+alternate_row_color = "background_dark"
+# Math mode render size (pt)
+math_font_size = 17
+# The copy and delete buttons of an item (px)
+icon_button_size = 22
+# The list's font range (pt)
+# The Clear History button
+text = { color = "text_secondary", font = { min_pt = 7, max_pt = 12 } }
+selected = { color = { color = "primary", opacity = 0.24 }, text_color = "text_secondary" }
+delete = { text = { color = "status_error" } }
+clear = { text = { color = "text_primary", font = { min_pt = 7, max_pt = 10 } } }
+
+# An item's expression (also in math mode)
+[history.expression]
+color = "text_secondary"
+font = { min_pt = 10, max_pt = 15 }
+
+# An item's result
+[history.result]
+color = "text_secondary"
+font = { min_pt = 7, max_pt = 12 }
+
+# Where the history's buttons start; the copy and delete hover, pressed, radius and edge are read from here
+[history.button]
+color = "background_light"
+hover_color = { color = "primary", opacity = 0.14 }
+pressed_color = "background_dark"
+radius = 2
+text = { color = "icon", font = { min_pt = 7, max_pt = 12 } }
+disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+checked = { color = "primary", text_color = "primary_text" }
+edge = { width = 1, light_color = "border_light", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+padding = { y = 0, x = 0 }
+
+# The Math / Flat / Raw buttons, an option group of their own
+[history.mode]
+hover_color = { color = "primary", opacity = 0.14 }
+pressed_color = { color = "primary", opacity = 0.14 }
+radius = 2
+text = { color = "text_secondary", font = { min_pt = 9, max_pt = 9 } }
+edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+padding = { y = 4, x = 10 }
+
+# Option groups (Deg/Rad/Grad...)
+[options]
+color = "background"
+hover_color = { color = "primary", opacity = 0.14 }
+pressed_color = { color = "primary", opacity = 0.14 }
+radius = 2
+text = { color = "text_secondary", font = { min_pt = 9, max_pt = 9 } }
+disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+checked = { color = "primary", text_color = "primary_text" }
+edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+padding = { y = 4, x = 10 }
+
+[tooltip]
+background_color = "background_dark"
+border_color = "border_light"
+hover_color = { color = "primary", opacity = 0.14 }
+separator_color = "border_light"
+list_background_color = "background_dark"
+radius = 2
+text = { color = "text_secondary", font = { min_pt = 9, max_pt = 9 } }
+padding = { y = 2, x = 2 }
+
+[toast]
+info_color = { color = "toast_info_bg", opacity = 0.90 }
+warn_color = { color = "toast_warn_bg", opacity = 0.55 }
+error_color = { color = "toast_error_bg", opacity = 0.55 }
+radius = 4
+text = { color = "text_primary", font = { min_pt = 13, max_pt = 13 } }
+padding = { y = 6, x = 10 }
+
+# The title bar of a dock
+[dock]
+color = "text_primary"
+font = { min_pt = 9, max_pt = 9 }
+
+# The tab bar of docks stacked as tabs; a tab background or radius would drop the style's own tab
+[tabs]
+color = "text_primary"
+font = { min_pt = 9, max_pt = 9 }
