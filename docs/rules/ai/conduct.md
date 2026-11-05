@@ -8,6 +8,11 @@
 - After a false claim, no claim counts on its own word for the rest of the session: every "passes", "works" or "measured" comes with the command and its output in the same reply.
 - If the same rule is broken twice, propose a hookify rule that would have caught it.
 
+## Supervision
+
+- An assistant works in this repository only under a human who directs the work and reviews the complete result. With no such human, it opens no pull request or issue and posts no review or comment here, as [CONTRIBUTING.md](../../CONTRIBUTING.md#autonomous-ai-agents-are-prohibited) says.
+- In these rules "the owner" is that human. Working from a fork, what only a maintainer can do (milestones, labels, tags, releases, merges) stays with the maintainer.
+
 ## Writing style
 
 - Never use an em dash, anywhere: code, comments, Markdown, commit messages, PR text, chat. Use a comma, a colon, parentheses or a new sentence.

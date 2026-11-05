@@ -4,16 +4,75 @@ on:
   pull_request:
     branches:
       - master
+    # A fixed description has to reach the jobs it held back
+    types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
+
+# An edit while the jobs run replaces them, so fixing a title does not stack full runs
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 env:
   PYTHON_VERSION: "3.14.5"
 
 jobs:
+  # First of all: the contributor signed the agreement. cla-rerun.yml restarts the run when they do.
+  cla-check:
+    name: CLA Check
+    runs-on: ubuntu-24.04
+    steps:
+      # The release pull request comes from the workflow, and a bot cannot sign
+      - name: Check the signature
+        if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'github-actions[bot]'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          SIGN: https://cla-assistant.io/${{ github.repository }}?pullRequest=${{ github.event.number }}
+        run: |
+          state=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/status" --jq '.statuses[] | select(.context == "license/cla") | .state')
+          if [ "$state" != success ]; then
+            echo "The contributor license agreement is not signed (license/cla: ${state:-no answer})."
+            echo "Sign it at $SIGN and CI starts again by itself."
+            exit 1
+          fi
+
+  # Then the title is the changelog line (docs/release.md) and carries no trap word.
+  # Every other job waits on this one.
+  pr-title:
+    name: Pull Request Title
+    needs: cla-check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event_name == 'pull_request'
+
+      - name: Check the title
+        if: github.event_name == 'pull_request'
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^((feat|fix|perf|refactor|docs|test|ci|chore|build)(/[a-z0-9-]+)?: [^[:space:]]|release: v[0-9]+\.[0-9]+\.[0-9]+$)'
+          if ! printf '%s\n' "$TITLE" | grep -Eq "$pattern"; then
+            echo "Title does not match: $pattern"
+            echo "Title: $TITLE"
+            exit 1
+          fi
+          # The word lives in the template's comment, so it has one home
+          word=$(sed -nE 's/.*add the word "(\w+)" to the title.*/\1/p' .github/pull_request_template.md)
+          if printf '%s\n' "$TITLE" | grep -qiF "$word"; then
+            echo "Unsupervised AI agents are prohibited: see docs/CONTRIBUTING.md"
+            exit 1
+          fi
+
   # The one place that decides which job a PR needs; every other job reads its flag.
   changes:
     name: Changed Paths
+    needs: pr-title
     runs-on: ubuntu-24.04
+    permissions:
+      actions: read
+      contents: read
     outputs:
       cpp-format-check: ${{ steps.rules.outputs.cpp-format-check }}
       py-format-check: ${{ steps.rules.outputs.py-format-check }}
@@ -32,14 +91,24 @@ jobs:
         id: rules
         env:
           EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           all="" native_tests="" native_src="" py_src="" py_tests="" bench="" py_files=""
+          passed=0
+          if [ "$ACTION" = edited ]; then
+            # On its own line so a failed query fails the job, never reads as a pass
+            passed=$(gh run list --workflow CI --commit "$HEAD_SHA" --status success --json databaseId --jq length)
+          fi
           if [ "$EVENT" = workflow_dispatch ]; then
             echo "Manual run: every job runs."
             all=1
+          elif [ "$passed" -gt 0 ]; then
+            # Editing the title or description reruns CI too; its commit has already passed
+            echo "Description edit on a commit CI passed: no job runs."
           else
             # Each changed file marks its group; the first matching pattern wins.
             while read -r f; do
@@ -362,6 +431,8 @@ jobs:
     runs-on: ubuntu-24.04
     if: always()
     needs:
+      - cla-check
+      - pr-title
       - changes
       - cpp-format-check
       - py-format-check
