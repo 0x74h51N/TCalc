@@ -13,7 +13,7 @@ from pytest import param
 
 from tcalc.theme import PictureTarget, custom_themes, load_theme
 from tcalc.ui.look import DEFAULT_LOOK
-from tcalc.ui.styles import _build_stylesheet
+from tcalc.ui.styles import _build_stylesheet, _build_subs
 
 DARK_ACCENT = "#343842"
 
@@ -199,6 +199,74 @@ def test_broken_part_falls_back(write_theme, caplog, body, values, expected, log
     assert values(theme) == expected
     assert {r.getMessage() for r in caplog.records} == ({logged} if logged else set())
     assert load_theme("dark").look == DEFAULT_LOOK
+
+
+# (theme body after name and base, the stylesheet substitution, its value, the logged line or None)
+@pytest.mark.parametrize(
+    "body, key, expected, logged",
+    [
+        param(
+            '[options]\nhover_color = { color = "text_primary", opacity = 0.14 }\n'
+            '[colors]\ntext_primary = "#123456"\n',
+            "options_hover_color",
+            "rgba(18, 52, 86, 14%)",
+            None,
+            id="table",
+        ),
+        param(
+            '[options]\nhover_color = "text_primary"\n[colors]\ntext_primary = "#123456"\n',
+            "options_hover_color",
+            "#123456",
+            None,
+            id="bare name is opaque",
+        ),
+        param(
+            '[keypad.button]\ncolor = { color = "accent", opacity = 0.75 }\n'
+            '[keypad.operator]\ncolor = "action"\n[colors]\naction = "#123456"\n',
+            "keypad_operator_color",
+            "#123456",
+            None,
+            id="a family's bare name beats the shared table",
+        ),
+        param(
+            '[keypad.button]\ncolor = { color = "text_primary", opacity = 0.75 }\n'
+            '[keypad.operator]\ncolor = { color = "action" }\nhover_color = "action"\n[colors]\ntext_primary = "#123456"\n',
+            "keypad_number_color",
+            "rgba(18, 52, 86, 75%)",
+            "theme user.keypad.operator.color: expected ColorName or Tinted, got dict",
+            id="a table without opacity is reported, not merged",
+        ),
+        param(
+            '[options]\nhover_color = { color = "text_primary", opacity = 2 }\n',
+            "options_hover_color",
+            "rgba(166, 199, 255, 14%)",
+            "theme user.options.hover_color: expected ColorName or Tinted, got dict",
+            id="opacity above 1",
+        ),
+        param(
+            '[options]\nhover_color = { color = "text_primary", opacity = "a" }\n',
+            "options_hover_color",
+            "rgba(166, 199, 255, 14%)",
+            "theme user.options.hover_color: expected ColorName or Tinted, got dict",
+            id="opacity not a number",
+        ),
+        param(
+            '[options]\nhover_color = { color = "screen", opacity = 0.5 }\n'
+            '[colors]\nscreen = "qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #000, stop:1 #FFF)"\n',
+            "options_hover_color",
+            "rgba(166, 199, 255, 14%)",
+            "theme user.options.hover_color: 'screen' is a gradient, it cannot take an opacity",
+            id="opacity on a gradient",
+        ),
+    ],
+)
+def test_opacity_reaches_the_stylesheet(write_theme, caplog, body, key, expected, logged):
+    variant = write_theme(body)
+    with caplog.at_level(logging.WARNING):
+        load_theme(variant)
+        subs = _build_subs()
+    assert {r.getMessage() for r in caplog.records} == ({logged} if logged else set())
+    assert subs[key] == expected
 
 
 def test_look_override_reaches_stylesheet_and_python(write_theme):

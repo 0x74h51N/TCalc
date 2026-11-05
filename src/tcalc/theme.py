@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-import re
 import tomllib
 from dataclasses import dataclass
 from enum import Enum
@@ -29,17 +28,17 @@ if TYPE_CHECKING:
 
 _log = logging.getLogger(__name__)
 
-_QSS_RGBA = re.compile(r"rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*(%?)\s*)?\)")
 
-
-def qcolor(value: str) -> QColor:
-    """A theme color value as a QColor; QColor reads names and #hex but not QSS rgba()."""
-    m = _QSS_RGBA.fullmatch(value.strip())
-    if m is None:
-        return QColor(value)
-    r, g, b, a, percent = m.groups()
-    alpha = 255 if a is None else int(float(a) * 255 / 100 + 0.5) if percent else int(a)
-    return QColor(int(r), int(g), int(b), alpha)
+def _opaque(colors: dict[str, str], where: str) -> dict[str, str]:
+    # Opacity belongs to the place that uses a color; a theme that writes it here gets its base's
+    kept = {}
+    for name, value in colors.items():
+        color = QColor(value)
+        if (name == "screen" and "gradient" in value) or (color.isValid() and color.alpha() == 255):
+            kept[name] = value
+        else:
+            _log.warning("%s [colors].%s: %r is not an opaque color", where, name, value)
+    return kept
 
 
 # Themes that ship with the package: Light and Dark as tcalc/themes/<variant>.toml, and the
@@ -213,7 +212,7 @@ class Theme:
         where = f"theme {variant}"
         colors = {
             **values(base.get("colors", {}), str, f"theme {self.base} [colors]"),
-            **values(data.get("colors", {}), str, f"{where} [colors]"),
+            **_opaque(values(data.get("colors", {}), str, f"{where} [colors]"), where),
         }
         self.colors = {ColorName(name): color for name, color in colors.items()}
         look = override(
@@ -229,9 +228,16 @@ class Theme:
     def _known_colors(self, look: Look, where: str) -> Look:
         """*look* with each place naming a color the theme lacks set back to the default's."""
         for field in look_fields(look):
-            if isinstance(field, ColorField) and field.color not in self.colors:
-                place = ".".join(field.path)
+            if not isinstance(field, ColorField):
+                continue
+            place = ".".join(field.path)
+            if field.color not in self.colors:
                 _log.warning("%s.%s: %r is not one of its colors", where, place, field.color)
+                look = _restored(look, DEFAULT_LOOK, field.path)
+            elif field.opacity != 1.0 and not QColor(self.colors[field.color]).isValid():
+                _log.warning(
+                    "%s.%s: %r is a gradient, it cannot take an opacity", where, place, field.color
+                )
                 look = _restored(look, DEFAULT_LOOK, field.path)
         return look
 
@@ -254,7 +260,7 @@ class Theme:
 
     def qcolor(self, name: ColorName) -> QColor:
         """Theme color *name* as a QColor."""
-        return qcolor(self.colors[name])
+        return QColor(self.colors[name])
 
     @property
     def scheme(self) -> Qt.ColorScheme:

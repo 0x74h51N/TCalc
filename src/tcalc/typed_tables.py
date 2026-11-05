@@ -13,7 +13,7 @@ import logging
 from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
-from types import GenericAlias
+from types import GenericAlias, UnionType
 from typing import TYPE_CHECKING, NewType, TypeGuard, get_args, get_origin, get_type_hints
 
 if TYPE_CHECKING:
@@ -117,6 +117,15 @@ def _convert(value: Toml, hint: Hint, where: str) -> Value:
         return _convert(value, hint.__supertype__, where)
     if is_dataclass_type(hint):
         return build(hint, value, where)
+    if get_origin(hint) is UnionType:
+        arms = get_args(hint)
+        for arm in arms:
+            try:
+                return _convert(value, arm, where)
+            except TableError:
+                pass
+        names = " or ".join(arm.__name__ for arm in arms)
+        raise TableError(f"{where}: expected {names}, got {type(value).__name__}")
     if get_origin(hint) is tuple:
         if not isinstance(value, list):
             raise TableError(f"{where}: expected a list, got {type(value).__name__}")

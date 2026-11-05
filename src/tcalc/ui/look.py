@@ -7,7 +7,7 @@ from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import TYPE_CHECKING, NewType
 
-from tcalc.typed_tables import Toml, build, field_hints, is_dataclass_type
+from tcalc.typed_tables import TableError, Toml, build, field_hints, is_dataclass_type
 
 if TYPE_CHECKING:
     from _typeshed import DataclassInstance
@@ -20,16 +20,30 @@ FontFamily = NewType("FontFamily", str)
 
 
 @dataclass(frozen=True, slots=True)
-class Colors:
+class Tinted:
     color: ColorName
-    text_color: ColorName
+    opacity: float
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.opacity <= 1.0:
+            raise TableError(f"opacity: expected 0.0 to 1.0, got {self.opacity}")
+
+
+# A place that can be see-through; a bare name is opaque
+ColorRef = ColorName | Tinted
+
+
+@dataclass(frozen=True, slots=True)
+class Colors:
+    color: ColorRef
+    text_color: ColorRef
 
 
 @dataclass(frozen=True, slots=True)
 class Edge:
     width: int
     light_color: ColorName
-    shadow_color: ColorName
+    shadow_color: ColorRef
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,9 +66,9 @@ class Text:
 
 @dataclass(frozen=True, slots=True)
 class Button:
-    color: ColorName
-    hover_color: ColorName
-    pressed_color: ColorName
+    color: ColorRef
+    hover_color: ColorRef
+    pressed_color: ColorRef
     text: Text
     disabled: Colors
     checked: Colors
@@ -68,7 +82,7 @@ class Panel:
     background_color: ColorName
     text: Text
     border_color: ColorName
-    hover_color: ColorName
+    hover_color: ColorRef
     separator_color: ColorName
     list_background_color: ColorName
     radius: int
@@ -179,9 +193,9 @@ class HistoryLook:
 @dataclass(frozen=True, slots=True)
 class ToastLook:
     text: Text
-    info_color: ColorName
-    warn_color: ColorName
-    error_color: ColorName
+    info_color: ColorRef
+    warn_color: ColorRef
+    error_color: ColorRef
     padding: Insets
     radius: int
 
@@ -213,6 +227,7 @@ type ColorPlace = Callable[[Look], ColorName]
 class ColorField:
     path: tuple[str, ...]
     color: ColorName
+    opacity: float = 1.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,7 +246,9 @@ def look_fields(table: DataclassInstance, path: tuple[str, ...] = ()) -> Iterato
         value, hint, at = getattr(table, f.name), hints[f.name], (*path, f.name)
         if is_dataclass_type(hint):
             yield from look_fields(value, at)
-        elif hint is ColorName:
+        elif hint == ColorRef and isinstance(value, Tinted):
+            yield ColorField(at, value.color, value.opacity)
+        elif hint is ColorName or hint == ColorRef:
             yield ColorField(at, value)
         else:
             yield ValueField(at, value)
@@ -243,7 +260,8 @@ def qss_name(field: LookField) -> str:
 
 
 def _merged(base: Toml, over: Toml) -> Toml:
-    if not (isinstance(base, dict) and isinstance(over, dict)):
+    # A color with an opacity is one value: a family's own color does not keep the shared opacity
+    if not (isinstance(base, dict) and isinstance(over, dict)) or "opacity" in base:
         return over
     return base | {k: _merged(base[k], v) if k in base else v for k, v in over.items()}
 

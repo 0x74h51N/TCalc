@@ -48,8 +48,8 @@ class TestAppPalette:
             (QPalette.ColorRole.Text, "text_primary"),
             (QPalette.ColorRole.Button, "background_light"),
             (QPalette.ColorRole.ButtonText, "text_primary"),
-            (QPalette.ColorRole.Highlight, "selection_background"),
-            (QPalette.ColorRole.HighlightedText, "selection_text"),
+            (QPalette.ColorRole.Highlight, "primary"),
+            (QPalette.ColorRole.HighlightedText, "primary_text"),
         ],
     )
     def test_role_follows_theme(self, palette, role, token):

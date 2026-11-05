@@ -398,12 +398,6 @@ def _mode_button(history: History, mode: RenderMode) -> QWidget:
             id="mode text color",
         ),
         param(
-            '[history.mode.text]\ncolor = "accent_text"',
-            lambda h: _text_color(_mode_button(h, RenderMode.FLAT)),
-            "control_accent",
-            id="mode checked text keeps its default",
-        ),
-        param(
             "[history.mode.text.font]\nmin_pt = 15",
             lambda h: _mode_button(h, RenderMode.MATH).font().pointSize(),
             15,
@@ -434,6 +428,17 @@ def test_theme_reaches_the_history(history, qapp, apply_user_theme, table, shown
     if isinstance(expected, str):
         expected = load_theme("t").colors[expected].upper()
     assert shown(history) == expected
+
+
+def test_checked_mode_button_paints_primary_with_its_text(history, qapp, apply_user_theme):
+    apply_user_theme('[colors]\nprimary = "#123456"\nprimary_text = "#FFEE00"\n')
+    button = _mode_button(history, RenderMode.FLAT)
+    assert button.isChecked()
+    image = button.grab().toImage()
+    colors = [image.pixelColor(x, y) for x in range(image.width()) for y in range(image.height())]
+    assert "#123456" in {c.name() for c in colors}
+    # Antialiased text never reaches the exact color: yellow pixels, not the old text's
+    assert any(c.red() > 150 and c.blue() < 64 for c in colors)
 
 
 @pytest.mark.parametrize("base", ["dark", "light"])
