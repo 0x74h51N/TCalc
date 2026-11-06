@@ -34,15 +34,11 @@ def _user_themes(tmp_path, monkeypatch):
     return folder
 
 
-@pytest.fixture
-def own_themes(monkeypatch):
-    """dark and light are the test files, and extreme is the one custom theme."""
-    monkeypatch.setattr("tcalc.theme.BUILT_IN_DIR", Path(__file__).parent / "themes")
-
-
 @pytest.fixture(autouse=True)
-def _test_themes(_user_themes, own_themes):
-    """No test here reads a bundled theme or the user's folder."""
+def _test_themes(_user_themes, monkeypatch):
+    """No test here reads a bundled theme or the user's folder: dark and light are the test
+    files, and extreme is the one custom theme."""
+    monkeypatch.setattr("tcalc.theme.BUILT_IN_DIR", Path(__file__).parent / "themes")
 
 
 @pytest.fixture

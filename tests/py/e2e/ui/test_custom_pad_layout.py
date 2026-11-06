@@ -164,11 +164,12 @@ def test_layout_of_the_wrong_shape_starts_from_defaults(settings, caplog, layout
 
 @pytest.fixture
 def themed(qapp):
-    old_palette, old_sheet = qapp.palette(), qapp.styleSheet()
+    old_palette, old_font, old_sheet = qapp.palette(), qapp.font(), qapp.styleSheet()
     apply_theme(qapp, "dark")
     yield qapp
     load_theme("dark")
     qapp.setPalette(old_palette)
+    qapp.setFont(old_font)
     qapp.setStyleSheet(old_sheet)
 
 
