@@ -97,16 +97,25 @@ Change their theme or their rows, and keep what they check:
 - `write_theme` calls become `theme_table`, and `write_theme` leaves the conftest.
 - `test_every_qss_placeholder_resolves`: `dark`, `light`, `extreme`, so 5 cases become 3.
 - `test_light_scheme_sets_light_palette` keeps `#F4F5F7`, the test light's value.
-- `test_test_themes_name_the_bundled_colors`, new: the test `dark` and `light` hold a copy of the bundled color names, so this is the check that fails when the copies drift. It reads names only, so a changed color value breaks nothing.
 
 `tests/py/e2e/ui/test_icons_on_themes.py`:
 
 - `test_kitty_uses_its_base_variant_files` becomes `test_custom_theme_uses_its_base_variant_files`, on `extreme`.
 - `#fcfcfc` and `#232629` are the test themes' `icon`. `#da4453` is the icon file's own color and stays.
 
+## The bundled themes
+
+New file, `tests/py/e2e/test_bundled_themes.py`, by the owner's decision: nothing else catches a broken bundled theme, since the app only logs it and falls back. It is outside `tests/py/e2e/ui` because that folder's tests run on the test themes. It runs on `dark`, `light` and each `*/theme.toml` of the bundled folder.
+
+- `test_bundled_theme_loads_with_nothing_skipped`: broken toml raises, and an unknown key, an alpha color or a place naming a missing color logs a warning.
+- `test_bundled_theme_names_only_the_colors_of_dark`: `dark` and `light` have the same names, and a custom theme adds none.
+- `test_bundled_theme_pictures_exist`, `test_bundled_theme_resolves_every_qss_placeholder`.
+- `test_theme_template_holds_only_known_keys`: the settings of `theme-template.toml`, uncommented, load with nothing skipped.
+- `test_test_themes_name_the_bundled_colors`: the test `dark` and `light` hold a copy of the bundled color names, so this is the check that fails when the copies drift.
+
 ## The move
 
-The last step. `tests/py/e2e/ui/` already exists from part 1, so `git mv tests/py/ui tests/py/e2e/ui` would nest it: the test files and `themes/` move one by one. `tests/py/ui/conftest.py` and `tests/py/conftest.py` merge into `tests/py/e2e/ui/conftest.py` and go. The `makefile` loses its `tests/py/ui` line, and `py-test-ui` follows. `tests/py/e2e/conftest.py` now loads for all of it: its `QT_LOGGING_RULES` default wins over the ui one, which only quiets more logs, and its `_reset_canon_log` does nothing for a module with no `CANON_LOG`. The last step greps the whole tree for the old path.
+The last step. `tests/py/e2e/ui/` already exists from part 1, so `git mv tests/py/ui tests/py/e2e/ui` would nest it: the test files and `themes/` move one by one. `tests/py/ui/conftest.py` and `tests/py/conftest.py` merge into `tests/py/e2e/ui/conftest.py` and go, and `own_themes` folds into its autouse `_test_themes`. The `makefile` loses its `tests/py/ui` line, and `py-test-ui` follows. `tests/py/e2e/conftest.py` now loads for all of it: its `QT_LOGGING_RULES` default wins over the ui one, which only quiets more logs, and its `_reset_canon_log` does nothing for a module with no `CANON_LOG`. The last step greps the whole tree for the old path.
 
 ## Rules
 
@@ -114,8 +123,8 @@ The layers section of `docs/rules/ai/tests.md` names `tests/py/e2e/ui`.
 
 ## Done when
 
-- `make py-test`, `make py-lint` and `make typecheck` pass. The case counts match: `test_theme_switch.py` has its 9 removed tests fewer (13 cases) and 3 new, the spin box test 2 cases fewer, the shadow test 1, the saved key test 2, the placeholder test 2, and `test_theme_on_widgets.py` 2 new cases. Any other difference is reported.
+- `make py-test`, `make py-lint` and `make typecheck` pass. The case counts match: `test_theme_switch.py` has its 9 removed tests fewer (13 cases) and 3 new, the spin box test 2 cases fewer, the shadow test 1, the saved key test 2, the placeholder test 2, and `test_bundled_themes.py` is new with 23 cases. Any other difference is reported.
 - `grep -rnE '"(kitty|retro|sponge)"' tests/py` finds nothing: `test_theme_readability.py` lists the bundled themes with a glob.
 - `grep -rnE '\.menu\(\)|\.actions\(\)' tests/py/e2e/ui/test_theme_switch.py` finds nothing.
-- Changing a color in a bundled theme leaves `make py-test` green, apart from `test_theme_readability.py` if it hurts contrast.
+- Changing a color in a bundled theme leaves `make py-test` green, apart from `test_theme_readability.py` if it hurts contrast. A broken one fails `test_bundled_themes.py`.
 - `grep -rn 'tests/py/ui' .` finds only recorded findings and specs.

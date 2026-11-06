@@ -6,7 +6,6 @@
 #
 from __future__ import annotations
 
-import tomllib
 from collections import Counter
 
 import pytest
@@ -16,15 +15,12 @@ from PySide6.QtWidgets import QListView, QMenu
 from shiboken6 import getCppPointer
 
 from tcalc.core.ops import Operation
-from tcalc.theme import BUILT_IN_DIR, _read, get_theme, load_theme
+from tcalc.theme import get_theme, load_theme
 from tcalc.ui.look import DEFAULT_LOOK, look_fields, qss_name
 from tcalc.ui.styles import _build_stylesheet, apply_theme, init_styles
 from tcalc.ui.widgets.common.picker import SearchablePicker
 from tcalc.ui.widgets.keypad import custom_pad
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad
-
-# Bound at import, before own_themes repoints it: the test themes copy these color names
-_BUNDLED = BUILT_IN_DIR
 
 
 @pytest.fixture
@@ -161,13 +157,6 @@ def test_every_qss_placeholder_resolves(variant):
     load_theme(variant)
     leftovers = [line for line in _build_stylesheet().splitlines() if "$" in line]
     assert leftovers == []
-
-
-@pytest.mark.parametrize("variant", ["dark", "light"])
-def test_test_themes_name_the_bundled_colors(variant):
-    with open(_BUNDLED / f"{variant}.toml", "rb") as f:
-        bundled = tomllib.load(f)
-    assert set(_read(variant)["colors"]) == set(bundled["colors"])
 
 
 def test_qss_names_are_unique():

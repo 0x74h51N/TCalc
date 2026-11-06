@@ -121,7 +121,7 @@ By the owner's decision, these are not moved or split row by row: `test_broken_p
 
 - `test_default_is_dark_and_unchanged`, `test_light_accent_is_orange`, `test_light_keypad_colors_are_light`, `test_new_keys_match_old_dark_values`: values of the bundled themes.
 - `test_alpha_helper_is_gone`, `test_no_alpha_pairs_left_in_ui_config`: assert the absence of deleted code.
-- `test_bundled_theme_colors_are_opaque`, `test_sets_have_identical_keys`, `test_builtin_themes_have_every_color_place`, `test_light_loads_only_light`, `test_base_is_the_light_or_dark_family`: read the bundled themes. A broken bundled theme is not caught until a load clean check exists, which is the known cost of leaving that check out.
+- `test_bundled_theme_colors_are_opaque`, `test_sets_have_identical_keys`, `test_builtin_themes_have_every_color_place`, `test_light_loads_only_light`, `test_base_is_the_light_or_dark_family`: read the bundled themes. `tests/py/e2e/test_bundled_themes.py`, added in part 2 by the owner's decision, is the load clean check that catches a broken bundled theme.
 - `test_config_toml_builds`: `tcalc/ui/config.py` runs the same `build` call at import.
 - `test_config_toml_mistake_names_its_key`: its cases are rows of `build` and `_convert_keys`.
 

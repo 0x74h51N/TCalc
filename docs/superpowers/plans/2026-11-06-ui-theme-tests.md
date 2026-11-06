@@ -127,7 +127,21 @@ Expected: all pass, 12 xfailed and 4 xpassed as before, and the count differs fr
 
 `test/theme: the theme tests run on test themes, with typed rows`
 
-## Task 4: The move to `tests/py/e2e/ui`
+## Task 4: `tests/py/e2e/test_bundled_themes.py`
+
+**Files:**
+- Create: `tests/py/e2e/test_bundled_themes.py`. New because the tests of `tests/py/e2e/ui` run on the test themes and no other file checks the bundled ones as a whole; `test_theme_readability.py` checks only contrast.
+- Modify: `tests/py/e2e/ui/test_theme_on_widgets.py`, which gives it `test_test_themes_name_the_bundled_colors`
+
+**Builds on:** `Theme`, which raises or logs what it skips, and `_build_stylesheet`.
+
+- [ ] **Step 1: Write the tests the spec names**
+
+- [ ] **Step 2: Prove they bite**
+
+On a scratch copy of `src/`: an alpha color, broken toml, an unknown key, a look naming a missing color, an extra color name, a dropped and a renamed color, a wrong picture file, an unknown QSS placeholder and an unknown key in the template each fail a test. A valid new color fails none.
+
+## Task 5: The move to `tests/py/e2e/ui`
 
 **Files:**
 - Move: `git mv` each of `tests/py/ui/test_*.py`, and `tests/py/ui/themes`, into `tests/py/e2e/ui/`

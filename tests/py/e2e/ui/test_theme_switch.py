@@ -61,11 +61,12 @@ def state(qapp, monkeypatch, tmp_path):
     monkeypatch.setattr("tcalc.ui.widgets.history.history.load_history", lambda: [])
     monkeypatch.setattr("tcalc.ui.widgets.history.history.save_history", lambda _i: None)
     monkeypatch.setattr(app_state_mod, "_app_state", None)
-    old_palette, old_sheet = qapp.palette(), qapp.styleSheet()
+    old_palette, old_font, old_sheet = qapp.palette(), qapp.font(), qapp.styleSheet()
     load_theme("dark")
     yield factory
     load_theme("dark")
     qapp.setPalette(old_palette)
+    qapp.setFont(old_font)
     qapp.setStyleSheet(old_sheet)
     qapp.processEvents()
 
