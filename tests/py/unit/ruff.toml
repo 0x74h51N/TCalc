@@ -1,0 +1,6 @@
+extend = "../../../pyproject.toml"
+
+# A unit test imports only what it tests, each by name on its own line
+[lint.isort]
+force-single-line = true
+known-first-party = ["tcalc", "tests"]
