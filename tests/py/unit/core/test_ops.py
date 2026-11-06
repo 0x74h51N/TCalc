@@ -53,18 +53,6 @@ def test_promo_rules_wired():
 
 
 @pytest.mark.parametrize(
-    ("value", "expected"),
-    [
-        param(3.0, True, id="int"),
-        param(2.0000000000001, True, id="epsilon-close"),
-        param(2.1, False, id="fractional"),
-    ],
-)
-def test_is_int_like(value, expected):
-    assert ops_mod.is_int_like(value) is expected
-
-
-@pytest.mark.parametrize(
     ("x", "y", "promotes"),
     [
         param(8.0, 2.0, False, id="pos-base"),

@@ -14,9 +14,7 @@ from typing import Callable
 
 import calc_native
 
-
-def is_int_like(v: float, eps: float = 1e-12) -> bool:
-    return abs(v - round(v)) <= eps
+from tcalc.core.utils import is_int_like
 
 
 def _cx_sqrt(x: float) -> bool:
