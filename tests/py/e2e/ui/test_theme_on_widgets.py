@@ -6,6 +6,7 @@
 #
 from __future__ import annotations
 
+import tomllib
 from collections import Counter
 
 import pytest
@@ -15,12 +16,15 @@ from PySide6.QtWidgets import QListView, QMenu
 from shiboken6 import getCppPointer
 
 from tcalc.core.ops import Operation
-from tcalc.theme import BUILT_IN_DIR, BUILT_IN_VARIANTS, get_theme, load_theme
+from tcalc.theme import BUILT_IN_DIR, _read, get_theme, load_theme
 from tcalc.ui.look import DEFAULT_LOOK, look_fields, qss_name
 from tcalc.ui.styles import _build_stylesheet, apply_theme, init_styles
 from tcalc.ui.widgets.common.picker import SearchablePicker
 from tcalc.ui.widgets.keypad import custom_pad
 from tcalc.ui.widgets.keypad.custom_pad import CustomPad
+
+# Bound at import, before own_themes repoints it: the test themes copy these color names
+_BUNDLED = BUILT_IN_DIR
 
 
 @pytest.fixture
@@ -77,23 +81,24 @@ def test_scheme_switch_keeps_style_and_fonts(styled):
     _assert_fixed_font(styled)
 
 
-def test_theme_sets_the_menu_font_size(styled, write_theme):
-    apply_theme(styled, write_theme("[menu.panel.text.font]\nmin_pt = 21\n"))
+def test_theme_sets_the_menu_font_size(styled, theme_table):
+    table = {"menu": {"panel": {"text": {"font": {"min_pt": 21}}}}}
+    apply_theme(styled, theme_table(table))
     menu = QMenu()
     menu.ensurePolished()
     assert menu.font().pixelSize() == 21
 
 
-def test_theme_sets_the_picker_font_size(styled, write_theme):
-    apply_theme(styled, write_theme("[picker.text.font]\nmin_pt = 17\n"))
+def test_theme_sets_the_picker_font_size(styled, theme_table):
+    apply_theme(styled, theme_table({"picker": {"text": {"font": {"min_pt": 17}}}}))
     picker = SearchablePicker([("sin", None)])
     view = picker.findChild(QListView)
     view.ensurePolished()
     assert view.font().pointSize() == 17
 
 
-def test_theme_picks_which_color_a_place_uses(styled, write_theme):
-    apply_theme(styled, write_theme('[picker.text]\ncolor = "accent_text"\n'))
+def test_theme_picks_which_color_a_place_uses(styled, theme_table):
+    apply_theme(styled, theme_table({"picker": {"text": {"color": "accent_text"}}}))
     picker = SearchablePicker([("sin", None)])
     view = picker.findChild(QListView)
     view.ensurePolished()
@@ -151,14 +156,18 @@ def test_color_picker_lists_every_theme_color(styled, pad):
 
 
 @pytest.mark.usefixtures("styled")
-@pytest.mark.parametrize(
-    "variant",
-    [*BUILT_IN_VARIANTS, *sorted(p.parent.name for p in BUILT_IN_DIR.glob("*/theme.toml"))],
-)
+@pytest.mark.parametrize("variant", ["dark", "light", "extreme"])
 def test_every_qss_placeholder_resolves(variant):
     load_theme(variant)
     leftovers = [line for line in _build_stylesheet().splitlines() if "$" in line]
     assert leftovers == []
+
+
+@pytest.mark.parametrize("variant", ["dark", "light"])
+def test_test_themes_name_the_bundled_colors(variant):
+    with open(_BUNDLED / f"{variant}.toml", "rb") as f:
+        bundled = tomllib.load(f)
+    assert set(_read(variant)["colors"]) == set(bundled["colors"])
 
 
 def test_qss_names_are_unique():
@@ -179,8 +188,8 @@ def test_reapplying_does_not_stack_stylesheet(styled):
     assert len(styled.styleSheet()) == n
 
 
-def test_theme_sets_the_monospace_font(write_theme):
-    theme = load_theme(write_theme('[fonts]\nfamily_monospace = "VT323"'))
+def test_theme_sets_the_monospace_font(theme_table):
+    theme = load_theme(theme_table({"fonts": {"family_monospace": "VT323"}}))
     try:
         assert theme.look.fonts.family_monospace == "VT323"
     finally:

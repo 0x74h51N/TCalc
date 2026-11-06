@@ -111,8 +111,8 @@ def test_tint_follows_a_switch():
 
 
 @pytest.mark.usefixtures("qapp")
-def test_kitty_uses_its_base_variant_files():
-    load_theme("kitty")
+def test_custom_theme_uses_its_base_variant_files():
+    load_theme("extreme")
     try:
         icon = get_icon(Icon.SNAP_ANGLE_SYMBOLIC)
         assert _same_image(icon, QIcon(str(ICONS_DIR / "light" / "snap-angle-symbolic.svg")))

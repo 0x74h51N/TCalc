@@ -8,9 +8,7 @@
 from __future__ import annotations
 
 import os
-import shutil
 import sys
-from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 import pytest
@@ -33,18 +31,8 @@ def qapp():
 
 
 @pytest.fixture(autouse=True)
-def _user_themes(tmp_path, monkeypatch):
-    """The user's own themes folder, empty, so tests never read the real one."""
-    folder = tmp_path / "user-themes"
-    monkeypatch.setattr("tcalc.theme.user_themes_dir", lambda: folder)
-    return folder
-
-
-@pytest.fixture
-def extreme_theme(_user_themes) -> str:
-    """The test-only Extreme theme, installed as a user theme; returns its id."""
-    shutil.copytree(Path(__file__).parent / "themes" / "extreme", _user_themes / "extreme")
-    return "extreme"
+def _test_themes(_user_themes, own_themes):
+    """No test here reads a bundled theme or the user's folder."""
 
 
 @pytest.fixture
