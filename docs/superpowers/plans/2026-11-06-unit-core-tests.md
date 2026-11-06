@@ -19,7 +19,6 @@
 ## Review Focus
 
 - A fake that looked unread but is read at import: the directory runs after each removal.
-- A `test_ops.py` check that loses its meaning: `test_root_rule` and `test_promo_rules_wired` must still fail when `_cx_root` or the promo table is broken.
 
 ## Task 1: Trim the conftest, move `test_pr_body.py`
 
@@ -36,9 +35,9 @@ Expected: no change in the count. A removal that breaks something is put back an
 
 - [ ] **Step 2: Move `test_pr_body.py` and fix its `parents[4]` to the new depth**
 
-- [ ] **Step 3: Prove two checks still bite**
+- [ ] **Step 3: The dead promotion rules go, by the owner's decision**
 
-On a scratch copy of `src/`, and of the conftest: break `_cx_root` and expect `test_root_rule` to fail; remove the `Sqrt` row and expect `test_promo_rules_wired` to name it.
+`PROMO_RULES_BY_ID`, `Operation.cx`, the `_cx_*` functions and `is_int_like` have no reader since the Python evaluator went in 0c7cfde. `test_root_rule`, `test_promo_rules_wired`, `test_is_int_like` and the fake ops only they read go with them. `tests/py/unit/core/test_utils.py` holds nothing else, so it goes too.
 
 - [ ] **Step 4: Run**
 
@@ -50,7 +49,7 @@ grep -rn 'unit/core/test_pr_body' tests docs/rules makefile
 
 Copy `src/` and `tests/` to the scratchpad with no `calc_native*.so` and run `tests/py/unit/core` there.
 
-Expected: `unit/core` 12 passed (21 less `test_pr_body.py`'s 9), all else as after part 2.
+Expected: `unit/core` 4 passed (21 less `test_pr_body.py`'s 9, `test_root_rule`'s 4, `test_promo_rules_wired` and `test_is_int_like`'s 3), all else as after part 2.
 
 - [ ] **Step 5: Show the diff, commit on approval**
 

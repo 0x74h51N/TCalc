@@ -6,13 +6,9 @@
 #
 from __future__ import annotations
 
-import pytest
-
 from tcalc.core import ops as ops_mod
 from tests.py.unit.core.conftest import FakeArity
 from tests.py.unit.core.conftest import Id
-
-param = pytest.param
 
 
 def test_ops_tables_are_built_from_fakes():
@@ -45,25 +41,6 @@ def test_symbols_with_aliases():
             assert spec.symbol in symbols
         for alias in spec.aliases:
             assert alias in symbols
-
-
-def test_promo_rules_wired():
-    """Verify PROMO_RULES_BY_ID is correctly wired."""
-    for op_id in ops_mod.PROMO_RULES_BY_ID:
-        assert op_id in ops_mod.OP_BY_ID, f"PROMO_RULES_BY_ID has {op_id} but OP_BY_ID doesn't"
-
-
-@pytest.mark.parametrize(
-    ("x", "y", "promotes"),
-    [
-        param(8.0, 2.0, False, id="pos-base"),
-        param(-8.0, 3.0, False, id="neg-odd-int"),
-        param(-8.0, 2.0, True, id="neg-even-int"),
-        param(-8.0, 2.5, True, id="neg-non-int"),
-    ],
-)
-def test_root_rule(x, y, promotes):
-    assert ops_mod._cx_root(x, y) is promotes
 
 
 def test_comma_operation_exists_and_has_correct_symbol():

@@ -28,13 +28,6 @@ class Id(Enum):
     Pow = "pow"
     Root = "root"
     Assign = "assign"
-    Sqrt = "sqrt"
-    Log = "log"
-    Ln = "ln"
-    Asin = "asin"
-    Acos = "acos"
-    Acosh = "acosh"
-    Atanh = "atanh"
 
 
 @dataclass(frozen=True)
@@ -63,13 +56,6 @@ class FakeCollection:
 
 
 _FAKE_OPS: tuple[_OpDef, ...] = (
-    _OpDef(Id.Sqrt, "sqrt", FakeArity.Unary, Id.Sqrt.value),
-    _OpDef(Id.Log, "log", FakeArity.Unary, Id.Log.value),
-    _OpDef(Id.Ln, "ln", FakeArity.Unary, Id.Ln.value),
-    _OpDef(Id.Asin, "asin", FakeArity.Unary, Id.Asin.value),
-    _OpDef(Id.Acos, "acos", FakeArity.Unary, Id.Acos.value),
-    _OpDef(Id.Acosh, "acosh", FakeArity.Unary, Id.Acosh.value),
-    _OpDef(Id.Atanh, "atanh", FakeArity.Unary, Id.Atanh.value),
     _OpDef(
         Id.Add,
         "+",
@@ -120,7 +106,6 @@ def _install_fake_calc_native() -> ModuleType:
     def op_table():
         return list(_FAKE_OPS)
 
-    calc_native.OpId = Id
     calc_native.op_table = op_table
 
     class FakeConstId(Enum):

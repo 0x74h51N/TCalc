@@ -14,44 +14,6 @@ from typing import Callable
 
 import calc_native
 
-from tcalc.core.utils import is_int_like
-
-
-def _cx_sqrt(x: float) -> bool:
-    return x < 0.0
-
-
-def _cx_asin_acos(x: float) -> bool:
-    return abs(x) > 1.0
-
-
-def _cx_acosh(x: float) -> bool:
-    return x < 1.0
-
-
-def _cx_atanh(x: float) -> bool:
-    return abs(x) >= 1.0
-
-
-def _cx_log_ln(x: float) -> bool:
-    return x <= 0.0
-
-
-def _cx_root(x: float, y: float) -> bool:
-    return x < 0.0 and ((not is_int_like(y)) or (int(round(y)) % 2 == 0))
-
-
-PROMO_RULES_BY_ID: dict[calc_native.OpId, Callable[..., bool]] = {
-    calc_native.OpId.Sqrt: _cx_sqrt,
-    calc_native.OpId.Asin: _cx_asin_acos,
-    calc_native.OpId.Acos: _cx_asin_acos,
-    calc_native.OpId.Acosh: _cx_acosh,
-    calc_native.OpId.Atanh: _cx_atanh,
-    calc_native.OpId.Log: _cx_log_ln,
-    calc_native.OpId.Ln: _cx_log_ln,
-    calc_native.OpId.Root: _cx_root,
-}
-
 
 @dataclass(frozen=True)
 class _UIOpSpec:
@@ -128,14 +90,6 @@ class OperationBase(str, Enum):
     def aliases(self) -> list[str] | tuple[str, ...]:
         """Alternative symbols for this operation."""
         return self._spec.aliases
-
-    @property
-    def cx(self) -> Callable[..., bool] | None:
-        """Complex promotion rule for this operation."""
-        op_id = self._spec.id
-        if op_id is None:
-            return None
-        return PROMO_RULES_BY_ID.get(op_id)
 
     @property
     def method(self) -> str:

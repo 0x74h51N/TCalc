@@ -9,8 +9,10 @@ By the owner's judgment, `unit/core` is built right: it tests with dummies and n
 ## Goals
 
 - `unit/core` keeps its own fake in its own conftest. `tests/py/unit/ui` has no fake `calc_native`, so there is nothing to share.
-- Fakes nothing reads are gone: `DummyCalc`, `FakeToken`, the fake collection internals, the `CEKOMASTIK`, `BAD_TYPE` and `BAD_NATIVE` ids. Each is confirmed unread by a run before it goes.
+- Fakes nothing reads are gone: `DummyCalc`, `FakeToken`, the fake collection internals, the `CEKOMASTIK`, `BAD_TYPE` and `BAD_NATIVE` ids, and the `calc_native` names and `Id` and `_OpDef` members the review found unread. Each is confirmed unread by a run before it goes.
 - `test_pr_body.py` moves to `tests/py/e2e/`: it runs a script through stdin and stdout and reads the real pull request template, so it is not a unit test of a module. The owner agreed, and it is the one thing this part adds to that folder.
+
+- The Python promotion rules go, by the owner's decision: `PROMO_RULES_BY_ID`, `Operation.cx`, the `_cx_*` functions and `is_int_like` have no reader since the Python evaluator went in 0c7cfde, and the native `promote_complex` decides this. This is the one change under `src/` in this part.
 
 ## Non-goals
 
@@ -19,6 +21,6 @@ By the owner's judgment, `unit/core` is built right: it tests with dummies and n
 
 ## Done when
 
-- `tests/py/unit/core` passes with its 21 cases, less the 9 that leave with `test_pr_body.py`.
+- `tests/py/unit/core` passes with its 21 cases, less the 9 that leave with `test_pr_body.py` and the 8 of the dead promotion rules.
 - `tests/py/unit/core` passes on a copy with no `calc_native*.so`.
 - `make py-test`, `make py-lint` and `make typecheck` pass.
