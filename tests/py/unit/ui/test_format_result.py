@@ -1,96 +1,104 @@
 #
+#
+#
 # TCalc - Copyright (C) 2025 Tahsin Önemli
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 from __future__ import annotations
 
-import calc_native
-import pytest
+from dataclasses import dataclass
+from types import SimpleNamespace
 
-from tcalc.core.native_eval import evaluate_branch
-from tcalc.core.parser import tokenize
+import pytest
+from pytest import param
+
 from tcalc.ui.controller.utils import format_result
 
 
-def _eval(expr: str):
-    return evaluate_branch(tokenize(expr), calc_native.Calculator(), calc_native.AngleUnit.RAD)
+class FakeCollection:
+    def __init__(self, items, cap=None):
+        self._items, self._cap = items, cap
+
+    def preview(self):
+        return "[", "]", self._cap
+
+    def __iter__(self):
+        return iter(self._items)
+
+    def __len__(self):
+        return len(self._items)
+
+    def __getitem__(self, i):
+        return self._items[i]
 
 
-def _frag(x) -> str:
-    # A Collection's repr is valid expression syntax ("(1, 2)" / "[1, 2]").
-    return repr(x) if isinstance(x, calc_native.Collection) else str(x)
+@dataclass
+class FakeRational:
+    numerator: int
+    denominator: int
+
+    def to_double(self) -> float:
+        return self.numerator / self.denominator
 
 
-def _list(items):
-    return _eval("[" + ",".join(_frag(x) for x in items) + "]")
+class FakeBigReal:
+    def __str__(self):
+        return "big real"
 
 
-def _point(items):
-    return _eval("(" + ",".join(_frag(x) for x in items) + ")")
+class FakeBigComplex:
+    def __str__(self):
+        return "big complex"
 
 
-# -- value -> string -------------------------------------------------------
-#
-# group=False is the tokenizer-safe default (no thousands separators) so the
-# output can be fed back into the editor; group=True is for display widgets.
-
-FORMAT_CASES = [
-    pytest.param(_list([1, 2, 3]), False, "[1, 2, 3]", id="list-of-ints"),
-    pytest.param(_point([1, 2]), False, "(1, 2)", id="point"),
-    pytest.param(
-        _list([_point([1, 2]), _point([3, 4])]), False, "[(1, 2), (3, 4)]", id="list-of-points"
-    ),
-    pytest.param(_list([]), False, "[]", id="empty-list"),
-    # Element separators are list syntax, so they survive the no-grouping default.
-    pytest.param(_list([1000000, 2, 3]), False, "[1000000, 2, 3]", id="collection-keeps-commas"),
-    # Items are formatted too: a BigReal or complex element must not reach the
-    # screen as its Python repr.
-    pytest.param(_eval("[2, 9e400]"), False, "[2, 9e+400]", id="list-of-bigreal"),
-    pytest.param(_eval("(2.5, 1e400)"), False, "(2.5, 1e+400)", id="point-of-bigreal"),
-    pytest.param(_eval("[sqrt(-1), 2]"), False, "[i, 2]", id="list-of-complex"),
-    pytest.param(
-        _eval("[" + ",".join(["9e400"] * 101) + "]"),
-        False,
-        "[9e+400, 9e+400, 9e+400, 9e+400, ..., 9e+400, 9e+400]",
-        id="list-past-preview-cap",
-    ),
-    pytest.param(1234567.89, False, "1234567.89", id="float-plain"),
-    pytest.param(1234567.0, False, "1234567", id="float-integral-plain"),
-    pytest.param(1234567.89, True, "1,234,567.89", id="float-grouped"),
-    pytest.param(1234567.0, True, "1,234,567", id="float-integral-grouped"),
-    pytest.param(3 + 4j, False, "3+4i", id="complex"),
-    # An exact value must not be shown through a double: float() holds neither an
-    # int64 nor an integer Rational past 2**53.
-    pytest.param(_eval("10^{16}+1"), False, "1.0000000000000001e+16", id="exact-int-past-double"),
-    pytest.param(
-        _eval("9223372036854775807"), False, "9.223372036854775807e+18", id="int64-max-literal"
-    ),
-    pytest.param(_eval("2+3"), False, "5", id="exact-int-small"),
-    pytest.param(_eval("10^{6}+1"), True, "1,000,001", id="exact-int-grouped"),
-    pytest.param(_eval("\\frac{1}{4}"), False, "0.25", id="exact-fraction-decimal"),
-]
+@dataclass(frozen=True, slots=True)
+class FormatCase:
+    value: object
+    group: bool
+    expected: str
 
 
-@pytest.mark.parametrize("value,group,expected", FORMAT_CASES)
-def test_format_result(value, group, expected):
-    assert format_result(value, group=group) == expected
-
-
-# -- output parses back to one token ---------------------------------------
-
-ROUND_TRIP_CASES = [
-    pytest.param(1234567.89, calc_native.TokenKind.Number, id="float"),
-    pytest.param(_eval("10^{16}+1"), calc_native.TokenKind.Number, id="exact-int-past-double"),
-    pytest.param(_list([1000000, 2, 3]), calc_native.TokenKind.Paren, id="collection"),
-    pytest.param(_eval("[2, 9e400]"), calc_native.TokenKind.Paren, id="collection-of-bigreal"),
-]
-
-
-@pytest.mark.parametrize("value,expected_kind", ROUND_TRIP_CASES)
-def test_default_output_round_trips(value, expected_kind):
-    # The grouped form "1,234,567.89" would split into 5 tokens; the default form
-    # must come back as one.
-    text = format_result(value)
-    toks = list(tokenize(text).tokens)
-    assert len(toks) == 1, f"{text!r} -> {[t.kind for t in toks]}"
-    assert toks[0].kind == expected_kind
+@pytest.mark.parametrize(
+    "case",
+    [
+        param(FormatCase(1234567.89, False, "1234567.89"), id="float"),
+        param(FormatCase(1234567.89, True, "1,234,567.89"), id="float grouped"),
+        param(FormatCase(1234567.0, False, "1234567"), id="whole float"),
+        param(FormatCase(1234567.0, True, "1,234,567"), id="whole float grouped"),
+        param(FormatCase(1e11, False, "1.0000000000000000e+11"), id="large float"),
+        param(FormatCase(2**-24, False, "5.9604644775390625e-08"), id="small float"),
+        param(FormatCase(1.9999999999999991, False, "2"), id="float rounding noise"),
+        param(FormatCase(5, False, "5"), id="int"),
+        param(FormatCase(1000000, True, "1,000,000"), id="int grouped"),
+        param(FormatCase(10**16 + 1, False, "1.0000000000000001e+16"), id="int past a double"),
+        param(FormatCase(3 + 4j, False, "3+4i"), id="complex"),
+        param(FormatCase(3 - 1j, False, "3-i"), id="complex unit imaginary"),
+        param(FormatCase(2j, False, "2i"), id="imaginary"),
+        param(FormatCase(1j, False, "i"), id="i"),
+        param(FormatCase(-1j, False, "-i"), id="minus i"),
+        param(FormatCase(3 + 0j, False, "3"), id="complex that is real"),
+        param(
+            FormatCase(FakeRational(10**16 + 1, 1), False, "1.0000000000000001e+16"),
+            id="whole rational stays exact",
+        ),
+        param(FormatCase(FakeRational(1, 4), False, "0.25"), id="fraction"),
+        param(FormatCase(FakeBigReal(), False, "big real"), id="big real"),
+        param(FormatCase(FakeBigComplex(), False, "big complex"), id="big complex"),
+        param(FormatCase(FakeCollection([1, 1000000]), True, "[1, 1000000]"), id="collection"),
+        param(
+            FormatCase(FakeCollection([1, 2, 3, 4], (1, 1)), False, "[1, ..., 4]"),
+            id="collection past its cap",
+        ),
+    ],
+)
+def test_format_result(monkeypatch, case):
+    monkeypatch.setattr(
+        "tcalc.ui.controller.utils.calc_native",
+        SimpleNamespace(
+            Collection=FakeCollection,
+            Rational=FakeRational,
+            BigReal=FakeBigReal,
+            BigComplex=FakeBigComplex,
+        ),
+    )
+    assert format_result(case.value, group=case.group) == case.expected

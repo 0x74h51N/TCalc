@@ -4,20 +4,14 @@
 # TCalc - Copyright (C) 2025 Tahsin Önemli
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-
 from __future__ import annotations
 
-import os
-import shutil
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
 import pytest
 from PySide6.QtWidgets import QApplication
-
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-os.environ.setdefault("QT_LOGGING_RULES", "*.warning=false")
 
 if TYPE_CHECKING:
     from tcalc.ui.widgets.calc.display.expression.expression import Expression
@@ -32,7 +26,7 @@ def qapp():
     yield app
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def _user_themes(tmp_path, monkeypatch):
     """The user's own themes folder, empty, so tests never read the real one."""
     folder = tmp_path / "user-themes"
@@ -40,13 +34,28 @@ def _user_themes(tmp_path, monkeypatch):
     return folder
 
 
-# TODO(test themes): test_picture_layer, test_icons, test_color_scheme and test_theme_colors in
-# tests/py/unit/ui still use the bundled kitty, retro and sponge themes; move them to test themes
+@pytest.fixture(autouse=True)
+def _test_themes(_user_themes, monkeypatch):
+    """No test here reads a bundled theme or the user's folder: dark and light are the test
+    files, and extreme is the one custom theme."""
+    monkeypatch.setattr("tcalc.theme.BUILT_IN_DIR", Path(__file__).parent / "themes")
+
+
 @pytest.fixture
-def extreme_theme(_user_themes) -> str:
-    """The test-only Extreme theme, installed as a user theme; returns its id."""
-    shutil.copytree(Path(__file__).parent / "themes" / "extreme", _user_themes / "extreme")
-    return "extreme"
+def theme_table(monkeypatch):
+    """Makes the variant "user" answer with a table, and returns its name."""
+    from tcalc.theme import _read
+
+    def install(table: dict[str, object], base: str = "dark") -> str:
+        def read(variant: str) -> dict[str, object]:
+            if variant == "user":
+                return {"name": "User", "base": base, **table}
+            return _read(variant)
+
+        monkeypatch.setattr("tcalc.theme._read", read)
+        return "user"
+
+    return install
 
 
 @pytest.fixture

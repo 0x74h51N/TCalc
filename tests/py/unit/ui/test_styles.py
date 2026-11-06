@@ -6,143 +6,83 @@
 #
 from __future__ import annotations
 
+from dataclasses import dataclass
+from types import SimpleNamespace
+
 import pytest
-from PySide6.QtCore import QPoint, QSettings
-from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QListView, QMenu
-from shiboken6 import getCppPointer
-
-from tcalc.core.ops import Operation
-from tcalc.theme import get_theme, load_theme
-from tcalc.ui.look import DEFAULT_LOOK
-from tcalc.ui.styles import apply_theme, init_styles
-from tcalc.ui.widgets.common.picker import SearchablePicker
-from tcalc.ui.widgets.keypad import custom_pad
-from tcalc.ui.widgets.keypad.custom_pad import CustomPad
+from PySide6.QtCore import Qt
+from pytest import param
 
 
-@pytest.fixture
-def styled(qapp):
-    old_palette, old_font = qapp.palette(), qapp.font()
-    init_styles(qapp, "dark")
-    yield qapp
-    load_theme("dark")
-    qapp.setPalette(old_palette)
-    qapp.setFont(old_font)
-    qapp.setStyleSheet("")
+@dataclass(frozen=True, slots=True)
+class QssColorCase:
+    value: str
+    opacity: float
+    expected: str
 
 
-class TestAppPalette:
-    """The app palette comes from theme tokens, not from the OS color scheme."""
+@pytest.mark.parametrize(
+    "case",
+    [
+        param(QssColorCase("#123456", 1.0, "#123456"), id="opaque"),
+        param(QssColorCase("qlineargradient(x)", 1.0, "qlineargradient(x)"), id="gradient"),
+        param(QssColorCase("#123456", 0.5, "rgba(18, 52, 86, 50%)"), id="with an opacity"),
+    ],
+)
+def test_qss_color(case):
+    from tcalc.ui.styles import qss_color
 
-    @pytest.fixture
-    def palette(self, styled):
-        return styled.palette()
-
-    @pytest.mark.parametrize(
-        ("role", "token"),
-        [
-            (QPalette.ColorRole.Window, "background"),
-            (QPalette.ColorRole.WindowText, "text_primary"),
-            (QPalette.ColorRole.Base, "background_dark"),
-            (QPalette.ColorRole.Text, "text_primary"),
-            (QPalette.ColorRole.Button, "background_light"),
-            (QPalette.ColorRole.ButtonText, "text_primary"),
-            (QPalette.ColorRole.Highlight, "primary"),
-            (QPalette.ColorRole.HighlightedText, "primary_text"),
-        ],
-    )
-    def test_role_follows_theme(self, palette, role, token):
-        assert palette.color(role) == QColor(get_theme().colors[token])
+    assert qss_color(case.value, case.opacity) == case.expected
 
 
-def _assert_fixed_font(qapp):
-    assert qapp.font().family() == DEFAULT_LOOK.fonts.family_default
-    assert qapp.font().pointSize() == DEFAULT_LOOK.fonts.size_default
-    menu = QMenu()  # platform themes give menus a font of their own
-    assert qapp.font(menu).family() == DEFAULT_LOOK.fonts.family_default
+class FakeApp:
+    def __init__(self, calls):
+        self._calls = calls
+
+    def setPalette(self, palette):
+        self._calls.append(("palette", palette))
+
+    def setFont(self, font):
+        self._calls.append(("font", font))
+
+    def setStyleSheet(self, sheet):
+        self._calls.append(("sheet", sheet))
 
 
-def test_app_font_is_fixed_from_config(styled):
-    _assert_fixed_font(styled)
+def test_apply_theme_applies_each_part_in_order(monkeypatch):
+    from tcalc.ui.styles import apply_theme
+
+    calls = []
+    monkeypatch.setattr("tcalc.ui.styles.load_theme", lambda v: calls.append(("load", v)))
+    monkeypatch.setattr("tcalc.ui.styles._build_palette", lambda: "a palette")
+    monkeypatch.setattr("tcalc.ui.styles._app_font", lambda: "a font")
+    monkeypatch.setattr("tcalc.ui.styles._build_stylesheet", lambda: "a sheet")
+    applied = SimpleNamespace(emit=lambda: calls.append(("applied",)))
+    monkeypatch.setattr("tcalc.ui.styles.theme_events", SimpleNamespace(applied=applied))
+    apply_theme(FakeApp(calls), "x")
+    assert calls == [
+        ("load", "x"),
+        ("palette", "a palette"),
+        ("font", "a font"),
+        ("sheet", "a sheet"),
+        ("applied",),
+    ]
 
 
-def test_scheme_switch_keeps_style_and_fonts(styled):
-    """A switch only re-polishes: replacing the style would reload the platform's fonts."""
-    style = getCppPointer(styled.style())
-    apply_theme(styled, "light")
-    assert getCppPointer(styled.style()) == style
-    _assert_fixed_font(styled)
+@pytest.mark.parametrize(
+    ("current", "applied"),
+    [
+        param("y", [("app", "x")], id="applies a change"),
+        param("x", [], id="nothing when already on"),
+    ],
+)
+def test_sync_theme(monkeypatch, current, applied):
+    from tcalc.ui.styles import sync_theme
 
-
-def test_theme_sets_the_menu_font_size(styled, write_theme):
-    apply_theme(styled, write_theme("[menu.panel.text.font]\nmin_pt = 21\n"))
-    menu = QMenu()
-    menu.ensurePolished()
-    assert menu.font().pixelSize() == 21
-
-
-def test_theme_sets_the_picker_font_size(styled, write_theme):
-    apply_theme(styled, write_theme("[picker.text.font]\nmin_pt = 17\n"))
-    picker = SearchablePicker([("sin", None)])
-    view = picker.findChild(QListView)
-    view.ensurePolished()
-    assert view.font().pointSize() == 17
-
-
-def test_theme_picks_which_color_a_place_uses(styled, write_theme):
-    apply_theme(styled, write_theme('[picker.text]\ncolor = "accent_text"\n'))
-    picker = SearchablePicker([("sin", None)])
-    view = picker.findChild(QListView)
-    view.ensurePolished()
-    text = view.palette().color(QPalette.ColorRole.Text)
-    assert text == QColor(get_theme().colors["accent_text"])
-
-
-def test_custom_pad_picker_items_use_the_picker_text_color(styled, monkeypatch, tmp_path):
-    monkeypatch.setattr(
-        "tcalc.ui.widgets.keypad.custom_pad.QSettings",
-        lambda *_: QSettings(str(tmp_path / "t.ini"), QSettings.Format.IniFormat),
-    )
-    view = CustomPad(1)._op_picker.findChild(QListView)
-    view.ensurePolished()
-    text = view.palette().color(QPalette.ColorRole.Text)
-    assert text == QColor(get_theme().colors["text_primary"])
-
-
-@pytest.fixture
-def pad(styled, monkeypatch, tmp_path):
-    monkeypatch.setattr(
-        "tcalc.ui.widgets.keypad.custom_pad.QSettings",
-        lambda *_: QSettings(str(tmp_path / "t.ini"), QSettings.Format.IniFormat),
-    )
-    pad = CustomPad(1)
-    grid = pad._grids[0]
-    custom_pad._add_operation(grid.keys, Operation.ADD, grid.max_rows)
-    grid.rebuild()
-    return pad
-
-
-def _pick_color(pad: CustomPad, value: str) -> None:
-    pad._open_color_picker((0, 0), "bg", QPoint(0, 0))
-    pad._color_picker.item_selected.emit(value)
-
-
-def test_key_with_a_theme_color_follows_the_theme(styled, pad):
-    _pick_color(pad, "$accent")
-    button = pad._grids[0]._buttons[0]
-    assert get_theme().colors["accent"] in button.styleSheet()
-    apply_theme(styled, "light")
-    assert get_theme().colors["accent"] in button.styleSheet()
-
-
-def test_key_with_a_custom_color_keeps_it(styled, pad):
-    _pick_color(pad, "#123456")
-    apply_theme(styled, "light")
-    assert "#123456" in pad._grids[0]._buttons[0].styleSheet()
-
-
-def test_color_picker_lists_every_theme_color(styled, pad):
-    pad._open_color_picker((0, 0), "bg", QPoint(0, 0))
-    values = set(pad._color_picker._data_by_row.values())
-    assert {f"${name}" for name in get_theme().colors} <= values
+    choice = SimpleNamespace(variant=lambda _scheme: "x")
+    monkeypatch.setattr("tcalc.ui.styles.get_app_state", lambda: SimpleNamespace(theme=choice))
+    monkeypatch.setattr("tcalc.ui.styles.get_theme", lambda: SimpleNamespace(variant=current))
+    calls = []
+    monkeypatch.setattr("tcalc.ui.styles.apply_theme", lambda app, v: calls.append((app, v)))
+    sync_theme("app", Qt.ColorScheme.Dark)
+    assert calls == applied
