@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pytest import param
 
-ROOT = Path(__file__).parents[4]
+ROOT = Path(__file__).parents[3]
 SCRIPT = ROOT / "scripts" / "pr_body.py"
 TEMPLATE = (ROOT / ".github" / "pull_request_template.md").read_text(encoding="utf-8")
 
