@@ -10,7 +10,7 @@
 
 ## 2026-11-02: picker_size followed the theme's size_default, not 9
 
-The spec moved `picker_size = 9` into `[fonts]` on the claim that the code's fallback was 9. The fallback was `fonts.get("picker_size", fonts["size_default"])` after the theme's `[fonts]` merge, so Kitty (14) and Retro (18) drew the picker at their own `size_default`. The stylesheet hash pin in `tests/py/unit/ui/test_theme_overrides.py` caught it (`font-size: 14pt` became `9pt`). Kitty and Retro now set `picker_size` themselves; `theme-template.toml` no longer says it defaults to `size_default`.
+The spec moved `picker_size = 9` into `[fonts]` on the claim that the code's fallback was 9. The fallback was `fonts.get("picker_size", fonts["size_default"])` after the theme's `[fonts]` merge, so Kitty (14) and Retro (18) drew the picker at their own `size_default`. A stylesheet hash pin in `test_theme_overrides.py` (removed 2026-11-06) caught it (`font-size: 14pt` became `9pt`). Kitty and Retro now set `picker_size` themselves; `theme-template.toml` no longer says it defaults to `size_default`.
 
 ## 2026-11-04, master f816fac: config keys nothing reads
 

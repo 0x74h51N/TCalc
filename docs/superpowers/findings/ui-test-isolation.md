@@ -18,3 +18,11 @@ The same 6 fail alone under the system `python` (PySide6 6.10.2) and pass alone 
 PYTHONPATH=src python -m pytest -q tests/py/ui/test_theme_switch.py
 PYTHONPATH=src .venv/bin/python -m pytest -q tests/py/ui/test_theme_switch.py
 ```
+
+## 2026-11-06, test/python-test-layers: gone with the menu tests
+
+The menu tests of `test_theme_switch.py` are removed. The file now passes alone under the system `python` (PySide6 6.10.2) as well: 40 passed.
+
+```bash
+PYTHONPATH=src python -m pytest tests/py/ui/test_theme_switch.py -q
+```
