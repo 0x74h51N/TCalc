@@ -33,7 +33,8 @@ py-test:
 	PYTHONPATH=src $(PY) -m pytest tests/py/unit/core $(PYTEST_ARGS)
 	PYTHONPATH=src $(PY) -m pytest tests/py/unit/ui $(PYTEST_ARGS)
 	PYTHONPATH=src $(PY) -m pytest tests/py/ui $(PYTEST_ARGS)
-	PYTHONPATH=src $(PY) -m pytest tests/py/e2e $(PYTEST_ARGS)
+	PYTHONPATH=src $(PY) -m pytest tests/py/e2e --ignore=tests/py/e2e/ui $(PYTEST_ARGS)
+	PYTHONPATH=src $(PY) -m pytest tests/py/e2e/ui $(PYTEST_ARGS)
 
 py-test-ui:
 	PYTHONPATH=src $(PY) -m pytest tests/py/ui $(PYTEST_ARGS)

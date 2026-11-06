@@ -23,7 +23,7 @@ from tcalc.ui.widgets.common.button import OptionGroup
 from tcalc.ui.widgets.history.history import History, HistoryItem
 from tcalc.ui.widgets.history.storage import HistoryEntry
 from tcalc.ui.widgets.history.utils import wrap_expression
-from tests.py.unit.ui.test_icons import _opaque_color
+from tests.py.helpers import opaque_color
 
 
 @pytest.fixture
@@ -342,13 +342,13 @@ def _mode_button(history: History, mode: RenderMode) -> QWidget:
         ),
         param(
             '[history.copy.text]\ncolor = "status_error"',
-            lambda h: _opaque_color(_item_widget(h, 0)._copy_btn.icon()).name().upper(),
+            lambda h: opaque_color(_item_widget(h, 0)._copy_btn.icon()).name().upper(),
             "status_error",
             id="copy icon color",
         ),
         param(
             '[history.delete.text]\ncolor = "accent_text"',
-            lambda h: _opaque_color(_item_widget(h, 0)._remove_btn.icon()).name().upper(),
+            lambda h: opaque_color(_item_widget(h, 0)._remove_btn.icon()).name().upper(),
             "accent_text",
             id="delete icon color",
         ),

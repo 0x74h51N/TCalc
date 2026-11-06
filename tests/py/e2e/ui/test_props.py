@@ -68,3 +68,14 @@ def test_selector_names_a_python_property(where, name, value):
         assert value == "true"
     else:
         assert value in {m.value for m in kind}
+
+
+def test_only_keypad_qss_uses_keypad_colors():
+    offenders = [
+        f"{path.relative_to(UI)}:{n}"
+        for path in UI.rglob("*.qss")
+        if path.parent.name != "keypad"
+        for n, line in enumerate(path.read_text().splitlines(), 1)
+        if "$keypad_" in line
+    ]
+    assert offenders == []

@@ -11,7 +11,9 @@ import sys
 from dataclasses import dataclass
 from enum import Enum
 from types import ModuleType
-from typing import Callable, List, Optional
+from typing import Callable
+from typing import List
+from typing import Optional
 
 
 @dataclass(frozen=True)

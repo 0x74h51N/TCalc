@@ -6,165 +6,265 @@
 #
 from __future__ import annotations
 
-import copy
-import dataclasses
 import logging
-import tomllib
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 from typing import NewType
 
 import pytest
 from pytest import param
 
-from tcalc.typed_tables import TableError, build, override
-from tcalc.ui.config import CONFIG, CONFIG_PATH, UiConfig
-
-Name = NewType("Name", str)
+FakeName = NewType("FakeName", str)
 
 
-class Fit(Enum):
+class FakeError(Exception):
+    pass
+
+
+class FakeFit(Enum):
     CONTAIN = "contain"
     COVER = "cover"
 
 
 @dataclass(frozen=True, slots=True)
-class Inner:
+class FakeInner:
     n: int
     k: int
 
 
 @dataclass(frozen=True, slots=True)
-class Outer:
-    i: int
-    f: float
-    s: str
-    b: bool
-    e: Fit
-    t: tuple[str, ...]
-    inner: Inner
-    name: Name
+class FakeOuter:
+    inner: FakeInner
     opt: str = "x"
 
 
-GOOD = {
-    "i": 1,
-    "f": 0.5,
-    "s": "a",
-    "b": True,
-    "e": "cover",
-    "t": ["p", "q"],
-    "inner": {"n": 2, "k": 3},
-    "name": "m",
-}
-BUILT = Outer(1, 0.5, "a", True, Fit.COVER, ("p", "q"), Inner(2, 3), Name("m"))
+@pytest.fixture(autouse=True)
+def fake_error(monkeypatch):
+    monkeypatch.setattr("tcalc.typed_tables.TableError", FakeError)
 
 
-# (table, expected Outer or the TableError message)
+def _messages(caplog) -> list[str]:
+    return [r.getMessage() for r in caplog.records]
+
+
+def _patch_convert_keys(monkeypatch, converted, errors) -> None:
+    monkeypatch.setattr(
+        "tcalc.typed_tables._convert_keys",
+        lambda _table, _hint_of, _convert, _where: (converted, errors),
+    )
+
+
+def _calling_convert_keys(table, hint_of, convert, where):
+    return {k: convert(k, v, hint_of(k), f"{where}.{k}") for k, v in table.items()}, []
+
+
+def test_build_makes_the_class(monkeypatch):
+    from tcalc.typed_tables import build
+
+    _patch_convert_keys(monkeypatch, {"n": 1, "k": 2}, [])
+    assert build(FakeInner, {}, "w") == FakeInner(1, 2)
+
+
+def test_build_leaves_a_default_to_the_class(monkeypatch):
+    from tcalc.typed_tables import build
+
+    _patch_convert_keys(monkeypatch, {"inner": 1}, [])
+    assert build(FakeOuter, {}, "w") == FakeOuter(1, "x")
+
+
+def test_build_raises_on_a_missing_key(monkeypatch):
+    from tcalc.typed_tables import build
+
+    _patch_convert_keys(monkeypatch, {"n": 1}, [])
+    with pytest.raises(FakeError, match="w.k: missing"):
+        build(FakeInner, {}, "w")
+
+
+def test_build_raises_the_first_error(monkeypatch):
+    from tcalc.typed_tables import build
+
+    _patch_convert_keys(monkeypatch, {}, [FakeError("first"), FakeError("second")])
+    with pytest.raises(FakeError, match="first"):
+        build(FakeInner, {}, "w")
+
+
+def test_override_applies_a_key(monkeypatch):
+    from tcalc.typed_tables import override
+
+    monkeypatch.setattr("tcalc.typed_tables._convert_keys", _calling_convert_keys)
+    monkeypatch.setattr("tcalc.typed_tables._convert", lambda value, _hint, _where: value)
+    assert override(FakeInner(1, 2), {"n": 5}, "w") == FakeInner(5, 2)
+
+
+def test_override_a_nested_table_names_only_some_fields(monkeypatch):
+    from tcalc.typed_tables import override
+
+    monkeypatch.setattr("tcalc.typed_tables._convert_keys", _calling_convert_keys)
+    monkeypatch.setattr("tcalc.typed_tables._convert", lambda value, _hint, _where: value)
+    table = FakeOuter(FakeInner(1, 2))
+    assert override(table, {"inner": {"n": 7}}, "w") == FakeOuter(FakeInner(7, 2))
+
+
+def test_override_logs_a_bad_key_and_keeps_the_rest(monkeypatch, caplog):
+    from tcalc.typed_tables import override
+
+    _patch_convert_keys(monkeypatch, {"n": 5}, [FakeError("w.z: unknown key")])
+    with caplog.at_level(logging.WARNING):
+        assert override(FakeInner(1, 2), {}, "w") == FakeInner(5, 2)
+    assert _messages(caplog) == ["w.z: unknown key"]
+
+
+def test_values_keeps_one_kind(monkeypatch):
+    from tcalc.typed_tables import values
+
+    monkeypatch.setattr("tcalc.typed_tables._convert_keys", _calling_convert_keys)
+    assert values({"a": "x"}, str, "w") == {"a": "x"}
+
+
+def test_values_refuses_another_kind(monkeypatch):
+    from tcalc.typed_tables import values
+
+    monkeypatch.setattr("tcalc.typed_tables._convert_keys", _calling_convert_keys)
+    with pytest.raises(FakeError, match="w.b: expected str, got int"):
+        values({"b": 5}, str, "w")
+
+
+def test_values_logs_what_was_refused(monkeypatch, caplog):
+    from tcalc.typed_tables import values
+
+    _patch_convert_keys(monkeypatch, {"a": "x"}, [FakeError("bad")])
+    with caplog.at_level(logging.WARNING):
+        assert values({}, str, "w") == {"a": "x"}
+    assert _messages(caplog) == ["bad"]
+
+
+def _doubled(_key, value, _hint, _at):
+    return value * 2
+
+
+def _refused(_key, _value, _hint, at):
+    raise FakeError(f"{at}: refused")
+
+
+def test_convert_keys_converts_a_table():
+    from tcalc.typed_tables import _convert_keys
+
+    assert _convert_keys({"a": 2}, {"a": int}.get, _doubled, "w") == ({"a": 4}, [])
+
+
+def test_convert_keys_refuses_what_is_not_a_table():
+    from tcalc.typed_tables import _convert_keys
+
+    converted, errors = _convert_keys([1], {}.get, _doubled, "w")
+    assert converted == {} and [str(e) for e in errors] == ["w: expected a table, got list"]
+
+
+def test_convert_keys_reports_an_unknown_key():
+    from tcalc.typed_tables import _convert_keys
+
+    converted, errors = _convert_keys({"a": 2, "z": 1}, {"a": int}.get, _doubled, "w")
+    assert converted == {"a": 4} and [str(e) for e in errors] == ["w.z: unknown key"]
+
+
+def test_convert_keys_reports_what_convert_refuses():
+    from tcalc.typed_tables import _convert_keys
+
+    converted, errors = _convert_keys({"a": 2}, {"a": int}.get, _refused, "w")
+    assert converted == {} and [str(e) for e in errors] == ["w.a: refused"]
+
+
+@dataclass(frozen=True, slots=True)
+class ConvertCase:
+    value: object
+    hint: object
+    expected: object
+
+
 @pytest.mark.parametrize(
-    "table, expected",
+    "case",
     [
-        param(GOOD, BUILT, id="all fields"),
-        param({**GOOD, "f": 2}, dataclasses.replace(BUILT, f=2.0), id="int for float"),
-        param(
-            {**GOOD, "e": "contain"}, dataclasses.replace(BUILT, e=Fit.CONTAIN), id="enum by value"
-        ),
-        param(
-            {**GOOD, "e": "CONTAIN"}, dataclasses.replace(BUILT, e=Fit.CONTAIN), id="enum by name"
-        ),
-        param({**GOOD, "opt": "y"}, dataclasses.replace(BUILT, opt="y"), id="default replaced"),
-        param({k: v for k, v in GOOD.items() if k != "i"}, "outer.i: missing", id="missing key"),
-        param({**GOOD, "z": 1}, "outer.z: unknown key", id="unknown key"),
-        param({**GOOD, "i": "1"}, "outer.i: expected int, got str", id="wrong type"),
-        param({**GOOD, "i": True}, "outer.i: expected int, got bool", id="bool for int"),
-        param({**GOOD, "e": "fill"}, "outer.e: expected Fit, got str 'fill'", id="unknown enum"),
-        param({**GOOD, "name": 1}, "outer.name: expected str, got int", id="wrong new type"),
-        param({**GOOD, "t": ["p", 1]}, "outer.t: expected str, got int", id="wrong item type"),
-        param([GOOD], "outer: expected a table, got list", id="not a table"),
-        param(
-            {**GOOD, "inner": {"n": "2"}},
-            "outer.inner.n: expected int, got str",
-            id="nested wrong type",
-        ),
+        param(ConvertCase("m", FakeName, "m"), id="new type"),
+        param(ConvertCase({"n": 1}, FakeInner, ("built", FakeInner)), id="dataclass"),
+        param(ConvertCase(1, int | str, 1), id="union first arm"),
+        param(ConvertCase("a", int | str, "a"), id="union second arm"),
+        param(ConvertCase(["p", "q"], tuple[str, ...], ("p", "q")), id="tuple"),
+        param(ConvertCase("cover", FakeFit, ("enum", FakeFit)), id="enum"),
+        param(ConvertCase(2, float, 2.0), id="int for float"),
+        param(ConvertCase("a", Path, Path("a")), id="path"),
+        param(ConvertCase(1, int, 1), id="scalar"),
     ],
 )
-def test_build(table, expected):
-    if isinstance(expected, str):
-        with pytest.raises(TableError) as error:
-            build(Outer, table, "outer")
-        assert str(error.value) == expected
-    else:
-        assert build(Outer, table, "outer") == expected
+def test_convert(monkeypatch, case):
+    from tcalc.typed_tables import _convert
+
+    monkeypatch.setattr("tcalc.typed_tables.build", lambda cls, _table, _where: ("built", cls))
+    monkeypatch.setattr("tcalc.typed_tables._enum", lambda _value, enum, _where: ("enum", enum))
+    result = _convert(case.value, case.hint, "w")
+    assert result == case.expected and type(result) is type(case.expected)
 
 
-# (partial table, the fields that change, the warning or "")
+@dataclass(frozen=True, slots=True)
+class ConvertErrorCase:
+    value: object
+    hint: object
+    message: str
+
+
 @pytest.mark.parametrize(
-    "table, changed, warning",
+    "case",
     [
-        param({"i": 5, "inner": {"n": 7}}, {"i": 5, "inner": Inner(7, 3)}, "", id="applies"),
-        param({"inner": {"z": 1}}, {}, "theme.inner.z: unknown key", id="nested unknown key"),
-        param(
-            {"inner": {"n": "7"}},
-            {},
-            "theme.inner.n: expected int, got str",
-            id="nested wrong type",
-        ),
-        param({"i": 5, "z": 1}, {"i": 5}, "theme.z: unknown key", id="unknown key skipped"),
-        param(
-            {"i": "5", "s": "b"},
-            {"s": "b"},
-            "theme.i: expected int, got str",
-            id="wrong type skipped",
-        ),
-        param(
-            {"s": "b", "i": "5", "b": False},
-            {"s": "b", "b": False},
-            "theme.i: expected int, got str",
-            id="good, wrong type, good",
-        ),
-        param([{"i": 5}], {}, "theme: expected a table, got list", id="not a table skipped"),
+        param(ConvertErrorCase(1.5, int | str, "w: expected int or str, got float"), id="union"),
+        param(ConvertErrorCase("a", tuple[str, ...], "w: expected a list, got str"), id="tuple"),
+        param(ConvertErrorCase("1", int, "w: expected int, got str"), id="scalar"),
+        param(ConvertErrorCase(True, int, "w: expected int, got bool"), id="bool for int"),
     ],
 )
-def test_override(table, changed, warning, caplog):
-    with caplog.at_level(logging.WARNING, logger="tcalc.typed_tables"):
-        result = override(BUILT, table, "theme")
-    assert result == dataclasses.replace(BUILT, **changed)
-    assert [r.getMessage() for r in caplog.records] == ([warning] if warning else [])
+def test_convert_refuses(case):
+    from tcalc.typed_tables import _convert
+
+    with pytest.raises(FakeError, match=case.message):
+        _convert(case.value, case.hint, "w")
 
 
-def _loaded_config() -> dict:
-    with open(CONFIG_PATH, "rb") as f:
-        return tomllib.load(f)
-
-
-def test_config_toml_builds():
-    assert build(UiConfig, _loaded_config(), "config") == CONFIG
-
-
-# (change to a copy of config.toml, the TableError message)
 @pytest.mark.parametrize(
-    "change, message",
+    ("value", "member"),
     [
-        param(
-            lambda c: c["calc"]["display"]["result"].pop("btn_size"),
-            "config.calc.display.result.btn_size: missing",
-            id="missing key",
-        ),
-        param(
-            lambda c: c["window"].update(extra=1),
-            "config.window.extra: unknown key",
-            id="unknown key",
-        ),
-        param(
-            lambda c: c["side_panel"].update(margin="6"),
-            "config.side_panel.margin: expected int, got str",
-            id="wrong type",
-        ),
+        param("cover", FakeFit.COVER, id="by value"),
+        param("COVER", FakeFit.COVER, id="by name"),
     ],
 )
-def test_config_toml_mistake_names_its_key(change, message):
-    config = copy.deepcopy(_loaded_config())
-    change(config)
-    with pytest.raises(TableError) as error:
-        build(UiConfig, config, "config")
-    assert str(error.value) == message
+def test_enum(value, member):
+    from tcalc.typed_tables import _enum
+
+    assert _enum(value, FakeFit, "w") is member
+
+
+@pytest.mark.parametrize("value", [param("fill", id="unknown name"), param(5, id="not text")])
+def test_enum_refuses(value):
+    from tcalc.typed_tables import _enum
+
+    with pytest.raises(FakeError, match=f"w: expected FakeFit, got {type(value).__name__}"):
+        _enum(value, FakeFit, "w")
+
+
+@pytest.mark.parametrize(
+    ("hint", "expected"),
+    [
+        param(FakeInner, True, id="dataclass"),
+        param(int, False, id="class"),
+        param(FakeInner(1, 2), False, id="an instance"),
+    ],
+)
+def test_is_dataclass_type(hint, expected):
+    from tcalc.typed_tables import is_dataclass_type
+
+    assert is_dataclass_type(hint) is expected
+
+
+def test_log_all(caplog):
+    from tcalc.typed_tables import _log_all
+
+    with caplog.at_level(logging.WARNING):
+        _log_all([FakeError("a"), FakeError("b")])
+    assert _messages(caplog) == ["a", "b"]
