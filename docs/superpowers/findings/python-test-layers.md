@@ -84,3 +84,10 @@ Found by breaking a scratch copy of `src/` one line at a time and running the fi
 
 `format_result(1e-7)` shows `9.9999999999999995e-08` to the user: `fmt_real` uses `.16e` below `1e-6`. Not changed; the test row uses `2**-24`, which prints exactly.
 
+## 2026-11-06, test/python-test-layers: removal probes read stale bytecode
+
+Rewriting `tests/py/unit/core/conftest.py` in a loop and running after each change gave `calc_native.ConstSpec` as needed, right after `ConstId`, whose line has the same length. With bytecode off, removing `ConstSpec` gives 12 passed and removing `ConstId` gives 2 errors. The likely cause, not proven, is a `.pyc` taken as current for a file of the same size written in the same second. Run such probes with bytecode off:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src .venv/bin/python -m pytest tests/py/unit/core -q
+```
