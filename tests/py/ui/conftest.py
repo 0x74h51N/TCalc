@@ -40,8 +40,6 @@ def _user_themes(tmp_path, monkeypatch):
     return folder
 
 
-# TODO(test themes): test_picture_layer, test_icons, test_color_scheme and test_theme_colors in
-# tests/py/unit/ui still use the bundled kitty, retro and sponge themes; move them to test themes
 @pytest.fixture
 def extreme_theme(_user_themes) -> str:
     """The test-only Extreme theme, installed as a user theme; returns its id."""
