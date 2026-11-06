@@ -4,6 +4,7 @@
 
 - Python evaluation logic is tested in `tests/py/unit/core/` against the fake `calc_native` from the conftest. Do not depend on the real native module there.
 - End to end behavior (a real string through tokenize and evaluation, cross-line references, implicit multiplication, real collections) is tested in `tests/py/e2e/` with the real `calc_native`.
+- The e2e of the UI (a real widget or window, and the chain from a theme to what it paints) is in `tests/py/e2e/ui/`. It runs on the test themes in `tests/py/e2e/ui/themes/`, and no test there reads a bundled theme.
 - Native behavior (tokenize, shunting yard, normalize) is tested in C++ under `src/native/tests/` (`make native-test`).
 
 ## What a unit test is

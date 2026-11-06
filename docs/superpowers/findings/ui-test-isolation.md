@@ -24,5 +24,5 @@ PYTHONPATH=src .venv/bin/python -m pytest -q tests/py/ui/test_theme_switch.py
 The menu tests of `test_theme_switch.py` are removed. The file now passes alone under the system `python` (PySide6 6.10.2) as well: 40 passed.
 
 ```bash
-PYTHONPATH=src python -m pytest tests/py/ui/test_theme_switch.py -q
+PYTHONPATH=src python -m pytest tests/py/e2e/ui/test_theme_switch.py -q
 ```
