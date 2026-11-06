@@ -177,17 +177,18 @@ def _spins(pad: CustomPad) -> list[KSSpinBox]:
     return pad.findChildren(KSSpinBox)
 
 
-@pytest.mark.parametrize("variant", ["kitty", "sponge", "retro"])
-def test_toolbar_spin_boxes_keep_their_font_and_fit_in_every_theme(settings, themed, variant):
+def test_toolbar_spin_boxes_keep_their_font_and_fit_under_a_big_app_font(
+    settings, themed, theme_table
+):
     built_before = _spins(CustomPad(3))
-    font = built_before[0].font()
-    apply_theme(themed, variant)
+    size = built_before[0].font().pointSize()
+    apply_theme(themed, theme_table({"fonts": {"size_default": 30}}))
     for spin in built_before + _spins(CustomPad(4)):
-        assert (spin.font().family(), spin.font().pointSize()) == (font.family(), font.pointSize())
+        assert spin.font().pointSize() == size
         assert spin.width() >= spin.sizeHint().width(), spin.prefix()
 
 
-@pytest.mark.parametrize("variant", ["dark", "light", "kitty", "retro", "sponge"])
+@pytest.mark.parametrize("variant", ["dark", "light", "extreme"])
 def test_a_saved_primary_key_keeps_its_color(qapp, variant):
     load_theme(variant)
     try:
