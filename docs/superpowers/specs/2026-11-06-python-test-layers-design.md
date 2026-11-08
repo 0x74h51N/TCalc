@@ -8,7 +8,7 @@ Issue #205, milestone First release (#22). The first and main part. Part 2 is [t
 
 ## What a unit test is here
 
-The owner's definition is the rule now: [tests.md](../../rules/ai/tests.md#what-a-unit-test-is), with the row rule under its Cases section. It is not repeated here. Every test below is held to it.
+The human agent's definition is the rule now: [tests.md](../../rules/ai/tests.md#what-a-unit-test-is), with the row rule under its Cases section. It is not repeated here. Every test below is held to it.
 
 ## Goals
 
@@ -23,7 +23,7 @@ The owner's definition is the rule now: [tests.md](../../rules/ai/tests.md#what-
 - A fake `calc_native`, in this folder or anywhere new.
 - Production code: nothing under `src/` changes.
 - `tests/py/ui/`: part 2, and `test_expression.py` is not touched by any part. `tests/py/unit/core`: part 3.
-- `tests/py` in `make typecheck`: tests stay out of mypy, by the owner's decision.
+- `tests/py` in `make typecheck`: tests stay out of mypy, by the human agent's decision.
 - Tests of control: `set_theme` and menus stay in `tests/py/ui`.
 
 ## Anti-goals
@@ -97,15 +97,15 @@ The owner's definition is the rule now: [tests.md](../../rules/ai/tests.md#what-
 
 `tests/py/unit/ruff.toml` (new): `force-single-line`, so ruff keeps a unit test's imports one name per line. In a file that tests more than one function, each test imports its function inside its body, under the `def`. It reaches only the test files under `tests/py/unit`; in `tests/py/unit/core` it changes the import lines of `conftest.py` and `test_ops.py` and nothing else.
 
-`test_theme_readability.py`: `test_primary_text_is_readable` and `test_control_text_is_readable_on_background` with their helpers, a separate file by the owner's decision. They read the bundled themes, since contrast on an invented theme tests nothing, and they assert a relation, not a value. They are the named exception in the rule. `place` lambdas become dotted paths. The file patches `user_themes_dir` itself, since a user theme named like a bundled one would replace it.
+`test_theme_readability.py`: `test_primary_text_is_readable` and `test_control_text_is_readable_on_background` with their helpers, a separate file by the human agent's decision. They read the bundled themes, since contrast on an invented theme tests nothing, and they assert a relation, not a value. They are the named exception in the rule. `place` lambdas become dotted paths. The file patches `user_themes_dir` itself, since a user theme named like a bundled one would replace it.
 
 `conftest.py`: keeps its two environment lines. `write_theme` and `_user_themes` go, because no test left in the folder reads the user folder through them: a function that reads it gets it patched in its own test.
 
 ## What moves to `tests/py/e2e/ui/`
 
-This folder is new here, by the owner's decision; the rest of `tests/py/ui` comes to it later (part 2). It runs as its own process. It gets a conftest with `_user_themes` and `write_theme`. These run a chain, so they move as they are, with their helpers:
+This folder is new here, by the human agent's decision; the rest of `tests/py/ui` comes to it later (part 2). It runs as its own process. It gets a conftest with `_user_themes` and `write_theme`. These run a chain, so they move as they are, with their helpers:
 
-- `test_styles.py`, as `test_theme_on_widgets.py`: palette roles, app font, menu and picker fonts, custom pad colors. This is what covers `_build_subs`, `_build_stylesheet` and `_build_palette`; they get no unit test, by the owner's decision.
+- `test_styles.py`, as `test_theme_on_widgets.py`: palette roles, app font, menu and picker fonts, custom pad colors. This is what covers `_build_subs`, `_build_stylesheet` and `_build_palette`; they get no unit test, by the human agent's decision.
 - Into the same file: `test_every_qss_placeholder_resolves` with its `variant` rows, now derived from `BUILT_IN_VARIANTS` and the `themes` folder, and `_restore_dark`, `test_qss_names_are_unique`, `test_light_scheme_sets_light_palette` and `test_reapplying_does_not_stack_stylesheet` with the `restore` fixture, `test_theme_sets_the_monospace_font`.
 - `test_format_result.py` as `test_format_result_e2e.py`: it evaluates real expressions. Its three field rows become a frozen `FormatCase`, with no comment per case.
 - `test_icons.py`, all 11 tests, as `test_icons_on_themes.py`: each runs on real themes and real icon files. It keeps `_same_image` and the `light` fixture, and reads `opaque_color` from `tests/py/helpers.py`.
@@ -115,13 +115,13 @@ This folder is new here, by the owner's decision; the rest of `tests/py/ui` come
 
 ## Deleted, because the function tests replace them
 
-By the owner's decision, these are not moved or split row by row: `test_broken_part_falls_back`, `test_opacity_reaches_the_stylesheet`, `test_look_override_reaches_stylesheet_and_python`, `test_gradient_screen_reaches_the_stylesheet`, `test_only_primary_moves_the_hovers_and_the_selected_row`, `test_alpha_in_a_user_theme_takes_the_base_color`, `test_custom_themes_come_from_theme_files`, `test_broken_custom_theme_is_skipped`, `test_user_theme_is_listed_and_replaces_a_bundled_one`, `test_config_defaults`. The cost: no test runs a whole toml through to a stylesheet with these cases. That is e2e work for later.
+By the human agent's decision, these are not moved or split row by row: `test_broken_part_falls_back`, `test_opacity_reaches_the_stylesheet`, `test_look_override_reaches_stylesheet_and_python`, `test_gradient_screen_reaches_the_stylesheet`, `test_only_primary_moves_the_hovers_and_the_selected_row`, `test_alpha_in_a_user_theme_takes_the_base_color`, `test_custom_themes_come_from_theme_files`, `test_broken_custom_theme_is_skipped`, `test_user_theme_is_listed_and_replaces_a_bundled_one`, `test_config_defaults`. The cost: no test runs a whole toml through to a stylesheet with these cases. That is e2e work for later.
 
 ## Deleted for their own reason
 
 - `test_default_is_dark_and_unchanged`, `test_light_accent_is_orange`, `test_light_keypad_colors_are_light`, `test_new_keys_match_old_dark_values`: values of the bundled themes.
 - `test_alpha_helper_is_gone`, `test_no_alpha_pairs_left_in_ui_config`: assert the absence of deleted code.
-- `test_bundled_theme_colors_are_opaque`, `test_sets_have_identical_keys`, `test_builtin_themes_have_every_color_place`, `test_light_loads_only_light`, `test_base_is_the_light_or_dark_family`: read the bundled themes. `tests/py/e2e/test_bundled_themes.py`, added in part 2 by the owner's decision, is the load clean check that catches a broken bundled theme.
+- `test_bundled_theme_colors_are_opaque`, `test_sets_have_identical_keys`, `test_builtin_themes_have_every_color_place`, `test_light_loads_only_light`, `test_base_is_the_light_or_dark_family`: read the bundled themes. `tests/py/e2e/test_bundled_themes.py`, added in part 2 by the human agent's decision, is the load clean check that catches a broken bundled theme.
 - `test_config_toml_builds`: `tcalc/ui/config.py` runs the same `build` call at import.
 - `test_config_toml_mistake_names_its_key`: its cases are rows of `build` and `_convert_keys`.
 

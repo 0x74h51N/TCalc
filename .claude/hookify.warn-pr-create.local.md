@@ -5,4 +5,4 @@ event: bash
 pattern: \bgh\s+pr\s+create\b(?!(?=[^|;&\n]*--milestone)(?=[^|;&\n]*--label))
 ---
 
-**The title is the changelog line, and CI checks its pattern.** Check the open milestones and pass `--milestone` and `--label` (`type:` and `area:`); leave the milestone out only if the work serves none. See `docs/rules/ai/release.md`. **The body fills in the pull request template**, with `**Breaking:** yes` or `no`; the release reads it (`scripts/pr_body.py`) and nothing checks it. The contributor license agreement (CLA Assistant) is the owner's to sign.
+**The title is the changelog line, and CI checks its pattern.** Check the open milestones and pass `--milestone` and `--label` (`type:` and `area:`); leave the milestone out only if the work serves none. See `docs/rules/ai/release.md`. **The body fills in the pull request template**, with `**Breaking:** yes` or `no`; the release reads it (`scripts/pr_body.py`) and nothing checks it. The human agent signs the contributor license agreement (CLA Assistant).

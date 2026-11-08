@@ -12,9 +12,9 @@ During the freeze (`eu-stack -p <pid>`), on both runs:
 - RSS grows by about 6 MB/s (1.73 GB to 2.0 GB); the pool threads are idle, so no picture render is running.
 - `py-spy` 0.4.1 cannot read Python 3.14 (`Failed to find python version from target process`); `eu-stack` works.
 
-Not reproduced (same branch, a copy of the owner's settings, Sponge, history loaded):
+Not reproduced (same branch, a copy of the human agent's settings, Sponge, history loaded):
 
-- Programmatic `resize()` in 8 steps from 3440x1412 down to 800x600 and back, pumped with `processEvents()`: no hang, RSS 173 to 253 MB. The owner also dragged the window edge during this run without a freeze.
+- Programmatic `resize()` in 8 steps from 3440x1412 down to 800x600 and back, pumped with `processEvents()`: no hang, RSS 173 to 253 MB. The human agent also dragged the window edge during this run without a freeze.
 - The same under `app.exec()`, 24 steps driven by a QTimer, with a 100 ms heartbeat: no main-thread gap over 300 ms, RSS 173 to 277 MB.
 
 Open: which animation it is, whether master hangs too, and what the `make dev` run had that the probe did not (`--debug`, a long-running process, interactive resize across both screens).

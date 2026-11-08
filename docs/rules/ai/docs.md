@@ -7,4 +7,4 @@
 - `docs/roadmap.md` is for users: it informs and makes them curious. Only user-facing feature items go there. Maintenance and infrastructure (dependency pins, CI, Boost limits, tidy) and a branch's remaining work go into the status and plan documents under `docs/superpowers/`.
 - A roadmap item that has no design yet is one high-level line, with no mechanism or implementation detail. Detail belongs only to items that are done or designed.
 - A spec does not describe behavior for a case that has not happened, and a plan does not carry a task for one. A requirement that starts with "in case", "if later", "for safety" or "should it ever" is cut before the spec is approved.
-- A plan names the existing code each task builds on. A task that adds a new file, class or layer says so out loud, with its argument, where the owner can refuse it.
+- A plan names the existing code each task builds on. A task that adds a new file, class or layer says so out loud, with its argument, where the human agent can decline it.

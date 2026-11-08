@@ -12,7 +12,7 @@ on:
         default: auto
 
 # Needs "Allow GitHub Actions to create and approve pull requests" in the repository
-# settings. CI on the pull request waits for the owner's approval, since the Actions bot opened it.
+# settings. CI on the pull request waits for the maintainer's approval, since the Actions bot opened it.
 permissions:
   contents: write
   pull-requests: write

@@ -2,7 +2,7 @@
 
 ## When a rule is broken
 
-- Stop. Do not continue the task on top of the violation.
+- Stop. Do not continue the task on top of the broken rule.
 - Name it: which rule, in which file, and what exactly was done.
 - Undo your own part if it is not committed yet. If undoing it needs git history work, say so and wait.
 - After a false claim, no claim counts on its own word for the rest of the session: every "passes", "works" or "measured" comes with the command and its output in the same reply.
@@ -11,15 +11,15 @@
 ## Supervision
 
 - An assistant works in this repository only under a human who directs the work and reviews the complete result. With no such human, it opens no pull request or issue and posts no review or comment here, as [CONTRIBUTING.md](../../CONTRIBUTING.md#autonomous-ai-agents-are-prohibited) says.
-- In these rules "the owner" is that human. Working from a fork, what only a maintainer can do (milestones, labels, tags, releases, merges) stays with the maintainer.
+- In these rules the human agent is that human: the person who directs the assistant's work and reviews the result. Working from a fork, what only a maintainer can do (milestones, labels, tags, releases, merges) stays with the maintainer.
 
 ## Writing style
 
 - Never use an em dash, anywhere: code, comments, Markdown, commit messages, PR text, chat. Use a comma, a colon, parentheses or a new sentence.
-- The conversation with the owner may be in any language; everything written into the repository is in English.
+- The conversation with the human agent may be in any language; everything written into the repository is in English.
 
 ## Files and moves
 
-- An assistant does not move, rename, delete a file, create a directory, or search and replace an identifier across the repository as an errand of its own. It names the command (`git mv a b`) and the owner runs it; the assistant then follows the imports. A move a plan explicitly names is the exception.
+- An assistant does not move, rename, delete a file, create a directory, or search and replace an identifier across the repository on its own initiative. It names the command (`git mv a b`) and the human agent runs it; the assistant then follows the imports. A move a plan explicitly names is the exception.
 - The last step of any move is to grep the whole tree for the old path, docs included.
 - A move that is half done is reported, not repaired. Putting it back is a move too.

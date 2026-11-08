@@ -16,7 +16,7 @@
 - Only the scope in the spec changes: `test_expression.py` and the other tests are not touched.
 - Rows follow `docs/rules/ai/tests.md`, section "Cases".
 - Run with `PYTHONPATH=src .venv/bin/python -m pytest <file> -q`. The whole suite runs as `make py-test PYTEST_ARGS=-q`.
-- A commit needs the owner's approval: each commit step shows the diff and stops. Run `make py-lint-fix` first.
+- A commit needs the human agent's approval: each commit step shows the diff and stops. Run `make py-lint-fix` first.
 
 ## Review Focus
 
@@ -46,7 +46,7 @@ The color names are the 32 of `src/tcalc/themes/dark.toml`.
 - [ ] **Step 3: Run both folders, before fixing anything**
 
 Run: `PYTHONPATH=src .venv/bin/python -m pytest tests/py/ui -q` and `PYTHONPATH=src .venv/bin/python -m pytest tests/py/e2e/ui -q`
-Expected, as the probe in the finding measured: in `tests/py/ui` 10 failures (`test_toolbar_spin_boxes...` 3, `test_a_saved_primary_key...` 3, `test_raised_edge_shadow...[dark]`, `test_switch_reaches_open_widgets`, `test_theme_items`, `test_choosing_kitty...`), and in `tests/py/e2e/ui` 4 (`test_kitty_uses_its_base_variant_files`, `test_every_qss_placeholder_resolves` 3). A failure anywhere else is outside the scope: stop and report it to the owner.
+Expected, as the probe in the finding measured: in `tests/py/ui` 10 failures (`test_toolbar_spin_boxes...` 3, `test_a_saved_primary_key...` 3, `test_raised_edge_shadow...[dark]`, `test_switch_reaches_open_widgets`, `test_theme_items`, `test_choosing_kitty...`), and in `tests/py/e2e/ui` 4 (`test_kitty_uses_its_base_variant_files`, `test_every_qss_placeholder_resolves` 3). A failure anywhere else is outside the scope: stop and report it to the human agent.
 
 - [ ] **Step 4: Fix the two moved files as the spec's "The other theme tests" says**
 

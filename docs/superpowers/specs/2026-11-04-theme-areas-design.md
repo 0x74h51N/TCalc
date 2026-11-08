@@ -44,7 +44,7 @@ A theme sets a value through one of two flat pools: `[spacing]` for an int of a 
 
 ## The areas
 
-Today's values by area; the new field name drops the area (`[color_usage] history_row_color` is `[history] row_color`). Field names not given here are the plan's, for the owner to read.
+Today's values by area; the new field name drops the area (`[color_usage] history_row_color` is `[history] row_color`). Field names not given here are the plan's, for the human agent to read.
 
 - `[fonts]` (app wide): `family_default`, `size_default`, `family_monospace`.
 - `[palette]`: the eight `palette_*` places.
@@ -65,7 +65,7 @@ Today's values by area; the new field name drops the area (`[color_usage] histor
 
 **New settings.** `[history]`: expression and result font size ranges and colors (the result gets a range of its own; today it takes the list's font), the item buttons as a `[history.icon_button]` table (size, radius, hover and pressed colors, the raised edge's light and shadow colors, and a button and icon color each for copy and delete), the mode buttons as a `[history.mode]` table of the `[options]` shape (an `OptionsLook`, so a theme may set one key of it), Clear History colors next to its existing range. `[dock]`: title font size and color, read by `DockTitleBar`. `[tabs]`: text color and font size of the tab bar of tabified docks, a new `QTabBar::tab` rule in the window's QSS; a tab background or radius would drop the style's own tab, so the tab box goes with the edges (#203). `[options]`: font size, added with `[history.mode]` since both share the shape. Each default is what the widget shows today (a size that comes from the app font is written out as `size_default`'s value), so no bundled theme changes unless it sets one.
 
-**Radius and raised edges (owner's review of Part 2).** Qt squares a radius above half a button's shorter side, so Python caps every themed button radius at that half and the button is as round as it fits; `[memory]` gains `radius`. `[tooltip] radius` rounds the whole tooltip box, not only its border. `[keypad]`, `[memory]`, `[options]` and `[history.mode]` gain a raised edge: `edge_width` (0, none, by default), `edge_light_color` on the top and left, `edge_shadow_color` on the bottom and right, swapped while pressed or checked. Any QSS border drops the Fusion button frame, so the edge rules apply only under a theme whose edge width is above 0, and the default themes render as before. The edge's default colors are `button_highlight` and `button_shadow`, the same in every built-in palette, so a shadow is dark on a light theme too.
+**Radius and raised edges (human agent's review of Part 2).** Qt squares a radius above half a button's shorter side, so Python caps every themed button radius at that half and the button is as round as it fits; `[memory]` gains `radius`. `[tooltip] radius` rounds the whole tooltip box, not only its border. `[keypad]`, `[memory]`, `[options]` and `[history.mode]` gain a raised edge: `edge_width` (0, none, by default), `edge_light_color` on the top and left, `edge_shadow_color` on the bottom and right, swapped while pressed or checked. Any QSS border drops the Fusion button frame, so the edge rules apply only under a theme whose edge width is above 0, and the default themes render as before. The edge's default colors are `button_highlight` and `button_shadow`, the same in every built-in palette, so a shadow is dark on a light theme too.
 
 ## Removed
 
@@ -76,11 +76,11 @@ Today's values by area; the new field name drops the area (`[color_usage] histor
 - Tests: `test_no_stylesheet_table_read_through_config`, the `[spacing]` cases of `test_theme_overrides.py` (rewritten for area tables).
 - Config keys no code reads (findings, 2026-11-04): `[history.style]` `result_min_pt`, `result_max_pt`, `wrap_padding_factor`, `item_padding`; `[history.math]` `scale_main`, `scale_aux`, `scale_script`.
 
-## Typed names (added during Part 1, owner's decision)
+## Typed names (added during Part 1, human agent's decision)
 
 The converter in `typed_tables.py` types its hints and values instead of `Any`, and no value falls back to a bare `str`: a color place is a `ColorName` and a font family a `FontFamily` (each a `NewType`), and a color place is found by its type instead of its name. Icon names are the members of an `Icon` enum, and a test keeps them equal to the bundled icon files. Fields with the same shape are one nested dataclass: the seven keypad roles are `[keypad.<role>]` tables of one `KeyRoleLook`, with the stylesheet name joined by `_` so no QSS changes. The Qt properties a QSS selector reads (`uiRole`, `keypadRole`, ...) and their values are named once in Python as enums, and a test fails when a QSS selector names one that Python does not define. Qt properties used only as Python state (`keyRadius`, `_expr_connected`, `_aw_scheduled`) become typed attributes, and the QSS rules no code can reach (`[presetRow]`, `[active]` in the menu bar) go.
 
-## Shared types (owner's review of Part 3)
+## Shared types (human agent's review of Part 3)
 
 This section is the schema as it stands; the area keys above and the themes' keys in the plan's Tasks 2 to 9 are the steps on the way to it. One setting's difference does not make a dataclass, and there is no inheritance between look types. A button has one type, `Button`, wherever it stands; text is `Text` (a color and a font range), a frame is `Panel`, and `Colors`, `Edge`, `FontRange` and `Insets` are the small parts. A setting one place does not draw exists there without effect.
 

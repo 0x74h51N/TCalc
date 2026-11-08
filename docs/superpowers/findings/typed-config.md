@@ -26,7 +26,7 @@ A stylesheet `background-color` of `transparent` or `none` on `:hover` does not 
 .venv/bin/python -c "import tomllib; tomllib.loads('[a]\ntext = {\n  color = 1,\n}\n')"
 ```
 
-A bad value in `[keypad.button]` is logged once per key table, because the shared table is spread before `override` checks it. The owner chose this over a separate check for a single line of log.
+A bad value in `[keypad.button]` is logged once per key table, because the shared table is spread before `override` checks it. The human agent chose this over a separate check for a single line of log.
 
 ## 2026-11-05: ways to get a see-through color from a theme (PySide6 6.12.0, offscreen, branch `refactor/theme-areas`)
 

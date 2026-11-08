@@ -14,7 +14,7 @@
 
 - No file under `src/` changes.
 - The structure of `unit/core` stays. Only what the spec names changes.
-- A commit needs the owner's approval: each commit step shows the diff and stops. Run `make py-lint-fix` first.
+- A commit needs the human agent's approval: each commit step shows the diff and stops. Run `make py-lint-fix` first.
 
 ## Review Focus
 
@@ -35,7 +35,7 @@ Expected: no change in the count. A removal that breaks something is put back an
 
 - [ ] **Step 2: Move `test_pr_body.py` and fix its `parents[4]` to the new depth**
 
-- [ ] **Step 3: The dead promotion rules go, by the owner's decision**
+- [ ] **Step 3: The dead promotion rules go, by the human agent's decision**
 
 `PROMO_RULES_BY_ID`, `Operation.cx`, the `_cx_*` functions and `is_int_like` have no reader since the Python evaluator went in 0c7cfde. `test_root_rule`, `test_promo_rules_wired`, `test_is_int_like` and the fake ops only they read go with them. `tests/py/unit/core/test_utils.py` holds nothing else, so it goes too.
 
