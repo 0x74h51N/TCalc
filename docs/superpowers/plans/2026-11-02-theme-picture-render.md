@@ -16,7 +16,7 @@
 - `_render(picture: ThemePicture, size: QSize) -> QImage` keeps its signature; the tests replace it.
 - No new file and no new layer: everything is in `src/tcalc/ui/widgets/common/picture_layer.py`. The only new classes are the `QRunnable` and the `QObject` that carries its result signal.
 - Master size: the picture's natural size scaled to cover the owner widget's screen size times `picture.size`, `KeepAspectRatioByExpanding`. Low resolution pass: an eighth of the master's width and height.
-- No commit without the owner's approval of the diff; every commit step stops for it.
+- No commit without the human agent's approval of the diff; every commit step stops for it.
 - No em dash anywhere; Markdown is not hard-wrapped.
 
 ## Review Focus
@@ -108,9 +108,9 @@ Expected: all pass.
 
 - [ ] **Step 5: Check the rest and look at the app**
 
-Run: `grep -rn "SETTLE_MS\|\.resized()" src tests`, expected: no picture-related hit (the keypad's own `KEY_SETTLE_MS` in `test_theme_switch.py` is unrelated). Run `make typecheck` and `make py-lint`, expected: clean. Run the app with Sponge and Kitty (`PYTHONPATH=src python -m tcalc`) and give it to the owner to look at a drag, a full screen switch and a theme switch.
+Run: `grep -rn "SETTLE_MS\|\.resized()" src tests`, expected: no picture-related hit (the keypad's own `KEY_SETTLE_MS` in `test_theme_switch.py` is unrelated). Run `make typecheck` and `make py-lint`, expected: clean. Run the app with Sponge and Kitty (`PYTHONPATH=src python -m tcalc`) and give it to the human agent to look at a drag, a full screen switch and a theme switch.
 
-- [ ] **Step 6: Commit (after the owner approves the diff)**
+- [ ] **Step 6: Commit (after the human agent approves the diff)**
 
 ```bash
 git add src/tcalc/ui/widgets/common/picture_layer.py src/tcalc/ui/window.py tests/py/unit/ui/test_picture_layer.py
@@ -148,7 +148,7 @@ For the closed widget: in `_RenderJob.run`, the `emit` is wrapped in `except Run
 Run: `PYTHONPATH=src python -m pytest tests/py/unit/ui/test_picture_layer.py -q`
 Expected: all pass.
 
-- [ ] **Step 5: Commit (after the owner approves the diff)**
+- [ ] **Step 5: Commit (after the human agent approves the diff)**
 
 ```bash
 git add src/tcalc/ui/widgets/common/picture_layer.py tests/py/unit/ui/test_picture_layer.py
@@ -184,7 +184,7 @@ Add an entry with today's date, the branch and commit, the commands and the numb
 Run: `make py-test`
 Expected: every suite passes.
 
-- [ ] **Step 5: Commit (after the owner approves the diff)**
+- [ ] **Step 5: Commit (after the human agent approves the diff)**
 
 ```bash
 git add docs/superpowers/findings/picture-render.md

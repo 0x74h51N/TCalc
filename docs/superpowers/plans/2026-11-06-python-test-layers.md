@@ -19,7 +19,7 @@
 - `tests/py/ui/test_expression.py`, the existing files of `tests/py/e2e/` and `tests/py/unit/core/` are not touched, except the import lines `tests/py/unit/ruff.toml` changes in `unit/core/conftest.py` and `unit/core/test_ops.py`. No package is added.
 - Run a file with `PYTHONPATH=src .venv/bin/python -m pytest <file> -q`, using the venv: the system `python` has an older PySide6 and gives false failures. The whole suite runs as `make py-test PYTEST_ARGS=-q`.
 - The moves in this plan are named, so they are done with `git mv`. Nothing else is moved or deleted.
-- A commit needs the owner's approval: each commit step shows the diff and stops. Run `make py-lint-fix` first.
+- A commit needs the human agent's approval: each commit step shows the diff and stops. Run `make py-lint-fix` first.
 - No em dash. Comments say why. No `type: ignore` in a test: tests are not in mypy. A new test file starts with the SPDX header its neighbours have and `from __future__ import annotations`.
 
 ## Review Focus

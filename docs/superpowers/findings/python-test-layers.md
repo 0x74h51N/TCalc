@@ -38,7 +38,7 @@ A `QPushButton` with `keypadRole`, inside and outside a `QWidget[uiRole="keypad"
 
 With `calc_native` blocked (`sys.modules["calc_native"] = None`), each `tests/py/unit/ui` file: `test_icons` 47 passed, `test_look` 3 passed, `test_typed_tables` 25 passed. The rest fail at import, through `styles.py:10 > app_state.py:13`, `tcalc/ui/widgets/__init__.py:23`, or `tcalc/core/__init__.py:24`. On a scratch copy, removing the one line `from ..app_state import get_app_state` lets `tcalc.ui.styles` load and `apply_theme` run with native blocked. `get_app_state` is used there only in `sync_theme`.
 
-Tried and removed, 2026-11-06: a look test (`apply_theme`, then a plain widget's palette after `ensurePolished`, on a theme with a color per place) with `sync_theme(app, variant)` changed to make `styles.py` load with no native. It works, and it reads a key's exact color, but it runs the whole chain from toml to widget, so a failure names no function. That is an e2e test. The owner refused it for the unit layer, and the source change was undone with it.
+Tried and removed, 2026-11-06: a look test (`apply_theme`, then a plain widget's palette after `ensurePolished`, on a theme with a color per place) with `sync_theme(app, variant)` changed to make `styles.py` load with no native. It works, and it reads a key's exact color, but it runs the whole chain from toml to widget, so a failure names no function. That is an e2e test. The human agent declined it for the unit layer, and the source change was undone with it.
 
 ## 2026-11-06, master f8a67cd: the small functions under styles and widgets run alone
 

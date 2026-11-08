@@ -15,7 +15,7 @@ Before writing, in this order:
 3. Extend before adding: an argument on an existing function is cheaper than a new function, a new function is cheaper than a new layer.
 4. Check both sides of the app: the flat and the math display mode, the light and the dark theme, the Python and the native path where both exist.
 
-When something does not fit, stop and report instead of inventing. The report says what you were trying to do, which existing code you tried by name, what it cannot do (concretely, not "it is not flexible enough"), and what you propose instead. Then wait for the owner's decision.
+When something does not fit, stop and report instead of inventing. The report says what you were trying to do, which existing code you tried by name, what it cannot do (concretely, not "it is not flexible enough"), and what you propose instead. Then wait for the human agent's decision.
 
 - Do not invent new layers, forwarder functions, error kinds or user-facing messages. A function whose body is one call to another function is not a layer, it is a rename. An error the user sees uses the existing error kinds and the existing message table.
 - Prefer concrete overloads to a generic catch-all. A generic function that must answer for every variant arm ends up answering wrongly for some; an arm that makes no sense should have no overload and fail to compile.

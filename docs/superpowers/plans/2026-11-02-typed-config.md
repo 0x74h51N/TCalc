@@ -17,7 +17,7 @@
 - No string-key config read and no config cast under `src/tcalc/` at the end.
 - Theme switching keeps restyling at once (`apply_theme`), with no restart.
 - No em dash anywhere; Markdown not hard-wrapped; comments say why, one line.
-- Every commit step stops for the owner: show the diff, commit only after approval (`docs/rules/ai/git.md`). Run `make py-lint-fix` before it.
+- Every commit step stops for the human agent: show the diff, commit only after approval (`docs/rules/ai/git.md`). Run `make py-lint-fix` before it.
 - Run single files with `PYTHONPATH=src python -m pytest <file>`; the whole suite only with `make py-test`.
 
 ## Review Focus
@@ -51,7 +51,7 @@
 - [ ] **Step 2: Run** `PYTHONPATH=src python -m pytest tests/py/unit/ui/test_typed_tables.py -q`. Expected: collection error, `No module named 'tcalc.typed_tables'`.
 - [ ] **Step 3: Implement** `build` and `override` sharing one private `_convert(value, hint, where) -> object` step. `override` builds the changed fields with `_convert`, skips and logs each bad key, and returns `dataclasses.replace(obj, **changed)`.
 - [ ] **Step 4: Run** the same command. Expected: all pass. `make typecheck`: no issues.
-- [ ] **Step 5: Commit** (owner approval): `refactor/config: add a converter from tables to dataclasses`.
+- [ ] **Step 5: Commit** (human agent approval): `refactor/config: add a converter from tables to dataclasses`.
 
 ### Task 2: Typed `config.toml`
 
@@ -66,7 +66,7 @@
 - [ ] **Step 2: Run** the file. Expected: ImportError on `UiConfig`.
 - [ ] **Step 3: Implement** the dataclasses and `CONFIG`. No table move yet.
 - [ ] **Step 4: Run** the file and `make typecheck`. Expected: pass.
-- [ ] **Step 5: Commit** (owner approval): `refactor/config: load config.toml into typed tables`.
+- [ ] **Step 5: Commit** (human agent approval): `refactor/config: load config.toml into typed tables`.
 
 ### Task 3: Typed theme overrides (fixes #105)
 
@@ -89,7 +89,7 @@
 - [ ] **Step 5: Implement in `styles.py`.** `_build_subs` is one comprehension over the colors, the `ui.color_usage` places (`theme.color(value)`), the `STYLESHEET_TABLES` int fields with their prefix, and the `fonts` int fields; no key string, one `str(value)`. `_build_palette` passes `theme.ui.color_usage.<place>` attributes. QSS: `$menu_font_size` to `$menu_size`, `$picker_font_size` to `$picker_size`. `ui/widgets/utils.py` reads `get_theme().ui.style.key_radius` (no `int()`); `math_primitives.py` passes its place as an attribute.
 - [ ] **Step 6: Rewrite the tests that patched dicts** (`test_styles.py` menu, picker, color place and spacing tests; `test_config_defaults` in `test_picture_layer.py`) to write a user theme instead; their assertions stay.
 - [ ] **Step 7: Run** `PYTHONPATH=src python -m pytest tests/py/unit/ui -q` and `make typecheck`. Expected: pass.
-- [ ] **Step 8: Commit** (owner approval): `refactor/theme: resolve theme overrides into typed tables and skip only a broken part`.
+- [ ] **Step 8: Commit** (human agent approval): `refactor/theme: resolve theme overrides into typed tables and skip only a broken part`.
 
 ### Task 4: Every read uses `CONFIG`
 
@@ -101,7 +101,7 @@
 - [ ] **Step 2: Run** `make typecheck`. Expected: no issues; an attribute typo is now a mypy error.
 - [ ] **Step 3: Verify** none is left: `grep -rnE "_config\b|_style\b|\[\"[a-z_]+\"\]" src/tcalc --include='*.py'` shows no config read (the custom pad's saved-data reads remain until Task 6; list them in the report).
 - [ ] **Step 4: Run** `make py-test`. Expected: exit 0.
-- [ ] **Step 5: Commit** (owner approval): `refactor/config: read every config value as a typed attribute`.
+- [ ] **Step 5: Commit** (human agent approval): `refactor/config: read every config value as a typed attribute`.
 
 ### Task 5: Stylesheet-table reads go through the theme
 
@@ -113,7 +113,7 @@
 - [ ] **Step 2: Run** it. Expected: FAIL listing the `CONFIG` reads Task 4 left in the five modules.
 - [ ] **Step 3: Implement.** Each widget takes its table once where it builds (`cfg = get_theme().ui.calc.topbar`) and reads attributes.
 - [ ] **Step 4: Run** `PYTHONPATH=src python -m pytest tests/py/ui/test_result_widget.py -q`, the overrides file and `make typecheck`. Expected: pass.
-- [ ] **Step 5: Commit** (owner approval): `refactor/calc: read the stylesheet tables through the theme`.
+- [ ] **Step 5: Commit** (human agent approval): `refactor/calc: read the stylesheet tables through the theme`.
 
 ### Task 6: Typed custom pad layout
 
@@ -128,7 +128,7 @@
 - [ ] **Step 2: Run** the file. Expected: FAIL on the import of `PadLayout`.
 - [ ] **Step 3: Implement.** `_load` returns at once when nothing is saved, then reads `build(PadLayout, json.loads(raw), f"custom pad {id}")`; a `TableError` or JSON error is logged and the pad keeps its defaults. `_save` writes `json.dumps(dataclasses.asdict(layout))`. `_load_keys` takes `tuple[KeySettings, ...]` and keeps its skip and position rules. The edit paths (`_replace_operation`, `_set_key_color`, `_remove_key`, `_sync_grid_count`, `_rename_pad`, `_confirm_remove_pad`) work on `KeyDef` and change only where they read `CONFIG`.
 - [ ] **Step 4: Run** the file, `tests/py/unit/ui/test_styles.py`, `tests/py/ui/test_theme_switch.py` (one process each) and `make typecheck`. Expected: pass.
-- [ ] **Step 5: Commit** (owner approval): `refactor/keypad: read the custom pad layout into typed tables`.
+- [ ] **Step 5: Commit** (human agent approval): `refactor/keypad: read the custom pad layout into typed tables`.
 
 ### Task 7: Docs and the final check
 
@@ -137,5 +137,5 @@
 - [ ] **Step 1:** `theme-template.toml`: the radii and font defaults now live in `config.toml` `[style]` and `[fonts]`; `[spacing]` overrides any number of the stylesheet tables by name.
 - [ ] **Step 2:** Findings: replace the "how values flow today" entry with how they flow now, dated.
 - [ ] **Step 3: Verify** the spec's acceptance: the grep of Task 4 Step 3 (no hits now), `make typecheck`, `make py-test`. Put the commands and outputs in the report.
-- [ ] **Step 4: Hand over** to the owner to run the app and switch every bundled theme, light and dark, flat and math mode.
-- [ ] **Step 5: Commit** (owner approval): `docs/theme: say where theme defaults live`.
+- [ ] **Step 4: Hand over** to the human agent to run the app and switch every bundled theme, light and dark, flat and math mode.
+- [ ] **Step 5: Commit** (human agent approval): `docs/theme: say where theme defaults live`.

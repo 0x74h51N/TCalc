@@ -16,11 +16,11 @@ Issue #205, milestone First release (#22). Starts when [part 1](2026-11-06-pytho
 
 Not touched: `test_expression.py`, `test_controller_status.py`, `test_result_widget.py`, `test_view_state_ui_sync.py`, `test_subscript_constants_ui.py`, the other sections of `test_history.py` and `test_custom_pad_layout.py`, and the other files in `tests/py/e2e/`. `test_subscript_constants_ui.py` keeps its menu walk, since it is not a theme test.
 
-No tool compares the look between two refs. The owner dropped `make ui-diff`: it could only say that pixels changed, never whether they are right.
+No tool compares the look between two refs. The human agent dropped `make ui-diff`: it could only say that pixels changed, never whether they are right.
 
 ## The test themes
 
-- `tests/py/ui/themes/dark.toml` and `light.toml`, new. They hold the 32 color names of the bundled `[colors]`, each with a different value within its file, since a black and white theme cannot prove a stylesheet rule (see the finding). `background_dark` is `#000000` in dark and `#FFFFFF` in light, the owner's black and white. The literals the tests already assert are the test themes' own values: `icon` is `#FCFCFC` in dark and `#232629` in light, `background` is `#F4F5F7` in light. `screen` is `#FEFEFE` in light.
+- `tests/py/ui/themes/dark.toml` and `light.toml`, new. They hold the 32 color names of the bundled `[colors]`, each with a different value within its file, since a black and white theme cannot prove a stylesheet rule (see the finding). `background_dark` is `#000000` in dark and `#FFFFFF` in light, the human agent's black and white. The literals the tests already assert are the test themes' own values: `icon` is `#FCFCFC` in dark and `#232629` in light, `background` is `#F4F5F7` in light. `screen` is `#FEFEFE` in light.
 - `extreme`, as it is. It is the one custom theme: its base is light, so it also stands where a test needs a custom theme on a light base.
 - Nothing else. A case with its own values is a dict row.
 
@@ -42,7 +42,7 @@ Removed, 4 tests. A menu button is not tested, the function behind it is, and th
 - `test_theme_is_first_in_view_menu`, `test_theme_items`, `test_stored_choice_is_checked`: the shape of the menu.
 - `test_theme_added_while_running_shows_when_the_menu_opens`: it walked the menu to reach `_populate_custom_themes`.
 
-Removed, 5 more tests, by the owner's decision: this file holds only e2e tests of the chain from a theme table to a widget.
+Removed, 5 more tests, by the human agent's decision: this file holds only e2e tests of the chain from a theme table to a widget.
 
 - `test_late_scheme_signal_does_not_reapply`: `test_sync_theme` in the unit layer does the same.
 - `test_user_key_colors_survive_switch`: it tests that Qt keeps a plain widget's stylesheet.
@@ -105,7 +105,7 @@ Change their theme or their rows, and keep what they check:
 
 ## The bundled themes
 
-New file, `tests/py/e2e/test_bundled_themes.py`, by the owner's decision: nothing else catches a broken bundled theme, since the app only logs it and falls back. It is outside `tests/py/e2e/ui` because that folder's tests run on the test themes. It runs on `dark`, `light` and each `*/theme.toml` of the bundled folder.
+New file, `tests/py/e2e/test_bundled_themes.py`, by the human agent's decision: nothing else catches a broken bundled theme, since the app only logs it and falls back. It is outside `tests/py/e2e/ui` because that folder's tests run on the test themes. It runs on `dark`, `light` and each `*/theme.toml` of the bundled folder.
 
 - `test_bundled_theme_loads_with_nothing_skipped`: broken toml raises, and an unknown key, an alpha color or a place naming a missing color logs a warning.
 - `test_bundled_theme_names_only_the_colors_of_dark`: `dark` and `light` have the same names, and a custom theme adds none.

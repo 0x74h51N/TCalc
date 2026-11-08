@@ -5,4 +5,4 @@
 - No `FATAL_ERROR` (or any hard failure) is added to make, CMake or scripts because of an unproven version problem. A build that refuses a version shuts out every user on that version.
 - Version pins are fine for reproducible environments (minor pins in `pyproject.toml` and CI).
 - Raising or adding a pin goes on its own branch, and the whole suite runs before merge, benchmarks included.
-- Adding a dependency is a conversation with the owner, not a commit.
+- Adding a dependency is a conversation with the human agent, not a commit.

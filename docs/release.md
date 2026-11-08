@@ -1,6 +1,6 @@
 # Releasing TCalc
 
-TCalc is trunk-based: every pull request merges into `master` as soon as it is done and `master` stays green, with no `dev` branch. A release is a tag on `master`, made only when the owner says so, usually after a milestone closes.
+TCalc is trunk-based: every pull request merges into `master` as soon as it is done and `master` stays green, with no `dev` branch. A release is a tag on `master`, made only when the maintainer says so, usually after a milestone closes.
 
 ## Version
 

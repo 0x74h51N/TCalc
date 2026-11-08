@@ -54,7 +54,7 @@ Offscreen and on KDE Wayland, `MainWindow` with Sponge and with Dark, SIMPLE and
 | wayland, up to 1880x1090 | dark | SIMPLE | 14.2 / 15.7 ms | none |
 | wayland, up to 1880x1090 | dark | SCIENCE | 16.9 / 19.0 ms | none |
 
-The owner's real app, Sponge, SIMPLE, history panel open, a few seconds of dragging, resizing and full screen (`PYTHONPATH=src .venv/bin/python -m cProfile -o run.prof -m tcalc`): `_render` 20 calls, 4342 ms, 217 ms per call on average; `paint` 4841 ms in all. Next is the history: `update_fonts` 1960 calls, 704 ms, nearly all of it `re_wrap` (1846 calls, 673 ms). Key radius, resize events and the picture layer's event filter are under 75 ms each.
+The human agent's real app, Sponge, SIMPLE, history panel open, a few seconds of dragging, resizing and full screen (`PYTHONPATH=src .venv/bin/python -m cProfile -o run.prof -m tcalc`): `_render` 20 calls, 4342 ms, 217 ms per call on average; `paint` 4841 ms in all. Next is the history: `update_fonts` 1960 calls, 704 ms, nearly all of it `re_wrap` (1846 calls, 673 ms). Key radius, resize events and the picture layer's event filter are under 75 ms each.
 
 ## 2026-11-02: only `QImageReader.read` frees the main thread when run in a worker
 

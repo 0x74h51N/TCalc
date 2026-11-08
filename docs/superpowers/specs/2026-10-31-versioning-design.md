@@ -13,7 +13,7 @@ Before TCalc can be packaged and downloaded (phases 2 and 3), a version has to m
 - The version is derived from git tags by setuptools-scm; no file holds the number. The first release is `v0.14.0`.
 - Every past version gets a retroactive git tag on the commit that ends it, so each merged pull request's version shows on GitHub and every compare link is between two tags.
 - `CHANGELOG.md` covers the whole history, `0.1.0` to `0.14.0`. The past is written by hand once; every release after it is generated from the merged pull request titles.
-- A release is two steps for the owner: start the release workflow, merge the release pull request it opens. The version, the changelog section, the tag and the GitHub release follow from that.
+- A release is two steps for the maintainer: start the release workflow, merge the release pull request it opens. The version, the changelog section, the tag and the GitHub release follow from that.
 - GitHub milestones are concrete roadmap steps; past merged pull requests are put into them, so each milestone shows its real progress.
 - `type:`, `area:` and `status:` labels sort issues and pull requests.
 - AI rules, hookify rules and contributor docs make all of this the normal way of working, for assistants and people.
@@ -32,7 +32,7 @@ Before TCalc can be packaged and downloaded (phases 2 and 3), a version has to m
 
 - Semantic versioning before 1.0. A release with at least one new feature raises the minor (`0.13.0` to `0.14.0`); a release with fixes only raises the patch (`0.13.0` to `0.13.1`).
 - A pull request is a feature when its title starts with `feat`. So a release raises the minor when a pull request titled `feat` merged since the last tag, and the patch otherwise; the release workflow computes it from the merge commits (below).
-- A change that makes TCalc unable to read what an older version saved (the history file, `QSettings`, a theme or a custom pad file) is a breaking change. It raises the minor even when it is a fix: the release workflow has a `bump` input, `auto` by default, that the owner sets to `minor` for such a release, and in the release pull request its changelog line gets `**Breaking:**` in front and says what the user loses.
+- A change that makes TCalc unable to read what an older version saved (the history file, `QSettings`, a theme or a custom pad file) is a breaking change. It raises the minor even when it is a fix: the release workflow has a `bump` input, `auto` by default, that the maintainer sets to `minor` for such a release, and in the release pull request its changelog line gets `**Breaking:**` in front and says what the user loses.
 - `1.0.0` comes when the v1 roadmap is done; the release workflow's `bump` input takes `1.0.0` for it. Before that, the `Development Status :: 3 - Alpha` classifier stays.
 - The version string is always `MAJOR.MINOR.PATCH`, three integers, which is valid both as semver and as PEP 440. No pre-release suffixes on tags.
 - A tag is `v` plus the version (`v0.13.0`), annotated, set by the release workflow on the merge commit of the release pull request on `master`. The retroactive tags of past versions are the one exception (below).
@@ -43,7 +43,7 @@ Before TCalc can be packaged and downloaded (phases 2 and 3), a version has to m
 
 setuptools-scm computes the version from git when the package is built or installed:
 
-- `pyproject.toml` drops `version = "0.6.3"`, lists `version` in `[project] dynamic`, and adds `setuptools-scm>=10.3,<10.4` to `[build-system] requires`, pinned to the minor like every other dependency (`docs/superpowers/specs/2026-10-28-dependency-pins.md`). The owner approved the dependency on 2026-10-31.
+- `pyproject.toml` drops `version = "0.6.3"`, lists `version` in `[project] dynamic`, and adds `setuptools-scm>=10.3,<10.4` to `[build-system] requires`, pinned to the minor like every other dependency (`docs/superpowers/specs/2026-10-28-dependency-pins.md`). The human agent approved the dependency on 2026-10-31.
 - At a tag the version is exactly the tag (`0.13.0`). Between tags it is a development version that sorts after the last release, `0.13.1.devN+gHASH` with setuptools-scm's default scheme, where `N` is the commit count since the tag. The strings measured on a scratch clone are in `docs/superpowers/findings/versioning.md`.
 - Once the retroactive tags are pushed, the code between `v0.13.2` and `v0.14.0` reads as `0.13.3.devN+gHASH`. Without any tag setuptools-scm would give `0.1.devN`, so the retroactive tags go up before this phase's pull request merges.
 - Release archives: GitHub's source archives have no `.git`. A `.git_archival.txt` with `export-subst` in `.gitattributes`, the mechanism setuptools-scm documents for this, puts the commit and tag into the archive, so `pip install` from a release tarball gets the right version. Phase 3's Flatpak builds from that archive.
@@ -139,7 +139,7 @@ GitHub milestones are a flat list; they cannot nest. Large projects use them for
 - A milestone is one roadmap step that can be finished: "CSV collection load", "Line-based calculation", "Iterated ops (Σ, Π)". Never a whole roadmap section like "Statistic".
 - Its title is the step's name as the roadmap writes it. Its description is two or three lines: what is done when it closes, and the roadmap section it belongs to.
 - No due date.
-- The first set is every roadmap step that is partly done, plus the steps not started that the v1 roadmap needs. The plan proposes the list with each step's progress measured from the merged pull requests and open issues, the owner picks, and the assistant creates them (see GitHub changes).
+- The first set is every roadmap step that is partly done, plus the steps not started that the v1 roadmap needs. The plan proposes the list with each step's progress measured from the merged pull requests and open issues, the human agent picks, and the assistant creates them (see GitHub changes).
 - Past merged pull requests that worked on a step are added to its milestone (`gh pr edit N --milestone ...`; the plan confirms on one pull request that GitHub accepts this for a merged one), so the milestone's progress bar counts real work from the start. Open issues that belong to a step go in too.
 - A milestone's progress bar counts closed over all of its issues and pull requests, so the work left has to exist as open issues or the bar shows 100%. Each remaining roadmap item of a milestone gets one open issue, `feat: <item>`, with a body of two or three general sentences and its roadmap section. The detailed issue is written in the spec step of that work, not now.
 - A pull request belongs to one milestone only, so a past pull request goes where its main work went; one that finished a fully done roadmap step gets none. The proposed table is in the plan.
@@ -148,11 +148,11 @@ GitHub milestones are a flat list; they cannot nest. Large projects use them for
 
 ### Labels
 
-A label answers one question at a glance, and every label belongs to one of three groups, each with its own prefix, and every label has its own color (chosen by the owner on 2026-10-31), so the list of labels on an issue reads as "what kind, about what, how far along".
+A label answers one question at a glance, and every label belongs to one of three groups, each with its own prefix, and every label has its own color (chosen by the human agent on 2026-10-31), so the list of labels on an issue reads as "what kind, about what, how far along".
 
 - `type:`, exactly one on every issue and pull request: `type: feature`, `type: bug`, `type: perf`, `type: refactor`, `type: docs`, `type: test`, `type: ci`, `type: chore` (build, dependencies, tooling, scripts, hooks). The words follow the branch and commit types of `docs/CONTRIBUTING.md`. The type is what the work does: a `fix/` branch that adds a capability is a feature, and its title starts with `feat`.
 - `area:`, at most one: one per top-level item of the v1 roadmap in `README.md`, which names the sections of `docs/roadmap.md` with Calculus split into Scientific and Statistic and Tests as its own item: `area: parser`, `area: errors`, `area: scientific`, `area: statistic`, `area: menubar`, `area: history`, `area: shortcuts`, `area: ui`, `area: packaging`, `area: tests`. A new top-level roadmap item gets its label in the same change. Work that fits no section (CI, AI rules) has none.
-- `status:`, only on open issues: `status: needs spec` (no design yet; every roadmap issue starts here), `status: ready` (concrete enough to implement), `status: blocked` (waits for another issue, named in its body), `status: needs repro` (a bug that waits for a reproduction on another system before any work; added by the owner on 2026-10-31). The spec step of a work moves its issue from `needs spec` to `ready`.
+- `status:`, only on open issues: `status: needs spec` (no design yet; every roadmap issue starts here), `status: ready` (concrete enough to implement), `status: blocked` (waits for another issue, named in its body), `status: needs repro` (a bug that waits for a reproduction on another system before any work; added by the human agent on 2026-10-31). The spec step of a work moves its issue from `needs spec` to `ready`.
 - GitHub's defaults are folded in: `bug` becomes `type: bug`, `enhancement` becomes `type: feature`, `documentation` becomes `type: docs` (renamed in place, so the issues that carry them keep them). `good first issue` and `help wanted` stay, since GitHub shows them to new contributors. `duplicate`, `invalid`, `question` and `wontfix` are deleted: no issue or pull request uses them (checked on 2026-10-31), and GitHub's close reasons ("completed", "not planned", "duplicate") already say it.
 - The issue templates set the type: the bug report `type: bug`, the feature request `type: feature`; the "Other" template sets none, since its type varies.
 - Every open issue and every merged pull request gets its labels, the past ones included, so a filter shows a section's history and the open work of one kind.
@@ -160,13 +160,13 @@ A label answers one question at a glance, and every label belongs to one of thre
 
 ### Roadmap
 
-`docs/roadmap.md` stays the user-facing plan. Its rough percentages are not maintained by this phase. Where the analysis finds the roadmap out of date (a merged step still unchecked), the plan lists it and the owner decides on the edit.
+`docs/roadmap.md` stays the user-facing plan. Its rough percentages are not maintained by this phase. Where the analysis finds the roadmap out of date (a merged step still unchecked), the plan lists it and the human agent decides on the edit.
 
 ## Release procedure
 
 TCalc is trunk-based: every pull request merges into `master` as soon as it is done, and `master` stays green. There is no `dev` branch; nothing is deployed from `master`, and users get only what a tag releases. A release is a tag on `master`, not a separate line of code.
 
-A release happens only when the owner says so, usually after a milestone closes. The owner does two things: starts the release workflow and merges the pull request it opens.
+A release happens only when the maintainer says so, usually after a milestone closes. The maintainer does two things: starts the release workflow and merges the pull request it opens.
 
 ### Release pull request workflow
 
@@ -178,9 +178,9 @@ A release happens only when the owner says so, usually after a milestone closes.
 4. Run `git-cliff --unreleased --tag vX.Y.Z --prepend CHANGELOG.md`.
 5. Commit `release: vX.Y.Z` on a branch `release/vX.Y.Z` and open a pull request with that title. Its description lists the merged pull requests the section came from and the milestones that will close.
 
-The owner reviews the generated section in that pull request like any other change, polishes a line, adds `**Breaking:**`, moves a line to `Removed`, and merges it.
+The maintainer reviews the generated section in that pull request like any other change, polishes a line, adds `**Breaking:**`, moves a line to `Removed`, and merges it.
 
-The Actions bot opening a pull request needs the repository setting "Allow GitHub Actions to create and approve pull requests". Its `ci.yml` run on that pull request waits as `action_required` until the owner approves it with one click; then the checks attach, and with only `CHANGELOG.md` changed the change filter skips the build jobs and `CI OK` passes (measured on the scratch repository). No token and no bypass actor is added.
+The Actions bot opening a pull request needs the repository setting "Allow GitHub Actions to create and approve pull requests". Its `ci.yml` run on that pull request waits as `action_required` until the maintainer approves it with one click; then the checks attach, and with only `CHANGELOG.md` changed the change filter skips the build jobs and `CI OK` passes (measured on the scratch repository). No token and no bypass actor is added.
 
 ### Release workflow
 
@@ -197,11 +197,11 @@ Phase 3 adds a job that builds the Flatpak and attaches it to this release.
 
 ## AI rules and contributor docs
 
-- A new `docs/rules/ai/release.md`, imported in `CLAUDE.md` with the other rule files. It holds, briefly: the version scheme and the bump rule; that no file holds the version; the pull request title rules, since the title is the changelog line, with a pointer to the CI job that holds the pattern; that an assistant never edits a released section of `CHANGELOG.md` except to mark `[YANKED]` or fix a factual error, never tags, never runs `gh release` or the release workflows, and never creates, closes or deletes a milestone or label unless the owner asked for it in that conversation; a pointer to `docs/release.md` for the procedure, which it does not repeat; and the milestone rules below.
-- Milestones in design: before writing a spec, an assistant lists the open milestones (`gh api repos/0x74h51N/TCalc/milestones`), and the spec says which milestone it serves and what part of it the work completes. If the work fits none, the spec proposes a new milestone (title and description), and the assistant creates it once the owner approves the spec.
+- A new `docs/rules/ai/release.md`, imported in `CLAUDE.md` with the other rule files. It holds, briefly: the version scheme and the bump rule; that no file holds the version; the pull request title rules, since the title is the changelog line, with a pointer to the CI job that holds the pattern; that an assistant never edits a released section of `CHANGELOG.md` except to mark `[YANKED]` or fix a factual error, never tags, never runs `gh release` or the release workflows, and never creates, closes or deletes a milestone or label unless the human agent asked for it in that conversation; a pointer to `docs/release.md` for the procedure, which it does not repeat; and the milestone rules below.
+- Milestones in design: before writing a spec, an assistant lists the open milestones (`gh api repos/0x74h51N/TCalc/milestones`), and the spec says which milestone it serves and what part of it the work completes. If the work fits none, the spec proposes a new milestone (title and description), and the assistant creates it once the human agent approves the spec.
 - Pull requests: opened with a title that matches the pattern, with `--milestone` when the work serves one, and with its `type:` and `area:` labels. The PR description says what part of the milestone it closes.
 - Hookify rules in `.claude/`, matching the existing ones:
-  - `warn-release-action`: a bash command that runs `git tag`, pushes a tag, runs `gh release` or `gh workflow run release-pr`, or creates, edits or deletes a milestone or label through `gh api` or `gh label`. The message: only when the owner asked for it in this conversation; see `release.md`.
+  - `warn-release-action`: a bash command that runs `git tag`, pushes a tag, runs `gh release` or `gh workflow run release-pr`, or creates, edits or deletes a milestone or label through `gh api` or `gh label`. The message: only when the human agent asked for it in this conversation; see `release.md`.
   - `warn-pr-create`: `gh pr create` without `--milestone` or `--label`. The message: the title is the changelog line and CI checks its pattern; check the open milestones and set the labels; leave the milestone out only if the work serves none. The pattern itself lives only in the CI job, so the hook does not keep a second copy of it.
 - `docs/rules/ai/git.md`: `release` joins the commit types (`release: v0.14.0`), and `release/` the branch prefixes; pull requests are merged on GitHub with a merge commit.
 - `docs/CONTRIBUTING.md`: the title pattern and that the title is the changelog line; milestones and labels; the release procedure in two lines, pointing to `release.md`.
@@ -211,7 +211,7 @@ Phase 3 adds a job that builds the Flatpak and attaches it to this release.
 
 ## GitHub changes
 
-The assistant makes the GitHub changes of this phase with `gh`: it creates the labels and the milestones, labels the open issues and the merged pull requests, adds the past pull requests to their milestones, and pushes the retroactive tags `v0.1.0` to `v0.13.2`. Each is outward and visible to everyone, so it runs only after the owner has approved its list: the plan shows the labels, the milestones with their descriptions, and the pull request and issue assignments as tables, and nothing is sent before the owner says yes to that table. A script in the scratch directory runs the approved table, so what is sent is exactly what was approved, and the assistant reports what GitHub returned. `v0.14.0` is not pushed by the assistant: the release workflow tags it when the owner merges the first release pull request. The repository settings are the owner's, set by hand: the `v*` tag ruleset (no deletion, no update), "Allow GitHub Actions to create and approve pull requests", and `Pull Request Title` as a required check of `masterRule` once this work is on `master`; `masterRule` keeps its merge methods.
+The assistant makes the GitHub changes of this phase with `gh`: it creates the labels and the milestones, labels the open issues and the merged pull requests, adds the past pull requests to their milestones, and pushes the retroactive tags `v0.1.0` to `v0.13.2`. Each is outward and visible to everyone, so it runs only after the human agent has approved its list: the plan shows the labels, the milestones with their descriptions, and the pull request and issue assignments as tables, and nothing is sent before the human agent says yes to that table. A script in the scratch directory runs the approved table, so what is sent is exactly what was approved, and the assistant reports what GitHub returned. `v0.14.0` is not pushed by the assistant: the release workflow tags it when the maintainer merges the first release pull request. The maintainer sets the repository settings by hand: the `v*` tag ruleset (no deletion, no update), "Allow GitHub Actions to create and approve pull requests", and `Pull Request Title` as a required check of `masterRule` once this work is on `master`; `masterRule` keeps its merge methods.
 
 ## Testing
 
@@ -228,12 +228,12 @@ All tried on 2026-10-31; the measurements are in `docs/superpowers/findings/vers
 - A hand-kept changelog with a check script against the tags and the bump rule: built, then dropped. It checks what can be generated instead.
 - `python-kacl`: it renames `## [Unreleased]` and writes the links, but does not choose the bump, wrote broken links from the SSH remote, and its `verify` passed an impossible date and wrong link targets.
 - Release Drafter: it drafts the GitHub release from labels, but does not write `CHANGELOG.md`, and it makes the labels the source of the changelog, a second place to keep right.
-- Conventional Commits titles (`feat(ui): ...`) with release-please or git-cliff's own bump: the owner keeps `type/scope:`. git-cliff's bump by type did not work with it (`v0.12.3` instead of `v0.13.0` at a feature), and a preprocessor that rewrote the titles into the conventional form also pulled in the commits inside each branch; the first-parent `grep` does the bump in one line.
+- Conventional Commits titles (`feat(ui): ...`) with release-please or git-cliff's own bump: the human agent keeps `type/scope:`. git-cliff's bump by type did not work with it (`v0.12.3` instead of `v0.13.0` at a feature), and a preprocessor that rewrote the titles into the conventional form also pulled in the commits inside each branch; the first-parent `grep` does the bump in one line.
 - towncrier or changelog fragments: each pull request adds a small file. The title already carries the line, so a fragment would be a second copy of it.
 - A `dev` branch with release merges into `master` (git-flow): it protects a deployed `master`, and nothing is deployed from TCalc's `master`.
 - A version literal in `pyproject.toml`: one more file to bump by hand at every release, and `master` would claim the last release's number for unreleased code.
 
-## Calls made without the owner
+## Calls made without the human agent
 
 Settled by the assistant, open to change: the changelog at the repository root in the Keep a Changelog layout; the compare link in the heading instead of a link block; the title-to-section mapping and the skipped scopes; the `bump` input for breaking changes and `1.0.0`; the tag set by the release workflow instead of by hand; the release workflow's checks and permissions; releases not marked pre-release; the milestone closing step; retroactive tags dated to their version's date; annotated, unsigned tags guarded by a tag ruleset; the `**Breaking:**` marker; the `area:` label names; the two hookify rules; a separate `docs/release.md`; `.git_archival.txt` for source archives.
 

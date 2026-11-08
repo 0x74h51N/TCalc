@@ -16,7 +16,7 @@
 - A look field is a color place exactly when its name is `color` or ends in `_color` (`look.is_color_place`); its value is a theme color name.
 - Every look field is substituted in QSS as `$<area>_<field>`; no other substitution exists.
 - No value changes. Part 1 leaves every bundled theme's built stylesheet byte for byte the same (the hash pins in `tests/py/unit/ui/test_theme_overrides.py` do not change).
-- A commit step stops for the owner's approval of the diff (`docs/rules/ai/git.md`). Run `make py-lint-fix` before each commit. Run single test files with `PYTHONPATH=src python -m pytest <file>`; `make py-test` once at the end of each part.
+- A commit step stops for the human agent's approval of the diff (`docs/rules/ai/git.md`). Run `make py-lint-fix` before each commit. Run single test files with `PYTHONPATH=src python -m pytest <file>`; `make py-test` once at the end of each part.
 - One PR (#201) on `refactor/theme-areas`, in three parts: Part 1, Part 2, Part 3, in order. The spec and this plan went in as its first commit.
 
 ## Review Focus
@@ -170,7 +170,7 @@ Expected: all pass; `git diff tests/py/unit/ui/test_theme_overrides.py` shows no
 
 ### Task 5: typed tables and typed values, no `Any` and no bare `str`
 
-The owner's follow-up from Task 1 review: the converter's hints and values are typed, not `Any`, and removing `Any` does not mean falling back to `object` or a bare `str`. A value says what it is by its type: a color name, an icon name, a font family, a group of fields with the same shape.
+The human agent's follow-up from Task 1 review: the converter's hints and values are typed, not `Any`, and removing `Any` does not mean falling back to `object` or a bare `str`. A value says what it is by its type: a color name, an icon name, a font family, a group of fields with the same shape.
 
 **Files:**
 - Modify: `src/tcalc/typed_tables.py`, `src/tcalc/ui/look.py`, `src/tcalc/ui/look.toml`, `src/tcalc/ui/config.py`, `src/tcalc/theme.py`, `src/tcalc/ui/styles.py`, the readers of the moved keypad fields, `src/tcalc/themes/{kitty,retro,sponge}/theme.toml`, `tests/py/ui/themes/extreme/theme.toml`
@@ -238,9 +238,9 @@ Builds on Task 5. Every string a widget is styled by, and every icon name, is na
 - [ ] **Step 4: Run, expect PASS; diff the built stylesheets against Part 1 and update the pins only for the added rules**
 - [ ] **Step 5: Commit** `feat/theme: history expression, result, buttons and modes in the theme`
 
-### Task 8b: radii that fit, raised edges, retro (owner's review of Task 8)
+### Task 8b: radii that fit, raised edges, retro (human agent's review of Task 8)
 
-The owner's review of Task 8 in the running app asked for these; each is one commit.
+The human agent's review of Task 8 in the running app asked for these; each is one commit.
 
 **Files:**
 - Modify: `ui/widgets/utils.py`, `ui/widgets/common/button.py`, `ui/widgets/common/toaster.py`, `ui/widgets/calc/topbar/topbar.py`, `ui/widgets/calc/display/result/result.py`, `ui/widgets/history/history.py`, `ui/widgets/keypad/keypad.py`, `ui/widgets/keypad/custom_pad.py`, `ui/props.py`, the QSS files of those widgets, `look.toml`, `look.py`, `theme-template.toml`, `dark.toml`, `light.toml`, `retro/theme.toml`
@@ -270,7 +270,7 @@ The owner's review of Task 8 in the running app asked for these; each is one com
 - [ ] **Step 4: Run, expect PASS; diff the built stylesheets and update the pins for the added rules only; open the app, tabify two docks and look in each bundled theme**
 - [ ] **Step 5: Add the fields to `theme-template.toml`; commit** `feat/theme: dock titles and dock tabs in the theme`
 
-## After Part 3: the owner's review of the schema
+## After Part 3: the human agent's review of the schema
 
 ### Task 10: one button type, shared buttons by area
 
