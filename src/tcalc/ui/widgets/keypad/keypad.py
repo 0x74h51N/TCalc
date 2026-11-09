@@ -224,8 +224,8 @@ class Keypad(QWidget):
         self._key_radius = apply_key_radius(self, self._buttons.values(), self._key_radius)
 
     def _fit_keys(self) -> None:
-        self._update_button_fonts()
         self._update_key_radius()
+        self._update_button_fonts()
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

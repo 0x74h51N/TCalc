@@ -379,6 +379,18 @@ def test_keys_are_as_round_as_they_fit(qtbot, window, pad, grow):
 
 
 @pytest.fixture
+def pinned_key_font(theme_table) -> str:
+    return theme_table({"keypad": {"button": {"text": PINNED}}})
+
+
+@pytest.mark.parametrize("window", [{"theme": "user"}], indirect=True)
+def test_keys_keep_their_font_from_launch(qtbot, pinned_key_font, window):
+    # The first radius fit writes the keypad's stylesheet, which must not drop the key fonts
+    qtbot.wait(KEY_SETTLE_MS)
+    assert {key.font().pointSize() for key in _numpad_keys(window)} == {20}
+
+
+@pytest.fixture
 def round_theme(theme_table) -> str:
     """A dark-based theme whose every radius is far above what a widget fits."""
     far = {"radius": 100}
