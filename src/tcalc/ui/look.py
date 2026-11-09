@@ -213,6 +213,7 @@ class Look:
     menu: MenuLook
     history: HistoryLook
     options: Button
+    icon_button: Button
     tooltip: Panel
     toast: ToastLook
     dock: Text

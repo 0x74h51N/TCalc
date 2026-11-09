@@ -249,6 +249,18 @@ checked = { color = "primary", text_color = "primary_text" }
 edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 padding = { y = 4, x = 10 }
 
+# The icon buttons without a look of their own (custom pad and preset toolbars); text.font, checked and disabled have no effect
+[icon_button]
+color = "accent"
+hover_color = "accent_hover"
+pressed_color = "accent_hover"
+radius = 2
+text = { color = "accent_text", font = { min_pt = 9, max_pt = 9 } }
+disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+checked = { color = "primary", text_color = "primary_text" }
+edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+padding = { y = 4, x = 4 }
+
 [tooltip]
 background_color = "background_dark"
 border_color = "border_light"

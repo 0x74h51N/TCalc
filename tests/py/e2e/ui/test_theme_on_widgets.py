@@ -144,6 +144,27 @@ def _add_key_icon_color(pad: CustomPad) -> str:
     return opaque_color(_add_key(pad).icon()).name().upper()
 
 
+def _top_edge(button: QPushButton) -> str:
+    return button.grab().toImage().pixelColor(button.width() // 2, 1).name().upper()
+
+
+def _icon_button(pad: CustomPad) -> QPushButton:
+    pad._toggle_edit(True)
+    button = pad._grids[0]._edit_btn
+    button.resize(40, 40)
+    button.show()
+    QApplication.processEvents()
+    return button
+
+
+def _icon_button_color(pad: CustomPad) -> str:
+    return _icon_button(pad).grab().toImage().pixelColor(5, 5).name().upper()
+
+
+def _icon_button_top_edge(pad: CustomPad) -> str:
+    return _top_edge(_icon_button(pad))
+
+
 MARK = {"colors": {"mark": "#123456"}}
 ITEM = {"menu": {"item": {"color": "mark"}}}
 
@@ -207,6 +228,20 @@ class ThemeReachCase:
                 "#123456",
             ),
             id="add key icon color",
+        ),
+        param(
+            ThemeReachCase(
+                MARK | {"icon_button": {"color": "mark"}}, _icon_button_color, "#123456"
+            ),
+            id="icon button color",
+        ),
+        param(
+            ThemeReachCase(
+                MARK | {"icon_button": {"edge": {"width": 3, "light_color": "mark"}}},
+                _icon_button_top_edge,
+                "#123456",
+            ),
+            id="icon button edge",
         ),
     ],
 )

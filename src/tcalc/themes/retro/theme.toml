@@ -135,6 +135,10 @@ color = "background"
 [history.delete]
 color = "background"
 
+# The toolbar buttons are raised like the keys
+[icon_button]
+edge = { width = 2, light_color = "button_highlight", shadow_color = "button_shadow" }
+
 [tooltip]
 hover_color = "control_hover"
 radius = 0
