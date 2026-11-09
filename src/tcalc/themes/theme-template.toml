@@ -276,7 +276,7 @@
 # color = "text_secondary"
 # font = { min_pt = 7, max_pt = 12 }
 
-#   Where the history's buttons start: the copy, delete and clear buttons read what they do not set; never checked or disabled
+#   Where the history's buttons start: copy, delete, clear and the modes read what they do not set; only the modes are ever checked, none is disabled
 # [history.button]
 # color = "background_light"
 # hover_color = { color = "primary", opacity = 0.14 }
