@@ -19,7 +19,7 @@
 - Stage files by name. Never `git add -A`, `git add .` or `git commit -a`.
 - An uncommitted or unknown change you did not make is never undone, by git (`git checkout --`, `git restore`, `git stash`) or by hand. Tell the human agent that you did not make it and that it is waiting to be committed, and leave it as it is. Do not use git to get a baseline; copy the file to a scratch directory and back, or use a detached checkout of `origin/master`.
 - Run `git update-index --refresh` before trusting `git status` in a tree the human agent is also editing.
-- The pre-commit hook stashes unstaged changes while it runs the suite and puts them back afterwards. During a commit, unstaged files briefly look reverted; that is not lost work.
+- The pre-commit hook stashes unstaged changes while it runs and puts them back afterwards. During a commit, unstaged files briefly look reverted; that is not lost work. A hook killed halfway leaves them in `~/.cache/pre-commit/patch*`: put the newest one back with `git apply`.
 - `ruff format` in the hook can block a commit. Restage the formatted files and commit again.
 - Nothing reaches `master` except through a pull request, and a branch is not merged until the human agent says so. Finishing and merging are two separate events. The release pull request comes from a `release/vX.Y.Z` branch the release workflow opens. Pull requests merge on GitHub with a merge commit, never squashed or merged locally.
 
@@ -27,4 +27,4 @@
 
 - Before a commit you make, run `make cpp-format` and `make py-lint-fix`, then show the human agent the diff including what they changed.
 - Never run clang-tidy yourself (`make cpp-tidy`, `cpp-tidy-diff`, `run-clang-tidy`), at any stage; the pre-push hook is the only place it runs. If tidy is needed outside a push, stop and give the human agent the command.
-- Building and running tests to verify during implementation is fine. At commit time the pre-commit hook runs the checks and the tests.
+- Building and running the tests of what changed is fine during implementation. The pre-commit hook runs format, lint and typecheck; the pre-push hook runs the tests the pushed files need.

@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Which checks a change needs; CI and the pre-push hook read the same rules.
+# Reads changed paths on stdin and prints name=true|false per check. --all turns every check on.
+set -euo pipefail
+
+EVERYTHING=(".github/workflows/*" makefile pyproject.toml scripts/install-deps scripts/changed_jobs)
+# Not linked into calc_native, so they cannot change Python results or stubs
+NATIVE_TESTS=("src/native/tests/*")
+NATIVE=("src/native/*")
+# Checked with a manual run instead
+NO_CHECK=("src/tcalc/assets/*" "src/tcalc/themes/*")
+# stubgen writes the stubs mypy reads
+PYTHON=("src/tcalc/*" "scripts/stubgen/*")
+PYTHON_TESTS=("tests/py/*")
+BENCHMARK=("tests/benchmark/*" scripts/seed_history.py scripts/malloc)
+EXPRESSION_EDITOR=("src/tcalc/ui/widgets/calc/display/expression/*" tests/py/e2e/ui/test_expression.py)
+
+matches() {
+  local path=$1 pattern
+  shift
+  for pattern in "$@"; do
+    # Unquoted: the pattern is a glob
+    [[ "$path" == $pattern ]] && return 0
+  done
+  return 1
+}
+
+# The first area that matches wins
+area_of() {
+  if matches "$1" "${EVERYTHING[@]}"; then echo everything
+  elif matches "$1" "${NATIVE_TESTS[@]}"; then echo native-tests
+  elif matches "$1" "${NATIVE[@]}"; then echo native
+  elif matches "$1" "${NO_CHECK[@]}"; then echo none
+  elif matches "$1" "${PYTHON[@]}"; then echo python
+  elif matches "$1" "${PYTHON_TESTS[@]}"; then echo python-tests
+  elif matches "$1" "${BENCHMARK[@]}"; then echo benchmark
+  else echo none
+  fi
+}
+
+# Step 1: the areas the changed paths touch
+declare -A touched=()
+[ "${1:-}" = --all ] && touched[everything]=1
+while read -r path; do
+  [ -n "$path" ] || continue
+  echo "$path" >&2
+  touched[$(area_of "$path")]=1
+  if [[ "$path" == *.py ]]; then touched[python-files]=1; fi
+  if matches "$path" "${EXPRESSION_EDITOR[@]}"; then touched[expression-editor]=1; fi
+done
+
+# Step 2: a check runs when one of its areas was touched
+needs() {
+  local check=$1 area
+  shift
+  for area in everything "$@"; do
+    if [ -n "${touched[$area]:-}" ]; then
+      echo "$check=true"
+      return
+    fi
+  done
+  echo "$check=false"
+}
+
+needs cpp-format-check    native native-tests
+needs cpp-code-check      native native-tests
+needs native-test         native native-tests
+needs py-format-check     python-files
+needs py-typecheck        native python
+needs py-test             native python python-tests
+needs py-test-expression  expression-editor
+needs py-test-benchmark   native python benchmark
+needs native-build        native native-tests python python-tests benchmark

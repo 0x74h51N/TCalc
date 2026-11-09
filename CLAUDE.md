@@ -10,12 +10,12 @@ Hookify rules under `.claude/hookify.*.local.md` enforce the mechanical parts of
 
 - `make native-build`: build the native module in place and regenerate the stubs; run it after every C++ change and after switching branches.
 - `make native-test`: native unit tests.
-- `make py-test`: the whole Python suite, as separate pytest processes (see [tests](docs/rules/ai/tests.md)).
+- `make py-test`: the whole Python suite, as separate pytest processes. The pre-push hook runs it; an assistant runs the tests of what it changed, and the whole suite only when it is really needed (see [tests](docs/rules/ai/tests.md)).
 - `PYTHONPATH=src python -m pytest <file>`: one test file in isolation.
 - `make typecheck` (mypy), `make py-lint` (ruff check and format check).
 - `make py-benchmark`: performance benchmarks.
 - `make cpp-format`, `make py-lint-fix`: format the C++ and fix the Python lint; run both before a commit you make.
-- The pre-commit hook runs format check, py-lint, typecheck, native-test and py-test. The pre-push hook runs the tidy diff when the pushed commits change native files.
+- The pre-commit hook runs format check, py-lint and typecheck. The pre-push hook runs the tests the pushed files need, by the rules CI uses (`scripts/changed_jobs`), and the tidy diff when they change native files.
 
 ## Where things are
 
