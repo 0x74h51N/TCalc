@@ -40,7 +40,7 @@ min_pt = 18
 min_pt = 16
 
 [menu.item]
-hover_color = "control_hover"
+hover_color = "primary"
 pressed_color = "control_hover"
 radius = 0
 
@@ -170,6 +170,9 @@ text_color = "control_disabled_text"
 [options.disabled]
 color = "control_bg"
 text_color = "control_disabled_text"
+
+[custom_pad.add_key]
+pressed_color = "control"
 
 [custom_pad.add_key.disabled]
 color = "control_bg"

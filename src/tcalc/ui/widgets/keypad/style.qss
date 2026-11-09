@@ -140,6 +140,10 @@ KSSpinBox:focus {
     border: 1px solid $custom_pad_spinbox_focus_border_color;
 }
 
+KSSpinBox:hover {
+    background-color: $custom_pad_spinbox_hover_color;
+}
+
 /* Custom pad context menu */
 QMenu[customPadMenu="true"] {
     background-color: $custom_pad_menu_background_color;
@@ -190,4 +194,8 @@ QPushButton[addButton="true"] {
 
 QPushButton[addButton="true"]:hover {
     background-color: $custom_pad_add_key_hover_color;
+}
+
+QPushButton[addButton="true"]:pressed {
+    background-color: $custom_pad_add_key_pressed_color;
 }

@@ -301,7 +301,12 @@ class KSGrid(QWidget):
 
         if self._editing:
             idx = len(self._keys)
-            self._add_button = IconButton(Icon.CUSTOM_PAD, tooltip="Add key", parent=self)
+            self._add_button = IconButton(
+                Icon.CUSTOM_PAD,
+                tooltip="Add key",
+                parent=self,
+                tint=lambda look: look.custom_pad.add_key.text.color,
+            )
             self._add_button.setProperty(Prop.ADD_BUTTON, True)
             self._add_button.setSizePolicy(
                 QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
@@ -344,7 +349,12 @@ class KSGrid(QWidget):
     def _place_add_button(self) -> None:
         if self._add_button is not None:
             return
-        self._add_button = IconButton(Icon.CUSTOM_PAD, tooltip="Add key", parent=self)
+        self._add_button = IconButton(
+            Icon.CUSTOM_PAD,
+            tooltip="Add key",
+            parent=self,
+            tint=lambda look: look.custom_pad.add_key.text.color,
+        )
         self._add_button.setProperty(Prop.ADD_BUTTON, True)
         self._add_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._add_button.clicked.connect(lambda: self.add_requested.emit(self._grid_index))
