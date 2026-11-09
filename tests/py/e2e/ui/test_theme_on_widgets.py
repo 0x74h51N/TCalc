@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Callable
 
@@ -149,7 +150,7 @@ ITEM = {"menu": {"item": {"color": "mark"}}}
 
 @dataclass(frozen=True, slots=True)
 class ThemeReachCase:
-    table: dict[str, object]
+    table: Mapping[str, object]
     shown: Callable[[CustomPad], object]
     expected: int | str
 
