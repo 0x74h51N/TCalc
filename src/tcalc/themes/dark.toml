@@ -1,6 +1,21 @@
 # Built-in dark theme
 name = "Dark"
 
+# Gold emphasis on the dark keys instead of primary
+[keypad.equals]
+color = "accent"
+pressed_color = "accent_hover"
+text = { color = "accent_text" }
+
+[memory]
+text = { color = "accent_text" }
+
+[options]
+checked = { color = { color = "accent", opacity = 0.25 }, text_color = "accent_text" }
+
+[history.mode]
+checked = { color = { color = "accent", opacity = 0.25 }, text_color = "accent_text" }
+
 [colors]
 # Primary colors
 primary = "#A6C7FF"
