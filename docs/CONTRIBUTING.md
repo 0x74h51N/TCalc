@@ -11,7 +11,7 @@ Bug reports, feature requests and pull requests are welcome. By taking part you 
 
 ## Setting up
 
-Requirements and the build steps are in [dev.md](dev.md). In short: `make install`, then `make native-build`. `make hooks` installs the pre-commit hook, which runs the format check, lint, typecheck and both test suites before every commit, and the pre-push hook, which runs `make cpp-tidy-diff` before a push that changes native files.
+Requirements and the build steps are in [dev.md](dev.md). In short: `make install`, then `make native-build`. `make hooks` installs the pre-commit hook, which runs the format check, lint and typecheck before every commit, and the pre-push hook, which runs the tests the pushed files need (by the rules CI uses) and `make cpp-tidy-diff` when they change native files.
 
 ## AI-Assisted Contributions
 

@@ -32,7 +32,7 @@ Two kinds of docs, read at different times. Neither is read again in the same se
 ## While working
 
 - Search before reading, then read the part of the file the search found, not the whole tree.
-- Run the narrowest check that answers the question: one test file or one test, not the whole suite. The whole suite runs once, at the end.
+- Run the narrowest check that answers the question: one test file or one test, not the whole suite. The whole suite runs in the pre-push hook.
 - Do not paste or re-read large outputs; filter them (`grep`, `tail`, `-q`) to what answers the question.
 - If two attempts at the same problem have failed, stop. Record what was tried, report to the human agent, and wait, instead of a third guess.
 - Answer the question that was asked. A short question gets a short answer, not a survey of options that will not be pursued.
