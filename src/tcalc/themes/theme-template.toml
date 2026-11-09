@@ -38,7 +38,8 @@
 # of this file's [colors] (or of `base`), never a color. Keys, buttons and toasts cap a radius
 # at half their shorter side, so a large radius makes them as round as they fit.
 #
-# Buttons take the same keys everywhere; a key that part of the UI does not draw has no effect.
+# Color fields work in every button table, for every state its widget enters. The other fields of a keypad
+# kind (radius, text.font, edge, padding) are read from [keypad.button] only and have no effect in a kind's table.
 # A key's table can be written on one line or as a table of its own, not both for the same key:
 #   edge = { width = 2, light_color = "button_highlight" }
 #   [keypad.button.edge]
@@ -121,7 +122,7 @@
 # symbol_color = "secondary_text"
 # compact_padding = { y = 4, x = 8 }
 
-#   Where every key starts; a key's hover is its own color unless a theme gives one
+#   Where every key starts; a key's hover is its own color unless a theme gives one; no key is disabled
 # [keypad.button]
 # color = "secondary"
 # hover_color = "secondary"
@@ -133,30 +134,35 @@
 # edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 0, x = 0 }
 
+#   Never checked
 # [keypad.operator]
 # color = "accent"
 # hover_color = "accent"
 # pressed_color = "accent_hover"
 # text = { color = "accent_text" }
 
+#   Never checked
 # [keypad.equals]
 # color = "primary"
 # hover_color = "primary"
 # pressed_color = "primary_hover"
 # text = { color = "primary_text" }
 
+#   Never checked
 # [keypad.action]
 # color = "action"
 # hover_color = "action"
 # pressed_color = "action_hover"
 # text = { color = "action_text" }
 
+#   Only Shift and Hyp are checked; they draw `checked`
 # [keypad.trig]
 # color = "action"
 # hover_color = "action"
 # pressed_color = "action_hover"
 # text = { color = "action_text" }
 
+#   Never checked
 # [keypad.function]
 # color = "accent"
 # hover_color = "accent"
@@ -167,22 +173,22 @@
 # spinbox_focus_border_color = "primary"
 # toolbar_separator_color = "control"
 
-#   The add key of the custom pad
+#   The add key of the custom pad; text.color is its icon; its edge and radius are the keys' [keypad.button] ones; never checked or disabled
 # [custom_pad.add_key]
-# color = "control"
-# hover_color = "control_hover"
-# pressed_color = "control_hover"
+# color = "accent"
+# hover_color = "accent_hover"
+# pressed_color = "accent_hover"
 # radius = 2
-# text = { color = "text_primary", font = { min_pt = 8, max_pt = 16 } }
+# text = { color = "accent_text", font = { min_pt = 8, max_pt = 16 } }
 # disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
 # checked = { color = "primary", text_color = "primary_text" }
 # edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 0, x = 0 }
 
-#   The row and column spin boxes
+#   The row and column spin boxes; never checked or disabled
 # [custom_pad.spinbox]
 # color = "control"
-# hover_color = "control_hover"
+# hover_color = "control"
 # pressed_color = "control_hover"
 # radius = 2
 # text = { color = "text_primary", font = { min_pt = 8, max_pt = 16 } }
@@ -222,7 +228,7 @@
 # separator_height = 1
 # separator_margin = { y = 4, x = 2 }
 
-#   The menu's frame; font in px
+#   The menu's frame; font in px; hover_color has no effect here (a row's hover is [menu.item] hover_color)
 # [menu.panel]
 # background_color = "background_medium"
 # border_color = "border_light"
@@ -233,10 +239,10 @@
 # text = { color = "text_primary", font = { min_pt = 14, max_pt = 14 } }
 # padding = { y = 4, x = 4 }
 
-#   A menu item; checked is the selected item
+#   A menu item; checked is the selected item; pressed_color has no effect (a menu item has no pressed state)
 # [menu.item]
 # color = "background_medium"
-# hover_color = { color = "primary", opacity = 0.14 }
+# hover_color = "primary"
 # pressed_color = { color = "primary", opacity = 0.14 }
 # radius = 6
 # text = { color = "text_primary", font = { min_pt = 9, max_pt = 13 } }
@@ -258,7 +264,7 @@
 # text = { color = "text_secondary", font = { min_pt = 7, max_pt = 12 } }
 # selected = { color = { color = "primary", opacity = 0.24 }, text_color = "text_secondary" }
 # delete = { text = { color = "status_error" } }
-# clear = { text = { color = "text_primary", font = { min_pt = 7, max_pt = 10 } } }
+# clear = { hover_color = "primary", pressed_color = "background_dark", text = { color = "text_primary", font = { min_pt = 7, max_pt = 10 } } }
 
 #   An item's expression (also in math mode)
 # [history.expression]
@@ -270,7 +276,7 @@
 # color = "text_secondary"
 # font = { min_pt = 7, max_pt = 12 }
 
-#   Where the history's buttons start; the copy and delete hover, pressed, radius and edge are read from here
+#   Where the history's buttons start: copy, delete, clear and the modes read what they do not set; only the modes are ever checked, none is disabled
 # [history.button]
 # color = "background_light"
 # hover_color = { color = "primary", opacity = 0.14 }
@@ -282,8 +288,9 @@
 # edge = { width = 1, light_color = "border_light", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 0, x = 0 }
 
-#   The Math / Flat / Raw buttons, an option group of their own
+#   The Math / Flat / Raw buttons, an option group of their own; never disabled
 # [history.mode]
+# color = { color = "background", opacity = 0 }
 # hover_color = { color = "primary", opacity = 0.14 }
 # pressed_color = { color = "primary", opacity = 0.14 }
 # radius = 2
@@ -291,9 +298,9 @@
 # edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 4, x = 10 }
 
-#   Option groups (Deg/Rad/Grad...)
+#   Option groups (Deg/Rad/Grad...); never disabled
 # [options]
-# color = "background"
+# color = { color = "background", opacity = 0 }
 # hover_color = { color = "primary", opacity = 0.14 }
 # pressed_color = { color = "primary", opacity = 0.14 }
 # radius = 2
@@ -302,6 +309,18 @@
 # checked = { color = "primary", text_color = "primary_text" }
 # edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
 # padding = { y = 4, x = 10 }
+
+#   The icon buttons without a look of their own (custom pad and preset toolbars); text.font, checked and disabled have no effect
+# [icon_button]
+# color = "accent"
+# hover_color = "accent_hover"
+# pressed_color = "accent_hover"
+# radius = 2
+# text = { color = "accent_text", font = { min_pt = 9, max_pt = 9 } }
+# disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
+# checked = { color = "primary", text_color = "primary_text" }
+# edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
+# padding = { y = 4, x = 4 }
 
 # [tooltip]
 # background_color = "background_dark"
@@ -354,6 +373,10 @@
 
 
 # --- Colors -----------------------------------------------------------------------------
+
+# A theme can add its own color names next to the ones below and use them anywhere a color is named,
+# e.g. sunset_orange = "#FF8800" here, then [keypad.operator] color = "sunset_orange". A name that is in
+# neither this [colors] nor `base`'s is logged and that place keeps its default.
 
 # [colors]
 

@@ -300,14 +300,7 @@ class KSGrid(QWidget):
                 self._style_button(btn, kd.bg_color, kd.text_color)
 
         if self._editing:
-            idx = len(self._keys)
-            self._add_button = IconButton(Icon.CUSTOM_PAD, tooltip="Add key", parent=self)
-            self._add_button.setProperty(Prop.ADD_BUTTON, True)
-            self._add_button.setSizePolicy(
-                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
-            )
-            self._grid.addWidget(self._add_button, idx % self._max_rows, idx // self._max_rows)
-            self._add_button.clicked.connect(lambda: self.add_requested.emit(self._grid_index))
+            self._place_add_button()
 
     def _relayout(self) -> None:
         for r in range(max(self._grid.rowCount(), self._max_rows)):
@@ -344,7 +337,12 @@ class KSGrid(QWidget):
     def _place_add_button(self) -> None:
         if self._add_button is not None:
             return
-        self._add_button = IconButton(Icon.CUSTOM_PAD, tooltip="Add key", parent=self)
+        self._add_button = IconButton(
+            Icon.CUSTOM_PAD,
+            tooltip="Add key",
+            parent=self,
+            tint=lambda look: look.custom_pad.add_key.text.color,
+        )
         self._add_button.setProperty(Prop.ADD_BUTTON, True)
         self._add_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._add_button.clicked.connect(lambda: self.add_requested.emit(self._grid_index))

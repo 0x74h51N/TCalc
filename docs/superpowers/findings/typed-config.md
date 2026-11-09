@@ -46,3 +46,11 @@ Blending the color over the surface into an opaque value was not probed: it cann
 Full windows of dark, light, kitty, retro and sponge, with a checked Shift, a selected history row and an open menu row: each paints `primary` on the equals key, the checked key, the checked mode button and the menu row; retro keeps gray faces and navy only on menu rows. Not seen in a real window on a desktop session. Focus borders on kitty and sponge not exercised by this pass.
 
 The `test_history` row "mode checked text keeps its default" had passed by coincidence: it reads the palette, which never sees a `:checked` rule, and dark's `control_accent` equalled `accent_text`.
+
+## 2026-11-09, master 2e756ce: button colors a theme writes and nothing draws
+
+Every `Button` table loads all its color fields, but the QSS reads only some per place. Listed by comparing `_build_subs()` keys with the `$names` in `styles._QSS_FILES`, then reading the widgets: keypad kinds' `checked` (QSS reads `[keypad.button]`), history copy and delete hover and pressed (read from `[history.button]`), Clear History and the custom pad add key hover and pressed (the generic `iconButton` rule, from `[palette]`), options and history mode `color` (a fixed `transparent`), spinbox hover, and menu item `color`, `hover_color`, text and `disabled.color` (`QMenu::item:selected` draws `checked.color`). `[menu.panel] hover_color` is read nowhere. No keypad key is ever disabled (`enabled=False` only in `topbar/defins.py` and `manubar/defins.py`); only Shift and Hyp (`trig`) are checkable. Spec: `specs/2026-11-09-button-state-colors-design.md`.
+
+## 2026-11-09: hover cannot be painted offscreen (PySide6, `QT_QPA_PLATFORM=offscreen`)
+
+A `QPushButton` with `QPushButton:hover { background: #00ff00 }` grabs as its plain color (`#111111`) after `WA_UnderMouse`, after `WA_Hover` plus `WA_UnderMouse`, after `show()`, and after a sent `QEnterEvent`. A `QMenu` item does paint `QMenu::item:selected` after `menu.setActiveAction(action)` (`#ff0000` read inside `actionGeometry`). `setChecked`, `setEnabled(False)` and `setDown(True)` paint their states (`test_theme_switch.py`). So a test of a button's hover color reads the built stylesheet, not pixels.

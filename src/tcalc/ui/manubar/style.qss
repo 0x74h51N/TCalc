@@ -12,9 +12,16 @@ QMenu::item {
     border: 1px solid transparent;
     margin: ${menu_item_margin}px 0;
     min-width: ${menu_item_min_width}px;
+    background: $menu_item_color;
+    color: $menu_item_text_color;
 }
 
-QMenu::item:selected,
+QMenu::item:selected {
+    background: $menu_item_hover_color;
+    color: $menu_item_checked_text_color;
+    border: 1px solid $menu_selected_border_color;
+}
+
 QMenu::item:checked {
     background: $menu_item_checked_color;
     color: $menu_item_checked_text_color;
@@ -22,7 +29,13 @@ QMenu::item:checked {
 }
 
 QMenu::item:disabled {
+    background: $menu_item_disabled_color;
     color: $menu_item_disabled_text_color;
+}
+
+QMenu[customPadMenu="true"]::item {
+    background: $custom_pad_menu_background_color;
+    color: $custom_pad_menu_text_color;
 }
 
 QMenu::icon {

@@ -16,27 +16,27 @@ QTabBar::tab {
     font-size: ${tabs_font_min_pt}pt;
 }
 
-/* The same in every theme: only the history items' buttons have a look of their own */
+/* An icon button without a look of its own */
 QPushButton[uiRole="iconButton"] {
-    background-color: $palette_button_color;
-    color: $palette_button_text_color;
-    border: 1px solid $palette_base_color;
-    border-top-color: $palette_highlight_color;
-    border-left-color: $palette_highlight_color;
-    border-radius: 2px;
-    padding: 4px;
+    background-color: $icon_button_color;
+    color: $icon_button_text_color;
+    border: ${icon_button_edge_width}px solid $icon_button_edge_shadow_color;
+    border-top-color: $icon_button_edge_light_color;
+    border-left-color: $icon_button_edge_light_color;
+    border-radius: ${icon_button_radius}px;
+    padding: ${icon_button_padding_y}px ${icon_button_padding_x}px;
 }
 
 QPushButton[uiRole="iconButton"]:hover {
-    background-color: $palette_highlight_color;
+    background-color: $icon_button_hover_color;
 }
 
 QPushButton[uiRole="iconButton"]:pressed {
-    background-color: $palette_base_color;
-    border-top-color: $palette_base_color;
-    border-left-color: $palette_base_color;
-    border-bottom-color: $palette_highlight_color;
-    border-right-color: $palette_highlight_color;
+    background-color: $icon_button_pressed_color;
+    border-top-color: $icon_button_edge_shadow_color;
+    border-left-color: $icon_button_edge_shadow_color;
+    border-bottom-color: $icon_button_edge_light_color;
+    border-right-color: $icon_button_edge_light_color;
 }
 
 QPushButton[uiRole="toolbarToggle"] {
@@ -47,7 +47,7 @@ QPushButton[uiRole="toolbarToggle"] {
 }
 
 QRadioButton[optionRole="option"] {
-    background-color: transparent;
+    background-color: $options_color;
     color: $options_text_color;
     padding: ${options_padding_y}px ${options_padding_x}px;
     spacing: 0px;
@@ -61,6 +61,10 @@ QRadioButton[optionRole="option"]::indicator {
 
 QRadioButton[optionRole="option"]:hover {
     background-color: $options_hover_color;
+}
+
+QRadioButton[optionRole="option"]:pressed {
+    background-color: $options_pressed_color;
 }
 
 QRadioButton[optionRole="option"]:checked {

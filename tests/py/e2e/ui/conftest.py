@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
@@ -46,7 +47,7 @@ def theme_table(monkeypatch):
     """Makes the variant "user" answer with a table, and returns its name."""
     from tcalc.theme import _read
 
-    def install(table: dict[str, object], base: str = "dark") -> str:
+    def install(table: Mapping[str, object], base: str = "dark") -> str:
         def read(variant: str) -> dict[str, object]:
             if variant == "user":
                 return {"name": "User", "base": base, **table}
