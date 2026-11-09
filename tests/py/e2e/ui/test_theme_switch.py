@@ -196,8 +196,21 @@ def test_equals_key_paints_the_theme_primary(qapp, window, theme_table):
     assert pixel.name() == "#123456"
 
 
-def test_checked_key_paints_primary_with_its_text(qapp, window, theme_table):
-    apply_theme(qapp, theme_table({"colors": {"primary": "#123456", "primary_text": "#FFEE00"}}))
+@pytest.mark.parametrize(
+    "table",
+    [
+        param({"colors": {"primary": "#123456", "primary_text": "#FFEE00"}}, id="primary"),
+        param(
+            {
+                "colors": {"mark": "#123456", "mark_text": "#FFEE00"},
+                "keypad": {"trig": {"checked": {"color": "mark", "text_color": "mark_text"}}},
+            },
+            id="trig checked",
+        ),
+    ],
+)
+def test_checked_key_paints_primary_with_its_text(qapp, window, theme_table, table):
+    apply_theme(qapp, theme_table(table))
     key = next(b for b in window.findChildren(KeyButton) if b.text() == "Shift")
     key.setChecked(True)
     image = key.grab().toImage()
