@@ -90,7 +90,8 @@ def fit_radius(
     return fitted
 
 
-KEY_SELECTOR = f"QPushButton[{Prop.KEYPAD_ROLE}]"
+# The custom pad's add key rounds with the keys it sits among
+KEY_SELECTOR = f'QPushButton[{Prop.KEYPAD_ROLE}], QPushButton[{Prop.ADD_BUTTON}="true"]'
 
 
 def apply_key_radius(

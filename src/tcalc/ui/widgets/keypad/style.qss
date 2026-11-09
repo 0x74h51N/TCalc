@@ -188,8 +188,12 @@ QFrame#toolbarSeparator {
     color: $custom_pad_toolbar_separator_color;
 }
 
+/* The add key sits among the keys and takes their edge */
 QPushButton[addButton="true"] {
     background-color: $custom_pad_add_key_color;
+    border: ${keypad_button_edge_width}px solid $keypad_button_edge_shadow_color;
+    border-top-color: $keypad_button_edge_light_color;
+    border-left-color: $keypad_button_edge_light_color;
 }
 
 QPushButton[addButton="true"]:hover {
@@ -198,4 +202,8 @@ QPushButton[addButton="true"]:hover {
 
 QPushButton[addButton="true"]:pressed {
     background-color: $custom_pad_add_key_pressed_color;
+    border-top-color: $keypad_button_edge_shadow_color;
+    border-left-color: $keypad_button_edge_shadow_color;
+    border-bottom-color: $keypad_button_edge_light_color;
+    border-right-color: $keypad_button_edge_light_color;
 }

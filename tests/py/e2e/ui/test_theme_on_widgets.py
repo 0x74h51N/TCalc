@@ -148,6 +148,22 @@ def _top_edge(button: QPushButton) -> str:
     return button.grab().toImage().pixelColor(button.width() // 2, 1).name().upper()
 
 
+def _add_key_top_edge(pad: CustomPad) -> str:
+    return _top_edge(_add_key(pad))
+
+
+def _add_key_corner(pad: CustomPad) -> str:
+    pad._toggle_edit(True)
+    pad.resize(320, 360)
+    pad.show()
+    QApplication.processEvents()
+    grid = pad._grids[0]
+    grid._fit_key_radius()
+    QApplication.processEvents()
+    corner = grid._add_button.mapTo(pad, QPoint(2, 2))
+    return pad.grab().toImage().pixelColor(corner).name().upper()
+
+
 def _icon_button(pad: CustomPad) -> QPushButton:
     pad._toggle_edit(True)
     button = pad._grids[0]._edit_btn
@@ -167,6 +183,7 @@ def _icon_button_top_edge(pad: CustomPad) -> str:
 
 MARK = {"colors": {"mark": "#123456"}}
 ITEM = {"menu": {"item": {"color": "mark"}}}
+KEY_EDGE = MARK | {"keypad": {"button": {"edge": {"width": 3, "light_color": "mark"}}}}
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,6 +245,20 @@ class ThemeReachCase:
                 "#123456",
             ),
             id="add key icon color",
+        ),
+        param(
+            ThemeReachCase(KEY_EDGE, _add_key_top_edge, "#123456"),
+            id="add key edge follows the keys",
+        ),
+        param(
+            ThemeReachCase(
+                {"colors": {"mark": "#123456", "background": "#654321"}}
+                | {"keypad": {"button": {"radius": 15}}}
+                | {"custom_pad": {"add_key": {"color": "mark"}}},
+                _add_key_corner,
+                "#654321",
+            ),
+            id="add key radius follows the keys",
         ),
         param(
             ThemeReachCase(

@@ -175,9 +175,6 @@ text_color = "control_disabled_text"
 color = "control_bg"
 text_color = "control_disabled_text"
 
-[custom_pad.add_key]
-pressed_color = "control"
-
 [custom_pad.add_key.disabled]
 color = "control_bg"
 text_color = "control_disabled_text"

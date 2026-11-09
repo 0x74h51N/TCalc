@@ -173,13 +173,13 @@
 # spinbox_focus_border_color = "primary"
 # toolbar_separator_color = "control"
 
-#   The add key of the custom pad; text.color is its icon; never checked or disabled
+#   The add key of the custom pad; text.color is its icon; its edge and radius are the keys' [keypad.button] ones; never checked or disabled
 # [custom_pad.add_key]
-# color = "control"
-# hover_color = "control_hover"
-# pressed_color = "background_dark"
+# color = "accent"
+# hover_color = "accent_hover"
+# pressed_color = "accent_hover"
 # radius = 2
-# text = { color = "icon", font = { min_pt = 8, max_pt = 16 } }
+# text = { color = "accent_text", font = { min_pt = 8, max_pt = 16 } }
 # disabled = { color = { color = "control_bg", opacity = 0.04 }, text_color = { color = "control_disabled_text", opacity = 0.40 } }
 # checked = { color = "primary", text_color = "primary_text" }
 # edge = { width = 0, light_color = "button_highlight", shadow_color = { color = "button_shadow", opacity = 0.40 } }
