@@ -94,6 +94,11 @@ max_pt = 18
 min_pt = 14
 max_pt = 20
 
+[history.clear]
+# Clear History keeps the palette highlight and base it drew before; [history.button] would gray it
+hover_color = "primary"
+pressed_color = "background"
+
 [history.clear.text.font]
 min_pt = 12
 max_pt = 15

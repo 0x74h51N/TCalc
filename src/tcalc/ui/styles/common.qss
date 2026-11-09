@@ -47,7 +47,7 @@ QPushButton[uiRole="toolbarToggle"] {
 }
 
 QRadioButton[optionRole="option"] {
-    background-color: transparent;
+    background-color: $options_color;
     color: $options_text_color;
     padding: ${options_padding_y}px ${options_padding_x}px;
     spacing: 0px;
@@ -61,6 +61,10 @@ QRadioButton[optionRole="option"]::indicator {
 
 QRadioButton[optionRole="option"]:hover {
     background-color: $options_hover_color;
+}
+
+QRadioButton[optionRole="option"]:pressed {
+    background-color: $options_pressed_color;
 }
 
 QRadioButton[optionRole="option"]:checked {

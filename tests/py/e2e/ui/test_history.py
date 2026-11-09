@@ -360,6 +360,51 @@ def _copy_corner_is_the_face(history: History) -> bool:
     return corner == get_theme().colors["accent_text"].upper()
 
 
+def _copy_pressed_face(history: History) -> str:
+    button = _item_widget(history, 0)._copy_btn
+    button.setDown(True)
+    return _pixel(button, 2, 11)
+
+
+def _clear_pressed_face(history: History) -> str:
+    history.clear_button.setDown(True)
+    # Above the icon and the label
+    return _pixel(history.clear_button, history.clear_button.width() // 2, 3)
+
+
+def _mode_pressed_face(history: History) -> str:
+    button = _mode_button(history, RenderMode.MATH)
+    button.setDown(True)
+    return _pixel(button, 2, button.height() // 2)
+
+
+def _option(history: History) -> QWidget:
+    # The second one: the checked one draws its checked color
+    group = OptionGroup([(1, "A"), (2, "B")], 1, lambda look: look.options, history)
+    group.show()
+    return _polished(group._buttons[2])
+
+
+def _option_face(history: History) -> str:
+    button = _option(history)
+    return _pixel(button, 2, button.height() // 2)
+
+
+def _option_pressed_face(history: History) -> str:
+    button = _option(history)
+    button.setDown(True)
+    return _pixel(button, 2, button.height() // 2)
+
+
+def _mode_face(history: History) -> str:
+    button = _mode_button(history, RenderMode.MATH)
+    return _pixel(button, 2, button.height() // 2)
+
+
+def _option_face_is_sunset(history: History) -> bool:
+    return _option_face(history) == "#FF8800"
+
+
 def _clear_color(history: History) -> str:
     return _text_color(history.clear_button)
 
@@ -428,6 +473,62 @@ OPTION_FONT = {"options": {"text": {"font": {"min_pt": 15}}}}
         param(
             HistoryThemeCase({"history": {"delete": ACCENT}}, _delete_face, "accent_text"),
             id="delete button color",
+        ),
+        param(
+            HistoryThemeCase(
+                {"history": {"copy": {"pressed_color": "accent_text"}}},
+                _copy_pressed_face,
+                "accent_text",
+            ),
+            id="copy pressed color",
+        ),
+        param(
+            HistoryThemeCase(
+                {"history": {"clear": {"pressed_color": "accent_text"}}},
+                _clear_pressed_face,
+                "accent_text",
+            ),
+            id="clear pressed color",
+        ),
+        param(
+            HistoryThemeCase(
+                {"history": {"mode": {"pressed_color": "accent_text"}}},
+                _mode_pressed_face,
+                "accent_text",
+            ),
+            id="mode pressed color",
+        ),
+        param(
+            HistoryThemeCase({"options": {"color": "accent_text"}}, _option_face, "accent_text"),
+            id="options color",
+        ),
+        param(
+            HistoryThemeCase(
+                {"history": {"button": {"pressed_color": "accent_text"}}},
+                _copy_pressed_face,
+                "accent_text",
+            ),
+            id="copy pressed from the shared table",
+        ),
+        param(
+            HistoryThemeCase(
+                {"options": {"pressed_color": "accent_text"}}, _option_pressed_face, "accent_text"
+            ),
+            id="options pressed color",
+        ),
+        param(
+            HistoryThemeCase(
+                {"history": {"mode": {"color": "accent_text"}}}, _mode_face, "accent_text"
+            ),
+            id="mode color",
+        ),
+        param(
+            HistoryThemeCase(
+                {"colors": {"sunset": "#FF8800"}, "options": {"color": "sunset"}},
+                _option_face_is_sunset,
+                True,
+            ),
+            id="custom color name",
         ),
         param(
             HistoryThemeCase(

@@ -203,7 +203,7 @@ icon_button_size = 22
 text = { color = "text_secondary", font = { min_pt = 7, max_pt = 12 } }
 selected = { color = { color = "primary", opacity = 0.24 }, text_color = "text_secondary" }
 delete = { text = { color = "status_error" } }
-clear = { text = { color = "text_primary", font = { min_pt = 7, max_pt = 10 } } }
+clear = { hover_color = "primary", pressed_color = "background_dark", text = { color = "text_primary", font = { min_pt = 7, max_pt = 10 } } }
 
 # An item's expression (also in math mode)
 [history.expression]
@@ -215,7 +215,7 @@ font = { min_pt = 10, max_pt = 15 }
 color = "text_secondary"
 font = { min_pt = 7, max_pt = 12 }
 
-# Where the history's buttons start; the copy and delete hover, pressed, radius and edge are read from here
+# Where the history's buttons start: the copy, delete and clear buttons read what they do not set
 [history.button]
 color = "background_light"
 hover_color = { color = "primary", opacity = 0.14 }
@@ -229,6 +229,7 @@ padding = { y = 0, x = 0 }
 
 # The Math / Flat / Raw buttons, an option group of their own
 [history.mode]
+color = { color = "background", opacity = 0 }
 hover_color = { color = "primary", opacity = 0.14 }
 pressed_color = { color = "primary", opacity = 0.14 }
 radius = 2
@@ -238,7 +239,7 @@ padding = { y = 4, x = 10 }
 
 # Option groups (Deg/Rad/Grad...)
 [options]
-color = "background"
+color = { color = "background", opacity = 0 }
 hover_color = { color = "primary", opacity = 0.14 }
 pressed_color = { color = "primary", opacity = 0.14 }
 radius = 2
