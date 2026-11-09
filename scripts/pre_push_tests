@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# The pre-push hook: runs the tests the pushed files need, by the rules CI uses.
+set -euo pipefail
+
+jobs=$(printf '%s\n' "$@" | "$(dirname "$0")/changed_jobs" 2>/dev/null)
+on() { grep -qx "$1=true" <<<"$jobs"; }
+
+if on native-test; then
+  make native-test NATIVE_TEST_ARGS="-m"
+fi
+if on py-test; then
+  args="-ra"
+  on py-test-expression || args="$args --ignore=tests/py/e2e/ui/test_expression.py"
+  make py-test PYTEST_ARGS="$args"
+fi

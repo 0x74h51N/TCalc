@@ -40,4 +40,5 @@
 ## UI tests and running
 
 - In UI tests, do not walk menus through `.menu()` or `.actions()`; untracked `QMenu` wrappers get garbage collected. Use the references the controller keeps. Isolate `QSettings` in a temporary INI file and reset the app state singleton. Check visibility with `isHidden()`, since `isVisible()` is unreliable offscreen.
-- Run the Python suite with `make py-test`, never as one pytest process over `tests/py`: one process leaks Qt state between the suites and gives false failures. To run a single UI test file in isolation, use `PYTHONPATH=src python -m pytest <file>`.
+- An assistant runs only the tests of what it changed: the unit tests of the function it touched, or the test file or directory of the code it changed (`PYTHONPATH=src python -m pytest <file>`). It does not run the whole Python suite (`make py-test`) unless it is really needed, for example a change that every area reads (the ops table, the theme loader) or the human agent asking for it. The whole suite takes minutes and stalls the work; the pre-push hook runs it, by the rules CI uses.
+- Never run the suite as one pytest process over `tests/py`: one process leaks Qt state between the suites and gives false failures.

@@ -97,52 +97,22 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          all="" native_tests="" native_src="" py_src="" py_tests="" bench="" py_files=""
           passed=0
           if [ "$ACTION" = edited ]; then
             # On its own line so a failed query fails the job, never reads as a pass
             passed=$(gh run list --workflow CI --commit "$HEAD_SHA" --status success --json databaseId --jq length)
           fi
+          # scripts/changed_jobs maps the changed paths to jobs; the pre-push hook reads the same rules
           if [ "$EVENT" = workflow_dispatch ]; then
-            echo "Manual run: every job runs."
-            all=1
+            echo "Manual run: every job runs." >&2
+            scripts/changed_jobs --all < /dev/null
           elif [ "$passed" -gt 0 ]; then
             # Editing the title or description reruns CI too; its commit has already passed
-            echo "Description edit on a commit CI passed: no job runs."
+            echo "Description edit on a commit CI passed: no job runs." >&2
+            scripts/changed_jobs < /dev/null
           else
-            # Each changed file marks its group; the first matching pattern wins.
-            while read -r f; do
-              echo "$f"
-              case "$f" in
-                .github/workflows/*|makefile|pyproject.toml|scripts/install-deps) all=1 ;;
-                # Native tests are not linked into calc_native, so they cannot change Python results or stubs.
-                src/native/tests/*) native_tests=1 ;;
-                src/native/*) native_src=1 ;;
-                # Example themes and icons rarely break a check; a change to them is checked with a manual run.
-                src/tcalc/assets/*|src/tcalc/themes/*) ;;
-                # stubgen writes the stubs mypy reads.
-                src/tcalc/*|scripts/stubgen/*) py_src=1 ;;
-                tests/py/*) py_tests=1 ;;
-                tests/benchmark/*|scripts/seed_history.py|scripts/malloc) bench=1 ;;
-              esac
-              case "$f" in *.py) py_files=1 ;; esac
-            done < <(git diff --name-only "$BASE_SHA...$HEAD_SHA")
-          fi
-
-          # A job runs when any of the groups listed for it changed, or when "all" is set.
-          cpp="$native_src$native_tests"
-          typecheck="$native_src$py_src"
-          pytest="$native_src$py_src$py_tests"
-          benchmark="$native_src$py_src$bench"
-          job() { [ -n "$all$2" ] && v=true || v=false; echo "$1=$v" | tee -a "$GITHUB_OUTPUT"; }
-          job cpp-format-check "$cpp"
-          job cpp-code-check "$cpp"
-          job native-test "$cpp"
-          job py-format-check "$py_files"
-          job py-typecheck "$typecheck"
-          job py-test "$pytest"
-          job py-test-benchmark "$benchmark"
-          job native-build "$cpp$typecheck$pytest$benchmark"
+            git diff --name-only "$BASE_SHA...$HEAD_SHA" | scripts/changed_jobs
+          fi | tee -a "$GITHUB_OUTPUT"
 
   cpp-format-check:
     name: C++ Format Check (clang-format)
