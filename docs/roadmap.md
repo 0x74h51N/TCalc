@@ -8,13 +8,14 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 
 ---
 
-- [x] Expression pipeline: tokenize -> shunting-yard -> RPN Evaluation
-  - [x] Tokenize Parser
+- [ ] Expression pipeline: tokenize -> shunting-yard -> RPN Evaluation
+  - [ ] Tokenize Parser
     - [x] Add native tokenize and shunting-yard functions
     - [x] Add distinct token kinds (number, op, paren, expr)
-    - [x] Add LaTeX expression parser on Native
+    - [ ] Add LaTeX expression parser on Native
       - [x] Add ExprToken w/left/right sub tokens (AST-like)
       - [x] Parse LaTeX expressions into token nodes
+      - [ ] Complete standard LaTeX: typed LaTeX works as written, and the editor writes standard LaTeX back
     - [x] Add parentheses parser on native
       - [x] Add paren kinds and open/close types
       - [x] Add open and close indices with paren kinds (to split and convert ParenNode in GUI)
@@ -217,6 +218,8 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 - [ ] Help menu
   - [ ] Find Action
   - [ ] User manual
+    - [ ] Glossary of terms for users
+    - [ ] How to use gui, latex expressions etc.
   - [ ] About, vers, licance etc.
 - [ ] Settings menu
   - [ ] Configure TCalc
@@ -305,7 +308,8 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
 - [ ] Add mathematical expression GUI nodes (math render)
   - [x] Add ExpressionNode and ExpressionSlot class
     - [x] Make separate QLineEdits in math widgets (e.g., numerator/denominator, base/exponent)
-  - [ ] Add fraction, pow, root, log, summation, product widgets
+  - [x] Add fraction, power, sqrt and subscript widgets
+  - [ ] Add summation and product widgets
   - [ ] Add absolute value `|x|` and floor/ceil `⌊x⌋` `⌈x⌉` widgets
   - [x] Add variable indexing (variable node w/subscript e.g. x\_{0} -> x₀)
   - [x] Add ParenNode to cover math expression
@@ -328,6 +332,9 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
     - [x] Show collection info text on result (`status_label`: "N element list / point" while typing)
     - [x] Add invalid input error handling and messages (user-friendly hint for bare comma outside any paren)
     - [x] Show collection elements with comma + whitespace
+- [ ] Theme-specific icons
+- [ ] Raised and sunken edges for docks, panels, the window and menus
+- [ ] Faster startup
 - [ ] Tab order + focus behavior
 - [ ] High-DPI/font scaling sanity pass
 - [ ] Basic tooltips for all keys
@@ -349,6 +356,10 @@ Goal: ship a stable v1 with a polished UI/UX and a solid native core.
   - [ ] installer .exe
 - [ ] Linux packaging
   - [ ] Flatpak
+  - [ ] Packages for other distributions
+- [ ] Source install for users
+  - [ ] Arch Linux support
+- [ ] Run on the most used Python versions
 - [ ] macOS packaging
   - [ ] .app bundle + dmg/zip distribution
 
