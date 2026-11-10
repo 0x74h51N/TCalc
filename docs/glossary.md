@@ -50,7 +50,7 @@ $\color{#3b82f6}\textbf{Calculator}$: The native class (calc/pub/calculator.hpp)
 
 $\color{#3b82f6}\textbf{CalculatorError}$: The native error. It carries an error kind and a message from the native message table (errmsg); the Python side maps it to its own error kind.
 
-$\color{#3b82f6}\textbf{calc\_native}$: The Python module of the native core, built by the binding layer: tokenize, evaluate, the ops and constant tables, the value types. Its stub (stubs/calc_native.pyi) is generated. Unit tests use a fake of it.
+$`\color{#3b82f6}\textbf{calc\_native}`$: The Python module of the native core, built by the binding layer: tokenize, evaluate, the ops and constant tables, the value types. Its stub (stubs/calc_native.pyi) is generated. Unit tests use a fake of it.
 
 $\color{#3b82f6}\textbf{CallToken}$: A function call with its arguments, an OpId and the argument list.
 
