@@ -128,6 +128,8 @@ $\color{#3b82f6}\textbf{First index}$: Of a field, index 0. Of a slot, index 0 o
 
 $\color{#3b82f6}\textbf{Fold}$: Another word for a reduction: walking the items and combining them into one value.
 
+$\color{#3b82f6}\textbf{Frac}$: The LatexKind of a fraction: the numerator left, the denominator right. It evaluates through OpId::Div.
+
 $\color{#3b82f6}\textbf{Gamma function}$: Extension of the factorial to non-integers: Γ(n + 1) = n!. Leonhard Euler (1729). Computes factorials of non-integers and the gamma op.
 
 $\color{#3b82f6}\textbf{Geometric sum}$: Sum with a constant ratio r between terms, closed by the formula below. Closed for affine exponents and like terms.
@@ -158,17 +160,21 @@ $\color{#3b82f6}\textbf{Kernel}$: The math function that computes one op on one 
 
 $\color{#3b82f6}\textbf{Last index}$: Of a field, the index after its last character. Of a slot, the last index of its own last field, never of a field inside a Math Widget it holds.
 
-$\color{#3b82f6}\textbf{LaTeX expression}$: One LaTeX construct TCalc understands, with its slots in braces: fraction, power, subscript, sqrt, sum and product. Each has its LatexKind and its symbol. The table comes from the native module, and Python mirrors it as LatexExpr.
+$\color{#3b82f6}\textbf{LaTeX expression}$: One LaTeX construct TCalc understands, with its slots in braces or brackets: fraction, power, subscript, sqrt, sum and product. Each has its LatexKind and its symbol. The table comes from the native module, and Python mirrors it as LatexExpr.
 
 ```math
 \frac{a}{b} \qquad x^{n} \qquad x_{n} \qquad \sqrt[n]{x} \qquad \sum_{i=1}^{n} \qquad \prod_{i=1}^{n}
 ```
 
-$\color{#3b82f6}\textbf{LatexKind}$: The kind of a LaTeX expression: Frac, Pow, Subscript, Sqrt, Sum or Prod.
+$\color{#3b82f6}\textbf{LatexKind}$: The kind of a LaTeX expression: Frac, Pow, Subscript, Sqrt, SqrtN, Sum or Prod.
+
+$\color{#3b82f6}\textbf{LatexSplit}$: A structural split around a LatexToken: the prefix, the left side, the right side and the suffix. An empty side is filled by the operand split.
 
 $\color{#3b82f6}\textbf{LatexToken}$: A LaTeX expression: its LatexKind, its OpId, and the tokens of its left and right slots.
 
-$\color{#3b82f6}\textbf{Left slot}$: The first slot of a Math Widget in the order of its LaTeX text. Every Math Widget has one; a ParenWidget has only this one.
+$\color{#3b82f6}\textbf{Left}$: 1. The LatexToken field that holds the first operand of its op: the numerator, the base, the radicand, the lower limit. 2. The math node field built from it, the row the left slot renders. 3. The correct political stance of this application.
+
+$\color{#3b82f6}\textbf{Left slot}$: The slot of a Math Widget that renders its left side. Every Math Widget has one; a ParenWidget has only this one.
 
 $\color{#3b82f6}\textbf{Like-term folding}$: Adding the coefficients of terms with the same symbolic part: 3 sin(n) + sin(n) is 4 sin(n). Terms are collected by canonical key, so cancelling terms cancel exactly.
 
@@ -188,11 +194,13 @@ $\color{#3b82f6}\textbf{Literal}$: What a number written in the expression means
 
 $\color{#3b82f6}\textbf{Main slot}$: The editor's outermost slot, the one every other slot sits inside. Its fields are named main_0, main_2 and so on. The code, the debug tree dump and the tests call it root.
 
+$\color{#3b82f6}\textbf{Mal}$: Prod, in its first sense.
+
 $\color{#3b82f6}\textbf{Margin update}$: A slot setting its segments on its anchor and stretching its paren glyphs to the full height. It runs after a change or a resize, then asks the slot around it to do the same, up to the main slot. A read-only slot does it once and stays fixed.
 
 $\color{#3b82f6}\textbf{Math node}$: One node of the tree that build_math_nodes builds from the tokens for the editor: text, a paren with its children, or a LaTeX expression with its left and right children. Math nodes are data; Math Widgets draw them. See [parser.md](parser.md#build_math_nodes-render-tree).
 
-$\color{#3b82f6}\textbf{Math Widget}$: The Qt widget of one LaTeX expression or paren in the editor, an ExpressionNode: FractionWidget, PowWidget, SubWidget, SqrtWidget and the ParenWidget kinds RoundParenWidget, BracketWidget and BraceWidget. Sum and product have no Math Widget yet.
+$\color{#3b82f6}\textbf{Math Widget}$: The Qt widget of one LaTeX expression or paren in the editor, an ExpressionNode: FractionWidget, PowWidget, SubWidget, SqrtWidget, SqrtNWidget and the ParenWidget kinds RoundParenWidget, BracketWidget and BraceWidget. Sum and product have no Math Widget yet.
 
 $\color{#3b82f6}\textbf{Max}$: A reduction: the largest item of a Collection. Not defined for complex values.
 
@@ -216,11 +224,15 @@ $\color{#3b82f6}\textbf{Niven's theorem}$: At rational multiples of π, the only
 
 $\color{#3b82f6}\textbf{NodeInfo}$: One Math Widget in a TreeInfo, printed as Node<class name> with its slots under it.
 
+$\color{#3b82f6}\textbf{Noise}$: Floating point noise: a tiny wrong part in a result that is exact in math, left by rounding on an inexact path. Calculator::root took the square root of -4 through exp and log and left 1.2246467991473532e-16 as the real part of 2i. The result formatter hides a part smaller than 1e-12, so noise shows once the value is scaled up.
+
 $\color{#3b82f6}\textbf{Normalize}$: The first step of ordering the tokens: it inserts the implicit multiplications and folds runs of + and - into one sign, so 2π becomes 2 · π and 3 - - 2 becomes 3 + 2.
 
 $\color{#3b82f6}\textbf{Number theory}$: The kernel file of gcd and lcm (number_theory.cpp).
 
 $\color{#3b82f6}\textbf{NumberToken}$: A number, kept as its text until the evaluator reads it.
+
+$\color{#3b82f6}\textbf{Operand split}$: Filling an empty side of a LaTeX expression from its neighbour (split_operand): the last operand of the prefix goes into the left side, the first operand of the suffix into the right side, when that operand is a number, a letter, a constant, a paren or a call. It runs in the math nodes only; eval sees it after the editor writes the row back.
 
 $\color{#3b82f6}\textbf{Ops table}$: The one table of operations (OpSpec rows) that the tokenizer, the evaluator and the Python side all read. An op is known by its OpId.
 
@@ -229,6 +241,8 @@ $\color{#3b82f6}\textbf{OpToken}$: An operator or a function name, known by its 
 $\color{#3b82f6}\textbf{Painter}$: MathPainter (painter/math_painter.py) draws an expression without widgets, for the history. It builds a layout tree from the math nodes (rows, text leaves and paint nodes), measures and places it once, and paints it on one PaintCanvas. A long history stays fast because no Qt widget is made per node.
 
 $\color{#3b82f6}\textbf{Paren glyph}$: The drawn open or close bracket of a ParenWidget, a segment of its inner slot.
+
+$\color{#3b82f6}\textbf{ParenSplit}$: A structural split around a paren that holds a LaTeX descendant: the prefix, the paren's elements and the suffix.
 
 $\color{#3b82f6}\textbf{ParenToken}$: A group in round brackets, square brackets or braces (ParenKind). One element is a plain grouping; several elements, split on commas, are a collection. It knows whether its open and close are there.
 
@@ -260,11 +274,15 @@ $\color{#3b82f6}\textbf{Population variance}$: A reduction: the squared distance
 \sigma^2 = \frac{1}{n} \sum_{i=1}^{n} \left(x_i - \bar{x}\right)^2
 ```
 
+$\color{#3b82f6}\textbf{Pow}$: The LatexKind of a power: the base left, the exponent right. It evaluates through OpId::Pow.
+
 $\color{#3b82f6}\textbf{Prefix}$: The field right before a Math Widget, in the same slot. In the expression below, the prefix of the fraction holds 2 +.
 
 ```math
 2 + \frac{3}{4} + 5
 ```
+
+$\color{#3b82f6}\textbf{Prod}$: 1. Production: the working version of the app, as users run it. 2. The LatexKind of a product: the lower limit left, the upper limit right; its body is the term after it.
 
 $\color{#3b82f6}\textbf{Promotion}$: An op moves its operands to a common arm before it runs, and a result moves up when it overflows or leaves the real numbers: Rational, then BigReal or Complex, then BigComplex. Which arms an op takes comes from the Calculator method signatures, not from a hand-kept table.
 
@@ -292,9 +310,11 @@ $\color{#3b82f6}\textbf{Renderer}$: MathRender (renderer/math_render.py) turns t
 
 $\color{#3b82f6}\textbf{Replace with}$: Swapping a Math Widget in a slot for a list of segments (replace_with): the Math Widget is taken out, the segments are spliced in its place, and the field returned by the splice gets the focus. A dissolve with a Math Widget in its left slot goes this way.
 
-$\color{#3b82f6}\textbf{Right slot}$: The second slot of a Math Widget in the order of its LaTeX text. Left and right name the text order, not where the slot is drawn.
+$\color{#3b82f6}\textbf{Right}$: 1. The LatexToken field that holds the second operand of its op: the denominator, the exponent, the index of a subscript, the degree, the upper limit. 2. The math node field built from it, the row the right slot renders.
 
-$\color{#3b82f6}\textbf{Root}$: The main slot, as Expression.\_root, the debug tree dump and the test paths of test_expression.py name it.
+$\color{#3b82f6}\textbf{Right slot}$: The slot of a Math Widget that renders its right side. Left and right name the operand order of the op, not the text order or where the slot is drawn: the LaTeX text of SqrtN writes its degree, the right side, first.
+
+$\color{#3b82f6}\textbf{Root}$: 1. The main slot, as Expression.\_root, the debug tree dump and the test paths of test_expression.py name it. 2. OpId::Root, the n-th root op ⌄ that Sqrt and SqrtN evaluate through, by Calculator::root.
 
 $\color{#3b82f6}\textbf{RPN}$: Reverse Polish notation: postfix, operators after their operands. Reversed form of Jan Łukasiewicz's prefix notation (1924). Produced by the shunting-yard, evaluated by the RPN walk.
 
@@ -336,7 +356,15 @@ $\color{#3b82f6}\textbf{SlotInfo}$: One slot in a TreeInfo, printed as Slot[key]
 
 $\color{#3b82f6}\textbf{Splice}$: Inserting segments into a slot at an index and merging the fields that meet at the merge points (\_splice). A paren glyph among them is not inserted; its symbol is written into the field before it. It returns the field at the left merge point, or at the right one when only that one merges.
 
+$\color{#3b82f6}\textbf{Sqrt}$: The LatexKind of a square root, with no degree field. The tokenizer writes its degree, 2, into its right side. It evaluates through OpId::Root.
+
+$\color{#3b82f6}\textbf{SqrtN}$: The LatexKind of an n-th root: the radicand left, the degree right, though the LaTeX text writes the degree first. It evaluates through OpId::Root.
+
 $\color{#3b82f6}\textbf{Statistic}$: The kernel file of the reductions (statistic.cpp): mean, sum, min, max, median, variance and standard deviation over a Collection.
+
+$\color{#3b82f6}\textbf{Structural split}$: The step of build_math_nodes that carves the first Math Widget out of a row (structural_split): a LatexSplit or a ParenSplit, with the prefix and the suffix around it. A row with no LaTeX has none and stays text.
+
+$\color{#3b82f6}\textbf{Subscript}$: The LatexKind of a subscript: the base left, the index right. It has no op.
 
 $\color{#3b82f6}\textbf{Suffix}$: The field right after a Math Widget, in the same slot. In the expression below, the suffix of the fraction holds + 5. Between two Math Widgets there is only one field: the suffix of the first is the prefix of the second.
 
@@ -344,7 +372,7 @@ $\color{#3b82f6}\textbf{Suffix}$: The field right after a Math Widget, in the sa
 2 + \frac{3}{4} + 5
 ```
 
-$\color{#3b82f6}\textbf{Sum}$: A reduction: the total of a Collection's items. Symbol Σ, alias sum.
+$\color{#3b82f6}\textbf{Sum}$: 1. A reduction: the total of a Collection's items. Symbol Σ, alias sum. 2. The LatexKind of a sum: the lower limit left, the upper limit right; its body is the term after it.
 
 $\color{#3b82f6}\textbf{TCalc}$: A desktop calculator with a native C++ computation core and a PySide6 UI. The name has no expansion; it was born from frustration with KCalc.
 
