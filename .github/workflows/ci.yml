@@ -8,10 +8,11 @@ on:
     types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
 
-# An edit while the jobs run replaces them, so fixing a title does not stack full runs
+# A push while the jobs run replaces them. An edit waits for them instead, then runs no job
+# when they passed, so editing the description right after opening does not restart them.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event.action != 'edited' }}
 
 env:
   PYTHON_VERSION: "3.14.5"
@@ -92,6 +93,7 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           ACTION: ${{ github.event.action }}
+          TITLE_CHANGED: ${{ github.event.changes.title != null }}
           GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
@@ -110,6 +112,10 @@ jobs:
             # Editing the title or description reruns CI too; its commit has already passed
             echo "Description edit on a commit CI passed: no job runs." >&2
             scripts/changed_jobs < /dev/null
+          elif [ "$ACTION" = edited ] && [ "$TITLE_CHANGED" != true ]; then
+            # A description edit never reruns the jobs; it keeps the failure instead of hiding it
+            echo "Description edit on a commit CI did not pass: rerun that run by hand." >&2
+            exit 1
           else
             git diff --name-only "$BASE_SHA...$HEAD_SHA" | scripts/changed_jobs
           fi | tee -a "$GITHUB_OUTPUT"
