@@ -8,10 +8,11 @@ on:
     types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
 
-# An edit while the jobs run replaces them, so fixing a title does not stack full runs
+# A push while the jobs run replaces them. An edit waits for them instead, then runs no job
+# when they passed, so editing the description right after opening does not restart them.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event.action != 'edited' }}
 
 env:
   PYTHON_VERSION: "3.14.5"

@@ -7,8 +7,8 @@ EVERYTHING=(".github/workflows/*" makefile pyproject.toml scripts/install-deps s
 # Not linked into calc_native, so they cannot change Python results or stubs
 NATIVE_TESTS=("src/native/tests/*")
 NATIVE=("src/native/*")
-# Checked with a manual run instead
-NO_CHECK=("src/tcalc/assets/*" "src/tcalc/themes/*")
+# Checked with a manual run instead; Markdown (CLAUDE.md included) runs no code
+NO_CHECK=("*.md" "src/tcalc/assets/*" "src/tcalc/themes/*")
 # stubgen writes the stubs mypy reads
 PYTHON=("src/tcalc/*" "scripts/stubgen/*")
 PYTHON_TESTS=("tests/py/*")
@@ -28,9 +28,9 @@ matches() {
 # The first area that matches wins
 area_of() {
   if matches "$1" "${EVERYTHING[@]}"; then echo everything
+  elif matches "$1" "${NO_CHECK[@]}"; then echo none
   elif matches "$1" "${NATIVE_TESTS[@]}"; then echo native-tests
   elif matches "$1" "${NATIVE[@]}"; then echo native
-  elif matches "$1" "${NO_CHECK[@]}"; then echo none
   elif matches "$1" "${PYTHON[@]}"; then echo python
   elif matches "$1" "${PYTHON_TESTS[@]}"; then echo python-tests
   elif matches "$1" "${BENCHMARK[@]}"; then echo benchmark
@@ -44,9 +44,10 @@ declare -A touched=()
 while read -r path; do
   [ -n "$path" ] || continue
   echo "$path" >&2
-  touched[$(area_of "$path")]=1
+  area=$(area_of "$path")
+  touched[$area]=1
   if [[ "$path" == *.py ]]; then touched[python-files]=1; fi
-  if matches "$path" "${EXPRESSION_EDITOR[@]}"; then touched[expression-editor]=1; fi
+  if [ "$area" != none ] && matches "$path" "${EXPRESSION_EDITOR[@]}"; then touched[expression-editor]=1; fi
 done
 
 # Step 2: a check runs when one of its areas was touched
