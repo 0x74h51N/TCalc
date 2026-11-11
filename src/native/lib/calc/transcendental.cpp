@@ -9,13 +9,35 @@
 
 #include <cmath>
 #include <complex>
+#include <limits>
+#include <optional>
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
 #include <boost/multiprecision/cpp_complex.hpp>
+#include <boost/math/tools/roots.hpp>
 
 namespace {
 // The base a bare log is taken in, and the one base with a dedicated library function.
 constexpr int kBaseTen = 10;
+// The one degree with a dedicated library function, sqrt.
+constexpr double kSquareDegree = 2.0;
+
+std::optional<int> as_int(double v) {
+    using Lim = std::numeric_limits<int>;
+    if (std::floor(v) != v || v < Lim::min() || v > Lim::max())
+        return std::nullopt;
+    return static_cast<int>(v);
+}
+
+/// Newton on z^n - x from the pow guess, whose exp(log) leaves noise in both parts.
+BigComplex newton_root(const BigComplex &x, int n) {
+    using boost::multiprecision::pow;
+    const auto f = [&](const BigComplex &z) {
+        const BigComplex p = pow(z, n - 1);
+        return std::pair<BigComplex, BigComplex>(p * z - x, BigComplex(n) * p);
+    };
+    return boost::math::tools::complex_newton(f, pow(x, BigComplex(1) / BigComplex(n)));
+}
 } // namespace
 
 // -----------------
@@ -150,6 +172,22 @@ Calculator::Complex Calculator::sqrt(Complex a) const {
 
 Calculator::Complex Calculator::root(Complex x, Complex y) const {
     calc_detail::require_nonzero(y);
+    if (y.imag() == 0.0) {
+        if (y.real() == kSquareDegree)
+            return this->sqrt(x);
+        const auto m = as_int(1.0 / y.real());
+        // Past double range the product's inf * inf is NaN, where pow keeps the inf.
+        if (m && *m > 0)
+            if (const Complex r = std::pow(x, *m);
+                std::isfinite(r.real()) && std::isfinite(r.imag()))
+                return r;
+        // A double reciprocal moves the last digit and Newton in double leaves an irrational
+        // part one ulp off, so both run in BigComplex.
+        if (((m && *m < 0) || as_int(y.real())) && x != 0.0) {
+            const BigComplex r = this->root(BigComplex(x.real(), x.imag()), BigComplex(y.real()));
+            return {static_cast<double>(r.real()), static_cast<double>(r.imag())};
+        }
+    }
     return this->pow(x, 1.0 / y);
 }
 
@@ -182,6 +220,21 @@ BigComplex Calculator::sqrt(const BigComplex &a) const {
 
 BigComplex Calculator::root(const BigComplex &x, const BigComplex &y) const {
     calc_detail::require_nonzero(y);
+    if (y.imag() == 0) {
+        if (y.real() == kSquareDegree)
+            return this->sqrt(x);
+        if (const auto m = as_int(static_cast<double>(BigComplex::value_type(1) / y.real())))
+            if (const BigComplex r = boost::multiprecision::pow(x, *m);
+                boost::multiprecision::isfinite(r.real()) &&
+                boost::multiprecision::isfinite(r.imag()))
+                return r;
+        if (const auto n = as_int(static_cast<double>(y.real())); n && x != 0) {
+            // Newton stops on an absolute tolerance below 1, so (-1e300) root -2 kept a real part.
+            if (*n < 0)
+                return BigComplex(1) / this->root(x, -y);
+            return newton_root(x, *n);
+        }
+    }
     return this->pow(x, BigComplex(1) / y);
 }
 
