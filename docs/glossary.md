@@ -28,13 +28,13 @@ s^{2} = \frac{1}{n-1}\sum_{i=1}^{n}(x_i - \bar{x})^{2}
 
 $\color{#3b82f6}\textbf{Big}$: The arm of a Value that holds a BigReal.
 
-$\color{#3b82f6}\textbf{BigComplex}$: A complex number on two 50-digit decimals.
+$\color{#3b82f6}\textbf{BigComplex}$: A complex number on two 50-digit decimals, Boost's cpp_complex_50.
 
 $\color{#3b82f6}\textbf{BigCx}$: The arm of a Value that holds a BigComplex.
 
-$\color{#3b82f6}\textbf{BigReal}$: A 50-digit decimal with a wide exponent range, for results a double cannot hold or keep exact enough.
+$\color{#3b82f6}\textbf{BigReal}$: A 50-digit decimal with a wide exponent range, Boost's cpp_dec_float, for results a double cannot hold or keep exact enough.
 
-$\color{#3b82f6}\textbf{Binary exponentiation}$: Integer power by repeated squaring, about log₂ e multiplications. Used by the closed forms for exact and BigReal powers.
+$\color{#3b82f6}\textbf{Binary exponentiation}$: Integer power by repeated squaring, about log₂ n multiplications for the exponent n. Used by the closed forms for exact and BigReal powers.
 
 $\color{#3b82f6}\textbf{Binding layer}$: The pybind11 code that exposes the native core to Python as calc_native (src/native/python/), one file per type under bindings/, assembled in module.cpp.
 
@@ -114,6 +114,8 @@ $\color{#3b82f6}\textbf{Exact rule}$: A rule of one op that runs before its kern
 
 $\color{#3b82f6}\textbf{Expression}$: What the user types in one row, plain text with LaTeX expressions inside. In math mode the editor shows it as Math Widgets.
 
+$\color{#3b82f6}\textbf{ExpressionNode}$: The base class of every Math Widget (renderer/expression_node.py). It holds a left slot and, by its kind, a right, a top and a bottom slot, and names its op, its LatexKind and its symbol as class constants. It writes itself back as LaTeX text through format_expr_str, or as its left slot's text when it has no symbol, as a paren does; it puts the cursor in its right slot when it is made, or in its left slot when it has no right one, tells Up and Down which slot lies above or below, and dissolves into the slot around it.
+
 $\color{#3b82f6}\textbf{ExpressionSlot}$: The Qt widget behind every slot (renderer/expression_node.py). It lays out its segments in a row, creates its fields, and gives the editor and the renderer the operations that change the row: insert a Math Widget, splice segments in and merge the fields that meet, remove one. It writes its row back as plain text and keeps its segments on one anchor through the margin update. Each one is a main slot, an aux slot or a script slot.
 
 $\color{#3b82f6}\textbf{Faulhaber's formula}$: Closed form of a sum of powers as a polynomial in the upper bound, coefficients from the Bernoulli numbers. Johann Faulhaber (1631). Used for polynomial sums up to degree 24.
@@ -132,11 +134,13 @@ $\color{#3b82f6}\textbf{Frac}$: The LatexKind of a fraction: the numerator left,
 
 $\color{#3b82f6}\textbf{Gamma function}$: Extension of the factorial to non-integers: Γ(n + 1) = n!. Leonhard Euler (1729). Computes factorials of non-integers and the gamma op.
 
-$\color{#3b82f6}\textbf{Geometric sum}$: Sum with a constant ratio r between terms, closed by the formula below. Closed for affine exponents and like terms.
+$\color{#3b82f6}\textbf{Geometric sum}$: Sum with a constant ratio r between terms, closed by the formula below. Closed for affine exponents and like terms. A ratio of 1 never reaches the formula: the term folds to a constant, and the sum is m + 1 times it.
 
 ```math
 \sum_{n=0}^{m} r^{n} = \frac{r^{m+1}-1}{r-1}
 ```
+
+$\color{#3b82f6}\textbf{Glyph}$: A symbol drawn as a path rather than typed, a MathPrimitive (math_primitives.py): the radical sign of a root (SqrtSymbol) and the paren glyphs (RoundParen, SquareBracket, CurlyBrace). It is rebuilt at the widget's size, so it stretches with what it encloses.
 
 $\color{#3b82f6}\textbf{Half turn}$: An angle as a multiple of π, the unit the exact trig table works in: 30° is 1/6 of a half turn.
 
@@ -294,7 +298,7 @@ $\color{#3b82f6}\textbf{Qt}$: The C++ GUI framework of TCalc's UI, used from Pyt
 
 $\color{#3b82f6}\textbf{Rat}$: The arm of a Value that holds a Rational.
 
-$\color{#3b82f6}\textbf{Rational}$: An exact fraction of two 64-bit integers. Integers and fractions stay Rational as long as an op allows, so a result like the one below stays exact.
+$\color{#3b82f6}\textbf{Rational}$: An exact fraction of two 64-bit integers, Boost's rational. Integers and fractions stay Rational as long as an op allows, so a result like the one below stays exact.
 
 ```math
 \frac{1}{3} + \frac{1}{6} = \frac{1}{2}
