@@ -76,6 +76,29 @@ inline BigReal snap_integer(const BigReal &v) {
     return v;
 }
 
+/// Whether y is an integer, read exactly, as std::pow reads its exponent.
+inline bool whole(double y) {
+    return std::floor(y) == y;
+}
+
+/// Whether y is an integer at the precision BigReal advertises, not off its guard digits.
+inline bool whole(const BigReal &y) {
+    using boost::multiprecision::floor;
+    const BigReal n = snap_integer(y);
+    return floor(n) == n;
+}
+
+/// Whether a degree is an odd integer, the one degree a negative radicand has a real root at.
+inline bool odd_integer(double y) {
+    constexpr double kTwo = 2.0;
+    return int_like(y) && std::fmod(std::round(y), kTwo) != 0.0;
+}
+
+inline bool odd_integer(const BigReal &y) {
+    using boost::multiprecision::fmod;
+    return whole(y) && fmod(snap_integer(y), BigReal(2)) != 0;
+}
+
 /// Truncated division: quotient toward zero, plus its remainder. cpp_dec_float divides
 /// through a Newton-Raphson reciprocal, so an exact division lands just under its integer
 /// quotient and trunc drops a unit. A remainder reaching the divisor is what catches that.

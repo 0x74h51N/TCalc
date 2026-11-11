@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <string_view>
 
+#include "calc/internal/helpers.hpp"
 #include "calc/pub/calculator.hpp"
 #include "calc/pub/error_messages.hpp"
 #include "parser/internal/helpers.hpp"
@@ -882,9 +883,6 @@ Value dispatch(OpId id, const Calculator &c, std::span<const Value> args, AngleU
 /// non-positive, …). `x` is the first operand; `y` is the second for the ops that need
 /// it (Root's degree) and 0 otherwise.
 namespace detail {
-/// Tolerance for reading a double degree as a whole number.
-inline constexpr double kDomainEpsilon = 1e-12;
-
 /// The decades a double can still carry. Past these a power is computed in BigReal.
 inline constexpr double kPowToBigUp = 308.0;
 inline constexpr double kPowToBigLow = -324.0;
@@ -991,7 +989,7 @@ namespace detail {
 /// inside double's range yet cannot be held exactly by it.
 inline bool power_needs_big(double base, double exp) {
     const double base_mag = std::fabs(base);
-    const bool exp_is_int = std::abs(exp - std::round(exp)) <= kDomainEpsilon;
+    const bool exp_is_int = calc_detail::int_like(exp);
     if (base_mag == kBaseTen && exp_is_int && std::fabs(exp) >= kPowToBigUp)
         return true;
     const double log10_mag = exp * std::log10(base_mag);
@@ -1014,9 +1012,7 @@ inline constexpr std::array kOpRows = {
             binary(OpId::Root, TCALC_CALL(root)),
             [](double x, double y) {
                 // a negative radicand is real only for an odd integer degree
-                const bool y_is_int = std::abs(y - std::round(y)) <= detail::kDomainEpsilon;
-                const bool y_is_even = std::llround(y) % 2 == 0;
-                return x < 0.0 && (!y_is_int || y_is_even);
+                return x < 0.0 && !calc_detail::odd_integer(y);
             }),
         // the degree is an inverse exponent: root(x, y) is x^(1/y)
         [](double x, double y) { return y != 0.0 && detail::power_needs_big(x, 1.0 / y); }),

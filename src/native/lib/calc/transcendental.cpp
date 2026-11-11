@@ -58,10 +58,7 @@ double Calculator::root(double x, double y) const {
     calc_detail::require(!(x == 0.0 && y < 0.0));
 
     if (x < 0.0) {
-        calc_detail::require(calc_detail::int_like(y));
-        constexpr double kTwo = 2.0;
-        const double rounded = std::round(y);
-        calc_detail::require(std::fmod(rounded, kTwo) != 0.0);
+        calc_detail::require(calc_detail::odd_integer(y));
         return -this->pow(-x, 1.0 / y);
     }
 
@@ -147,15 +144,7 @@ BigReal Calculator::root(const BigReal &x, const BigReal &y) const {
     calc_detail::require(!(x == 0 && y < 0));
 
     if (x < 0) {
-        // The degree decides whether this is real at all, so it is read at the precision
-        // BigReal advertises rather than off its guard digits.
-        const BigReal degree = calc_detail::snap_integer(y);
-        using boost::multiprecision::floor;
-        const BigReal yi = floor(degree);
-        calc_detail::require(yi == degree);
-        using boost::multiprecision::fmod;
-        calc_detail::require(fmod(yi, BigReal(2)) != 0);
-
+        calc_detail::require(calc_detail::odd_integer(y));
         return -this->pow(-x, BigReal(1) / y);
     }
 
