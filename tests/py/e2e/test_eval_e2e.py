@@ -242,6 +242,32 @@ def _eval(expr: str) -> object:
         param("ln(10^{-400})", "BigReal", "-921.0340371976183", id="ln-tiny-positive-stays-real"),
         param("sqrt(10^{-400})", "BigReal", "1e-200", id="sqrt-tiny-positive-stays-real"),
         # ----------------------------
+        # a negative base under a root's exponent
+        # ----------------------------
+        param("(-4)^{0.5}", "complex", (0.0, 2.0), id="pow-negative-base-half"),
+        param("(-4)^{-0.5}", "complex", (0.0, -0.5), id="pow-negative-base-minus-half"),
+        param(
+            "(-8)^{0.25}",
+            "complex",
+            (1.189207115002721, 1.189207115002721),
+            id="pow-negative-base-quarter",
+        ),
+        param("(-2)^{1/3}", "float", -1.2599210498948732, id="pow-negative-base-third"),
+        param(
+            "(-2)^{0.3333333333333333}",
+            "float",
+            -1.2599210498948732,
+            id="pow-negative-base-decimal-third",
+        ),
+        param(
+            "(-2)^{2/3}",
+            "complex",
+            (-0.7937005259840998, 1.3747296369986026),
+            id="pow-negative-base-two-thirds",
+        ),
+        param("(-10^{400})^{0.5}", "BigComplex", "0+1e+200i", id="pow-huge-negative-base-half"),
+        param("(-4+0i)^{0.5}", "complex", (0.0, 2.0), id="pow-complex-negative-base-half"),
+        # ----------------------------
         # Collection literals (List / Point)
         # ----------------------------
         param("[1, 2, 3]", "List", [1, 2, 3], id="list-bare-numbers"),
@@ -537,6 +563,7 @@ class TestRational:
             param("16^(1/4)", 2, 1, id="pow-frac-exp-fourth-root"),
             param("4^(3/2)", 8, 1, id="pow-frac-exp-4-3-2"),
             param("(-8)^(1/3)", -2, 1, id="pow-neg-base-cube-root"),
+            param("(-8)^2", 64, 1, id="pow-neg-base-square"),
             param("2^{2^{2^{2}}}", 65536, 1, id="pow-chain-2-2-2-2"),
             param("(2^3) + (3^2)", 17, 1, id="pow-then-add"),
             param("(1/2)^2 * 8", 2, 1, id="pow-then-mul"),

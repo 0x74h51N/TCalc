@@ -52,6 +52,10 @@ double Calculator::pow(double a, long long b) const {
 
 double Calculator::pow(double a, double b) const {
     calc_detail::require(b >= 0 || a != 0.0);
+    // std::pow is nan for every negative base under a fractional exponent, even where the
+    // root it means is real: (-2)^(1/3) is the cube root of -2.
+    if (a < 0.0 && !calc_detail::whole(b) && calc_detail::odd_integer(1.0 / b))
+        return this->root(a, std::round(1.0 / b));
     return std::pow(a, b);
 }
 
@@ -89,6 +93,9 @@ BigReal Calculator::intdiv(const BigReal &a, const BigReal &b) const {
 
 BigReal Calculator::pow(const BigReal &a, const BigReal &b) const {
     calc_detail::require(b >= 0 || a != 0);
+    if (const BigReal m = BigReal(1) / b;
+        a < 0 && !calc_detail::whole(b) && calc_detail::odd_integer(m))
+        return this->root(a, calc_detail::snap_integer(m));
     using boost::multiprecision::pow;
     // An exact quotient sits under its integer in the guard digits, where Boost reads it.
     return pow(a, calc_detail::snap_integer(b));

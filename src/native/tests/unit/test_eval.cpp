@@ -1735,15 +1735,15 @@ void unit_eval(TestContext &ctx) {
         }
     });
 
-    // (-4)^{n/2} has no real even root at odd n (a domain error, not a rational-vs-irrational
-    // question); G1 declines via exact_rational_root's own negative-even-root guard, and the
-    // real evaluator's own fallback path is what actually runs either way, landing on NaN.
+    // (-4)^{n/2} has no real even root at odd n; G1 declines via exact_rational_root's own
+    // negative-even-root guard, and brute promotes those terms to their principal complex
+    // root: 2i - 4 - 8i.
     test_detail::with_case(
         ctx, "closed form :: G1 declines a negative base under a fractional exponent", [&] {
             tcalc::eval::set_closed_forms_enabled(true);
             const Value v = eval_text(c, "\\sum_{n=1}^{3} (-4)^{n/2}");
-            EXPECT_EQ(ctx, std::holds_alternative<double>(v), true);
-            EXPECT_EQ(ctx, std::isnan(std::get<double>(v)), true);
+            EXPECT_EQ(ctx, std::holds_alternative<Complex>(v), true);
+            EXPECT_EQ(ctx, std::abs(std::get<Complex>(v) - Complex(-4.0, -6.0)) < 1e-14, true);
         });
 
     // The fence holding Task 3 (G1, affine exponent) and Task 4 (G2, geo base under a literal
