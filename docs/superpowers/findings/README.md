@@ -13,3 +13,4 @@ One line per findings file: the file, then the subject in a few words. Read this
 - [ui-test-isolation.md](ui-test-isolation.md): UI tests that pass in `make py-test` but fail when their file runs alone.
 - [python-test-layers.md](python-test-layers.md): which modules load the native module, what the fake `calc_native` is really used for, and the test and mypy baselines (#205).
 - [editor-dissolve-cursor.md](editor-dissolve-cursor.md): where Left, Right and Backspace move the cursor through a Math Widget, where it lands after a dissolve, and a failed fix (#184, #219).
+- [complex-root.md](complex-root.md): where the complex root noise comes from, and the exactness and cost of pow, Newton, half turns and wider types on the root rows (#223, #225).
