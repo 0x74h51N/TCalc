@@ -28,13 +28,13 @@ s^{2} = \frac{1}{n-1}\sum_{i=1}^{n}(x_i - \bar{x})^{2}
 
 $\color{#3b82f6}\textbf{Big}$: The arm of a Value that holds a BigReal.
 
-$\color{#3b82f6}\textbf{BigComplex}$: A complex number on two 50-digit decimals.
+$\color{#3b82f6}\textbf{BigComplex}$: A complex number on two 50-digit decimals, Boost's cpp_complex_50.
 
 $\color{#3b82f6}\textbf{BigCx}$: The arm of a Value that holds a BigComplex.
 
-$\color{#3b82f6}\textbf{BigReal}$: A 50-digit decimal with a wide exponent range, for results a double cannot hold or keep exact enough.
+$\color{#3b82f6}\textbf{BigReal}$: A 50-digit decimal with a wide exponent range, Boost's cpp_dec_float, for results a double cannot hold or keep exact enough.
 
-$\color{#3b82f6}\textbf{Binary exponentiation}$: Integer power by repeated squaring, about log₂ e multiplications. Used by the closed forms for exact and BigReal powers.
+$\color{#3b82f6}\textbf{Binary exponentiation}$: Integer power by repeated squaring, about log₂ n multiplications for the exponent n. Used by the closed forms for exact and BigReal powers.
 
 $\color{#3b82f6}\textbf{Binding layer}$: The pybind11 code that exposes the native core to Python as calc_native (src/native/python/), one file per type under bindings/, assembled in module.cpp.
 
@@ -80,6 +80,8 @@ $\color{#3b82f6}\textbf{Complex}$: A complex number on two doubles.
 
 $\color{#3b82f6}\textbf{ConstToken}$: A named constant such as π, e or a physical constant, known by its ConstId.
 
+$\color{#3b82f6}\textbf{Correctly rounded}$: The exact value rounded to the nearest number of the type. The complex root test rows expect it: the exact root computed at 400 bits, rounded to double or to the BigComplex.
+
 $\color{#3b82f6}\textbf{Cx}$: The arm of a Value that holds a Complex.
 
 $\color{#3b82f6}\textbf{Deadline}$: The wall-clock budget of one evaluation, 500 ms in the app. It starts at the outermost evaluate, and long loops check it and stop with an error, so a heavy expression cannot freeze the app.
@@ -114,6 +116,8 @@ $\color{#3b82f6}\textbf{Exact rule}$: A rule of one op that runs before its kern
 
 $\color{#3b82f6}\textbf{Expression}$: What the user types in one row, plain text with LaTeX expressions inside. In math mode the editor shows it as Math Widgets.
 
+$\color{#3b82f6}\textbf{ExpressionNode}$: The base class of every Math Widget (renderer/expression_node.py). It holds a left slot and, by its kind, a right, a top and a bottom slot, and names its op, its LatexKind and its symbol as class constants. It writes itself back as LaTeX text through format_expr_str, or as its left slot's text when it has no symbol, as a paren does; it puts the cursor in its right slot when it is made, or in its left slot when it has no right one, tells Up and Down which slot lies above or below, and dissolves into the slot around it.
+
 $\color{#3b82f6}\textbf{ExpressionSlot}$: The Qt widget behind every slot (renderer/expression_node.py). It lays out its segments in a row, creates its fields, and gives the editor and the renderer the operations that change the row: insert a Math Widget, splice segments in and merge the fields that meet, remove one. It writes its row back as plain text and keeps its segments on one anchor through the margin update. Each one is a main slot, an aux slot or a script slot.
 
 $\color{#3b82f6}\textbf{Faulhaber's formula}$: Closed form of a sum of powers as a polynomial in the upper bound, coefficients from the Bernoulli numbers. Johann Faulhaber (1631). Used for polynomial sums up to degree 24.
@@ -132,11 +136,15 @@ $\color{#3b82f6}\textbf{Frac}$: The LatexKind of a fraction: the numerator left,
 
 $\color{#3b82f6}\textbf{Gamma function}$: Extension of the factorial to non-integers: Γ(n + 1) = n!. Leonhard Euler (1729). Computes factorials of non-integers and the gamma op.
 
-$\color{#3b82f6}\textbf{Geometric sum}$: Sum with a constant ratio r between terms, closed by the formula below. Closed for affine exponents and like terms.
+$\color{#3b82f6}\textbf{Gaussian integer}$: A complex number whose real and imaginary parts are both integers, such as 3 + 4i. The root of one is often one too: (-117 + 44i) at degree 3 is 3 + 4i.
+
+$\color{#3b82f6}\textbf{Geometric sum}$: Sum with a constant ratio r between terms, closed by the formula below. Closed for affine exponents and like terms. A ratio of 1 never reaches the formula: the term folds to a constant, and the sum is m + 1 times it.
 
 ```math
 \sum_{n=0}^{m} r^{n} = \frac{r^{m+1}-1}{r-1}
 ```
+
+$\color{#3b82f6}\textbf{Glyph}$: A symbol drawn as a path rather than typed, a MathPrimitive (math_primitives.py): the radical sign of a root (SqrtSymbol) and the paren glyphs (RoundParen, SquareBracket, CurlyBrace). It is rebuilt at the widget's size, so it stretches with what it encloses.
 
 $\color{#3b82f6}\textbf{Half turn}$: An angle as a multiple of π, the unit the exact trig table works in: 30° is 1/6 of a half turn.
 
@@ -220,6 +228,8 @@ $\color{#3b82f6}\textbf{Min}$: A reduction: the smallest item of a Collection. N
 
 $\color{#3b82f6}\textbf{Neumaier summation}$: Compensated summation, Arnold Neumaier (1974); also Kahan-Babuška-Neumaier. Correct whichever operand is larger. TCalc's summation (neumaier_sum in statistic.cpp).
 
+$\color{#3b82f6}\textbf{Newton}$: Newton's method, also Newton-Raphson: finds a root of f by repeating z = z - f(z) / f'(z) from a starting guess. The complex root runs it on z^n - x from the pow guess, in a BigComplex, through Boost's complex_newton.
+
 $\color{#3b82f6}\textbf{Niven's theorem}$: At rational multiples of π, the only rational values of sine and cosine are 0, ±1/2 and ±1. Ivan Niven (1956). Basis of the exact trig table: sine and cosine exact at twelfths of a turn, tangent at quarters.
 
 $\color{#3b82f6}\textbf{NodeInfo}$: One Math Widget in a TreeInfo, printed as Node<class name> with its slots under it.
@@ -237,6 +247,8 @@ $\color{#3b82f6}\textbf{Operand split}$: Filling an empty side of a LaTeX expres
 $\color{#3b82f6}\textbf{Ops table}$: The one table of operations (OpSpec rows) that the tokenizer, the evaluator and the Python side all read. An op is known by its OpId.
 
 $\color{#3b82f6}\textbf{OpToken}$: An operator or a function name, known by its OpId.
+
+$\color{#3b82f6}\textbf{Overflow}$: A double result that went past the type's range to infinity. Apply then re-runs the op in BigReal (promote_range in eval.cpp), so 10^{400} stays a number. A complex result is not widened this way.
 
 $\color{#3b82f6}\textbf{Painter}$: MathPainter (painter/math_painter.py) draws an expression without widgets, for the history. It builds a layout tree from the math nodes (rows, text leaves and paint nodes), measures and places it once, and paints it on one PaintCanvas. A long history stays fast because no Qt widget is made per node.
 
@@ -294,7 +306,7 @@ $\color{#3b82f6}\textbf{Qt}$: The C++ GUI framework of TCalc's UI, used from Pyt
 
 $\color{#3b82f6}\textbf{Rat}$: The arm of a Value that holds a Rational.
 
-$\color{#3b82f6}\textbf{Rational}$: An exact fraction of two 64-bit integers. Integers and fractions stay Rational as long as an op allows, so a result like the one below stays exact.
+$\color{#3b82f6}\textbf{Rational}$: An exact fraction of two 64-bit integers, Boost's rational. Integers and fractions stay Rational as long as an op allows, so a result like the one below stays exact.
 
 ```math
 \frac{1}{3} + \frac{1}{6} = \frac{1}{2}
@@ -391,6 +403,10 @@ $\color{#3b82f6}\textbf{TreeInfo}$: A snapshot of the editor's whole tree (snaps
 $\color{#3b82f6}\textbf{Trig}$: The kernel file of the trigonometric functions (trig.cpp): sin, cos, tan, their inverses and hyperbolic forms, in degrees, radians or grads, with the exact half-turn table.
 
 $\color{#3b82f6}\textbf{Two-pass variance}$: Variance computed as the mean first, then the sum of squared deviations from it. Avoids the cancellation of the one-pass formula. Neumaier summation on the Double arm.
+
+$\color{#3b82f6}\textbf{Ulp}$: Unit in the last place: the gap between a double and the next one. A result one ulp off is wrong only in its last digit.
+
+$\color{#3b82f6}\textbf{Underflow}$: A double result that fell to zero from nonzero operands, or into the subnormal band below 1e-308, where it sheds digits. Apply re-runs the op in BigReal for it, as for an overflow, and keeps the double when BigReal confirms the zero.
 
 $\color{#3b82f6}\textbf{Value}$: What an expression evaluates to, one variant over every runtime type (value.hpp).
 
