@@ -19,6 +19,8 @@
 namespace {
 // The base a bare log is taken in, and the one base with a dedicated library function.
 constexpr int kBaseTen = 10;
+// The one degree with a dedicated library function, sqrt.
+constexpr double kSquareDegree = 2.0;
 
 std::optional<int> as_int(double v) {
     using Lim = std::numeric_limits<int>;
@@ -171,7 +173,7 @@ Calculator::Complex Calculator::sqrt(Complex a) const {
 Calculator::Complex Calculator::root(Complex x, Complex y) const {
     calc_detail::require_nonzero(y);
     if (y.imag() == 0.0) {
-        if (y.real() == 2.0)
+        if (y.real() == kSquareDegree)
             return this->sqrt(x);
         const auto m = as_int(1.0 / y.real());
         // Past double range the product's inf * inf is NaN, where pow keeps the inf.
@@ -219,7 +221,7 @@ BigComplex Calculator::sqrt(const BigComplex &a) const {
 BigComplex Calculator::root(const BigComplex &x, const BigComplex &y) const {
     calc_detail::require_nonzero(y);
     if (y.imag() == 0) {
-        if (y.real() == 2)
+        if (y.real() == kSquareDegree)
             return this->sqrt(x);
         if (const auto m = as_int(static_cast<double>(BigComplex::value_type(1) / y.real())))
             if (const BigComplex r = boost::multiprecision::pow(x, *m);
