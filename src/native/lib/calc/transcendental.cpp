@@ -173,13 +173,15 @@ Calculator::Complex Calculator::root(Complex x, Complex y) const {
     if (y.imag() == 0.0) {
         if (y.real() == 2.0)
             return this->sqrt(x);
+        const auto m = as_int(1.0 / y.real());
         // Past double range the product's inf * inf is NaN, where pow keeps the inf.
-        if (const auto m = as_int(1.0 / y.real()))
+        if (m && *m > 0)
             if (const Complex r = std::pow(x, *m);
                 std::isfinite(r.real()) && std::isfinite(r.imag()))
                 return r;
-        // Newton in double leaves an irrational part one ulp off, so it runs in BigComplex.
-        if (as_int(y.real()) && x != 0.0) {
+        // A double reciprocal moves the last digit and Newton in double leaves an irrational
+        // part one ulp off, so both run in BigComplex.
+        if (((m && *m < 0) || as_int(y.real())) && x != 0.0) {
             const BigComplex r = this->root(BigComplex(x.real(), x.imag()), BigComplex(y.real()));
             return {static_cast<double>(r.real()), static_cast<double>(r.imag())};
         }

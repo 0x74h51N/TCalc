@@ -567,6 +567,10 @@ void unit_transcendental(TestContext &ctx) {
          .x = Z(-7.0, 24.0),
          .y = Z(0.25, 0.0),
          .expected = Z(164833.0, 354144.0)},
+        {.id = "gaussian, degree -0.5",
+         .x = Z(-7.0, 24.0),
+         .y = Z(-0.5, 0.0),
+         .expected = Z(-0.00134912, 0.00086016)},
         // A power past double range keeps pow's inf, not the NaN of inf * inf in a complex product.
         {.id = "overflowing power",
          .x = Z(1.0, 1.0),
