@@ -196,6 +196,52 @@ def _eval(expr: str) -> object:
             id="complex-plus-bigreal-promotes-bigcomplex",
         ),
         # ----------------------------
+        # a BigReal outside the real domain -> BigComplex
+        # ----------------------------
+        param("sqrt(-1e400)", "BigComplex", "0+1e+200i", id="sqrt-huge-negative-bigreal"),
+        param("√(-1e400)", "BigComplex", "0+1e+200i", id="sqrt-sign-huge-negative-bigreal"),
+        param("sqrt(-1e-400)", "BigComplex", "0+1e-200i", id="sqrt-tiny-negative-bigreal"),
+        param(
+            "sqrt(-2e308)",
+            "BigComplex",
+            "0+1.414213562373095e+154i",
+            id="sqrt-just-past-double-negative",
+        ),
+        param("(-1e400)⌄2", "BigComplex", "0+1e+200i", id="root-degree-two-huge-negative"),
+        param(r"\root{-10^{400}}{}", "BigComplex", "0+1e+200i", id="root-no-degree-huge-negative"),
+        param("(-4e400)⌄4", "BigComplex", "1e+100+1e+100i", id="root-degree-four-huge-negative"),
+        param("(-4e400)⌄(-2)", "BigComplex", "0-5e-201i", id="root-negative-degree-huge-negative"),
+        param("(-4e400)⌄0.5", "BigReal", "1.6e+801", id="root-half-degree-huge-negative"),
+        param(
+            "(-1e400)⌄2.5",
+            "BigComplex",
+            "3.090169943749474e+159+9.510565162951536e+159i",
+            id="root-fractional-degree-huge-negative",
+        ),
+        param(
+            "ln(-1e400)",
+            "BigComplex",
+            "921.0340371976183+3.141592653589793i",
+            id="ln-huge-negative-bigreal",
+        ),
+        param(
+            "log(-1e400)", "BigComplex", "400+1.364376353841841i", id="log-huge-negative-bigreal"
+        ),
+        param(
+            "log_{2}(-10^{400})",
+            "BigComplex",
+            "1328.771237954945+4.532360141827194i",
+            id="log-base-two-huge-negative-bigreal",
+        ),
+        param("(-8e399)⌄3", "BigReal", "-2e+133", id="root-odd-degree-huge-negative-stays-real"),
+        param("(-1e400)⌄(1/3)", "BigReal", "-1e+1200", id="root-reciprocal-degree-huge-negative"),
+        param("(1e400)⌄(1/3)", "BigReal", "1e+1200", id="root-reciprocal-degree-huge-positive"),
+        param(
+            "(-π)⌄(1/3)", "float", -31.006276680299816, id="root-reciprocal-degree-negative-double"
+        ),
+        param("ln(10^{-400})", "BigReal", "-921.0340371976183", id="ln-tiny-positive-stays-real"),
+        param("sqrt(10^{-400})", "BigReal", "1e-200", id="sqrt-tiny-positive-stays-real"),
+        # ----------------------------
         # Collection literals (List / Point)
         # ----------------------------
         param("[1, 2, 3]", "List", [1, 2, 3], id="list-bare-numbers"),

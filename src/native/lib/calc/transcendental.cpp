@@ -51,6 +51,8 @@ double Calculator::root(double x, double y) const {
     calc_detail::require(!(x == 0.0 && y < 0.0));
 
     if (x < 0.0) {
+        if (calc_detail::whole(1.0 / y))
+            return this->pow(x, 1.0 / y);
         calc_detail::require(calc_detail::odd_integer(y));
         return -this->pow(-x, 1.0 / y);
     }
@@ -114,9 +116,6 @@ BigReal Calculator::log(const BigReal &a) const {
 }
 
 BigReal Calculator::log(const BigReal &a, const BigReal &b) const {
-    // Unlike double, a BigReal operand is never domain-checked ahead of the kernel: reading
-    // it as a double to test the domain rule could underflow it to 0 and force a promotion
-    // that was never warranted. So this guard is the only one it gets.
     calc_detail::require(a > 0);
     calc_detail::require(b > 0 && b != 1);
     using boost::multiprecision::log10;
@@ -137,6 +136,9 @@ BigReal Calculator::root(const BigReal &x, const BigReal &y) const {
     calc_detail::require(!(x == 0 && y < 0));
 
     if (x < 0) {
+        // 1/y sits under its integer in the guard digits, where Boost's pow reads it.
+        if (const BigReal m = BigReal(1) / y; calc_detail::whole(m))
+            return this->pow(x, calc_detail::snap_integer(m));
         calc_detail::require(calc_detail::odd_integer(y));
         return -this->pow(-x, BigReal(1) / y);
     }

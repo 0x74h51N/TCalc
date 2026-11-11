@@ -315,11 +315,17 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, arm_of(odd[0]), Arm::Int64);
     });
 
-    // A BigReal is never domain-checked: reading it as a double could underflow to 0
-    // and force a complex op that is not warranted.
-    TEST_CASE(ctx, "domain :: a BigReal argument is never domain-checked", {
+    // A BigReal is read as itself, not as a double, where 1e-400 would underflow to 0 and
+    // leave ln's domain.
+    TEST_CASE(ctx, "domain :: sqrt of a negative BigReal promotes to BigComplex", {
         std::vector<Value> args{Value{BigReal("-1")}};
         promote_complex(OpId::Sqrt, args);
+        EXPECT_EQ(ctx, arm_of(args[0]), Arm::BigCx);
+    });
+
+    TEST_CASE(ctx, "domain :: ln of a tiny positive BigReal stays real", {
+        std::vector<Value> args{Value{BigReal("1e-400")}};
+        promote_complex(OpId::Ln, args);
         EXPECT_EQ(ctx, arm_of(args[0]), Arm::Big);
     });
 

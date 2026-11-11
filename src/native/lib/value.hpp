@@ -99,13 +99,14 @@ inline double to_double(const BigReal &b) {
 }
 
 /// Widen to BigReal. int64 converts exactly through boost's integral ctor; routing it
-/// through double would corrupt anything past 2^53. A Rational loses exactness here,
-/// since BigReal is not a fraction type. The complex arms have no BigReal form.
+/// through double would corrupt anything past 2^53. A Rational is divided in BigReal for
+/// the same reason: through double a degree of 1/3 kept 16 digits. The complex arms have no
+/// BigReal form.
 inline BigReal to_big(const BigReal &b) {
     return b;
 }
 inline BigReal to_big(const Rational &r) {
-    return BigReal(r.to_double());
+    return BigReal(r.numerator()) / BigReal(r.denominator());
 }
 inline BigReal to_big(std::int64_t i) {
     return BigReal(i);

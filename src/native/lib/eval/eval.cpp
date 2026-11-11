@@ -184,17 +184,24 @@ Value promote_range(
 bool promote_complex(OpId id, std::vector<Value> &args) {
     if (args.empty())
         return false;
-    const Arm a0 = arm_of(args[0]);
-    if (a0 != Arm::Int64 && a0 != Arm::Double)
-        return false;
-    for (const auto &a : args)
-        if (arm_of(a) == Arm::Big)
-            return false;
 
     // The rule lives in the op's own row, beside its kernel and its arms. Most ops have
     // no domain boundary, and for them this is a null read.
     const ops::DomainRule rule = ops::domain_of(id);
-    if (rule == nullptr)
+    if (rule.on_double == nullptr)
+        return false;
+
+    const Arm a0 = arm_of(args[0]);
+    // coerce lifts every operand once one is a BigReal, so a BigReal radicand has a BigReal
+    // degree, read as itself: as a double 1e-400 would be 0 and 1e400 inf.
+    if (a0 == Arm::Big) {
+        const BigReal y = args.size() > 1 ? std::get<BigReal>(args[1]) : BigReal(0);
+        if (!rule.on_big(std::get<BigReal>(args[0]), y))
+            return false;
+        args[0] = lift_to_big_complex(args[0]);
+        return true;
+    }
+    if (a0 != Arm::Int64 && a0 != Arm::Double)
         return false;
 
     const double x = as_double(args[0]);
@@ -209,7 +216,7 @@ bool promote_complex(OpId id, std::vector<Value> &args) {
         y = as_double(args[1]);
     }
 
-    if (!rule(x, y))
+    if (!rule.on_double(x, y))
         return false;
     args[0] = Value{Complex(x, 0.0)};
     return true;
