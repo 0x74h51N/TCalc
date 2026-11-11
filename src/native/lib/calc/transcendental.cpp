@@ -22,9 +22,11 @@ constexpr int kBaseTen = 10;
 // The one degree with a dedicated library function, sqrt.
 constexpr double kSquareDegree = 2.0;
 
-std::optional<int> as_int(double v) {
+/// Read on the part's own type: a BigComplex part cast to double turns 1e-400 into 0.
+template <class T> std::optional<int> as_int(const T &v) {
+    using std::floor;
     using Lim = std::numeric_limits<int>;
-    if (std::floor(v) != v || v < Lim::min() || v > Lim::max())
+    if (floor(v) != v || v < Lim::min() || v > Lim::max())
         return std::nullopt;
     return static_cast<int>(v);
 }
@@ -212,12 +214,12 @@ BigComplex Calculator::root(const BigComplex &x, const BigComplex &y) const {
     if (y.imag() == 0) {
         if (y.real() == kSquareDegree)
             return this->sqrt(x);
-        if (const auto m = as_int(static_cast<double>(BigComplex::value_type(1) / y.real())))
+        if (const auto m = as_int(BigComplex::value_type(1) / y.real()))
             if (const BigComplex r = boost::multiprecision::pow(x, *m);
                 boost::multiprecision::isfinite(r.real()) &&
                 boost::multiprecision::isfinite(r.imag()))
                 return r;
-        if (const auto n = as_int(static_cast<double>(y.real())); n && x != 0) {
+        if (const auto n = as_int(y.real()); n && x != 0) {
             // Newton stops on an absolute tolerance below 1, so (-1e300) root -2 kept a real part.
             if (*n < 0)
                 return BigComplex(1) / this->root(x, -y);

@@ -15,12 +15,14 @@ using RealFn = double (Calculator::*)(double) const;
 using RealBinFn = double (Calculator::*)(double, double) const;
 using BigFn = BigReal (Calculator::*)(const BigReal &) const;
 using RatBinFn = Rational (Calculator::*)(const Rational &, const Rational &) const;
+using BigComplexBinFn = BigComplex (Calculator::*)(const BigComplex &, const BigComplex &) const;
 
 /// Overloaded names need the target signature spelled out to take an address.
 #define REAL_FN(name) static_cast<RealFn>(&Calculator::name)
 #define REAL_BIN_FN(name) static_cast<RealBinFn>(&Calculator::name)
 #define BIG_FN(name) static_cast<BigFn>(&Calculator::name)
 #define RAT_BIN_FN(name) static_cast<RatBinFn>(&Calculator::name)
+#define BIG_COMPLEX_BIN_FN(name) static_cast<BigComplexBinFn>(&Calculator::name)
 
 struct RealCase {
     const char *id;
@@ -74,12 +76,14 @@ struct ComplexRootCase {
     Calculator::Complex expected;
 };
 
-/// The same for BigComplex.
+/// The same for BigComplex; a result with an irrational part carries `tol` on each part.
 struct BigComplexRootCase {
     const char *id;
+    BigComplexBinFn fn = BIG_COMPLEX_BIN_FN(root);
     BigComplex x;
     BigComplex y;
     BigComplex expected;
+    const char *tol = nullptr;
 };
 
 } // namespace
@@ -619,34 +623,50 @@ void unit_transcendental(TestContext &ctx) {
     // pow leaves its rounding in both parts here too: (-4) root 2 has 4.3e-51 as its real part.
     const BC::value_type kBigInf = std::numeric_limits<BC::value_type>::infinity();
     const std::vector<BigComplexRootCase> big_complex_root_cases = {
-        {.id = "negative, degree 2", .x = BC(-4, 0), .y = BC(2), .expected = BC(0, 2)},
-        {.id = "minus one, degree 2", .x = BC(-1, 0), .y = BC(2), .expected = BC(0, 1)},
-        {.id = "huge negative, degree 2",
+        {.id = "root :: negative, degree 2", .x = BC(-4, 0), .y = BC(2), .expected = BC(0, 2)},
+        {.id = "root :: minus one, degree 2", .x = BC(-1, 0), .y = BC(2), .expected = BC(0, 1)},
+        {.id = "root :: huge negative, degree 2",
          .x = BC("-4e400", "0"),
          .y = BC(2),
          .expected = BC("0", "2e200")},
-        {.id = "gaussian square", .x = BC(-7, 24), .y = BC(2), .expected = BC(3, 4)},
-        {.id = "positive real, degree 3", .x = BC(8, 0), .y = BC(3), .expected = BC(2, 0)},
-        {.id = "gaussian cube", .x = BC(-117, 44), .y = BC(3), .expected = BC(3, 4)},
-        {.id = "gaussian fourth power", .x = BC(-527, -336), .y = BC(4), .expected = BC(4, -3)},
-        {.id = "gaussian fifth power", .x = BC(404, 1121), .y = BC(5), .expected = BC(4, 1)},
-        {.id = "negative degree", .x = BC(-4, 0), .y = BC(-2), .expected = BC("0", "-0.5")},
-        {.id = "fractional degree", .x = BC(-4, 0), .y = BC("0.5"), .expected = BC(16, 0)},
-        {.id = "zero radicand, degree 3", .x = BC(0, 0), .y = BC(3), .expected = BC(0, 0)},
-        {.id = "overflowing power",
+        {.id = "root :: gaussian square", .x = BC(-7, 24), .y = BC(2), .expected = BC(3, 4)},
+        {.id = "root :: positive real, degree 3", .x = BC(8, 0), .y = BC(3), .expected = BC(2, 0)},
+        {.id = "root :: gaussian cube", .x = BC(-117, 44), .y = BC(3), .expected = BC(3, 4)},
+        {.id = "root :: gaussian fourth power",
+         .x = BC(-527, -336),
+         .y = BC(4),
+         .expected = BC(4, -3)},
+        {.id = "root :: gaussian fifth power",
+         .x = BC(404, 1121),
+         .y = BC(5),
+         .expected = BC(4, 1)},
+        {.id = "root :: negative degree", .x = BC(-4, 0), .y = BC(-2), .expected = BC("0", "-0.5")},
+        {.id = "root :: fractional degree", .x = BC(-4, 0), .y = BC("0.5"), .expected = BC(16, 0)},
+        {.id = "root :: zero radicand, degree 3", .x = BC(0, 0), .y = BC(3), .expected = BC(0, 0)},
+        {.id = "root :: overflowing power",
          .x = BC("-4e400", "0"),
          .y = BC(1) / BC("2147483648"),
          .expected = BC(kBigInf, -kBigInf)},
-        {.id = "underflowing power",
+        {.id = "root :: underflowing power",
          .x = BC("-4e400", "0"),
          .y = BC(-1) / BC("2147483648"),
          .expected = BC(0, 0)},
+        {.id = "root :: degree past the double range",
+         .x = BC(-8, 0),
+         .y = BC("1e400"),
+         .expected = BC("1", "3.1415926535897932384626433832795028841971693993751e-400"),
+         .tol = "1e-449"},
     };
     for (const auto &tc : big_complex_root_cases) {
-        test_detail::with_case(ctx, std::string("bigcomplex :: root :: ") + tc.id, [&] {
-            const BC got = c.root(tc.x, tc.y);
-            EXPECT_EQ(ctx, got.real(), tc.expected.real());
-            EXPECT_EQ(ctx, got.imag(), tc.expected.imag());
+        test_detail::with_case(ctx, std::string("bigcomplex :: ") + tc.id, [&] {
+            const BC got = (c.*tc.fn)(tc.x, tc.y);
+            if (tc.tol == nullptr) {
+                EXPECT_EQ(ctx, got.real(), tc.expected.real());
+                EXPECT_EQ(ctx, got.imag(), tc.expected.imag());
+            } else {
+                EXPECT_TRUE(ctx, approx_big(got.real(), tc.expected.real(), BF(tc.tol)));
+                EXPECT_TRUE(ctx, approx_big(got.imag(), tc.expected.imag(), BF(tc.tol)));
+            }
         });
     }
 

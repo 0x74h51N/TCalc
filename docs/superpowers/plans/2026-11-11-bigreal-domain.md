@@ -51,12 +51,12 @@ A pure move: no behavior changes, so no new test; the existing suite staying gre
 - Test: `src/native/tests/unit/test_transcendental.cpp` (`BigComplexRootCase`, `big_complex_root_cases`, its loop)
 
 **Interfaces:**
-- Produces: `std::optional<int> as_int(const BigReal &v)` in the unnamed namespace of `transcendental.cpp`: `snap_integer(v)`, then nullopt unless it equals its `floor` and fits `int`.
+- Produces: `template <class T> std::optional<int> as_int(const T &v)` in the unnamed namespace of `transcendental.cpp`, replacing the double-only one: nullopt unless `v` equals its `floor` and fits `int`. Ruling during execution: a BigComplex part is `cpp_bin_float_50`, not BigReal (`cpp_dec_float_50`), so `snap_integer` does not apply; the part is read exactly in its own type, as the double was.
 
 - [ ] **Step 1: Give the BigComplex table `fn` and `tol`**, as `BigCase` has them: `fn` defaults to `Calculator::root` cast to the BigComplex overload, `tol` defaults to `nullptr` (exact); the loop calls `(c.*tc.fn)(tc.x, tc.y)` and compares each part with `approx_big` when `tol` is set. Existing rows keep their values; their ids get the prefix `root :: ` and the loop label becomes `bigcomplex :: `.
 - [ ] **Step 2: The failing row.** `{.id = "root :: degree past the double range", .x = BC(-8, 0), .y = BC("1e400"), .expected = BC("1", "3.1415926535897932384626433832795028841971693993751e-400"), .tol = "1e-449"}`.
 - [ ] **Step 3: Run it.** `make native-build && make native-test`. Expected: FAIL on that row only (imaginary part `0`).
-- [ ] **Step 4: Fix.** `transcendental.cpp:226` reads `as_int(BigComplex::value_type(1) / y.real())` with the BigReal overload, and line 231 reads `as_int(y.real())` the same way; no `static_cast<double>` is left in `Calculator::root(BigComplex)`.
+- [ ] **Step 4: Fix.** `transcendental.cpp:226` reads `as_int(BigComplex::value_type(1) / y.real())` in the part's own type, and line 231 reads `as_int(y.real())` the same way; no `static_cast<double>` is left in `Calculator::root(BigComplex)`.
 - [ ] **Step 5: Verify.** `make native-build && make native-test`. Expected: all pass.
 - [ ] **Step 6: Commit** after approval: `fix/calc: keep a bigcomplex root degree past the double range`.
 
@@ -68,7 +68,7 @@ A pure move: no behavior changes, so no new test; the existing suite staying gre
 - Test: `src/native/tests/unit/test_transcendental.cpp` (`ComplexRootCase` and `BigComplexRootCase` tables)
 
 **Interfaces:**
-- Consumes: `as_int(const BigReal &)` from Task 2.
+- Consumes: the templated `as_int` from Task 2.
 - Produces: per arm, the integer power root runs today, as one function each: `std::optional<Complex> integer_power(Complex x, int m)` (positive `m`: `std::pow(x, m)` when both parts are finite; negative `m` and `x != 0`: the BigComplex run, cast back) and `std::optional<BigComplex> integer_power(const BigComplex &x, int m)` (Boost `pow(x, m)` when finite). They are `calc_detail` inline functions in `calc/internal/helpers.hpp`, which `arithmetic.cpp` and `transcendental.cpp` both include; the root kernels call them in place of their current lines, keeping today's fall-through order (a non-finite positive power falls to the steps after it).
 
 - [ ] **Step 1: Give the Complex table `fn`**, as in Task 2 step 1 (defaults to `Calculator::root`, ids get `root :: `, label `complex :: `).
