@@ -136,9 +136,8 @@ BigReal Calculator::root(const BigReal &x, const BigReal &y) const {
     calc_detail::require(!(x == 0 && y < 0));
 
     if (x < 0) {
-        // 1/y sits under its integer in the guard digits, where Boost's pow reads it.
         if (const BigReal m = BigReal(1) / y; calc_detail::whole(m))
-            return this->pow(x, calc_detail::snap_integer(m));
+            return this->pow(x, m);
         calc_detail::require(calc_detail::odd_integer(y));
         return -this->pow(-x, BigReal(1) / y);
     }

@@ -451,6 +451,8 @@ def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> N
         # Not only after a division: a multiplication chain leaves the same residue.
         param("trunc((1e400/3)*3/1e400)", "1", id="trunc-exact-product"),
         param("floor((1e400/7)*7/1e400)", "1", id="floor-exact-product"),
+        param("(-8)^{9e400/3e400}", "-512", id="pow-negative-base-exact-quotient-exponent"),
+        param("(-8)^{(1e400/3)*3/1e400}", "-8", id="pow-negative-base-exact-product-exponent"),
     ],
 )
 def test_bigreal_exact_results(expr: str, expected: str) -> None:

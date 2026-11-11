@@ -90,7 +90,8 @@ BigReal Calculator::intdiv(const BigReal &a, const BigReal &b) const {
 BigReal Calculator::pow(const BigReal &a, const BigReal &b) const {
     calc_detail::require(b >= 0 || a != 0);
     using boost::multiprecision::pow;
-    return pow(a, b);
+    // An exact quotient sits under its integer in the guard digits, where Boost reads it.
+    return pow(a, calc_detail::snap_integer(b));
 }
 
 BigReal Calculator::mod(const BigReal &a, const BigReal &b) const {
