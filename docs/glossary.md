@@ -80,6 +80,8 @@ $\color{#3b82f6}\textbf{Complex}$: A complex number on two doubles.
 
 $\color{#3b82f6}\textbf{ConstToken}$: A named constant such as π, e or a physical constant, known by its ConstId.
 
+$\color{#3b82f6}\textbf{Correctly rounded}$: The exact value rounded to the nearest number of the type. The complex root test rows expect it: the exact root computed at 400 bits, rounded to double or to the BigComplex.
+
 $\color{#3b82f6}\textbf{Cx}$: The arm of a Value that holds a Complex.
 
 $\color{#3b82f6}\textbf{Deadline}$: The wall-clock budget of one evaluation, 500 ms in the app. It starts at the outermost evaluate, and long loops check it and stop with an error, so a heavy expression cannot freeze the app.
@@ -133,6 +135,8 @@ $\color{#3b82f6}\textbf{Fold}$: Another word for a reduction: walking the items 
 $\color{#3b82f6}\textbf{Frac}$: The LatexKind of a fraction: the numerator left, the denominator right. It evaluates through OpId::Div.
 
 $\color{#3b82f6}\textbf{Gamma function}$: Extension of the factorial to non-integers: Γ(n + 1) = n!. Leonhard Euler (1729). Computes factorials of non-integers and the gamma op.
+
+$\color{#3b82f6}\textbf{Gaussian integer}$: A complex number whose real and imaginary parts are both integers, such as 3 + 4i. The root of one is often one too: (-117 + 44i) at degree 3 is 3 + 4i.
 
 $\color{#3b82f6}\textbf{Geometric sum}$: Sum with a constant ratio r between terms, closed by the formula below. Closed for affine exponents and like terms. A ratio of 1 never reaches the formula: the term folds to a constant, and the sum is m + 1 times it.
 
@@ -224,6 +228,8 @@ $\color{#3b82f6}\textbf{Min}$: A reduction: the smallest item of a Collection. N
 
 $\color{#3b82f6}\textbf{Neumaier summation}$: Compensated summation, Arnold Neumaier (1974); also Kahan-Babuška-Neumaier. Correct whichever operand is larger. TCalc's summation (neumaier_sum in statistic.cpp).
 
+$\color{#3b82f6}\textbf{Newton}$: Newton's method, also Newton-Raphson: finds a root of f by repeating z = z - f(z) / f'(z) from a starting guess. The complex root runs it on z^n - x from the pow guess, in a BigComplex, through Boost's complex_newton.
+
 $\color{#3b82f6}\textbf{Niven's theorem}$: At rational multiples of π, the only rational values of sine and cosine are 0, ±1/2 and ±1. Ivan Niven (1956). Basis of the exact trig table: sine and cosine exact at twelfths of a turn, tangent at quarters.
 
 $\color{#3b82f6}\textbf{NodeInfo}$: One Math Widget in a TreeInfo, printed as Node<class name> with its slots under it.
@@ -241,6 +247,8 @@ $\color{#3b82f6}\textbf{Operand split}$: Filling an empty side of a LaTeX expres
 $\color{#3b82f6}\textbf{Ops table}$: The one table of operations (OpSpec rows) that the tokenizer, the evaluator and the Python side all read. An op is known by its OpId.
 
 $\color{#3b82f6}\textbf{OpToken}$: An operator or a function name, known by its OpId.
+
+$\color{#3b82f6}\textbf{Overflow}$: A double result that went past the type's range to infinity. Apply then re-runs the op in BigReal (promote_range in eval.cpp), so 10^{400} stays a number. A complex result is not widened this way.
 
 $\color{#3b82f6}\textbf{Painter}$: MathPainter (painter/math_painter.py) draws an expression without widgets, for the history. It builds a layout tree from the math nodes (rows, text leaves and paint nodes), measures and places it once, and paints it on one PaintCanvas. A long history stays fast because no Qt widget is made per node.
 
@@ -395,6 +403,10 @@ $\color{#3b82f6}\textbf{TreeInfo}$: A snapshot of the editor's whole tree (snaps
 $\color{#3b82f6}\textbf{Trig}$: The kernel file of the trigonometric functions (trig.cpp): sin, cos, tan, their inverses and hyperbolic forms, in degrees, radians or grads, with the exact half-turn table.
 
 $\color{#3b82f6}\textbf{Two-pass variance}$: Variance computed as the mean first, then the sum of squared deviations from it. Avoids the cancellation of the one-pass formula. Neumaier summation on the Double arm.
+
+$\color{#3b82f6}\textbf{Ulp}$: Unit in the last place: the gap between a double and the next one. A result one ulp off is wrong only in its last digit.
+
+$\color{#3b82f6}\textbf{Underflow}$: A double result that fell to zero from nonzero operands, or into the subnormal band below 1e-308, where it sheds digits. Apply re-runs the op in BigReal for it, as for an overflow, and keeps the double when BigReal confirms the zero.
 
 $\color{#3b82f6}\textbf{Value}$: What an expression evaluates to, one variant over every runtime type (value.hpp).
 
