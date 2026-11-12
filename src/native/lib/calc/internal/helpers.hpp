@@ -76,6 +76,9 @@ inline BigReal snap_integer(const BigReal &v) {
     return v;
 }
 
+/// The modulus that splits the integers into even and odd.
+inline constexpr int kParityModulus = 2;
+
 /// Whether y is an integer, read exactly, as std::pow reads its exponent.
 inline bool whole(double y) {
     return std::floor(y) == y;
@@ -88,15 +91,22 @@ inline bool whole(const BigReal &y) {
     return floor(n) == n;
 }
 
+inline bool whole(const Rational &y) {
+    return y.denominator() == 1;
+}
+
 /// Whether a degree is an odd integer, the one degree a negative radicand has a real root at.
 inline bool odd_integer(double y) {
-    constexpr double kTwo = 2.0;
-    return int_like(y) && std::fmod(std::round(y), kTwo) != 0.0;
+    return int_like(y) && std::fmod(std::round(y), kParityModulus) != 0.0;
 }
 
 inline bool odd_integer(const BigReal &y) {
     using boost::multiprecision::fmod;
-    return whole(y) && fmod(snap_integer(y), BigReal(2)) != 0;
+    return whole(y) && fmod(snap_integer(y), BigReal(kParityModulus)) != 0;
+}
+
+inline bool odd_integer(std::int64_t n) {
+    return n % kParityModulus != 0;
 }
 
 /// v as an int when it is one, read on its own type: a BigComplex part cast to double turns

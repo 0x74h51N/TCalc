@@ -214,8 +214,8 @@ def _eval(expr: str) -> object:
         param("(-4e400)⌄0.5", "BigReal", "1.6e+801", id="root-half-degree-huge-negative"),
         param(
             "(-1e400)⌄2.5",
-            "BigComplex",
-            "3.090169943749474e+159+9.510565162951536e+159i",
+            "BigReal",
+            "1e+160",
             id="root-fractional-degree-huge-negative",
         ),
         param(

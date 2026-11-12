@@ -910,6 +910,9 @@ enum class Trait : std::uint8_t {
     /// An exact exponent p/q is the q-th root of the p-th power, read before the exponent
     /// is lifted out of its fraction.
     RootExponent,
+    /// A fractional degree a/b is the power b/a, read before the degree is lifted out of its
+    /// fraction.
+    InverseDegree,
     Count,
 };
 using TraitMask = std::uint8_t;
@@ -1024,7 +1027,7 @@ inline constexpr std::array kOpRows = {
         [](double x, double y) { return detail::power_needs_big(x, y); }),
     with_range(
         with_domain(
-            binary(OpId::Root, TCALC_CALL(root)),
+            with_trait(binary(OpId::Root, TCALC_CALL(root)), Trait::InverseDegree),
             [](auto x, auto y) {
                 // a negative radicand is real at an odd integer degree, and at a degree whose
                 // reciprocal is an integer, which is that power: (-8) root 1/3 is -512

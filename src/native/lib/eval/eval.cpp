@@ -353,12 +353,22 @@ Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::A
     // TODO(#230): real first. A negative base under p/q with an odd q has the real value
     // root(x^p, q), the exact arm's own definition, and it is taken here because lifting
     // the exponent loses q. An even q has no real value and is promoted to its principal
-    // complex power below; a complex number set skips this and promotes every q.
-    if (ops::has_trait(id, ops::Trait::RootExponent) && args.size() == 2 && negative_real(args[0]))
+    // complex power below; a complex number set skips this and promotes every q. A root's
+    // fractional degree loses its numerator the same way, so it becomes that power first.
+    if (args.size() > 1 && negative_real(args[0]))
         if (const auto *e = std::get_if<Rational>(&args[1]);
-            e != nullptr && e->denominator() % 2 != 0 && e->denominator() != 1) {
-            const Value power = apply(c, id, {args[0], Value{e->numerator()}}, unit);
-            return apply(c, OpId::Root, {power, Value{e->denominator()}}, unit);
+            e != nullptr && !calc_detail::whole(*e)) {
+            if (ops::has_trait(id, ops::Trait::InverseDegree))
+                return apply(
+                    c,
+                    OpId::Pow,
+                    {args[0], Value{Rational(e->denominator(), e->numerator())}},
+                    unit);
+            if (ops::has_trait(id, ops::Trait::RootExponent) &&
+                calc_detail::odd_integer(e->denominator())) {
+                const Value power = apply(c, id, {args[0], Value{e->numerator()}}, unit);
+                return apply(c, OpId::Root, {power, Value{e->denominator()}}, unit);
+            }
         }
 
     // A power whose result cannot fit a double is widened before it runs, not after: the
