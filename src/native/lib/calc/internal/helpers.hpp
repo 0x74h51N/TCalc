@@ -99,12 +99,6 @@ inline bool odd_integer(const BigReal &y) {
     return whole(y) && fmod(snap_integer(y), BigReal(2)) != 0;
 }
 
-/// Whether x root degree has no real value: a negative radicand is real at an odd integer
-/// degree, and at a degree whose reciprocal is an integer, which is that power.
-template <class R> bool leaves_real_root(const R &x, const R &degree) {
-    return x < 0 && !odd_integer(degree) && !whole(R(1) / degree);
-}
-
 /// v as an int when it is one, read on its own type: a BigComplex part cast to double turns
 /// 1e-400 into 0.
 template <class T> std::optional<int> as_int(const T &v) {

@@ -644,6 +644,60 @@ void unit_eval(TestContext &ctx) {
         });
     }
 
+    // TODO(#230): real first. A negative base has a real power when the exponent's denominator
+    // is odd, and its principal complex power otherwise. A complex number set gives the
+    // principal value everywhere. Expected values are mpmath at 60 digits.
+    struct NegativeBaseCase {
+        const char *id;
+        const char *input;
+        Value expected;
+        double tol;
+    };
+    const std::vector<NegativeBaseCase> negative_base_cases = {
+        {.id = "an odd denominator is real",
+         .input = "(-2)^{\\frac{2}{3}}",
+         .expected = Value{1.5874010519681994},
+         .tol = 1e-15},
+        {.id = "a unit numerator over an odd denominator is real",
+         .input = "(-2)^{\\frac{1}{3}}",
+         .expected = Value{-1.2599210498948732},
+         .tol = 1e-15},
+        {.id = "an even denominator is complex",
+         .input = "(-4)^{\\frac{1}{2}}",
+         .expected = Value{Complex(0.0, 2.0)},
+         .tol = 1e-15},
+        {.id = "a decimal just above an integer is complex",
+         .input = "(-2)^{1.0000000000001}",
+         .expected = Value{Complex(-2.0000000000001386, -6.283185307180022e-13)},
+         .tol = 1e-15},
+        {.id = "a decimal just below an integer is complex",
+         .input = "(-2)^{0.999999999999}",
+         .expected = Value{Complex(-1.9999999999986137, 6.2831853071752313e-12)},
+         .tol = 1e-15},
+        {.id = "a decimal near a third is complex",
+         .input = "(-2)^{0.3333333333333}",
+         .expected = Value{Complex(0.62996052494753629, 1.0911236359716302)},
+         .tol = 1e-15},
+    };
+
+    for (const auto &tc : negative_base_cases) {
+        test_detail::with_case(ctx, std::string("eval negative base :: ") + tc.id, [&] {
+            const Calculator c;
+            const Value v = eval_text(c, tc.input);
+            EXPECT_EQ(ctx, v.index(), tc.expected.index());
+            if (const auto *e = std::get_if<double>(&tc.expected))
+                EXPECT_TRUE(
+                    ctx,
+                    std::holds_alternative<double>(v) &&
+                        std::abs(std::get<double>(v) - *e) <= tc.tol);
+            if (const auto *e = std::get_if<Complex>(&tc.expected))
+                EXPECT_TRUE(
+                    ctx,
+                    std::holds_alternative<Complex>(v) &&
+                        std::abs(std::get<Complex>(v) - *e) <= tc.tol);
+        });
+    }
+
     // The env-reading cases need state, so they stand on their own.
     test_detail::with_case(ctx, "eval :: a variable resolves from the store", [&] {
         const Calculator c;

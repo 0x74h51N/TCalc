@@ -907,6 +907,9 @@ using RangeRule = bool (*)(double x, double y);
 enum class Trait : std::uint8_t {
     /// A zero result is the answer, never an underflow that collapsed into one.
     ExactZero,
+    /// An exact exponent p/q is the q-th root of the p-th power, read before the exponent
+    /// is lifted out of its fraction.
+    RootExponent,
     Count,
 };
 using TraitMask = std::uint8_t;
@@ -1014,17 +1017,19 @@ inline constexpr std::array kOpRows = {
     binary(OpId::Div, TCALC_CALL(div)),
     with_range(
         with_domain(
-            binary(OpId::Pow, TCALC_CALL(pow)),
-            [](auto x, auto y) {
-                // a fractional exponent is the root of its reciprocal degree
-                return !calc_detail::whole(y) &&
-                       calc_detail::leaves_real_root(x, decltype(y)(1 / y));
-            }),
+            with_trait(binary(OpId::Pow, TCALC_CALL(pow)), Trait::RootExponent),
+            // an exact exponent with an odd denominator never reaches here; an inexact one
+            // has no denominator to read, so a negative base takes the principal power
+            [](auto x, auto y) { return x < 0.0 && !calc_detail::whole(y); }),
         [](double x, double y) { return detail::power_needs_big(x, y); }),
     with_range(
         with_domain(
             binary(OpId::Root, TCALC_CALL(root)),
-            [](auto x, auto y) { return calc_detail::leaves_real_root(x, y); }),
+            [](auto x, auto y) {
+                // a negative radicand is real at an odd integer degree, and at a degree whose
+                // reciprocal is an integer, which is that power: (-8) root 1/3 is -512
+                return x < 0.0 && !calc_detail::odd_integer(y) && !calc_detail::whole(1.0 / y);
+            }),
         // the degree is an inverse exponent: root(x, y) is x^(1/y)
         [](double x, double y) { return y != 0.0 && detail::power_needs_big(x, 1.0 / y); }),
     with_trait(binary(OpId::Mod, TCALC_CALL(mod)), Trait::ExactZero),

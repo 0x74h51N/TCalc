@@ -33,14 +33,10 @@ Asin, Acos, Acosh and Atanh have rules but no BigReal arm, so a BigReal never re
 
 ### 2. A power with a root's exponent is that root
 
-The exact arm already defines a fractional power: `try_rational_pow` (`calc/internal/helpers.hpp`) computes $x^{p/q}$ as the $q$-th root of $x^p$, so `(-8)^{1/3}` is the real `-2`, as `(-8)⌄3` is. The real arms follow the same definition where they return nan today:
+The rule is real first: a negative base has a real power when the exponent, as typed, is a fraction $p/q$ with an odd $q$, and its principal complex power otherwise. A complex number set, which gives the principal value everywhere, is #230.
 
-- `Calculator::pow(double, double)` and `Calculator::pow(BigReal, BigReal)`: a negative base whose exponent `b` is not an integer and whose `1 / b` is an odd integer `n` is `Calculator::root(x, n)`, the existing real odd root. `(-2)^{1/3}` is `-1.2599210498948732`, the value `(-2)⌄3` gives. Only a negative base with a non-integer exponent reaches this, and every such input is nan today, so no working input changes. Root calls `pow` with a positive base only (`-this->pow(-x, 1 / y)`), so the two cannot call each other in a loop.
-- Pow's domain rule: a negative base, an exponent that is not an integer, and a `1 / b` that is not an odd integer. It is Root's rule read on the degree `1 / b`, so the two rules are one function. Each integer test reads the way the kernel behind it reads: "`b` is an integer" is exact in double (`std::pow` returns nan for any non-integer) and `snap_integer` in BigReal, "`1 / b` is an odd integer" is the epsilon or `snap_integer` reading Root uses. The BigReal reading matches the kernel only after step 5. `(-4)^{0.5}` promotes and is `2i`.
-
-A Rational exponent keeps its exact first try, because `promote_complex` does not read a Rational; only when the exact try raises does the retry downcast and meet the rule.
-
-Not covered: a numerator other than 1. `(-8)^{2/3}` is the real `4` from the exact arm, but `(-2)^{2/3}` has no rational root, and after the downcast the exponent is the double `0.666…`, whose `1 / b` is `1.5`. The rule promotes it to the principal complex root `-0.7937005259840998+1.3747296369986026i`; today it is nan. Keeping it real needs the exponent's numerator and denominator to survive the retry, which this branch does not change.
+- The exact arm already defines a fractional power: `try_rational_pow` (`calc/internal/helpers.hpp`) computes $x^{p/q}$ as the $q$-th root of $x^p$, so `(-8)^{1/3}` is `-2` and `(-8)^{2/3}` is `4`. Only the exact exponent knows $q$: the retry's downcast and coerce's lift to double or BigReal both lose it. So `apply` reads it first: the Pow row carries `Trait::RootExponent`, and a negative real base under a Rational exponent with an odd $q > 1$ is `Root(Pow(x, p), q)`, in every arm. `(-2)^{2/3}` is `1.5874010519681994`, `(-2)^{1/3}` is `-1.2599210498948732`, `(-10^{400})^{1/3}` is `-2.154434690031884e+133`.
+- An even $q$ has no real value. Pow's domain rule is a negative base and an exponent that is not whole, so the operand promotes and the complex power of step 3 gives the principal value: `(-4)^{0.5}` is `2i`, `(-2)^{0.3333333333333}` (a denominator of $10^{13}$) is `0.63+1.09i`, `(-2)^{1.0000000000001}` is `-2.0000000000001386-6.28e-13i`. A double exponent has no denominator to read and takes the principal value too.
 
 ### 3. A complex power with a real exponent takes the root's exact steps
 

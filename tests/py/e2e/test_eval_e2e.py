@@ -255,16 +255,11 @@ def _eval(expr: str) -> object:
         param("(-2)^{1/3}", "float", -1.2599210498948732, id="pow-negative-base-third"),
         param(
             "(-2)^{0.3333333333333333}",
-            "float",
-            -1.2599210498948732,
+            "complex",
+            (0.6299605249474367, 1.0911236359717213),
             id="pow-negative-base-decimal-third",
         ),
-        param(
-            "(-2)^{2/3}",
-            "complex",
-            (-0.7937005259840998, 1.3747296369986026),
-            id="pow-negative-base-two-thirds",
-        ),
+        param("(-2)^{2/3}", "float", 1.5874010519681995, id="pow-negative-base-two-thirds"),
         param("(-10^{400})^{0.5}", "BigComplex", "0+1e+200i", id="pow-huge-negative-base-half"),
         param("(-4+0i)^{0.5}", "complex", (0.0, 2.0), id="pow-complex-negative-base-half"),
         # ----------------------------
