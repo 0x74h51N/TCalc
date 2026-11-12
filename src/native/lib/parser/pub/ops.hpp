@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <string_view>
 
+#include "calc/internal/helpers.hpp"
 #include "calc/pub/calculator.hpp"
 #include "calc/pub/error_messages.hpp"
 #include "parser/internal/helpers.hpp"
@@ -882,16 +883,18 @@ Value dispatch(OpId id, const Calculator &c, std::span<const Value> args, AngleU
 /// non-positive, …). `x` is the first operand; `y` is the second for the ops that need
 /// it (Root's degree) and 0 otherwise.
 namespace detail {
-/// Tolerance for reading a double degree as a whole number.
-inline constexpr double kDomainEpsilon = 1e-12;
-
 /// The decades a double can still carry. Past these a power is computed in BigReal.
 inline constexpr double kPowToBigUp = 308.0;
 inline constexpr double kPowToBigLow = -324.0;
 inline constexpr double kBaseTen = 10.0;
 } // namespace detail
 
-using DomainRule = bool (*)(double x, double y);
+/// The rule is written once and read in the operands' own type: a BigReal read as a double
+/// turns 1e-400 into 0 and 1e400 into inf.
+struct DomainRule {
+    bool (*on_double)(const double &x, const double &y) = nullptr;
+    bool (*on_big)(const BigReal &x, const BigReal &y) = nullptr;
+};
 
 /// True when the operands predict a result double cannot carry, so the op runs in BigReal
 /// instead. Unlike the range check above the kernel, which reads an already-rounded
@@ -904,6 +907,12 @@ using RangeRule = bool (*)(double x, double y);
 enum class Trait : std::uint8_t {
     /// A zero result is the answer, never an underflow that collapsed into one.
     ExactZero,
+    /// An exact exponent p/q is the q-th root of the p-th power, read before the exponent
+    /// is lifted out of its fraction.
+    RootExponent,
+    /// A fractional degree a/b is the power b/a, read before the degree is lifted out of its
+    /// fraction.
+    InverseDegree,
     Count,
 };
 using TraitMask = std::uint8_t;
@@ -922,8 +931,12 @@ struct OpRow {
     std::uint8_t second_default{}; // stands in for a missing second operand
 };
 
-/// Attach the domain rule to an op's own row, next to its kernel and its arms.
-constexpr OpRow with_domain(OpRow r, DomainRule d) {
+/// Attach the domain rule to an op's own row, next to its kernel and its arms. The rule is a
+/// capture-less generic lambda taking its operands by value, so it converts to both readings.
+template <class F> constexpr OpRow with_domain(OpRow r, F rule) {
+    const DomainRule d{
+        static_cast<bool (*)(const double &, const double &)>(rule),
+        static_cast<bool (*)(const BigReal &, const BigReal &)>(rule)};
     return OpRow{r.id, r.fn, r.arms, d, r.range, r.traits, r.second_default};
 }
 
@@ -991,7 +1004,7 @@ namespace detail {
 /// inside double's range yet cannot be held exactly by it.
 inline bool power_needs_big(double base, double exp) {
     const double base_mag = std::fabs(base);
-    const bool exp_is_int = std::abs(exp - std::round(exp)) <= kDomainEpsilon;
+    const bool exp_is_int = calc_detail::int_like(exp);
     if (base_mag == kBaseTen && exp_is_int && std::fabs(exp) >= kPowToBigUp)
         return true;
     const double log10_mag = exp * std::log10(base_mag);
@@ -1007,16 +1020,19 @@ inline constexpr std::array kOpRows = {
     binary(OpId::Mul, TCALC_CALL(mul)),
     binary(OpId::Div, TCALC_CALL(div)),
     with_range(
-        binary(OpId::Pow, TCALC_CALL(pow)),
+        with_domain(
+            with_trait(binary(OpId::Pow, TCALC_CALL(pow)), Trait::RootExponent),
+            // an exact exponent with an odd denominator never reaches here; an inexact one
+            // has no denominator to read, so a negative base takes the principal power
+            [](const auto &x, const auto &y) { return x < 0.0 && !calc_detail::whole(y); }),
         [](double x, double y) { return detail::power_needs_big(x, y); }),
     with_range(
         with_domain(
-            binary(OpId::Root, TCALC_CALL(root)),
-            [](double x, double y) {
-                // a negative radicand is real only for an odd integer degree
-                const bool y_is_int = std::abs(y - std::round(y)) <= detail::kDomainEpsilon;
-                const bool y_is_even = std::llround(y) % 2 == 0;
-                return x < 0.0 && (!y_is_int || y_is_even);
+            with_trait(binary(OpId::Root, TCALC_CALL(root)), Trait::InverseDegree),
+            [](const auto &x, const auto &y) {
+                // a negative radicand is real at an odd integer degree, and at a degree whose
+                // reciprocal is an integer, which is that power: (-8) root 1/3 is -512
+                return x < 0.0 && !calc_detail::odd_integer(y) && !calc_detail::whole(1.0 / y);
             }),
         // the degree is an inverse exponent: root(x, y) is x^(1/y)
         [](double x, double y) { return y != 0.0 && detail::power_needs_big(x, 1.0 / y); }),
@@ -1029,10 +1045,16 @@ inline constexpr std::array kOpRows = {
     unary_angle(OpId::Tan, TCALC_CALL(tan)),
     with_domain(
         unary_angle(OpId::Asin, TCALC_CALL(asin)),
-        [](double x, double) { return std::abs(x) > 1.0; }),
+        [](const auto &x, const auto &) {
+            using std::abs;
+            return abs(x) > 1.0;
+        }),
     with_domain(
         unary_angle(OpId::Acos, TCALC_CALL(acos)),
-        [](double x, double) { return std::abs(x) > 1.0; }),
+        [](const auto &x, const auto &) {
+            using std::abs;
+            return abs(x) > 1.0;
+        }),
     unary_angle(OpId::Atan, TCALC_CALL(atan)),
     unary_angle(OpId::Polar, TCALC_CALL(polar)),
 
@@ -1041,19 +1063,26 @@ inline constexpr std::array kOpRows = {
     unary(OpId::Cosh, TCALC_CALL(cosh)),
     unary(OpId::Tanh, TCALC_CALL(tanh)),
     unary(OpId::Asinh, TCALC_CALL(asinh)),
-    with_domain(unary(OpId::Acosh, TCALC_CALL(acosh)), [](double x, double) { return x < 1.0; }),
     with_domain(
-        unary(OpId::Atanh, TCALC_CALL(atanh)), [](double x, double) { return std::abs(x) >= 1.0; }),
-    with_domain(unary(OpId::Sqrt, TCALC_CALL(sqrt)), [](double x, double) { return x < 0.0; }),
+        unary(OpId::Acosh, TCALC_CALL(acosh)), [](const auto &x, const auto &) { return x < 1.0; }),
+    with_domain(
+        unary(OpId::Atanh, TCALC_CALL(atanh)),
+        [](const auto &x, const auto &) {
+            using std::abs;
+            return abs(x) >= 1.0;
+        }),
+    with_domain(
+        unary(OpId::Sqrt, TCALC_CALL(sqrt)), [](const auto &x, const auto &) { return x < 0.0; }),
     unary(OpId::Cbrt, TCALC_CALL(cbrt)),
     with_default(
         with_domain(
             binary(OpId::Log, TCALC_CALL(log)),
             // The value leaving the real domain promotes to complex. An invalid base is a
             // math error the kernel raises, not a promotion: log base 1 has no complex answer.
-            [](double x, double) { return x <= 0.0; }),
+            [](const auto &x, const auto &) { return x <= 0.0; }),
         10),
-    with_domain(unary(OpId::Ln, TCALC_CALL(ln)), [](double x, double) { return x <= 0.0; }),
+    with_domain(
+        unary(OpId::Ln, TCALC_CALL(ln)), [](const auto &x, const auto &) { return x <= 0.0; }),
     unary(OpId::Fact, TCALC_CALL(fact)),
     unary(OpId::Gamma, TCALC_CALL(gamma)),
     unary(OpId::Trunc, TCALC_CALL(trunc)),

@@ -56,6 +56,14 @@ double as_double(const Value &v) {
     return std::get<double>(v);
 }
 
+/// Whether v is a real operand below zero; a complex or a collection is neither.
+bool negative_real(const Value &v) {
+    if (const auto *b = std::get_if<BigReal>(&v))
+        return *b < 0;
+    const Arm a = arm_of(v);
+    return (a == Arm::Int64 || a == Arm::Rat || a == Arm::Double) && as_double(v) < 0.0;
+}
+
 // Each lift names its to_X overload set directly inside the `requires`. Forwarding
 // through a generic lambda instead would move the failing call out of the immediate
 // context, so the check turns into a hard error rather than yielding false.
@@ -184,23 +192,30 @@ Value promote_range(
 bool promote_complex(OpId id, std::vector<Value> &args) {
     if (args.empty())
         return false;
-    const Arm a0 = arm_of(args[0]);
-    if (a0 != Arm::Int64 && a0 != Arm::Double)
-        return false;
-    for (const auto &a : args)
-        if (arm_of(a) == Arm::Big)
-            return false;
 
     // The rule lives in the op's own row, beside its kernel and its arms. Most ops have
     // no domain boundary, and for them this is a null read.
     const ops::DomainRule rule = ops::domain_of(id);
-    if (rule == nullptr)
+    if (rule.on_double == nullptr)
+        return false;
+
+    const Arm a0 = arm_of(args[0]);
+    // coerce lifts every operand once one is a BigReal, so a BigReal radicand has a BigReal
+    // degree, read as itself: as a double 1e-400 would be 0 and 1e400 inf.
+    if (a0 == Arm::Big) {
+        const BigReal y = args.size() > 1 ? std::get<BigReal>(args[1]) : BigReal(0);
+        if (!rule.on_big(std::get<BigReal>(args[0]), y))
+            return false;
+        args[0] = lift_to_big_complex(args[0]);
+        return true;
+    }
+    if (a0 != Arm::Int64 && a0 != Arm::Double)
         return false;
 
     const double x = as_double(args[0]);
 
-    // Only Root reads a second operand, its degree. It must be a plain real for the rule
-    // to mean anything, and it is never promoted itself.
+    // Root and Pow read a second operand, the degree or the exponent. It must be a plain real for
+    // the rule to mean anything, and it is never promoted itself.
     double y = 0.0;
     if (args.size() > 1) {
         const Arm a1 = arm_of(args[1]);
@@ -209,7 +224,7 @@ bool promote_complex(OpId id, std::vector<Value> &args) {
         y = as_double(args[1]);
     }
 
-    if (!rule(x, y))
+    if (!rule.on_double(x, y))
         return false;
     args[0] = Value{Complex(x, 0.0)};
     return true;
@@ -334,6 +349,27 @@ Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::A
     // caller converges. Zero means none is named, and those ops always arrive with both.
     if (args.size() == 1 && ops::second_default_of(id) != 0)
         args.push_back(Value{static_cast<std::int64_t>(ops::second_default_of(id))});
+
+    // TODO(#230): real first. A negative base under p/q with an odd q has the real value
+    // root(x^p, q), the exact arm's own definition, and it is taken here because lifting
+    // the exponent loses q. An even q has no real value and is promoted to its principal
+    // complex power below; a complex number set skips this and promotes every q. A root's
+    // fractional degree loses its numerator the same way, so it becomes that power first.
+    if (args.size() > 1 && negative_real(args[0]))
+        if (const auto *e = std::get_if<Rational>(&args[1]);
+            e != nullptr && !calc_detail::whole(*e)) {
+            if (ops::has_trait(id, ops::Trait::InverseDegree))
+                return apply(
+                    c,
+                    OpId::Pow,
+                    {args[0], Value{Rational(e->denominator(), e->numerator())}},
+                    unit);
+            if (ops::has_trait(id, ops::Trait::RootExponent) &&
+                calc_detail::odd_integer(e->denominator())) {
+                const Value power = apply(c, id, {args[0], Value{e->numerator()}}, unit);
+                return apply(c, OpId::Root, {power, Value{e->denominator()}}, unit);
+            }
+        }
 
     // A power whose result cannot fit a double is widened before it runs, not after: the
     // rounding is not reversible once the kernel has returned.

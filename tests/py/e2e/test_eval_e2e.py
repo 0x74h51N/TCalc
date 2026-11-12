@@ -196,6 +196,73 @@ def _eval(expr: str) -> object:
             id="complex-plus-bigreal-promotes-bigcomplex",
         ),
         # ----------------------------
+        # a BigReal outside the real domain -> BigComplex
+        # ----------------------------
+        param("sqrt(-1e400)", "BigComplex", "0+1e+200i", id="sqrt-huge-negative-bigreal"),
+        param("√(-1e400)", "BigComplex", "0+1e+200i", id="sqrt-sign-huge-negative-bigreal"),
+        param("sqrt(-1e-400)", "BigComplex", "0+1e-200i", id="sqrt-tiny-negative-bigreal"),
+        param(
+            "sqrt(-2e308)",
+            "BigComplex",
+            "0+1.414213562373095e+154i",
+            id="sqrt-just-past-double-negative",
+        ),
+        param("(-1e400)⌄2", "BigComplex", "0+1e+200i", id="root-degree-two-huge-negative"),
+        param(r"\root{-10^{400}}{}", "BigComplex", "0+1e+200i", id="root-no-degree-huge-negative"),
+        param("(-4e400)⌄4", "BigComplex", "1e+100+1e+100i", id="root-degree-four-huge-negative"),
+        param("(-4e400)⌄(-2)", "BigComplex", "0-5e-201i", id="root-negative-degree-huge-negative"),
+        param("(-4e400)⌄0.5", "BigReal", "1.6e+801", id="root-half-degree-huge-negative"),
+        param(
+            "(-1e400)⌄2.5",
+            "BigReal",
+            "1e+160",
+            id="root-fractional-degree-huge-negative",
+        ),
+        param(
+            "ln(-1e400)",
+            "BigComplex",
+            "921.0340371976183+3.141592653589793i",
+            id="ln-huge-negative-bigreal",
+        ),
+        param(
+            "log(-1e400)", "BigComplex", "400+1.364376353841841i", id="log-huge-negative-bigreal"
+        ),
+        param(
+            "log_{2}(-10^{400})",
+            "BigComplex",
+            "1328.771237954945+4.532360141827194i",
+            id="log-base-two-huge-negative-bigreal",
+        ),
+        param("(-8e399)⌄3", "BigReal", "-2e+133", id="root-odd-degree-huge-negative-stays-real"),
+        param("(-1e400)⌄(1/3)", "BigReal", "-1e+1200", id="root-reciprocal-degree-huge-negative"),
+        param("(1e400)⌄(1/3)", "BigReal", "1e+1200", id="root-reciprocal-degree-huge-positive"),
+        param(
+            "(-π)⌄(1/3)", "float", -31.006276680299816, id="root-reciprocal-degree-negative-double"
+        ),
+        param("ln(10^{-400})", "BigReal", "-921.0340371976183", id="ln-tiny-positive-stays-real"),
+        param("sqrt(10^{-400})", "BigReal", "1e-200", id="sqrt-tiny-positive-stays-real"),
+        # ----------------------------
+        # a negative base under a root's exponent
+        # ----------------------------
+        param("(-4)^{0.5}", "complex", (0.0, 2.0), id="pow-negative-base-half"),
+        param("(-4)^{-0.5}", "complex", (0.0, -0.5), id="pow-negative-base-minus-half"),
+        param(
+            "(-8)^{0.25}",
+            "complex",
+            (1.189207115002721, 1.189207115002721),
+            id="pow-negative-base-quarter",
+        ),
+        param("(-2)^{1/3}", "float", -1.2599210498948732, id="pow-negative-base-third"),
+        param(
+            "(-2)^{0.3333333333333333}",
+            "complex",
+            (0.6299605249474367, 1.0911236359717213),
+            id="pow-negative-base-decimal-third",
+        ),
+        param("(-2)^{2/3}", "float", 1.5874010519681995, id="pow-negative-base-two-thirds"),
+        param("(-10^{400})^{0.5}", "BigComplex", "0+1e+200i", id="pow-huge-negative-base-half"),
+        param("(-4+0i)^{0.5}", "complex", (0.0, 2.0), id="pow-complex-negative-base-half"),
+        # ----------------------------
         # Collection literals (List / Point)
         # ----------------------------
         param("[1, 2, 3]", "List", [1, 2, 3], id="list-bare-numbers"),
@@ -405,6 +472,8 @@ def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> N
         # Not only after a division: a multiplication chain leaves the same residue.
         param("trunc((1e400/3)*3/1e400)", "1", id="trunc-exact-product"),
         param("floor((1e400/7)*7/1e400)", "1", id="floor-exact-product"),
+        param("(-8)^{9e400/3e400}", "-512", id="pow-negative-base-exact-quotient-exponent"),
+        param("(-8)^{(1e400/3)*3/1e400}", "-8", id="pow-negative-base-exact-product-exponent"),
     ],
 )
 def test_bigreal_exact_results(expr: str, expected: str) -> None:
@@ -489,6 +558,7 @@ class TestRational:
             param("16^(1/4)", 2, 1, id="pow-frac-exp-fourth-root"),
             param("4^(3/2)", 8, 1, id="pow-frac-exp-4-3-2"),
             param("(-8)^(1/3)", -2, 1, id="pow-neg-base-cube-root"),
+            param("(-8)^2", 64, 1, id="pow-neg-base-square"),
             param("2^{2^{2^{2}}}", 65536, 1, id="pow-chain-2-2-2-2"),
             param("(2^3) + (3^2)", 17, 1, id="pow-then-add"),
             param("(1/2)^2 * 8", 2, 1, id="pow-then-mul"),

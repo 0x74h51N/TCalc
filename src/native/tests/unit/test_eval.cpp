@@ -19,6 +19,7 @@
  */
 
 #include <cmath>
+#include <numbers>
 #include "calc/internal/helpers.hpp"
 #include "calc/pub/error_messages.hpp"
 #include "eval/internal/closed_forms.hpp"
@@ -315,11 +316,17 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, arm_of(odd[0]), Arm::Int64);
     });
 
-    // A BigReal is never domain-checked: reading it as a double could underflow to 0
-    // and force a complex op that is not warranted.
-    TEST_CASE(ctx, "domain :: a BigReal argument is never domain-checked", {
+    // A BigReal is read as itself, not as a double, where 1e-400 would underflow to 0 and
+    // leave ln's domain.
+    TEST_CASE(ctx, "domain :: sqrt of a negative BigReal promotes to BigComplex", {
         std::vector<Value> args{Value{BigReal("-1")}};
         promote_complex(OpId::Sqrt, args);
+        EXPECT_EQ(ctx, arm_of(args[0]), Arm::BigCx);
+    });
+
+    TEST_CASE(ctx, "domain :: ln of a tiny positive BigReal stays real", {
+        std::vector<Value> args{Value{BigReal("1e-400")}};
+        promote_complex(OpId::Ln, args);
         EXPECT_EQ(ctx, arm_of(args[0]), Arm::Big);
     });
 
@@ -635,6 +642,179 @@ void unit_eval(TestContext &ctx) {
         test_detail::with_case(ctx, std::string("eval rejects :: ") + tc.id, [&] {
             const Calculator c;
             EXPECT_THROWS(ctx, eval_text(c, tc.input));
+        });
+    }
+
+    // TODO(#230): real first. A negative base has a real power when the exponent's denominator
+    // is odd, and its principal complex power otherwise. A complex number set gives the
+    // principal value everywhere. Expected values are mpmath at 60 digits.
+    // A few ulps of a value near 1, the double's own rounding, not a slack.
+    constexpr double kUlpsTol = 1e-15;
+    struct NegativeBaseCase {
+        const char *id;
+        const char *input;
+        Value expected;
+        double tol;
+    };
+    const std::vector<NegativeBaseCase> negative_base_cases = {
+        {.id = "an odd denominator is real",
+         .input = "(-2)^{\\frac{2}{3}}",
+         .expected = Value{1.5874010519681996},
+         .tol = kUlpsTol},
+        {.id = "a root of a fractional degree is the reciprocal power",
+         .input = "\\root{-2}{\\frac{3}{2}}",
+         .expected = Value{1.5874010519681996},
+         .tol = kUlpsTol},
+        {.id = "a root of a fractional degree with no exact root",
+         .input = "\\root{-31}{\\frac{5}{2}}",
+         .expected = Value{3.9495232751502973},
+         .tol = kUlpsTol},
+        {.id = "a root of a negative fractional degree",
+         .input = "\\root{-2}{-\\frac{3}{2}}",
+         .expected = Value{0.6299605249474366},
+         .tol = kUlpsTol},
+        // A degree that is not a Rational has no fraction to read, so the kernels read 1/y.
+        {.id = "a computed BigReal half degree",
+         .input = "\\root{-1e400}{1e400/(2e400)}",
+         .expected = Value{BigReal("1e800")},
+         .tol = 0},
+        {.id = "a computed BigReal third degree",
+         .input = "\\root{-1e400}{1e400/(3e400)}",
+         .expected = Value{BigReal("-1e1200")},
+         .tol = 0},
+        {.id = "a computed BigReal half degree of a small radicand",
+         .input = "\\root{-8}{1e400/(2e400)}",
+         .expected = Value{BigReal("64")},
+         .tol = 0},
+        {.id = "a computed double half degree",
+         .input = "\\root{-8}{1/π*π/2}",
+         .expected = Value{64.0},
+         .tol = 0},
+        {.id = "a computed double half degree of a double radicand",
+         .input = "\\root{-π}{π/π/2}",
+         .expected = Value{9.869604401089358},
+         .tol = kUlpsTol},
+        {.id = "a unit numerator over an odd denominator is real",
+         .input = "(-2)^{\\frac{1}{3}}",
+         .expected = Value{-1.2599210498948732},
+         .tol = kUlpsTol},
+        {.id = "an even denominator is complex",
+         .input = "(-4)^{\\frac{1}{2}}",
+         .expected = Value{Complex(0.0, 2.0)},
+         .tol = kUlpsTol},
+        {.id = "a decimal just above an integer is complex",
+         .input = "(-2)^{1.0000000000001}",
+         .expected = Value{Complex(-2.0000000000001386, -6.283185307180022e-13)},
+         .tol = kUlpsTol},
+        {.id = "a decimal just below an integer is complex",
+         .input = "(-2)^{0.999999999999}",
+         .expected = Value{Complex(-1.9999999999986137, 6.2831853071752313e-12)},
+         .tol = kUlpsTol},
+        {.id = "a decimal near a third is complex",
+         .input = "(-2)^{0.3333333333333}",
+         .expected = Value{Complex(0.62996052494753629, 1.0911236359716302)},
+         .tol = kUlpsTol},
+    };
+
+    // A tol of 0 is exact equality; otherwise the value sits within tol of the expected one.
+    const auto expect_near = [&](const Value &v, const Value &expected, double tol) {
+        EXPECT_EQ(ctx, v.index(), expected.index());
+        if (tol == 0)
+            EXPECT_EQ(ctx, v, expected);
+        if (const auto *e = std::get_if<double>(&expected))
+            EXPECT_TRUE(
+                ctx,
+                std::holds_alternative<double>(v) && std::abs(std::get<double>(v) - *e) <= tol);
+        if (const auto *e = std::get_if<Complex>(&expected))
+            EXPECT_TRUE(
+                ctx,
+                std::holds_alternative<Complex>(v) && std::abs(std::get<Complex>(v) - *e) <= tol);
+    };
+
+    for (const auto &tc : negative_base_cases) {
+        test_detail::with_case(ctx, std::string("eval negative base :: ") + tc.id, [&] {
+            const Calculator c;
+            expect_near(eval_text(c, tc.input), tc.expected, tc.tol);
+        });
+    }
+
+    // The same claims on built operands, with no text in between: the arm each operand
+    // arrives in is the one the row names.
+    struct NegativeBaseApplyCase {
+        const char *id;
+        ApplyCall input;
+        Value expected;
+        double tol;
+    };
+    const std::vector<NegativeBaseApplyCase> negative_base_apply_cases = {
+        {.id = "pow :: an odd denominator is real",
+         .input = {OpId::Pow, {Value{Rational(-2)}, Value{Rational(2, 3)}}},
+         .expected = Value{1.5874010519681996},
+         .tol = kUlpsTol},
+        {.id = "pow :: a unit numerator over an odd denominator is real",
+         .input = {OpId::Pow, {Value{Rational(-2)}, Value{Rational(1, 3)}}},
+         .expected = Value{-1.2599210498948732},
+         .tol = kUlpsTol},
+        {.id = "pow :: an even denominator is complex",
+         .input = {OpId::Pow, {Value{Rational(-4)}, Value{Rational(1, 2)}}},
+         .expected = Value{Complex(0.0, 2.0)},
+         .tol = kUlpsTol},
+        {.id = "pow :: a decimal just above an integer is complex",
+         .input =
+             {OpId::Pow, {Value{Rational(-2)}, Value{Rational(10000000000001, 10000000000000)}}},
+         .expected = Value{Complex(-2.0000000000001386, -6.283185307180022e-13)},
+         .tol = kUlpsTol},
+        {.id = "pow :: a decimal near a third is complex",
+         .input =
+             {OpId::Pow, {Value{Rational(-2)}, Value{Rational(3333333333333, 10000000000000)}}},
+         .expected = Value{Complex(0.62996052494753629, 1.0911236359716302)},
+         .tol = kUlpsTol},
+        {.id = "pow :: a double exponent is complex",
+         .input = {OpId::Pow, {Value{-4.0}, Value{0.5}}},
+         .expected = Value{Complex(0.0, 2.0)},
+         .tol = kUlpsTol},
+        {.id = "root :: a fractional degree is the reciprocal power",
+         .input = {OpId::Root, {Value{Rational(-2)}, Value{Rational(3, 2)}}},
+         .expected = Value{1.5874010519681996},
+         .tol = kUlpsTol},
+        {.id = "root :: a fractional degree with no exact root",
+         .input = {OpId::Root, {Value{Rational(-31)}, Value{Rational(5, 2)}}},
+         .expected = Value{3.9495232751502973},
+         .tol = kUlpsTol},
+        {.id = "root :: a negative fractional degree",
+         .input = {OpId::Root, {Value{Rational(-2)}, Value{Rational(-3, 2)}}},
+         .expected = Value{0.6299605249474366},
+         .tol = kUlpsTol},
+        {.id = "root :: a BigReal half degree",
+         .input = {OpId::Root, {Value{BigReal("-1e400")}, Value{BigReal("0.5")}}},
+         .expected = Value{BigReal("1e800")},
+         .tol = 0},
+        {.id = "root :: a BigReal degree just under a third",
+         .input =
+             {OpId::Root, {Value{BigReal("-1e400")}, Value{BigReal("1e400") / BigReal("3e400")}}},
+         .expected = Value{BigReal("-1e1200")},
+         .tol = 0},
+        {.id = "root :: a BigReal half degree of a small radicand",
+         .input = {OpId::Root, {Value{Rational(-8)}, Value{BigReal("0.5")}}},
+         .expected = Value{BigReal("64")},
+         .tol = 0},
+        {.id = "root :: a double half degree",
+         .input = {OpId::Root, {Value{Rational(-8)}, Value{0.5}}},
+         .expected = Value{64.0},
+         .tol = 0},
+        {.id = "root :: a double half degree of a double radicand",
+         .input = {OpId::Root, {Value{-std::numbers::pi}, Value{0.5}}},
+         .expected = Value{9.869604401089358},
+         .tol = kUlpsTol},
+    };
+
+    for (const auto &tc : negative_base_apply_cases) {
+        test_detail::with_case(ctx, std::string("apply negative base :: ") + tc.id, [&] {
+            const Calculator c;
+            expect_near(
+                apply(c, tc.input.op, tc.input.args, Calculator::AngleUnit::RAD),
+                tc.expected,
+                tc.tol);
         });
     }
 
@@ -1729,15 +1909,15 @@ void unit_eval(TestContext &ctx) {
         }
     });
 
-    // (-4)^{n/2} has no real even root at odd n (a domain error, not a rational-vs-irrational
-    // question); G1 declines via exact_rational_root's own negative-even-root guard, and the
-    // real evaluator's own fallback path is what actually runs either way, landing on NaN.
+    // (-4)^{n/2} has no real even root at odd n; G1 declines via exact_rational_root's own
+    // negative-even-root guard, and brute promotes those terms to their principal complex
+    // root: 2i - 4 - 8i.
     test_detail::with_case(
         ctx, "closed form :: G1 declines a negative base under a fractional exponent", [&] {
             tcalc::eval::set_closed_forms_enabled(true);
             const Value v = eval_text(c, "\\sum_{n=1}^{3} (-4)^{n/2}");
-            EXPECT_EQ(ctx, std::holds_alternative<double>(v), true);
-            EXPECT_EQ(ctx, std::isnan(std::get<double>(v)), true);
+            EXPECT_EQ(ctx, std::holds_alternative<Complex>(v), true);
+            EXPECT_EQ(ctx, std::abs(std::get<Complex>(v) - Complex(-4.0, -6.0)) < 1e-14, true);
         });
 
     // The fence holding Task 3 (G1, affine exponent) and Task 4 (G2, geo base under a literal

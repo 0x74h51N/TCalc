@@ -76,6 +76,71 @@ inline BigReal snap_integer(const BigReal &v) {
     return v;
 }
 
+/// The modulus that splits the integers into even and odd.
+inline constexpr int kParityModulus = 2;
+
+/// Whether y is an integer, read exactly, as std::pow reads its exponent.
+inline bool whole(double y) {
+    return std::floor(y) == y;
+}
+
+/// Whether y is an integer at the precision BigReal advertises, not off its guard digits.
+inline bool whole(const BigReal &y) {
+    using boost::multiprecision::floor;
+    const BigReal n = snap_integer(y);
+    return floor(n) == n;
+}
+
+inline bool whole(const Rational &y) {
+    return y.denominator() == 1;
+}
+
+/// Whether a degree is an odd integer, the one degree a negative radicand has a real root at.
+inline bool odd_integer(double y) {
+    return int_like(y) && std::fmod(std::round(y), kParityModulus) != 0.0;
+}
+
+inline bool odd_integer(const BigReal &y) {
+    using boost::multiprecision::fmod;
+    return whole(y) && fmod(snap_integer(y), BigReal(kParityModulus)) != 0;
+}
+
+inline bool odd_integer(std::int64_t n) {
+    return n % kParityModulus != 0;
+}
+
+/// v as an int when it is one, read on its own type: a BigComplex part cast to double turns
+/// 1e-400 into 0.
+template <class T> std::optional<int> as_int(const T &v) {
+    using std::floor;
+    using Lim = std::numeric_limits<int>;
+    if (floor(v) != v || v < Lim::min() || v > Lim::max())
+        return std::nullopt;
+    return static_cast<int>(v);
+}
+
+/// x^m by repeated squaring, exact where exp(m log x) leaves noise. Past the range the
+/// product's inf * inf is NaN where pow keeps the inf, so that is left to pow.
+inline std::optional<BigComplex> integer_power(const BigComplex &x, int m) {
+    using boost::multiprecision::isfinite;
+    BigComplex r = boost::multiprecision::pow(x, m);
+    if (!isfinite(r.real()) || !isfinite(r.imag()))
+        return std::nullopt;
+    return r;
+}
+
+/// The same for a double base, run in BigComplex: squaring in double loses about m ulp, and
+/// a reciprocal there moves the last digit. A result past double range is left to pow too.
+inline std::optional<Calculator::Complex> integer_power(Calculator::Complex x, int m) {
+    const auto big = integer_power(BigComplex(x.real(), x.imag()), m);
+    if (!big)
+        return std::nullopt;
+    const Calculator::Complex r(static_cast<double>(big->real()), static_cast<double>(big->imag()));
+    if (!std::isfinite(r.real()) || !std::isfinite(r.imag()))
+        return std::nullopt;
+    return r;
+}
+
 /// Truncated division: quotient toward zero, plus its remainder. cpp_dec_float divides
 /// through a Newton-Raphson reciprocal, so an exact division lands just under its integer
 /// quotient and trunc drops a unit. A remainder reaching the divisor is what catches that.

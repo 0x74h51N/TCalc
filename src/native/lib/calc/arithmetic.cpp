@@ -90,7 +90,8 @@ BigReal Calculator::intdiv(const BigReal &a, const BigReal &b) const {
 BigReal Calculator::pow(const BigReal &a, const BigReal &b) const {
     calc_detail::require(b >= 0 || a != 0);
     using boost::multiprecision::pow;
-    return pow(a, b);
+    // An exact quotient sits under its integer in the guard digits, where Boost reads it.
+    return pow(a, calc_detail::snap_integer(b));
 }
 
 BigReal Calculator::mod(const BigReal &a, const BigReal &b) const {
@@ -217,6 +218,15 @@ Calculator::Complex Calculator::div(Complex a, Complex b) const {
 }
 
 Calculator::Complex Calculator::pow(Complex a, Complex b) const {
+    // An integer or a root's exponent takes root's exact steps; exp(b log a) leaves noise.
+    if (b.imag() == 0.0) {
+        if (const auto m = calc_detail::as_int(b.real()))
+            if (const auto r = calc_detail::integer_power(a, *m))
+                return *r;
+        // A zero base would come back here from root's last step.
+        if (const auto n = calc_detail::as_int(1.0 / b.real()); n && a != 0.0)
+            return this->root(a, Complex(*n, 0.0));
+    }
     return std::pow(a, b);
 }
 
@@ -230,6 +240,14 @@ BigComplex Calculator::div(const BigComplex &a, const BigComplex &b) const {
 }
 
 BigComplex Calculator::pow(const BigComplex &a, const BigComplex &b) const {
+    // Same steps as the Complex overload.
+    if (b.imag() == 0) {
+        if (const auto m = calc_detail::as_int(b.real()))
+            if (const auto r = calc_detail::integer_power(a, *m))
+                return *r;
+        if (const auto n = calc_detail::as_int(BigComplex::value_type(1) / b.real()); n && a != 0)
+            return this->root(a, BigComplex(*n));
+    }
     using boost::multiprecision::pow;
     return pow(a, b);
 }

@@ -22,13 +22,6 @@ constexpr int kBaseTen = 10;
 // The one degree with a dedicated library function, sqrt.
 constexpr double kSquareDegree = 2.0;
 
-std::optional<int> as_int(double v) {
-    using Lim = std::numeric_limits<int>;
-    if (std::floor(v) != v || v < Lim::min() || v > Lim::max())
-        return std::nullopt;
-    return static_cast<int>(v);
-}
-
 /// Newton on z^n - x from the pow guess, whose exp(log) leaves noise in both parts.
 BigComplex newton_root(const BigComplex &x, int n) {
     using boost::multiprecision::pow;
@@ -58,10 +51,9 @@ double Calculator::root(double x, double y) const {
     calc_detail::require(!(x == 0.0 && y < 0.0));
 
     if (x < 0.0) {
-        calc_detail::require(calc_detail::int_like(y));
-        constexpr double kTwo = 2.0;
-        const double rounded = std::round(y);
-        calc_detail::require(std::fmod(rounded, kTwo) != 0.0);
+        if (calc_detail::whole(1.0 / y))
+            return this->pow(x, 1.0 / y);
+        calc_detail::require(calc_detail::odd_integer(y));
         return -this->pow(-x, 1.0 / y);
     }
 
@@ -124,9 +116,6 @@ BigReal Calculator::log(const BigReal &a) const {
 }
 
 BigReal Calculator::log(const BigReal &a, const BigReal &b) const {
-    // Unlike double, a BigReal operand is never domain-checked ahead of the kernel: reading
-    // it as a double to test the domain rule could underflow it to 0 and force a promotion
-    // that was never warranted. So this guard is the only one it gets.
     calc_detail::require(a > 0);
     calc_detail::require(b > 0 && b != 1);
     using boost::multiprecision::log10;
@@ -147,15 +136,9 @@ BigReal Calculator::root(const BigReal &x, const BigReal &y) const {
     calc_detail::require(!(x == 0 && y < 0));
 
     if (x < 0) {
-        // The degree decides whether this is real at all, so it is read at the precision
-        // BigReal advertises rather than off its guard digits.
-        const BigReal degree = calc_detail::snap_integer(y);
-        using boost::multiprecision::floor;
-        const BigReal yi = floor(degree);
-        calc_detail::require(yi == degree);
-        using boost::multiprecision::fmod;
-        calc_detail::require(fmod(yi, BigReal(2)) != 0);
-
+        if (const BigReal m = BigReal(1) / y; calc_detail::whole(m))
+            return this->pow(x, m);
+        calc_detail::require(calc_detail::odd_integer(y));
         return -this->pow(-x, BigReal(1) / y);
     }
 
@@ -175,15 +158,11 @@ Calculator::Complex Calculator::root(Complex x, Complex y) const {
     if (y.imag() == 0.0) {
         if (y.real() == kSquareDegree)
             return this->sqrt(x);
-        const auto m = as_int(1.0 / y.real());
-        // Past double range the product's inf * inf is NaN, where pow keeps the inf.
-        if (m && *m > 0)
-            if (const Complex r = std::pow(x, *m);
-                std::isfinite(r.real()) && std::isfinite(r.imag()))
-                return r;
-        // A double reciprocal moves the last digit and Newton in double leaves an irrational
-        // part one ulp off, so both run in BigComplex.
-        if (((m && *m < 0) || as_int(y.real())) && x != 0.0) {
+        if (const auto m = calc_detail::as_int(1.0 / y.real()))
+            if (const auto r = calc_detail::integer_power(x, *m))
+                return *r;
+        // Newton in double leaves an irrational part one ulp off, so it runs in BigComplex.
+        if (calc_detail::as_int(y.real()) && x != 0.0) {
             const BigComplex r = this->root(BigComplex(x.real(), x.imag()), BigComplex(y.real()));
             return {static_cast<double>(r.real()), static_cast<double>(r.imag())};
         }
@@ -223,12 +202,10 @@ BigComplex Calculator::root(const BigComplex &x, const BigComplex &y) const {
     if (y.imag() == 0) {
         if (y.real() == kSquareDegree)
             return this->sqrt(x);
-        if (const auto m = as_int(static_cast<double>(BigComplex::value_type(1) / y.real())))
-            if (const BigComplex r = boost::multiprecision::pow(x, *m);
-                boost::multiprecision::isfinite(r.real()) &&
-                boost::multiprecision::isfinite(r.imag()))
-                return r;
-        if (const auto n = as_int(static_cast<double>(y.real())); n && x != 0) {
+        if (const auto m = calc_detail::as_int(BigComplex::value_type(1) / y.real()))
+            if (const auto r = calc_detail::integer_power(x, *m))
+                return *r;
+        if (const auto n = calc_detail::as_int(y.real()); n && x != 0) {
             // Newton stops on an absolute tolerance below 1, so (-1e300) root -2 kept a real part.
             if (*n < 0)
                 return BigComplex(1) / this->root(x, -y);
