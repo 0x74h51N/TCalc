@@ -4,15 +4,15 @@ on:
   pull_request:
     branches:
       - master
-    # A fixed description has to reach the jobs it held back
-    types: [opened, synchronize, reopened, edited]
+    # Editing the title or description runs nothing; a fixed title reaches its check with
+    # the next push, and anything else is started by hand
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
-# A push while the jobs run replaces them. An edit waits for them instead, then runs no job
-# when they passed, so editing the description right after opening does not restart them.
+# A push while the jobs run replaces them.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event.action != 'edited' }}
+  cancel-in-progress: true
 
 env:
   PYTHON_VERSION: "3.14.5"
@@ -72,7 +72,6 @@ jobs:
     needs: pr-title
     runs-on: ubuntu-24.04
     permissions:
-      actions: read
       contents: read
     outputs:
       cpp-format-check: ${{ steps.rules.outputs.cpp-format-check }}
@@ -92,30 +91,14 @@ jobs:
         id: rules
         env:
           EVENT: ${{ github.event_name }}
-          ACTION: ${{ github.event.action }}
-          TITLE_CHANGED: ${{ github.event.changes.title != null }}
-          GH_TOKEN: ${{ github.token }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
-          passed=0
-          if [ "$ACTION" = edited ]; then
-            # On its own line so a failed query fails the job, never reads as a pass
-            passed=$(gh run list --workflow CI --commit "$HEAD_SHA" --status success --json databaseId --jq length)
-          fi
           # scripts/changed_jobs maps the changed paths to jobs; the pre-push hook reads the same rules
           if [ "$EVENT" = workflow_dispatch ]; then
             echo "Manual run: every job runs." >&2
             scripts/changed_jobs --all < /dev/null
-          elif [ "$passed" -gt 0 ]; then
-            # Editing the title or description reruns CI too; its commit has already passed
-            echo "Description edit on a commit CI passed: no job runs." >&2
-            scripts/changed_jobs < /dev/null
-          elif [ "$ACTION" = edited ] && [ "$TITLE_CHANGED" != true ]; then
-            # A description edit never reruns the jobs; it keeps the failure instead of hiding it
-            echo "Description edit on a commit CI did not pass: rerun that run by hand." >&2
-            exit 1
           else
             git diff --name-only "$BASE_SHA...$HEAD_SHA" | scripts/changed_jobs
           fi | tee -a "$GITHUB_OUTPUT"
