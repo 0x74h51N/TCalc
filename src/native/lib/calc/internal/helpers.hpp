@@ -123,7 +123,7 @@ template <class T> std::optional<int> as_int(const T &v) {
 /// product's inf * inf is NaN where pow keeps the inf, so that is left to pow.
 inline std::optional<BigComplex> integer_power(const BigComplex &x, int m) {
     using boost::multiprecision::isfinite;
-    const BigComplex r = boost::multiprecision::pow(x, m);
+    BigComplex r = boost::multiprecision::pow(x, m);
     if (!isfinite(r.real()) || !isfinite(r.imag()))
         return std::nullopt;
     return r;

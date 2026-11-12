@@ -892,8 +892,8 @@ inline constexpr double kBaseTen = 10.0;
 /// The rule is written once and read in the operands' own type: a BigReal read as a double
 /// turns 1e-400 into 0 and 1e400 into inf.
 struct DomainRule {
-    bool (*on_double)(double x, double y) = nullptr;
-    bool (*on_big)(BigReal x, BigReal y) = nullptr;
+    bool (*on_double)(const double &x, const double &y) = nullptr;
+    bool (*on_big)(const BigReal &x, const BigReal &y) = nullptr;
 };
 
 /// True when the operands predict a result double cannot carry, so the op runs in BigReal
@@ -935,7 +935,8 @@ struct OpRow {
 /// capture-less generic lambda taking its operands by value, so it converts to both readings.
 template <class F> constexpr OpRow with_domain(OpRow r, F rule) {
     const DomainRule d{
-        static_cast<bool (*)(double, double)>(rule), static_cast<bool (*)(BigReal, BigReal)>(rule)};
+        static_cast<bool (*)(const double &, const double &)>(rule),
+        static_cast<bool (*)(const BigReal &, const BigReal &)>(rule)};
     return OpRow{r.id, r.fn, r.arms, d, r.range, r.traits, r.second_default};
 }
 
@@ -1023,12 +1024,12 @@ inline constexpr std::array kOpRows = {
             with_trait(binary(OpId::Pow, TCALC_CALL(pow)), Trait::RootExponent),
             // an exact exponent with an odd denominator never reaches here; an inexact one
             // has no denominator to read, so a negative base takes the principal power
-            [](auto x, auto y) { return x < 0.0 && !calc_detail::whole(y); }),
+            [](const auto &x, const auto &y) { return x < 0.0 && !calc_detail::whole(y); }),
         [](double x, double y) { return detail::power_needs_big(x, y); }),
     with_range(
         with_domain(
             with_trait(binary(OpId::Root, TCALC_CALL(root)), Trait::InverseDegree),
-            [](auto x, auto y) {
+            [](const auto &x, const auto &y) {
                 // a negative radicand is real at an odd integer degree, and at a degree whose
                 // reciprocal is an integer, which is that power: (-8) root 1/3 is -512
                 return x < 0.0 && !calc_detail::odd_integer(y) && !calc_detail::whole(1.0 / y);
@@ -1044,13 +1045,13 @@ inline constexpr std::array kOpRows = {
     unary_angle(OpId::Tan, TCALC_CALL(tan)),
     with_domain(
         unary_angle(OpId::Asin, TCALC_CALL(asin)),
-        [](auto x, auto) {
+        [](const auto &x, const auto &) {
             using std::abs;
             return abs(x) > 1.0;
         }),
     with_domain(
         unary_angle(OpId::Acos, TCALC_CALL(acos)),
-        [](auto x, auto) {
+        [](const auto &x, const auto &) {
             using std::abs;
             return abs(x) > 1.0;
         }),
@@ -1062,23 +1063,26 @@ inline constexpr std::array kOpRows = {
     unary(OpId::Cosh, TCALC_CALL(cosh)),
     unary(OpId::Tanh, TCALC_CALL(tanh)),
     unary(OpId::Asinh, TCALC_CALL(asinh)),
-    with_domain(unary(OpId::Acosh, TCALC_CALL(acosh)), [](auto x, auto) { return x < 1.0; }),
+    with_domain(
+        unary(OpId::Acosh, TCALC_CALL(acosh)), [](const auto &x, const auto &) { return x < 1.0; }),
     with_domain(
         unary(OpId::Atanh, TCALC_CALL(atanh)),
-        [](auto x, auto) {
+        [](const auto &x, const auto &) {
             using std::abs;
             return abs(x) >= 1.0;
         }),
-    with_domain(unary(OpId::Sqrt, TCALC_CALL(sqrt)), [](auto x, auto) { return x < 0.0; }),
+    with_domain(
+        unary(OpId::Sqrt, TCALC_CALL(sqrt)), [](const auto &x, const auto &) { return x < 0.0; }),
     unary(OpId::Cbrt, TCALC_CALL(cbrt)),
     with_default(
         with_domain(
             binary(OpId::Log, TCALC_CALL(log)),
             // The value leaving the real domain promotes to complex. An invalid base is a
             // math error the kernel raises, not a promotion: log base 1 has no complex answer.
-            [](auto x, auto) { return x <= 0.0; }),
+            [](const auto &x, const auto &) { return x <= 0.0; }),
         10),
-    with_domain(unary(OpId::Ln, TCALC_CALL(ln)), [](auto x, auto) { return x <= 0.0; }),
+    with_domain(
+        unary(OpId::Ln, TCALC_CALL(ln)), [](const auto &x, const auto &) { return x <= 0.0; }),
     unary(OpId::Fact, TCALC_CALL(fact)),
     unary(OpId::Gamma, TCALC_CALL(gamma)),
     unary(OpId::Trunc, TCALC_CALL(trunc)),
