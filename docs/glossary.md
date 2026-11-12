@@ -84,6 +84,8 @@ $\color{#3b82f6}\textbf{Correctly rounded}$: The exact value rounded to the near
 
 $\color{#3b82f6}\textbf{Cx}$: The arm of a Value that holds a Complex.
 
+$\color{#3b82f6}\textbf{Çiçek}$: 1. Everything's coming up roses. 2. All systems are operational.
+
 $\color{#3b82f6}\textbf{Deadline}$: The wall-clock budget of one evaluation, 500 ms in the app. It starts at the outermost evaluate, and long loops check it and stop with an error, so a heavy expression cannot freeze the app.
 
 $\color{#3b82f6}\textbf{Debug tree dump}$: What python -m tcalc --debug logs each time the editor's plain text changes: the math nodes of the text (MATH_NODES), then the TreeInfo of the editor under the header Expression Tree. A failing case of test_expression.py prints the same tree.
@@ -94,7 +96,11 @@ $\color{#3b82f6}\textbf{Dirichlet form}$: Product form of a sum of sines or cosi
 
 $\color{#3b82f6}\textbf{Dissolve}$: Removing a Math Widget and keeping the content of its slots in its place, as when Backspace removes a fraction bar.
 
+$\color{#3b82f6}\textbf{Domain rule}$: The part of an op's row that says when a real operand leaves the op's real domain, so it is widened to complex before the kernel runs: sqrt of a negative, log of a non-positive (DomainRule). It is written once and read in the operands' own type.
+
 $\color{#3b82f6}\textbf{Double}$: The arm of a Value that holds a double, a 64-bit floating-point number.
+
+$\color{#3b82f6}\textbf{Downcast}$: The opposite of promotion: a Rational moved down to Int64 when it is a whole number and to Double otherwise (rational_downcast). It happens in coerce, for an op with no exact arm, and in the retry after an exact kernel fails, as for an irrational root. A BigReal is never downcast.
 
 $\color{#3b82f6}\textbf{Edge}$: The raised look of a key, a panel or a widget in a theme (Edge in look.py): a border of a set width with a light color on one side and a shadow color on the other. A width of 0 turns it off.
 
@@ -130,6 +136,8 @@ $\color{#3b82f6}\textbf{Field}$: A text input of a slot, where the user types: a
 
 $\color{#3b82f6}\textbf{First index}$: Of a field, index 0. Of a slot, index 0 of its first field.
 
+$\color{#3b82f6}\textbf{Flower}$: Çiçek.
+
 $\color{#3b82f6}\textbf{Fold}$: Another word for a reduction: walking the items and combining them into one value.
 
 $\color{#3b82f6}\textbf{Frac}$: The LatexKind of a fraction: the numerator left, the denominator right. It evaluates through OpId::Div.
@@ -145,6 +153,8 @@ $\color{#3b82f6}\textbf{Geometric sum}$: Sum with a constant ratio r between ter
 ```
 
 $\color{#3b82f6}\textbf{Glyph}$: A symbol drawn as a path rather than typed, a MathPrimitive (math_primitives.py): the radical sign of a root (SqrtSymbol) and the paren glyphs (RoundParen, SquareBracket, CurlyBrace). It is rebuilt at the widget's size, so it stretches with what it encloses.
+
+$\color{#3b82f6}\textbf{Guard digits}$: The digits a BigReal keeps past the 50 it promises. Boost does its arithmetic in them, so an exact result can sit just off its value there: 9e400/3e400 is 3 at 50 digits and a hair under 3 in the guard digits.
 
 $\color{#3b82f6}\textbf{Half turn}$: An angle as a multiple of π, the unit the exact trig table works in: 30° is 1/6 of a half turn.
 
@@ -238,9 +248,13 @@ $\color{#3b82f6}\textbf{Noise}$: Floating point noise: a tiny wrong part in a re
 
 $\color{#3b82f6}\textbf{Normalize}$: The first step of ordering the tokens: it inserts the implicit multiplications and folds runs of + and - into one sign, so 2π becomes 2 · π and 3 - - 2 becomes 3 + 2.
 
+$\color{#3b82f6}\textbf{Number set}$: The set results are computed in. TCalc computes real first and promotes to complex where the reals have no value; letting the user choose the set is #230.
+
 $\color{#3b82f6}\textbf{Number theory}$: The kernel file of gcd and lcm (number_theory.cpp).
 
 $\color{#3b82f6}\textbf{NumberToken}$: A number, kept as its text until the evaluator reads it.
+
+$\color{#3b82f6}\textbf{Odd root}$: A root of odd degree. It keeps the sign, so a negative number has a real one: the cube root of -8 is -2. A negative number has no real even root.
 
 $\color{#3b82f6}\textbf{Operand split}$: Filling an empty side of a LaTeX expression from its neighbour (split_operand): the last operand of the prefix goes into the left side, the first operand of the suffix into the right side, when that operand is a number, a letter, a constant, a paren or a call. It runs in the math nodes only; eval sees it after the editor writes the row back.
 
@@ -294,6 +308,8 @@ $\color{#3b82f6}\textbf{Prefix}$: The field right before a Math Widget, in the s
 2 + \frac{3}{4} + 5
 ```
 
+$\color{#3b82f6}\textbf{Principal value}$: The one value a complex power or root takes by convention, exp(b log a) with the principal log: (-8)^{1/3} has it at 1+1.73i. A complex number set gives it everywhere.
+
 $\color{#3b82f6}\textbf{Prod}$: 1. Production: the working version of the app, as users run it. 2. The LatexKind of a product: the lower limit left, the upper limit right; its body is the term after it.
 
 $\color{#3b82f6}\textbf{Promotion}$: An op moves its operands to a common arm before it runs, and a result moves up when it overflows or leaves the real numbers: Rational, then BigReal or Complex, then BigComplex. Which arms an op takes comes from the Calculator method signatures, not from a hand-kept table.
@@ -312,9 +328,13 @@ $\color{#3b82f6}\textbf{Rational}$: An exact fraction of two 64-bit integers, Bo
 \frac{1}{3} + \frac{1}{6} = \frac{1}{2}
 ```
 
+$\color{#3b82f6}\textbf{Real first}$: TCalc's rule for a negative base: an exact exponent p/q with an odd q gives the real value, the q-th root of the p-th power; an even q, or an exponent computed as a double, gives the principal value. A typed decimal is exact too: 0.2 is 1/5, so (-32)^{0.2} is -2, while (-2)^{0.5} is 1.414i.
+
 $\color{#3b82f6}\textbf{Reduction}$: An op that folds a Collection into one value: mean, sum, min, max, median, variance, standard deviation.
 
 $\color{#3b82f6}\textbf{Reduction driver}$: The one function every reduction goes through (reduce_collection in statistic.cpp). It rejects an empty Collection and a single Point, and hands a List of Points to the per-column reduction. Each op only supplies its scalar reducer for each arm.
+
+$\color{#3b82f6}\textbf{Reinventing the wheel}$: Writing again what the standard library, Boost, Qt or TCalc already provides. The rule is to use or extend what exists first (docs/rules/ai/code.md).
 
 $\color{#3b82f6}\textbf{Render mode}$: How an expression is shown: Math with Math Widgets, Flat as one line of text, Raw as the LaTeX source.
 
@@ -366,6 +386,10 @@ $\color{#3b82f6}\textbf{Slot}$: One horizontal row of an expression: the main sl
 
 $\color{#3b82f6}\textbf{SlotInfo}$: One slot in a TreeInfo, printed as Slot[key] with the number of its segments, where key is the slot's name (main, numerator, base). An inner slot also shows its paren symbols.
 
+$\color{#3b82f6}\textbf{Snap}$: Short for snap_integer, and its verb, e.g. snapping a root's degree.
+
+$`\color{#3b82f6}\textbf{snap\_integer}`$: Reads a BigReal as the integer it equals at 50 digits, ignoring its guard digits, and leaves it unchanged otherwise. Used where an integer is asked for (trunc, floor, ceil, a root's degree), not on every operation. Never snaps to zero.
+
 $\color{#3b82f6}\textbf{Splice}$: Inserting segments into a slot at an index and merging the fields that meet at the merge points (\_splice). A paren glyph among them is not inserted; its symbol is written into the field before it. It returns the field at the left merge point, or at the right one when only that one merges.
 
 $\color{#3b82f6}\textbf{Sqrt}$: The LatexKind of a square root, with no degree field. The tokenizer writes its degree, 2, into its right side. It evaluates through OpId::Root.
@@ -395,6 +419,8 @@ $\color{#3b82f6}\textbf{Tokenizer}$: The native pass (tokenize) that turns an ex
 $\color{#3b82f6}\textbf{TokensBranch}$: What the tokenizer returns: the row of tokens, and the positions of its top-level LaTeX and paren tokens.
 
 $\color{#3b82f6}\textbf{Top slot}$: Of a Math Widget with two slots, the one drawn higher. Up moves the cursor from the bottom slot into it. It follows the drawing, not the LaTeX text, so it can be the left slot or the right slot.
+
+$\color{#3b82f6}\textbf{Trait}$: An eval-time property of an op that its kernel signature cannot report (Trait in ops.hpp): ExactZero, RootExponent, InverseDegree. Separate from the op flags the tokenizer reads.
 
 $\color{#3b82f6}\textbf{Transcendental}$: The kernel file of exp, ln, log and the roots (transcendental.cpp).
 
