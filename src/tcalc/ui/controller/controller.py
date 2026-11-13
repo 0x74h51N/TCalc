@@ -12,15 +12,16 @@ from collections.abc import Callable
 import calc_native
 from calc_native import Calculator
 
-from tcalc.app_state import AngleUnit, CalcValue, get_app_state
+from tcalc.app_state import AngleUnit, get_app_state
 from tcalc.core.constants import CONST_NAMES, SUBSCRIPT_CONST_NAMES, strip_subscript
 from tcalc.core.ops import Operation
-from tcalc.core.utils import is_number_token
+from tcalc.core.utils import CalcValue, is_number_token
 from tcalc.errors import CalculatorError, ErrorKind, Msg
 from tcalc.ui.controller.menubar import EditOperations
 from tcalc.ui.props import StatusKind
 from tcalc.ui.widgets import History, MemoryBar
-from tcalc.ui.widgets.calc import Display, TopBar
+from tcalc.ui.widgets.calc.display.display import Display
+from tcalc.ui.widgets.calc.topbar.topbar import TopBar
 from tcalc.ui.widgets.history.storage import HistoryEntry
 
 from ...core.native_eval import evaluate_branch
@@ -216,7 +217,7 @@ class CalculatorController:
                 return
             fn(value)
 
-        actions = {
+        actions: dict[str, Callable[[], None]] = {
             MemoryKey.MC.value: lambda: setattr(self._app_state, "memory", None),
             MemoryKey.MR.value: recall,
             MemoryKey.MS.value: lambda: with_value(store),

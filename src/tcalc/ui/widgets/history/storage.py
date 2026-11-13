@@ -42,7 +42,8 @@ def load_history() -> list[HistoryEntry]:
 
     try:
         with open(path, "rb") as f:
-            return pickle.load(f)
+            entries: list[HistoryEntry] = pickle.load(f)
+            return entries
     except Exception:
         _log.debug("Failed to load history file: %s", path, exc_info=True)
         return []

@@ -26,7 +26,7 @@ from ..math_primitives import PEN_WIDTH
 _PAD = 2
 _SUB_SCALE = 0.7
 _BASE_RATIO = 0.72  # base-letter height as a fraction of the icon box height
-_cache: dict[tuple, QIcon] = {}
+_cache: dict[tuple[str, int, int, int, float], QIcon] = {}
 ICON_BOX = QSize(22, 22)
 
 

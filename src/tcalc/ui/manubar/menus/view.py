@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtGui import QAction, QActionGroup
 from PySide6.QtWidgets import QInputDialog, QMenu, QMenuBar, QMessageBox
 
-from tcalc.app_state import get_app_state
+from tcalc.app_state import KeypadPreset, get_app_state
 from tcalc.theme import ThemeChoice, ThemeMode, custom_themes
 from tcalc.ui.config import CONFIG
 from tcalc.ui.controller.menubar import ViewOperations
@@ -33,8 +33,8 @@ class ViewMenu:
         self.app_state = get_app_state()
         self.window = window
         self.ops = ViewOperations(window)
-        self._preset_actions: dict = {}
-        self._toggle_actions: dict[Callable, QAction] = {}
+        self._preset_actions: dict[KeypadPreset, QAction] = {}
+        self._toggle_actions: dict[Callable[..., None], QAction] = {}
         self._custom_preset_actions: dict[int, QAction] = {}
         self._custom_theme_actions: list[QAction] = []
         self._preset_bar: CustomPresetActions | None = None
@@ -271,7 +271,7 @@ class ViewMenu:
             action.setChecked(self.app_state.angle_visible)
             action.blockSignals(False)
 
-    def sync_toggle(self, toggle_fn: Callable, value: bool) -> None:
+    def sync_toggle(self, toggle_fn: Callable[..., None], value: bool) -> None:
         action = self._toggle_actions.get(toggle_fn)
         if action is None:
             return

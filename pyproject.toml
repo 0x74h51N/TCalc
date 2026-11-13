@@ -71,15 +71,8 @@ mypy_path = "stubs:src"
 files = ["src"]
 # built at runtime; mypy reads its generated stub
 exclude = ["src/tcalc/core/ops.py"]
-no_implicit_optional = true
-check_untyped_defs = true
-warn_unused_ignores = true
-warn_redundant_casts = true
+strict = true
 warn_unreachable = true
-
-[[tool.mypy.overrides]]
-module = ["PySide6.*"]
-ignore_missing_imports = true
 
 [tool.pyright]
 stubPath = "stubs"

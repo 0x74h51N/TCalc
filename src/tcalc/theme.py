@@ -65,6 +65,7 @@ def custom_theme_folders() -> dict[str, Path]:
 class ThemeMode(Enum):
     """Kind of theme the user chose; Qt holds built-in ones as a color scheme."""
 
+    _value_: str
     LIGHT = "light"
     DARK = "dark"
     SYSTEM = "system"
@@ -92,9 +93,11 @@ class ThemeChoice:
 
     def variant(self, scheme: Qt.ColorScheme) -> str:
         """The theme variant to show while Qt's color scheme is *scheme*."""
+        # Read before the match: mypy types the value of a narrowed member as Any
+        built_in = self.mode.value
         match self.mode:
             case ThemeMode.LIGHT | ThemeMode.DARK:
-                return self.mode.value
+                return built_in
             case ThemeMode.CUSTOM:
                 return self.custom
         return "light" if scheme == Qt.ColorScheme.Light else "dark"

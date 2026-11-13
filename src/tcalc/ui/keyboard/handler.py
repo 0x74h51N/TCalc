@@ -59,8 +59,7 @@ class KeyboardHandler(QObject):
         expr_action = get_expression_action_for_key(event.key())
 
         if expr_action:
-            bound = expr_action.__get__(self._editor, type(self._editor))
-            return bound()
+            return expr_action(self._editor)
 
         result = get_operation_for_key(event.key())
         if result:

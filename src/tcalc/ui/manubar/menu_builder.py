@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Never
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
@@ -27,6 +27,8 @@ if TYPE_CHECKING:
     from ..window import MainWindow
 
 type Operations = FileOperations | EditOperations | ViewOperations
+# What a built item hands back; the context it was built with is no longer needed.
+type BuiltAction = tuple[MenuActionItem[Never], QAction]
 
 
 class MenuActionType(Enum):
@@ -62,11 +64,11 @@ def _narrow[C: BaseMenuContext](ctx: BaseMenuContext, kind: type[C]) -> C:
 
 class MenuItem[C: BaseMenuContext](ABC):
     @abstractmethod
-    def add_to(self, menu: QMenu, ctx: C) -> list[tuple[MenuActionItem, QAction]]: ...
+    def add_to(self, menu: QMenu, ctx: C) -> list[BuiltAction]: ...
 
 
 class MenuSeparatorItem(MenuItem[BaseMenuContext]):
-    def add_to(self, menu: QMenu, ctx: BaseMenuContext) -> list[tuple[MenuActionItem, QAction]]:
+    def add_to(self, menu: QMenu, ctx: BaseMenuContext) -> list[BuiltAction]:
         menu.addSeparator()
         return []
 
@@ -81,7 +83,7 @@ class MenuActionItem[C: BaseMenuContext](MenuItem[C]):
     enabled: bool = True
     item_type: MenuActionType = MenuActionType.OPS
     checked_getter: Callable[[AppState], bool] | None = None
-    fn: Callable
+    fn: Callable[..., None]
     preset: KeypadPreset | None = None
     theme: ThemeChoice | None = None
 
@@ -99,7 +101,7 @@ class MenuActionItem[C: BaseMenuContext](MenuItem[C]):
         if self.item_type in (MenuActionType.OPS, MenuActionType.TOGGLE):
             ctx.shortcuts.bind_action(self.fn, action)
 
-    def _build_callback(self, ctx: C) -> Callable:
+    def _build_callback(self, ctx: C) -> Callable[..., None]:
         """Build callback based on item type."""
         match self.item_type:
             case MenuActionType.OPS:
@@ -111,7 +113,7 @@ class MenuActionItem[C: BaseMenuContext](MenuItem[C]):
             case MenuActionType.BUTTON:
                 return lambda: self.fn(ctx)
 
-    def add_to(self, menu: QMenu, ctx: C) -> list[tuple[MenuActionItem, QAction]]:
+    def add_to(self, menu: QMenu, ctx: C) -> list[BuiltAction]:
         action = self._create_action(ctx)
         self._setup_initial_state(action, ctx)
         action.triggered.connect(self._build_callback(ctx))
@@ -125,11 +127,11 @@ class SubmenuItem[C: BaseMenuContext](MenuItem[C]):
 
     text: str
     icon: Icon | None = None
-    items: tuple[MenuItem, ...] = ()
+    items: tuple[MenuItem[C], ...] = ()
 
-    def add_to(self, menu: QMenu, ctx: C) -> list[tuple[MenuActionItem, QAction]]:
+    def add_to(self, menu: QMenu, ctx: C) -> list[BuiltAction]:
         submenu = menu.addMenu(get_icon(self.icon), self.text)
-        results: list[tuple[MenuActionItem, QAction]] = []
+        results: list[BuiltAction] = []
         for item in self.items:
             results.extend(item.add_to(submenu, ctx))
         return results

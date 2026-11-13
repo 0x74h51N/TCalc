@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal
+
+# Any: build_math_nodes returns tagged tuples, which its stub can only type as tuple[Any, ...]
+from typing import TYPE_CHECKING, Any, Literal, TypeIs
 
 import calc_native
 from PySide6.QtWidgets import QLineEdit
@@ -41,7 +43,7 @@ def debug_tokens(tokens: list[calc_native.Token]) -> str:
     return "TOKENS -> " + str(out)
 
 
-def fmt_math_nodes(nodes: list[tuple], indent: int = 0) -> list[str]:
+def fmt_math_nodes(nodes: list[tuple[Any, ...]], indent: int = 0) -> list[str]:
     pad = "  " * indent
     lines: list[str] = []
     for tup in nodes:
@@ -63,7 +65,7 @@ def fmt_math_nodes(nodes: list[tuple], indent: int = 0) -> list[str]:
     return lines
 
 
-def debug_math_nodes(nodes: list[tuple]) -> None:
+def debug_math_nodes(nodes: list[tuple[Any, ...]]) -> None:
     """Log a MathNode tree in readable indented form."""
     _log.debug("MATH_NODES ->")
     for line in fmt_math_nodes(nodes):
@@ -83,7 +85,7 @@ class SegInfo:
     kind: Literal["edit", "node", "glyph"]
     text: str | None = None  # QLineEdit text (kind=="edit")
     name: str | None = None  # QLineEdit objectName, stripped (kind=="edit")
-    node: NodeInfo | None = None  # nested node  (kind=="node")
+    node: NodeInfo[ExpressionNode] | None = None  # nested node  (kind=="node")
     glyph_cls: str | None = None  # e.g. "CurlyBrace" (kind=="glyph")
 
     def _fmt(self, index: int, indent: str) -> str:
@@ -117,7 +119,7 @@ class SlotInfo:
         return sum(1 for s in self.segments if s.kind == "glyph")
 
     @property
-    def nodes(self) -> list[NodeInfo]:
+    def nodes(self) -> list[NodeInfo[ExpressionNode]]:
         return [s.node for s in self.segments if s.kind == "node" and s.node]
 
     def _fmt(self, depth: int) -> list[str]:
@@ -131,7 +133,7 @@ class SlotInfo:
         return lines
 
 
-@dataclass
+@dataclass(frozen=True)
 class NodeInfo[W: ExpressionNode]:
     """Snapshot of one ExpressionNode."""
 
@@ -150,6 +152,10 @@ class NodeInfo[W: ExpressionNode]:
         return lines
 
 
+def _holds[W: ExpressionNode](n: NodeInfo[ExpressionNode], cls: type[W]) -> TypeIs[NodeInfo[W]]:
+    return isinstance(n.widget, cls)
+
+
 @dataclass
 class TreeInfo:
     """Full snapshot of an Expression widget's render tree."""
@@ -157,12 +163,12 @@ class TreeInfo:
     root: SlotInfo
     plain_text: str
 
-    all_nodes: list[NodeInfo] = field(default_factory=list)
+    all_nodes: list[NodeInfo[ExpressionNode]] = field(default_factory=list)
     all_slots: list[SlotInfo] = field(default_factory=list)
     all_edits: list[SegInfo] = field(default_factory=list)
 
     def _nodes_of_type[W: ExpressionNode](self, cls: type[W]) -> list[NodeInfo[W]]:
-        return [n for n in self.all_nodes if isinstance(n.widget, cls)]
+        return [n for n in self.all_nodes if _holds(n, cls)]
 
     @property
     def parens(self) -> list[NodeInfo[ParenWidget]]:
@@ -215,16 +221,16 @@ def snapshot_tree(widget: Expression) -> TreeInfo:
                 si.segments.append(SegInfo(kind="glyph", glyph_cls=type(seg).__name__))
         return si
 
-    def _walk_node(node: ExpressionNode) -> NodeInfo:
-        ni: NodeInfo = NodeInfo(
+    def _walk_node(node: ExpressionNode) -> NodeInfo[ExpressionNode]:
+        paren = node if isinstance(node, ParenWidget) else None
+        ni = NodeInfo(
             widget=node,
             cls_name=type(node).__name__,
+            paren_kind=paren.PAREN_KIND if paren is not None else None,
+            has_open=paren._has_open if paren is not None else None,
+            has_close=paren._has_close if paren is not None else None,
         )
         info.all_nodes.append(ni)
-        if isinstance(node, ParenWidget):
-            ni.paren_kind = node.PAREN_KIND
-            ni.has_open = node._has_open
-            ni.has_close = node._has_close
         for slot in (node._left_slot, node._right_slot):
             if slot is not None:
                 ni.slots.append(_walk_slot(slot))

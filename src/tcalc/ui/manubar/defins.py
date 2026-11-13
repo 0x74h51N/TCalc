@@ -12,7 +12,9 @@ from .menu_builder import (
     MenuActionItem,
     MenuActionType,
     MenuSeparatorItem,
+    OpsMenuContext,
     SubmenuItem,
+    ToggleMenuContext,
 )
 
 
@@ -20,7 +22,7 @@ def _coming_soon(ctx: BaseMenuContext) -> None:
     QMessageBox.information(ctx.window, "Coming soon", "Coming soon.")
 
 
-FILE_MENU_ACTIONS: tuple[MenuActionItem, ...] = (
+FILE_MENU_ACTIONS: tuple[MenuActionItem[OpsMenuContext[FileOperations]], ...] = (
     MenuActionItem(
         text="Quit",
         icon=Icon.APPLICATION_EXIT,
@@ -29,7 +31,9 @@ FILE_MENU_ACTIONS: tuple[MenuActionItem, ...] = (
     ),
 )
 
-EDIT_MENU_ACTIONS: tuple[MenuActionItem | MenuSeparatorItem, ...] = (
+EDIT_MENU_ACTIONS: tuple[
+    MenuActionItem[OpsMenuContext[EditOperations]] | MenuSeparatorItem, ...
+] = (
     MenuActionItem(
         text="Undo",
         icon=Icon.EDIT_UNDO,
@@ -64,7 +68,10 @@ EDIT_MENU_ACTIONS: tuple[MenuActionItem | MenuSeparatorItem, ...] = (
 )
 
 
-VIEW_ACTIONS: tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
+type _ViewContext = ToggleMenuContext[ViewOperations]
+VIEW_ACTIONS: tuple[
+    MenuActionItem[_ViewContext] | MenuSeparatorItem | SubmenuItem[_ViewContext], ...
+] = (
     SubmenuItem(
         text="Theme",
         icon=Icon.PALETTE,
@@ -212,7 +219,9 @@ VIEW_ACTIONS: tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     ),
 )
 
-SETTINGS_ACTIONS: tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
+SETTINGS_ACTIONS: tuple[
+    MenuActionItem[BaseMenuContext] | MenuSeparatorItem | SubmenuItem[BaseMenuContext], ...
+] = (
     MenuActionItem(
         text="Configure Keyboard Shortcuts...",
         icon=Icon.INPUT_KEYBOARD,

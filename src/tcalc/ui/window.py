@@ -90,7 +90,7 @@ class MainWindow(QMainWindow):
         | Qt.DockWidgetArea.RightDockWidgetArea
     )
 
-    _DOCK_MENU_TOGGLES: dict[DockKind, Callable] = {
+    _DOCK_MENU_TOGGLES: dict[DockKind, Callable[[ViewOperations, bool], None]] = {
         DockKind.NUMPAD: ViewOperations.toggle_numpad,
         DockKind.FUNCPAD: ViewOperations.toggle_funcpad,
         DockKind.TRIGPAD: ViewOperations.toggle_trigpad,
