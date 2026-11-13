@@ -27,13 +27,13 @@ Two kinds of docs, read at different times. Neither is read again in the same se
 
 - Before analyzing, measuring or debugging a subject, read the findings index, `docs/superpowers/findings/README.md`, then the matching file. Do not repeat an analysis that is already recorded; start from where it ended.
 - Do not retry an approach recorded as failed, unless something it depended on has changed. Say what changed.
-- Facts already established in the conversation are not re-derived, and decisions the human agent has already made are not reopened.
+- Established facts and closed items: [psychosis](psychosis.md#one-thing-at-a-time).
 
 ## While working
 
 - Search before reading, then read the part of the file the search found, not the whole tree.
 - Run the narrowest check that answers the question: one test file or one test, not the whole suite. The whole suite runs in the pre-push hook.
 - Do not paste or re-read large outputs; filter them (`grep`, `tail`, `-q`) to what answers the question.
-- If two attempts at the same problem have failed, stop. Record what was tried, report to the human agent, and wait, instead of a third guess.
+- Two failed attempts at the same problem end it ([psychosis](psychosis.md#the-four-failures), perseveration).
 - Answer the question that was asked. A short question gets a short answer, not a survey of options that will not be pursued.
 - Do not start subagents unless the human agent asks for them. Each one starts cold and pays again for context the session already has.

@@ -31,6 +31,7 @@ The rules by topic, the setup and the architecture are imported below, so they a
 
 @docs/rules/ai/conduct.md
 @docs/rules/ai/bugs.md
+@docs/rules/ai/psychosis.md
 @docs/rules/ai/versions.md
 @docs/rules/ai/code.md
 @docs/rules/ai/tests.md
