@@ -65,7 +65,6 @@ def custom_theme_folders() -> dict[str, Path]:
 class ThemeMode(Enum):
     """Kind of theme the user chose; Qt holds built-in ones as a color scheme."""
 
-    _value_: str
     LIGHT = "light"
     DARK = "dark"
     SYSTEM = "system"
