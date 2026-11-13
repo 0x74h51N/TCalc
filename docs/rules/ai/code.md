@@ -48,7 +48,7 @@ Why every stub is generated is in [architecture.md](../../architecture.md#key-de
 - No module is left unchecked and no import is silently `Any`. With `ignore_missing_imports` on `calc_native`, a missing `stubs/calc_native.pyi` turns the whole native module into `Any` and `make typecheck` still passes. A mypy exclusion or `ignore_missing_imports` carries its reason beside it. The mypy settings live in `pyproject.toml`, under `strict = true`; a check turned off for one module says why.
 - Every function in `src/` annotates its parameters and its return, Qt overrides (`resizeEvent`, `paintEvent`) included.
 - A value that can be anything is `object`. `Any` is only for what the type system cannot express, with a one-line reason.
-- Narrowing is done with `isinstance` or a `TypeIs` function, so the checker proves it; `cast` and `assert` are not narrowing tools. Every `# type: ignore` names its error code.
+- Narrowing is done with `isinstance` (in an `if` or an `assert`) or a `TypeIs` function, so the checker proves it; `cast` is not a narrowing tool. Every `# type: ignore` names its error code.
 - Modern syntax: `X | None`, built-in generics (`list`, `dict`) and `collections.abc`, not `Optional`, `List`, `Dict`. Ruff's `UP` and `ANN` rules enforce it.
 
 ## Native C++
