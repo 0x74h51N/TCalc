@@ -17,3 +17,7 @@ The same flags in a clean Release build (`cmake -S src/native -B <dir> -G Ninja 
 
 - 11 in `test_transcendental.cpp` and `test_trig.cpp`, at each `(c.*tc.fn)(...)` member pointer call: "array subscript `int (**)(...)[0]` is partly outside array bounds of `Calculator [1]`". That is the virtual branch of a member pointer call reading a vtable pointer from the 1-byte `Calculator`, which has no virtual function, so the branch never runs. Two standalone repros (an empty class, a member pointer table, a lambda through `std::function`, with and without `final`) at `-O2 -Wall` gave no warning.
 - 12 at `boost/multiprecision/cpp_int/bitwise.hpp:598`, inside Boost's `reduce_n_half_pi` for `cpp_bin_float<50>`, inlined into `arithmetic.cpp`.
+
+## 2026-11-13, chore/type-safety-rules: the switches with a `default`
+
+17 native `switch`es have a `default` (`git grep -n "default:" -- src/native/lib src/native/python`). A Debug build with `-DCMAKE_CXX_FLAGS="-Wswitch-enum"` names the enum values each `default` takes. None hides a value: the 7 in `trig.cpp` list `DEG`, `RAD` and `GRAD` (no warning, so the `default` is never reached), `closed_forms.cpp:784` lists every value, 3 switch on a `char`, and 6 use `default` for the rest of the enum on purpose (`value.hpp:63` takes `Cx`, `BigCx`, `Coll`; `exact.cpp:30` and `parser.cpp:964` pick a few of the `OpId`s; `closed_forms.cpp:260`, `eval.cpp:1098` and `parser.cpp:907` a few `TokenKind`s).
