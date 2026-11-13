@@ -8,9 +8,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, Callable, Generic, TypeVar, cast
+from typing import TYPE_CHECKING, Never
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu
@@ -25,7 +26,9 @@ if TYPE_CHECKING:
     from ..keyboard import ShortcutManager
     from ..window import MainWindow
 
-OpsType = TypeVar("OpsType", FileOperations, EditOperations, ViewOperations)
+type Operations = FileOperations | EditOperations | ViewOperations
+# What a built item hands back; the context it was built with is no longer needed.
+type BuiltAction = tuple[MenuActionItem[Never], QAction]
 
 
 class MenuActionType(Enum):
@@ -43,31 +46,35 @@ class BaseMenuContext:
 
 
 @dataclass(frozen=True, slots=True)
-class OpsMenuContext(BaseMenuContext, Generic[OpsType]):
-    ops: OpsType
+class OpsMenuContext[O: Operations](BaseMenuContext):
+    ops: O
 
 
 @dataclass(frozen=True, slots=True)
-class ToggleMenuContext(OpsMenuContext[OpsType], Generic[OpsType]):
+class ToggleMenuContext[O: Operations](OpsMenuContext[O]):
     app_state: AppState
 
 
-TMenuContext = TypeVar("TMenuContext", bound=BaseMenuContext, contravariant=True)
+def _narrow[C: BaseMenuContext](ctx: BaseMenuContext, kind: type[C]) -> C:
+    # The item type picks the context it needs; a menu built with another one is a wiring bug.
+    if not isinstance(ctx, kind):
+        raise TypeError(f"{kind.__name__} expected, got {type(ctx).__name__}")
+    return ctx
 
 
-class MenuItem(ABC, Generic[TMenuContext]):
+class MenuItem[C: BaseMenuContext](ABC):
     @abstractmethod
-    def add_to(self, menu: QMenu, ctx: TMenuContext) -> list[tuple[MenuActionItem, QAction]]: ...
+    def add_to(self, menu: QMenu, ctx: C) -> list[BuiltAction]: ...
 
 
 class MenuSeparatorItem(MenuItem[BaseMenuContext]):
-    def add_to(self, menu: QMenu, ctx: BaseMenuContext) -> list[tuple[MenuActionItem, QAction]]:
+    def add_to(self, menu: QMenu, ctx: BaseMenuContext) -> list[BuiltAction]:
         menu.addSeparator()
         return []
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class MenuActionItem(MenuItem[TMenuContext], Generic[TMenuContext]):
+class MenuActionItem[C: BaseMenuContext](MenuItem[C]):
     """Single unified action item. Type determines callback behavior."""
 
     text: str
@@ -76,7 +83,7 @@ class MenuActionItem(MenuItem[TMenuContext], Generic[TMenuContext]):
     enabled: bool = True
     item_type: MenuActionType = MenuActionType.OPS
     checked_getter: Callable[[AppState], bool] | None = None
-    fn: Callable
+    fn: Callable[..., None]
     preset: KeypadPreset | None = None
     theme: ThemeChoice | None = None
 
@@ -86,31 +93,27 @@ class MenuActionItem(MenuItem[TMenuContext], Generic[TMenuContext]):
         action.setEnabled(self.enabled)
         return action
 
-    def _setup_initial_state(self, action: QAction, ctx: TMenuContext) -> None:
+    def _setup_initial_state(self, action: QAction, ctx: C) -> None:
         """Setup checked state and shortcuts."""
         if self.item_type == MenuActionType.TOGGLE and self.checked_getter is not None:
-            toggle_ctx = cast(ToggleMenuContext, ctx)
-            action.setChecked(self.checked_getter(toggle_ctx.app_state))
+            action.setChecked(self.checked_getter(_narrow(ctx, ToggleMenuContext).app_state))
 
         if self.item_type in (MenuActionType.OPS, MenuActionType.TOGGLE):
             ctx.shortcuts.bind_action(self.fn, action)
 
-    def _build_callback(self, ctx: TMenuContext) -> Callable:
+    def _build_callback(self, ctx: C) -> Callable[..., None]:
         """Build callback based on item type."""
         match self.item_type:
             case MenuActionType.OPS:
-                assert callable(self.fn)
-                ops_ctx = cast(OpsMenuContext, ctx)
+                ops_ctx = _narrow(ctx, OpsMenuContext)
                 return lambda: self.fn(ops_ctx.ops)
             case MenuActionType.TOGGLE:
-                assert callable(self.fn)
-                toggle_ctx = cast(ToggleMenuContext, ctx)
+                toggle_ctx = _narrow(ctx, ToggleMenuContext)
                 return lambda checked: self.fn(toggle_ctx.ops, checked)
             case MenuActionType.BUTTON:
-                assert callable(self.fn)
                 return lambda: self.fn(ctx)
 
-    def add_to(self, menu: QMenu, ctx: TMenuContext) -> list[tuple[MenuActionItem, QAction]]:
+    def add_to(self, menu: QMenu, ctx: C) -> list[BuiltAction]:
         action = self._create_action(ctx)
         self._setup_initial_state(action, ctx)
         action.triggered.connect(self._build_callback(ctx))
@@ -119,16 +122,16 @@ class MenuActionItem(MenuItem[TMenuContext], Generic[TMenuContext]):
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class SubmenuItem(MenuItem[TMenuContext], Generic[TMenuContext]):
+class SubmenuItem[C: BaseMenuContext](MenuItem[C]):
     """A submenu container. Adds a child QMenu and populates it with *items*."""
 
     text: str
     icon: Icon | None = None
-    items: tuple[MenuItem, ...] = ()
+    items: tuple[MenuItem[C], ...] = ()
 
-    def add_to(self, menu: QMenu, ctx: TMenuContext) -> list[tuple[MenuActionItem, QAction]]:
+    def add_to(self, menu: QMenu, ctx: C) -> list[BuiltAction]:
         submenu = menu.addMenu(get_icon(self.icon), self.text)
-        results: list[tuple[MenuActionItem, QAction]] = []
+        results: list[BuiltAction] = []
         for item in self.items:
             results.extend(item.add_to(submenu, ctx))
         return results

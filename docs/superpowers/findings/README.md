@@ -15,3 +15,5 @@ One line per findings file: the file, then the subject in a few words. Read this
 - [editor-dissolve-cursor.md](editor-dissolve-cursor.md): where Left, Right and Backspace move the cursor through a Math Widget, where it lands after a dissolve, and a failed fix (#184, #219).
 - [complex-root.md](complex-root.md): where the complex root noise comes from, and the exactness and cost of pow, Newton, half turns and wider types on the root rows (#223, #225).
 - [bigreal-domain.md](bigreal-domain.md): a negative BigReal under sqrt, root, ln and log is a math error instead of a BigComplex, and what works next to it (#226).
+- [generated-stubs.md](generated-stubs.md): how `patch_stub` was removed, why `CalcValue` drift needs no extra check, and why `ops.pyi` sits beside `ops.py` (#108).
+- [native-warnings.md](native-warnings.md): what the native warning flags found, and the Int64 retry path behind `dispatch` (#108).

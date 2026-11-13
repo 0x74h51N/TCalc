@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Optional
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QApplication
 
 from tcalc.app_state import get_app_state
 
 if TYPE_CHECKING:
+    from tcalc.ui.widgets.calc.display.display import Display
+    from tcalc.ui.widgets.history.history import History
+
     from ...window import MainWindow
 
 
@@ -44,7 +48,7 @@ class EditOperations:
             self._display.result.clear_result()
             self._set_expression(expr)
 
-    def _do_clip(self, action: str, after: Optional[Callable[[], None]] = None) -> None:
+    def _do_clip(self, action: str, after: Callable[[], None] | None = None) -> None:
         exprs = self._display.expression.expression_inputs()
         cleaned = self._display.result.result_label.text()
         for expr in exprs:
@@ -55,20 +59,20 @@ class EditOperations:
         if after:
             after()
 
-    def __init__(self, window: MainWindow):
+    def __init__(self, window: MainWindow) -> None:
         self.window = window
         self.clipboard = QApplication.clipboard()
         self.app_state = get_app_state()
 
     @property
-    def _display(self):
+    def _display(self) -> Display:
         return self.window.calc_widget.display
 
     @property
-    def _history(self):
+    def _history(self) -> History:
         return self.window.history
 
-    def _get_history_expression(self, index: int) -> Optional[str]:
+    def _get_history_expression(self, index: int) -> str | None:
         item = self._history.get_history_item(index)
         if not item:
             return None

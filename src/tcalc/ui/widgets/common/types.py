@@ -55,7 +55,7 @@ class KeyDef:
     text_color: str = ""
 
     @staticmethod
-    def from_op(op: Operation, row: int, col: int) -> "KeyDef":
+    def from_op(op: Operation, row: int, col: int) -> KeyDef:
         return KeyDef(
             label=op.symbol,
             operation=op,

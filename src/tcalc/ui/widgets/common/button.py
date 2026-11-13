@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 
 from PySide6.QtCore import QChildEvent, QSize, Signal
 from PySide6.QtGui import QFont, QResizeEvent
@@ -252,7 +252,7 @@ class CustomPresetActions(QWidget):
     update_requested = Signal()
     delete_requested = Signal()
 
-    def __init__(self, config: PresetConfig, parent: QWidget | None = None):
+    def __init__(self, config: PresetConfig, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         size = config.action_btn_size
 

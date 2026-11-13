@@ -27,7 +27,7 @@ py-lint-fix:
 	$(PY) -m ruff format .
 
 typecheck:
-	$(PY) -m mypy --check-untyped-defs
+	$(PY) -m mypy
 
 py-test:
 	PYTHONPATH=src $(PY) -m pytest tests/py/unit/core $(PYTEST_ARGS)

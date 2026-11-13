@@ -8,11 +8,13 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from enum import Enum
-from typing import TYPE_CHECKING, Callable, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import calc_native
 from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLineEdit,
@@ -53,9 +55,7 @@ class ExprInput(QLineEdit):
 class ExpressionNode(QWidget):
     """Base class for math expression widgets that can serialize to text."""
 
-    def __init__(
-        self,
-    ):
+    def __init__(self) -> None:
         super().__init__()
         self._editor: Expression | None = None
 
@@ -599,7 +599,7 @@ class ExpressionSlot(QWidget):
             if isValid(self):
                 self.setUpdatesEnabled(True)
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         if self._suppress_margins:
             return

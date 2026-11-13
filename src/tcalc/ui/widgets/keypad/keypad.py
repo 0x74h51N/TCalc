@@ -8,9 +8,9 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Optional
 
 from PySide6.QtCore import QEvent, QTimer, Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QAbstractButton,
     QButtonGroup,
@@ -54,7 +54,7 @@ class Keypad(QWidget):
     # Component name theme pictures can target; None takes none
     picture_target: PictureTarget | None = None
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         self._buttons: dict[str, QPushButton] = {}
@@ -189,10 +189,10 @@ class Keypad(QWidget):
     # Public accessors
     # ------------------------------------------------------------------
 
-    def get_button(self, label: str) -> Optional[QPushButton]:
+    def get_button(self, label: str) -> QPushButton | None:
         return self._buttons.get(label)
 
-    def get_op_button(self, op: Operation) -> Optional[QPushButton]:
+    def get_op_button(self, op: Operation) -> QPushButton | None:
         return self._op_buttons.get(op)
 
     @property
@@ -227,7 +227,7 @@ class Keypad(QWidget):
         self._update_key_radius()
         self._update_button_fonts()
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self._key_radius = shrink_key_radius(self, self._buttons.values(), self._key_radius)
         self._resize_timer.start()

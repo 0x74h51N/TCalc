@@ -4,7 +4,6 @@ import logging
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List
 
 import calc_native
 from PySide6.QtCore import QStandardPaths
@@ -34,7 +33,7 @@ def _history_path() -> Path:
     return _get_data_dir() / "history.dat"
 
 
-def load_history() -> List[HistoryEntry]:
+def load_history() -> list[HistoryEntry]:
     """Load history from binary file."""
     path = _history_path()
 
@@ -43,13 +42,14 @@ def load_history() -> List[HistoryEntry]:
 
     try:
         with open(path, "rb") as f:
-            return pickle.load(f)
+            entries: list[HistoryEntry] = pickle.load(f)
+            return entries
     except Exception:
         _log.debug("Failed to load history file: %s", path, exc_info=True)
         return []
 
 
-def save_history(history: List[HistoryEntry]) -> None:
+def save_history(history: list[HistoryEntry]) -> None:
     """Save history to binary file."""
     path = _history_path()
 
@@ -71,5 +71,5 @@ def clear_history_file() -> None:
     try:
         with open(path, "wb") as f:
             pickle.dump([], f, protocol=pickle.HIGHEST_PROTOCOL)
-    except IOError:
+    except OSError:
         _log.debug("Failed to clear history file: %s", path, exc_info=True)

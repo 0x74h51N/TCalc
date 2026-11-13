@@ -37,7 +37,7 @@ PAREN_GLYPH_W: dict[calc_native.ParenKind, float] = {
 
 class FontCache:
     def __init__(self) -> None:
-        self._cache: dict[tuple, QFontMetricsF] = {}
+        self._cache: dict[tuple[str, float, int, int, bool], QFontMetricsF] = {}
 
     def metrics(self, font: QFont) -> QFontMetricsF:
         key = (font.family(), font.pointSizeF(), font.pixelSize(), font.weight(), font.italic())

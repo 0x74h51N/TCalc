@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import calc_native
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont, QPalette
+from PySide6.QtGui import QFont, QPalette, QResizeEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -31,7 +31,7 @@ from tcalc.ui.widgets.utils import InputAlign, apply_scaled_fonts, fit_radius
 
 
 class Result(QWidget):
-    def __init__(self, parent: QWidget, config: ResultConfig):
+    def __init__(self, parent: QWidget, config: ResultConfig) -> None:
         super().__init__(parent)
 
         self._config = config
@@ -179,7 +179,7 @@ class Result(QWidget):
         else:
             self._hide_fraction_view()
 
-    def _toggle_fraction_view(self):
+    def _toggle_fraction_view(self) -> None:
         self._frac_visible = not self._frac_visible
         self._sync_fraction_ui()
         self._update_fonts()
@@ -233,7 +233,7 @@ class Result(QWidget):
         self._clear_slot()
         self.update_res("", None)
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self._resize_timer.start()
 

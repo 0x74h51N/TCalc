@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
+    QGridLayout,
     QHBoxLayout,
     QPushButton,
     QSizePolicy,
@@ -34,7 +33,7 @@ class TopBar(QWidget):
     key_pressed = Signal(str, object)
     angle_changed = Signal(object)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         self._buttons: dict[str, QPushButton] = {}
@@ -96,7 +95,7 @@ class TopBar(QWidget):
         super().resizeEvent(event)
         self._fit_timer.start()
 
-    def _add_key(self, key_def: KeyDef, role: KeypadRole, grid) -> None:
+    def _add_key(self, key_def: KeyDef, role: KeypadRole, grid: QGridLayout) -> None:
         button = KeyButton(key_def, role, grid.parentWidget() or self)
         button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         button.clicked.connect(
@@ -105,7 +104,7 @@ class TopBar(QWidget):
         self._buttons[key_def.label] = button
         button.place(grid, key_def)
 
-    def get_button(self, label: str) -> Optional[QPushButton]:
+    def get_button(self, label: str) -> QPushButton | None:
         return self._buttons.get(label)
 
     def set_angle_visible(self, visible: bool) -> None:

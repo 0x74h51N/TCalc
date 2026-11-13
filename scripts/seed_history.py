@@ -33,7 +33,7 @@ def _local_path() -> Path:
     return base / DAT_NAME
 
 
-def _evalator(calculator, toks):
+def _evalator(calculator: calc_native.Calculator | None, toks: calc_native.TokensBranch) -> str:
     res = "42"
     if calculator is not None:
         res = format_result(calc_native.evaluate(toks, calculator, calc_native.AngleUnit.DEG))

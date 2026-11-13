@@ -63,19 +63,6 @@ def build_imports(tree: ast.Module) -> list[ast.stmt]:
     return header
 
 
-FUTURE_ANNOTATIONS = "from __future__ import annotations\n"
-
-
-def write_init_pyi(package_dir: Path, *, content: str = FUTURE_ANNOTATIONS) -> None:
-    init_pyi = package_dir / "__init__.pyi"
-    if not init_pyi.exists():
-        init_pyi.write_text(content, encoding="utf-8")
-
-
-def write_py_typed(package_dir: Path, *, content: str = "partial\n") -> None:
-    (package_dir / "py.typed").write_text(content, encoding="utf-8")
-
-
 def run_ruff_format(path: Path, *, project_root: Path | None = None) -> None:
     ruff_bin = which("ruff")
     if ruff_bin is None and project_root is not None:
@@ -105,14 +92,14 @@ def write_stub(path: Path, module: ast.Module, *, project_root: Path | None = No
 class ModuleScan:
     dataclasses: list[ast.ClassDef]
     public_functions: list[ast.FunctionDef]
-    public_typed_constants: list[ast.AnnAssign]
+    public_typed_constants: dict[str, ast.expr]
     enum_properties: list[ast.FunctionDef]
 
 
 def scan_module(tree: ast.Module) -> ModuleScan:
     dataclasses_: list[ast.ClassDef] = []
     public_functions: list[ast.FunctionDef] = []
-    public_typed_constants: list[ast.AnnAssign] = []
+    public_typed_constants: dict[str, ast.expr] = {}
     best_enum_properties: list[ast.FunctionDef] = []
     best_enum_properties_count = 0
 
@@ -135,10 +122,10 @@ def scan_module(tree: ast.Module) -> ModuleScan:
 
             is_enum = False
             for base in node.bases:
-                if isinstance(base, ast.Name) and base.id == "Enum":
+                if isinstance(base, ast.Name) and base.id in ("Enum", "StrEnum"):
                     is_enum = True
                     break
-                if isinstance(base, ast.Attribute) and base.attr == "Enum":
+                if isinstance(base, ast.Attribute) and base.attr in ("Enum", "StrEnum"):
                     is_enum = True
                     break
 
@@ -158,15 +145,14 @@ def scan_module(tree: ast.Module) -> ModuleScan:
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             name_ = node.target.id
             if name_.upper() == name_ and not name_.startswith("_") and node.annotation is not None:
-                public_typed_constants.append(node)
+                public_typed_constants[name_] = node.annotation
 
     public_functions.sort(key=lambda n: n.name)
-    public_typed_constants.sort(key=lambda n: n.target.id)
     best_enum_properties.sort(key=lambda fn: fn.name)
 
     return ModuleScan(
         dataclasses=dataclasses_,
         public_functions=public_functions,
-        public_typed_constants=public_typed_constants,
+        public_typed_constants=dict(sorted(public_typed_constants.items())),
         enum_properties=best_enum_properties,
     )

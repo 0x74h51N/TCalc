@@ -395,14 +395,10 @@ Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::A
         // Rational, so it is the lifted arguments that need unwinding.
         if (!has_arm(arms_present(dispatch_args), Arm::Rat))
             throw;
+        // Straight to double: an integer is no arm of an op with a Rational arm, and Pow's
+        // (double, long long) overload would make an integer pair ambiguous.
         for (auto &a : dispatch_args)
-            a = rational_downcast(a);
-        // Pow has both a (double, double) and a (double, long long) overload, so two
-        // integral fractions downcasting to a bare integer pair would make the retry
-        // ambiguous. Take it all the way to double instead.
-        if (dispatch_args.size() > 1)
-            for (auto &a : dispatch_args)
-                a = Value{as_double(a)};
+            a = Value{as_double(a)};
         // The domain rule reads a real operand, so a Rational never met it. The downcast
         // has produced one: sqrt of a negative rational leaves the real domain here, and
         // the promotion has to run before the retry rather than after it. coerce only

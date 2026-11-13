@@ -7,9 +7,8 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer, Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QFrame,
     QLineEdit,
@@ -32,7 +31,7 @@ from .result.result import Result
 class Display(QWidget):
     expression_changed = Signal(str)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("displayWidget")
 
@@ -101,7 +100,7 @@ class Display(QWidget):
         self.editor.update_input_fonts(self._expr_scroll)
         self._schedule_scroll(self.editor._resolve_target())
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self._update_fonts()
 

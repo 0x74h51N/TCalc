@@ -8,9 +8,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum
-from typing import Callable
+from enum import EnumType, StrEnum
 
 import calc_native
 
@@ -68,7 +68,7 @@ for name, symbol in _UI_SPECS:
     _operation_values[name] = name.lower()
 
 
-class OperationBase(str, Enum):
+class OperationBase(StrEnum):
     """Base class for Operation enum with runtime spec access."""
 
     @property
@@ -103,7 +103,11 @@ class OperationBase(str, Enum):
 
 
 # Dynamically create the Operation enum
-Operation: type[OperationBase] = Enum("Operation", _operation_values, type=OperationBase)  # type: ignore[assignment,misc]
+_operation_members = EnumType.__prepare__("Operation", (OperationBase,))
+_operation_members["__module__"] = __name__
+for name, value in _operation_values.items():
+    _operation_members[name] = value
+Operation = EnumType("Operation", (OperationBase,), _operation_members)
 
 
 def get_symbols_with_aliases(
@@ -111,12 +115,11 @@ def get_symbols_with_aliases(
 ) -> set[str]:
     """Get all operation symbols including aliases."""
     symbols: set[str] = set()
-    for op in Operation:
-        spec = op._spec
+    for spec in _specs_by_name.values():
         if filter_fn and not filter_fn(spec):
             continue
-        symbols.add(op.symbol)
-        symbols.update(op.aliases)
+        symbols.add(spec.symbol)
+        symbols.update(spec.aliases)
     return symbols
 
 
@@ -141,12 +144,12 @@ class LatexExpr:
     @classmethod
     def get(cls, kind: calc_native.LatexKind) -> LatexExprSpec:
         """Get spec by LatexKind."""
-        return getattr(cls, kind.name)
+        return _LATEX_BY_KIND[kind]
 
 
+_LATEX_BY_KIND: dict[calc_native.LatexKind, LatexExprSpec] = {}
 for _entry in calc_native.latex_exprs():
-    setattr(
-        LatexExpr,
-        _entry.kind.name,
-        LatexExprSpec(symbol=_entry.symbol, kind=_entry.kind, opid=_entry.opid),
+    _LATEX_BY_KIND[_entry.kind] = LatexExprSpec(
+        symbol=_entry.symbol, kind=_entry.kind, opid=_entry.opid
     )
+    setattr(LatexExpr, _entry.kind.name, _LATEX_BY_KIND[_entry.kind])

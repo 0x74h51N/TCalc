@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class EditMenu:
-    def __init__(self, menu: QMenuBar, window: MainWindow, shortcuts: ShortcutManager):
+    def __init__(self, menu: QMenuBar, window: MainWindow, shortcuts: ShortcutManager) -> None:
         self.window = window
         self.edit_ops = EditOperations(window)
 

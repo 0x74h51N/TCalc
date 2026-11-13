@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 
 import calc_native
 
@@ -14,7 +14,7 @@ ANGLE_OPTIONS: list[tuple[calc_native.AngleUnit, str]] = [
 ]
 
 
-class MemoryKey(str, Enum):
+class MemoryKey(StrEnum):
     MC = "MC"
     MR = "MR"
     MS = "MS"

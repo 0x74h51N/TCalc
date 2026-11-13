@@ -9,10 +9,11 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+from collections.abc import Callable, Sequence
 
 import calc_native
 from PySide6.QtCore import QPoint, QSettings, Qt, Signal
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QColor, QFont, QResizeEvent
 from PySide6.QtWidgets import (
     QAbstractButton,
     QColorDialog,
@@ -363,7 +364,7 @@ class KSGrid(QWidget):
 
     # -- Helpers -----------------------------------------------------------
 
-    def _make_key_handler(self, kd: KeyDef):
+    def _make_key_handler(self, kd: KeyDef) -> Callable[[bool], None]:
         """Create a click handler for a key button."""
 
         def handler(_: bool = False) -> None:
@@ -380,10 +381,12 @@ class KSGrid(QWidget):
 
         return handler
 
-    def _make_context_handler(self, key_index: int, button: QPushButton):
+    def _make_context_handler(
+        self, key_index: int, button: QPushButton
+    ) -> Callable[[QPoint], None]:
         """Create a right-click handler that emits key_context_requested."""
 
-        def handler(_) -> None:
+        def handler(_: QPoint) -> None:
             self.key_context_requested.emit(self._grid_index, key_index, button)
 
         return handler
@@ -404,7 +407,7 @@ class KSGrid(QWidget):
     def _fit_key_radius(self) -> None:
         self._key_radius = apply_key_radius(self, self._buttons, self._key_radius)
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self._key_radius = shrink_key_radius(self, self._buttons, self._key_radius)
         self._resize_timer.start()
@@ -532,7 +535,11 @@ class CustomPad(QWidget):
     # ------------------------------------------------------------------
     # Picker factory
     # ------------------------------------------------------------------
-    def _make_picker(self, items, separator_after: int | None = None) -> SearchablePicker:
+    def _make_picker(
+        self,
+        items: Sequence[tuple[str, object] | tuple[str, object, QColor]],
+        separator_after: int | None = None,
+    ) -> SearchablePicker:
         return SearchablePicker(
             items=items,
             separator_after=separator_after,

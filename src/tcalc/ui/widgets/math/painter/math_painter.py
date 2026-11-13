@@ -7,9 +7,12 @@
 
 from __future__ import annotations
 
+# Any: build_math_nodes returns tagged tuples, which its stub can only type as tuple[Any, ...]
+from typing import Any
+
 import calc_native
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QFont, QPainter, QPen
+from PySide6.QtGui import QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
 from tcalc.ui.widgets.math.math_primitives import PEN_WIDTH
@@ -30,7 +33,7 @@ class MathPainter:
         root.place(0.0, 0.0)
         return root
 
-    def _emit(self, row: Row, nodes: list[tuple], font: QFont) -> None:
+    def _emit(self, row: Row, nodes: list[tuple[Any, ...]], font: QFont) -> None:
         TEXT = calc_native.MATH_TAG_TEXT
         PAREN = calc_native.MATH_TAG_PAREN
         children = row.children
@@ -92,7 +95,7 @@ class PaintCanvas(QWidget):
     def minimumSizeHint(self) -> QSize:
         return self._size
 
-    def paintEvent(self, _event) -> None:
+    def paintEvent(self, _event: QPaintEvent) -> None:
         if self._tree is None:
             return
         painter = QPainter(self)

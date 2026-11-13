@@ -32,11 +32,31 @@ When something does not fit, stop and report instead of inventing. The report sa
 - Modular means one job, said in one sentence without the word "and". A caller understands a function without reading its internals. A file that has grown large is doing too much.
 - Do not over-unify. Removing duplication means extracting a shared helper or hoisting the shared step, not forcing semantically different work into one generic engine. If two rules read different inputs, run in different phases or mean different things, they stay separate functions and the dispatch table stays thin. A shared context struct with optional fields that are "empty for most ops" is the smell.
 - Shared code does not decide again what the caller already knows. The caller has told the cases apart (a `switch`, a dispatch on the kind), so it passes the ready `kind` or `op`, and something specific to one operation lives in that operation's row of the table, not in a `switch` inside a shared function. No widget, layout or function branches on which caller it has: a `mode` argument that only picks a look means there are two things, or the caller should pass the look.
-- Types are as narrow as the values they hold. A parameter that takes one of a few values is an enum (or a `Literal`), not a `str` or an `int`. A cast is a claim and it has to be true; a cast written directly after the check that makes it true is fine, a cast written to make a call compile is not. `mypy` (`make typecheck`) is where this is enforced.
+- Types are as narrow as the values they hold. A parameter that takes one of a few values is an enum (or a `Literal`), not a `str` or an `int`. Narrowing and casts are in [Types and stubs](#types-and-stubs). `mypy` (`make typecheck`) is where this is enforced.
 - Colors and fonts come from the theme. A color that can differ between themes is a named theme color, read by name; a font comes from the theme's fonts. A literal is allowed only where it does not depend on the theme, and it has to say why.
+
+## Types and stubs
+
+Why every stub is generated is in [architecture.md](../../architecture.md#key-design-decisions); it is not repeated here.
+
+- No hand-written `.pyi`. `stubs/calc_native.pyi` comes from `pybind11-stubgen`, `src/tcalc/core/ops.pyi` from `scripts/stubgen/`, beside its source so mypy reads it in place of `ops.py`. A wrong stub is fixed at its source, the binding or the generator, never in the `.pyi`. The hookify rule `block-stub-edit` blocks file edits to any `.pyi`.
+- Every bound function names its parameters with `py::arg`, and every type a signature uses is registered before it (the order note in `module.cpp`), so the stub has no `arg0` and no raw C++ type. A binding that returns `py::object` reaches the stub as `typing.Any`; it returns the concrete type.
+- A native value never loses precision on the Python side: no `float()`, `int()`, `to_double()` or other conversion of a `Rational`, `BigReal` or `BigComplex`, and no cast to a narrower type. Formatting reads the value as it is.
+- The Python side keeps the type native returned. `int`, `float` and `complex` appear only where native itself returns that arm of `tcalc::Value` (`std::int64_t`, `double`, `Complex`); any other number stays a `Rational`, `BigReal` or `BigComplex`.
+- A `Collection` stays a `calc_native.Collection`, read through its own API (`len`, indexing, `preview()`, `kind`). It is not turned into a `list`, `tuple` or other Python container, and its items are not copied out to be worked on in Python.
+- `CalcValue` mirrors `tcalc::Value`; it is generated from it, or a check fails when the two drift.
+- No module is left unchecked and no import is silently `Any`. With `ignore_missing_imports` on `calc_native`, a missing `stubs/calc_native.pyi` turns the whole native module into `Any` and `make typecheck` still passes. A mypy exclusion or `ignore_missing_imports` carries its reason beside it. The mypy settings live in `pyproject.toml`, under `strict = true`; a check turned off for one module says why.
+- Every function in `src/` annotates its parameters and its return, Qt overrides (`resizeEvent`, `paintEvent`) included.
+- A value that can be anything is `object`. `Any` is only for what the type system cannot express, with a one-line reason.
+- Narrowing is done with `isinstance` (in an `if` or an `assert`) or a `TypeIs` function, so the checker proves it; `cast` is not a narrowing tool. Every `# type: ignore` names its error code.
+- Modern syntax: `X | None`, built-in generics (`list`, `dict`) and `collections.abc`, not `Optional`, `List`, `Dict`. Ruff's `UP` and `ANN` rules enforce it.
 
 ## Native C++
 
 - Shared or helper code in the native core never goes into `pub/`. `pub/` is the public API of a layer (`ops.hpp`, `consts.hpp`, `parser.hpp`). Helpers go into that layer's `internal/helpers.hpp` (for example `src/native/lib/parser/internal/helpers.hpp`); create `internal/` if it does not exist yet.
+- Every native target builds with `-Wall -Wextra -Wconversion -Wsign-conversion -Wold-style-cast` (`src/native/CMakeLists.txt`), so a conversion shows at build time, not first in the pre-push tidy. A build warning gets a real fix, like a tidy warning.
+- No silent narrowing (C++ Core Guidelines ES.46). A conversion that can lose precision or range is never implicit: it goes through the named helpers in `value.hpp` (`to_double`, `as_double`, `rational_downcast`), or brace initialization, which rejects narrowing.
+- Named casts only (ES.48 to ES.50): no C-style cast, no `const_cast`, no `reinterpret_cast`.
+- A closed set is an `enum class` (`Arm`, `CollectionKind`), and a sum type is a `std::variant` visited with one overload per arm, never a `union` or a tag read by a `switch`. A `switch` that handles every value of an `enum class` names each one and has no `default`, so `-Wswitch` reports a value added later.
 - In permanent code a tidy or lint warning gets a real fix, not a `NOLINT`. Do not disable a check globally in `.clang-tidy`; the only accepted setting is one the check itself documents, with its reason written beside it.
 - In throwaway code that is scheduled for deletion, silence the warning instead of fixing it, unless the fix makes the code smaller.

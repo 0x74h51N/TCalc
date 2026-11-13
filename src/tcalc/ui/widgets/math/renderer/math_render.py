@@ -8,7 +8,9 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+
+# Any: build_math_nodes returns tagged tuples, which its stub can only type as tuple[Any, ...]
+from typing import TYPE_CHECKING, Any
 
 import calc_native
 from PySide6.QtCore import Qt, Signal
@@ -148,7 +150,7 @@ class MathRender(QWidget):
     def _render_all(
         self,
         seg: QLineEdit,
-        nodes: list[tuple],
+        nodes: list[tuple[Any, ...]],
         dirty_inputs: set[QLineEdit],
     ) -> ExpressionNode | None:
         if not isValid(seg):
@@ -163,7 +165,7 @@ class MathRender(QWidget):
         slot: ExpressionSlot,
         seg: QLineEdit,
         idx: int,
-        nodes: list[tuple],
+        nodes: list[tuple[Any, ...]],
         dirty_inputs: set[QLineEdit],
     ) -> ExpressionNode | None:
         TEXT = calc_native.MATH_TAG_TEXT
@@ -186,8 +188,8 @@ class MathRender(QWidget):
                 continue
 
             widget: ExpressionNode
-            left_nodes: list[tuple] | None
-            right_nodes: list[tuple] | None
+            left_nodes: list[tuple[Any, ...]] | None
+            right_nodes: list[tuple[Any, ...]] | None
             if kind == PAREN:
                 _, paren_kind, has_close, paren_children = node
                 widget = self._build_paren(paren_kind, has_close)
@@ -237,7 +239,7 @@ class MathRender(QWidget):
 
         return focus_target
 
-    def render_node(self, seg, tokenized: calc_native.TokensBranch) -> None:
+    def render_node(self, seg: QLineEdit, tokenized: calc_native.TokensBranch) -> None:
 
         dirty_inputs: set[QLineEdit] = set()
         try:
@@ -273,7 +275,7 @@ class MathRender(QWidget):
         sample: QWidget,
         base_font: int,
         max_pt: int,
-    ):
+    ) -> None:
         for le in lines:
             scale = SCRIPT_SCALES[MathRender._script_depth(le)]
             apply_scaled_fonts(sample, [le], int(base_font * scale), int(max_pt * scale))

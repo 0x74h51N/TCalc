@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <utility>
 #include <variant>
 
 #include "calc/pub/errors.hpp"
@@ -35,6 +36,14 @@ static_assert(kArmIs<Arm::BigCx, BigComplex>);
 static_assert(kArmIs<Arm::Rat, Rational>);
 static_assert(kArmIs<Arm::Coll, Collection>);
 static_assert(std::variant_size_v<Value> == static_cast<std::size_t>(Arm::Count));
+
+/// The arm that holds T, read at compile time.
+template <class T>
+inline constexpr Arm kArmOf = []<std::size_t... I>(std::index_sequence<I...>) {
+    Arm arm = Arm::Count;
+    ((arm = kArmIs<static_cast<Arm>(I), T> ? static_cast<Arm>(I) : arm), ...);
+    return arm;
+}(std::make_index_sequence<std::variant_size_v<Value>>{});
 
 using ArmMask = std::uint8_t;
 

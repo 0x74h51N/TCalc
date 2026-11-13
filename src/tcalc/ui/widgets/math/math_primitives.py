@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtGui import QPainter, QPainterPath, QPen, QTransform
+from PySide6.QtGui import QPainter, QPainterPath, QPaintEvent, QPen, QTransform
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
 from tcalc.theme import get_theme
@@ -87,18 +87,18 @@ def square_bracket_path(w: float, h: float, opening: bool) -> QPainterPath:
 
 
 class MathPrimitive(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._pen_width = 2.0
 
-    def setPenWidth(self, width: float):
+    def setPenWidth(self, width: float) -> None:
         self._pen_width = width
         self.update()
 
     def build_path(self, w: float, h: float) -> QPainterPath:
         raise NotImplementedError
 
-    def paintEvent(self, event):
+    def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         theme = get_theme()
@@ -112,7 +112,7 @@ class MathPrimitive(QWidget):
 class SqrtSymbol(MathPrimitive):
     WIDTH = SQRT_WIDTH
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__()
         self.setMinimumWidth(self.WIDTH)
         self._pen_width = 2.0

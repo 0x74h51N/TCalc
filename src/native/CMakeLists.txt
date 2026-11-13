@@ -26,6 +26,9 @@ endif()
 
 find_package(pybind11 CONFIG REQUIRED)
 
+# Implicit conversions show at build time, not first in the pre-push tidy
+set(TCALC_WARNINGS -Wall -Wextra -Wconversion -Wsign-conversion -Wold-style-cast)
+
 add_library(calc_core STATIC
   lib/calc/arithmetic.cpp
   lib/calc/number_theory.cpp
@@ -45,6 +48,7 @@ target_include_directories(calc_core PUBLIC
   "${CMAKE_CURRENT_LIST_DIR}/lib"
 )
 target_link_libraries(calc_core PUBLIC Boost::headers)
+target_compile_options(calc_core PRIVATE ${TCALC_WARNINGS})
 
 add_executable(native_tests
   tests/main.cpp
@@ -67,6 +71,7 @@ target_include_directories(native_tests PRIVATE
   "${CMAKE_CURRENT_LIST_DIR}/lib"
 )
 target_link_libraries(native_tests PRIVATE calc_core)
+target_compile_options(native_tests PRIVATE ${TCALC_WARNINGS})
 
 enable_testing()
 add_test(NAME native_tests_quiet COMMAND native_tests --quiet)
@@ -86,6 +91,7 @@ target_include_directories(calc_native PRIVATE
   "${CMAKE_CURRENT_LIST_DIR}/lib"
 )
 target_link_libraries(calc_native PRIVATE calc_core)
+target_compile_options(calc_native PRIVATE ${TCALC_WARNINGS})
 
 
 set_target_properties(calc_native PROPERTIES

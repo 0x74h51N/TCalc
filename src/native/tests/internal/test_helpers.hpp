@@ -315,6 +315,12 @@ inline std::string_view latex_kind_name(LatexKind k) {
         return "Pow";
     case LatexKind::Root:
         return "Root";
+    case LatexKind::Subscript:
+        return "Subscript";
+    case LatexKind::Sum:
+        return "Sum";
+    case LatexKind::Prod:
+        return "Prod";
     }
     return "<unknown>";
 }
@@ -346,6 +352,12 @@ token_kind_name(TokenKind kind, ParenKind pk = ParenKind::Paren, LatexKind lk = 
             return "LatexPow";
         case LatexKind::Root:
             return "LatexRoot";
+        case LatexKind::Subscript:
+            return "LatexSubscript";
+        case LatexKind::Sum:
+            return "LatexSum";
+        case LatexKind::Prod:
+            return "LatexProd";
         }
         return "<unknown-latex>";
     case TokenKind::Paren:
@@ -361,6 +373,10 @@ token_kind_name(TokenKind kind, ParenKind pk = ParenKind::Paren, LatexKind lk = 
     case TokenKind::Call:
         // TODO: real Call rendering in diagnostics.
         return "Call";
+    case TokenKind::Char:
+        return "Char";
+    case TokenKind::Const:
+        return "Const";
     }
     return "<unknown>";
 }

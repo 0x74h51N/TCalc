@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 ROUNDS_DEFAULT = 120
 ROUNDS_RENDER = 80

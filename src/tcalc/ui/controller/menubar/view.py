@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from tcalc.ui.window import MainWindow
+
 from PySide6.QtWidgets import QApplication, QInputDialog
 
 from tcalc.app_state import DockKind, KeypadPreset, get_app_state
@@ -9,7 +14,7 @@ from tcalc.ui.styles import sync_theme
 
 
 class ViewOperations:
-    def __init__(self, window) -> None:
+    def __init__(self, window: MainWindow) -> None:
         self._window = window
         self._app_state = get_app_state()
 

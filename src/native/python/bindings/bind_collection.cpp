@@ -9,7 +9,9 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <optional>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "bindings.hpp"
@@ -31,6 +33,7 @@ constexpr std::pair<char, char> brackets(tcalc::CollectionKind kind) {
 
 void bind_collection(py::module_ &m) {
     using K = tcalc::CollectionKind;
+    using CollectionState = py::typing::Tuple<K, std::vector<tcalc::CollectionItem>>;
 
     auto coll = py::class_<tcalc::Collection, std::shared_ptr<tcalc::Collection>>(
         m, "Collection", "Evaluated collection value (List or Point of scalars).");
@@ -43,16 +46,15 @@ void bind_collection(py::module_ &m) {
         .def("__len__", [](const tcalc::Collection &c) { return c.items().size(); })
         .def(
             "__getitem__",
-            [](const tcalc::Collection &c, std::ptrdiff_t i) -> py::object {
+            [](const tcalc::Collection &c, std::ptrdiff_t i) -> tcalc::CollectionItem {
                 const auto n = static_cast<std::ptrdiff_t>(c.items().size());
                 if (i < 0)
                     i += n;
                 if (i < 0 || i >= n)
                     throw py::index_error();
-                return std::visit(
-                    [](const auto &v) -> py::object { return py::cast(v); },
-                    c.items()[static_cast<std::size_t>(i)]);
-            })
+                return c.items()[static_cast<std::size_t>(i)];
+            },
+            py::arg("index"))
         .def(
             "__iter__",
             [](const tcalc::Collection &c) {
@@ -60,24 +62,15 @@ void bind_collection(py::module_ &m) {
             },
             py::keep_alive<0, 1>())
         .def(
-            "__eq__",
-            [](const tcalc::Collection &a, const py::object &other) -> py::object {
-                if (!py::isinstance<tcalc::Collection>(other)) {
-                    return py::reinterpret_borrow<py::object>(Py_NotImplemented);
-                }
-                return py::cast(a == other.cast<tcalc::Collection>());
-            })
-        .def(
             "preview",
             [](const tcalc::Collection &c) {
                 // Everything a caller needs to render one: the glyphs, and the
                 // (head, tail) cap or None when every item is shown. No items copied.
                 const auto [open, close] = brackets(c.kind);
-                const bool capped = c.items().size() > kReprThreshold;
-                py::object cap = py::none();
-                if (capped)
-                    cap = py::make_tuple(kHead, kTail);
-                return py::make_tuple(std::string(1, open), std::string(1, close), cap);
+                std::optional<std::pair<std::size_t, std::size_t>> cap;
+                if (c.items().size() > kReprThreshold)
+                    cap = std::pair{kHead, kTail};
+                return std::tuple{std::string(1, open), std::string(1, close), cap};
             },
             "(open, close, cap) where cap is (head, tail) or None if all items show.")
         .def(
@@ -116,8 +109,10 @@ void bind_collection(py::module_ &m) {
             })
         .def(
             py::pickle(
-                [](const tcalc::Collection &c) { return py::make_tuple(c.kind, c.items()); },
-                [](const py::tuple &t) {
+                [](const tcalc::Collection &c) {
+                    return CollectionState(py::make_tuple(c.kind, c.items()));
+                },
+                [](const CollectionState &t) {
                     if (t.size() != 2) {
                         throw std::runtime_error("Invalid Collection state");
                     }

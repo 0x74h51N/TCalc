@@ -12,14 +12,13 @@ from utils import (
     parse_source_tree,
     scan_module,
     stubify_function_def,
-    write_init_pyi,
-    write_py_typed,
     write_stub,
 )
 
 STUBGEN_DIR = Path(__file__).resolve().parent
 ROOT = STUBGEN_DIR.parents[1]
-STUB_PATH = ROOT / "stubs" / "tcalc" / "core" / "ops.pyi"
+# Beside its source, so mypy reads it in place of ops.py
+STUB_PATH = ROOT / "src" / "tcalc" / "core" / "ops.pyi"
 SOURCE_PATH = ROOT / "src" / "tcalc" / "core" / "ops.py"
 
 
@@ -30,16 +29,19 @@ def _parse_source_tree() -> ast.Module:
 def _build_operation_class(members: list[str], properties: list[ast.FunctionDef]) -> ast.ClassDef:
     """Build Operation enum class."""
     body: list[ast.stmt] = [
-        ast.Assign(
-            targets=[ast.Name(id=member, ctx=ast.Store())],
-            value=ast.Constant(value=Ellipsis),
-        )
-        for member in members
-    ] + [stubify_function_def(prop) for prop in properties]
+        *(
+            ast.Assign(
+                targets=[ast.Name(id=member, ctx=ast.Store())],
+                value=ast.Constant(value=Ellipsis),
+            )
+            for member in members
+        ),
+        *(stubify_function_def(prop) for prop in properties),
+    ]
 
     return ast.ClassDef(
         name="Operation",
-        bases=[name("str"), name("Enum")],
+        bases=[name("StrEnum")],
         keywords=[],
         body=body,
         decorator_list=[],
@@ -75,7 +77,7 @@ def _build_stub_module_ast(
     latex_expr_source: ast.ClassDef | None,
     dataclasses: list[ast.ClassDef],
     public_functions: list[ast.FunctionDef],
-    public_typed_constants: list[ast.AnnAssign],
+    public_typed_constants: dict[str, ast.expr],
 ) -> ast.Module:
     header: list[ast.stmt] = [*header_imports]
 
@@ -85,8 +87,8 @@ def _build_stub_module_ast(
     latex_expr_class = _build_latex_expr_class(latex_expr_members, latex_expr_source)
 
     typed_constants: list[ast.stmt] = [
-        ann_assign(const.target.id, annotation=const.annotation, value=None)
-        for const in public_typed_constants
+        ann_assign(constant, annotation=annotation, value=None)
+        for constant, annotation in public_typed_constants.items()
     ]
 
     body = (
@@ -130,14 +132,6 @@ def main() -> int:
         public_functions=scan.public_functions,
         public_typed_constants=scan.public_typed_constants,
     )
-
-    STUB_PATH.parent.mkdir(parents=True, exist_ok=True)
-
-    stub_pkg_root = ROOT / "stubs" / "tcalc"
-    stub_pkg_root.mkdir(parents=True, exist_ok=True)
-    write_py_typed(stub_pkg_root)
-    write_init_pyi(stub_pkg_root)
-    write_init_pyi(STUB_PATH.parent)
 
     write_stub(STUB_PATH, stub_module, project_root=ROOT)
 

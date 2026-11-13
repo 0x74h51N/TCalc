@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QWidget
 
@@ -53,7 +51,7 @@ class TrigPowerKeypad(Keypad):
 
     picture_target = PictureTarget.TRIG_KEYPAD
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         shift_btn = self.get_button("Shift")

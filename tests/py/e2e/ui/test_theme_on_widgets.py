@@ -7,9 +7,8 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Callable
 
 import pytest
 from PySide6.QtCore import QPoint, QSettings

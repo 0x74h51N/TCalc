@@ -85,5 +85,5 @@ def get_operation_for_key(key: int) -> tuple[str, Operation] | None:
     return KEY_MAP.get(key)
 
 
-def get_expression_action_for_key(key: int):
+def get_expression_action_for_key(key: int) -> Callable[[Expression], bool] | None:
     return EXPRESSION_KEY_MAP.get(key)

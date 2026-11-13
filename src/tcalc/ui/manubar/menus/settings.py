@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class SettingsMenu:
-    def __init__(self, menu: QMenuBar, window: MainWindow, shortcuts: ShortcutManager):
+    def __init__(self, menu: QMenuBar, window: MainWindow, shortcuts: ShortcutManager) -> None:
         self.window = window
         self._settings_menu = menu.addMenu("Settings")
         ctx = BaseMenuContext(window, shortcuts)

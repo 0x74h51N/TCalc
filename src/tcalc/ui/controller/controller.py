@@ -7,20 +7,21 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, List, Optional
+from collections.abc import Callable
 
 import calc_native
 from calc_native import Calculator
 
-from tcalc.app_state import AngleUnit, CalcValue, get_app_state
+from tcalc.app_state import AngleUnit, get_app_state
 from tcalc.core.constants import CONST_NAMES, SUBSCRIPT_CONST_NAMES, strip_subscript
 from tcalc.core.ops import Operation
-from tcalc.core.utils import is_number_token
+from tcalc.core.utils import CalcValue, is_number_token
 from tcalc.errors import CalculatorError, ErrorKind, Msg
 from tcalc.ui.controller.menubar import EditOperations
 from tcalc.ui.props import StatusKind
 from tcalc.ui.widgets import History, MemoryBar
-from tcalc.ui.widgets.calc import Display, TopBar
+from tcalc.ui.widgets.calc.display.display import Display
+from tcalc.ui.widgets.calc.topbar.topbar import TopBar
 from tcalc.ui.widgets.history.storage import HistoryEntry
 
 from ...core.native_eval import evaluate_branch
@@ -31,7 +32,7 @@ from .utils import apply_hyp_variant, format_result
 _log = logging.getLogger("tcalc.ui.controller")
 
 
-def _short_error_for_expression(expression: str, tokens) -> str | None:
+def _short_error_for_expression(expression: str, tokens: list[calc_native.Token]) -> str | None:
     """Return a short user-facing error if the expression has bare comma
     outside any Paren/Bracket. Otherwise None (caller uses raw error text)."""
     if "," not in expression:
@@ -42,7 +43,7 @@ def _short_error_for_expression(expression: str, tokens) -> str | None:
     return Msg.USE_LIST_OR_POINT
 
 
-def _compute_status(tokens) -> tuple[str, StatusKind | None]:
+def _compute_status(tokens: list[calc_native.Token]) -> tuple[str, StatusKind | None]:
     """Top-level token analysis -> ('status text', 'info' | 'error' | '').
 
     Surfaces a friendly hint while the user is typing an unclosed
@@ -102,22 +103,22 @@ class CalculatorController:
 
         self._expression = self._display.editor.get_plain_text()
 
-        self.tokens: List[calc_native.Token] = []
+        self.tokens: list[calc_native.Token] = []
         self._tokenized: calc_native.TokensBranch
         self._result: CalcValue | None = None
         self._just_solved = False
-        self._error_text: Optional[str] = None
-        self._error_detail: Optional[str] = None
+        self._error_text: str | None = None
+        self._error_detail: str | None = None
         self._force_error_display = False
 
         self._memory_ops = {str(k.operation) for k in MEMORY_KEYS}
 
         # Build handlers dictionary
-        self._handlers: Dict[Operation, Callable[[str], None]] = self._build_handlers()
+        self._handlers: dict[Operation, Callable[[str], None]] = self._build_handlers()
         self._memory_bar.set_memory("")
         self._compute_and_update()
 
-    def handle_key(self, label: str, operation) -> None:
+    def handle_key(self, label: str, operation: object) -> None:
         self._just_solved = False
 
         if operation == "shift":
@@ -216,7 +217,7 @@ class CalculatorController:
                 return
             fn(value)
 
-        actions = {
+        actions: dict[str, Callable[[], None]] = {
             MemoryKey.MC.value: lambda: setattr(self._app_state, "memory", None),
             MemoryKey.MR.value: recall,
             MemoryKey.MS.value: lambda: with_value(store),
@@ -243,9 +244,9 @@ class CalculatorController:
 
     # -- Handle factory ------------------------------------------------------
 
-    def _build_handlers(self) -> Dict[Operation, Callable[[str], None]]:
+    def _build_handlers(self) -> dict[Operation, Callable[[str], None]]:
         """Auto-generate operation handlers based on Operation attributes"""
-        handlers: Dict[Operation, Callable[[str], None]] = {}
+        handlers: dict[Operation, Callable[[str], None]] = {}
 
         # Special handlers
         handlers.update(
@@ -312,7 +313,7 @@ class CalculatorController:
             _log.debug("Evaluate token native error: %s", exc)
             return None
 
-    def _can_compute_preview(self, tokens: List[calc_native.Token]) -> bool:
+    def _can_compute_preview(self, tokens: list[calc_native.Token]) -> bool:
         if not tokens:
             return False
         if (

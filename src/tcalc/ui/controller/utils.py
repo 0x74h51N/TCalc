@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Dict, Tuple
 
 import calc_native
 
 from tcalc.core.ops import Operation
+from tcalc.core.utils import CalcValue
 
 
-def _build_hyp_map() -> Dict[Operation, Operation]:
-    pairs: Tuple[Tuple[str, str], ...] = (
+def _build_hyp_map() -> dict[Operation, Operation]:
+    pairs: tuple[tuple[str, str], ...] = (
         ("SIN", "SINH"),
         ("COS", "COSH"),
         ("TAN", "TANH"),
@@ -18,7 +18,7 @@ def _build_hyp_map() -> Dict[Operation, Operation]:
         ("ATAN", "ATANH"),
     )
 
-    m: Dict[Operation, Operation] = {}
+    m: dict[Operation, Operation] = {}
     for src_name, dst_name in pairs:
         src = getattr(Operation, src_name, None)
         dst = getattr(Operation, dst_name, None)
@@ -28,7 +28,7 @@ def _build_hyp_map() -> Dict[Operation, Operation]:
     return m
 
 
-HYP_MAP: Dict[Operation, Operation] = _build_hyp_map()
+HYP_MAP: dict[Operation, Operation] = _build_hyp_map()
 
 
 def apply_hyp_variant(op: Operation, hyp_enabled: bool) -> Operation:
@@ -44,7 +44,7 @@ def _fmt_exact_int(n: int, *, group: bool) -> str:
     return f"{n:,}" if group else str(n)
 
 
-def format_result(value, *, group: bool = False) -> str:
+def format_result(value: CalcValue, *, group: bool = False) -> str:
     """Format a numeric result (float, complex, Rational, Collection, etc.).
 
     Default output is tokenizer-safe (no thousands separators) so it can be fed

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Dict
-
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtGui import QAction
 
@@ -11,7 +9,7 @@ from .keymap import DEFAULT_ACTION_SHORTCUTS, ShortcutId
 class ShortcutManager:
     def __init__(self) -> None:
         self._settings = QSettings("TCalc", "TCalc")
-        self._bindings: Dict[ShortcutId, QAction] = {}
+        self._bindings: dict[ShortcutId, QAction] = {}
 
     def _settings_key(self, action_id: ShortcutId) -> str | None:
         """Get settings key for action, None if lambda or invalid."""

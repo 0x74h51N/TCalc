@@ -1,8 +1,6 @@
-from typing import TypeAlias
-
 import calc_native
 
-CalcValue: TypeAlias = (
+type CalcValue = (
     int
     | float
     | complex

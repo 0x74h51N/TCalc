@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Generator, Optional
+from collections.abc import Generator
 
 import calc_native
 from PySide6.QtCore import QTimer, Signal
@@ -47,7 +47,7 @@ class Expression(QWidget):
     input_created = Signal(object)
     focused_input_changed = Signal(object)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         self._last_focused: QLineEdit | None = None
@@ -66,7 +66,7 @@ class Expression(QWidget):
 
         self._last_focused = self._root.default_input()
 
-        self._pending_seg: Optional[QLineEdit] = None
+        self._pending_seg: QLineEdit | None = None
         self._restoring: bool = False
         self._pending_parens: dict[calc_native.ParenKind, list[ParenWidget]] = {}
         self.renderer.editor = self
@@ -85,7 +85,7 @@ class Expression(QWidget):
     def expression_inputs(self) -> list[QLineEdit]:
         return self._root.line_edits()
 
-    def _on_app_focus_changed(self, _old, new) -> None:
+    def _on_app_focus_changed(self, _old: QWidget | None, new: QWidget | None) -> None:
         if isinstance(new, QLineEdit) and self.isAncestorOf(new):
             self._last_focused = new
             self.focused_input_changed.emit(new)
@@ -148,9 +148,7 @@ class Expression(QWidget):
     def navigate_down(self) -> bool:
         return self._navigate_vertical(1)
 
-    def _iter_line_edits(
-        self, start_seg: QLineEdit, direction: int
-    ) -> Generator[QLineEdit, None, None]:
+    def _iter_line_edits(self, start_seg: QLineEdit, direction: int) -> Generator[QLineEdit]:
         """
         Iter line edits between parent widgets
         Direction: 1 (Forward/Right), -1 (Backward/Left)
@@ -417,7 +415,7 @@ class Expression(QWidget):
     # ================== Node Building (tokenize -> create widget -> insert) ==================
     #
 
-    def _flush_exp_nodes(self):
+    def _flush_exp_nodes(self) -> None:
         if self._pending_seg:
             self._add_exp_node(self._pending_seg)
             self.plain_text_changed.emit(self.get_plain_text())
@@ -428,7 +426,7 @@ class Expression(QWidget):
             if isinstance(fw, QLineEdit) and self.isAncestorOf(fw):
                 self._last_focused = fw
 
-    def _on_input_changed(self, seg: QLineEdit):
+    def _on_input_changed(self, seg: QLineEdit) -> None:
         if self.renderer.is_rendering:
             return
         self._pending_seg = seg
@@ -602,7 +600,9 @@ class Expression(QWidget):
 
         return True
 
-    def _split_seg(self, seg, tokens, idx, slot):
+    def _split_seg(
+        self, seg: QLineEdit, tokens: list[calc_native.Token], idx: int, slot: ExpressionSlot
+    ) -> tuple[list[calc_native.Token], list[calc_native.Token], list[QWidget]]:
         before_toks = tokens[:idx]
         after_toks = tokens[idx + 1 :]
         detached: list[QWidget] = []
