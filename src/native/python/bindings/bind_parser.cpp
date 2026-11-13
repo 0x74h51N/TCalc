@@ -22,11 +22,15 @@ namespace py = pybind11;
 namespace p = tcalc::parser;
 
 namespace {
-py::list math_nodes_to_list(const std::vector<p::MathNode> &nodes);
+// A node is a tagged tuple whose shape depends on its tag, so its items stay untyped.
+using NodeTuple = py::typing::Tuple<py::object, py::ellipsis>;
+using NodeList = py::typing::List<NodeTuple>;
 
-py::tuple math_node_to_tuple(const p::MathNode &n) {
+NodeList math_nodes_to_list(const std::vector<p::MathNode> &nodes);
+
+NodeTuple math_node_to_tuple(const p::MathNode &n) {
     return std::visit(
-        [](const auto &v) -> py::tuple {
+        [](const auto &v) -> NodeTuple {
             using T = std::decay_t<decltype(v)>;
             if constexpr (std::is_same_v<T, p::TextNode>) {
                 return py::make_tuple(0, v.text);
@@ -40,8 +44,8 @@ py::tuple math_node_to_tuple(const p::MathNode &n) {
         n.data);
 }
 
-py::list math_nodes_to_list(const std::vector<p::MathNode> &nodes) {
-    py::list out;
+NodeList math_nodes_to_list(const std::vector<p::MathNode> &nodes) {
+    NodeList out;
     for (const auto &n : nodes) {
         out.append(math_node_to_tuple(n));
     }
@@ -195,7 +199,7 @@ void bind_parser(py::module_ &m) {
     m.def(
         "latex_exprs",
         []() {
-            py::list out;
+            py::typing::List<tcalc::parser::LatexEntry> out;
             for (const auto &entry : tcalc::parser::kLatexExprs) {
                 out.append(&entry);
             }
@@ -205,48 +209,54 @@ void bind_parser(py::module_ &m) {
         py::return_value_policy::reference);
 
     // NumberToken
+    using NumberState = py::typing::Tuple<std::string>;
     py::class_<NumberToken>(m, "NumberToken")
         .def_readonly("value", &NumberToken::value)
         .def(
             py::pickle(
-                [](const NumberToken &t) { return py::make_tuple(t.value); },
-                [](const py::tuple &t) {
+                [](const NumberToken &t) { return NumberState(py::make_tuple(t.value)); },
+                [](const NumberState &t) {
                     if (t.size() != 1)
                         throw std::runtime_error("Invalid NumberToken state");
                     return NumberToken{t[0].cast<std::string>()};
                 }));
 
     // CharToken
+    using CharState = py::typing::Tuple<std::string>;
     py::class_<CharToken>(m, "CharToken")
         .def_property_readonly("value", [](const CharToken &t) { return std::string(1, t.value); })
         .def(
             py::pickle(
-                [](const CharToken &t) { return py::make_tuple(std::string(1, t.value)); },
-                [](const py::tuple &t) {
+                [](const CharToken &t) {
+                    return CharState(py::make_tuple(std::string(1, t.value)));
+                },
+                [](const CharState &t) {
                     if (t.size() != 1)
                         throw std::runtime_error("Invalid CharToken state");
                     return CharToken{t[0].cast<std::string>().at(0)};
                 }));
 
     // ConstToken
+    using ConstState = py::typing::Tuple<ConstId>;
     py::class_<ConstToken>(m, "ConstToken")
         .def_readonly("id", &ConstToken::id)
         .def(
             py::pickle(
-                [](const ConstToken &t) { return py::make_tuple(t.id); },
-                [](const py::tuple &t) {
+                [](const ConstToken &t) { return ConstState(py::make_tuple(t.id)); },
+                [](const ConstState &t) {
                     if (t.size() != 1)
                         throw std::runtime_error("Invalid ConstToken state");
                     return ConstToken{t[0].cast<ConstId>()};
                 }));
 
     // OpToken
+    using OpState = py::typing::Tuple<OpId>;
     py::class_<OpToken>(m, "OpToken")
         .def_readonly("op_id", &OpToken::op_id)
         .def(
             py::pickle(
-                [](const OpToken &t) { return py::make_tuple(t.op_id); },
-                [](const py::tuple &t) {
+                [](const OpToken &t) { return OpState(py::make_tuple(t.op_id)); },
+                [](const OpState &t) {
                     if (t.size() != 1)
                         throw std::runtime_error("Invalid OpToken state");
                     return OpToken{t[0].cast<OpId>()};
@@ -266,6 +276,8 @@ void bind_parser(py::module_ &m) {
     // reference Token, same as ParenToken's elements).
     py::class_<CallToken> CallToken_(m, "CallToken", "Function call: op + argument token lists.");
 
+    using TokenState =
+        py::typing::Tuple<TokenKind, decltype(Token::data), std::size_t, std::size_t>;
     auto Token_ = py::class_<Token>(m, "Token")
                       .def_readonly("kind", &Token::kind)
                       .def_readonly("start_pos", &Token::start_pos)
@@ -306,12 +318,11 @@ void bind_parser(py::module_ &m) {
             })
         .def(
             py::pickle(
-                [](const Token &tok) -> py::tuple {
-                    py::object data = std::visit(
-                        [](const auto &v) -> py::object { return py::cast(v); }, tok.data);
-                    return py::make_tuple(tok.kind, data, tok.start_pos, tok.end_pos);
+                [](const Token &tok) {
+                    return TokenState(
+                        py::make_tuple(tok.kind, tok.data, tok.start_pos, tok.end_pos));
                 },
-                [](const py::tuple &t) -> Token {
+                [](const TokenState &t) -> Token {
                     if (t.size() != 4)
                         throw std::runtime_error("Invalid Token state");
                     Token tok;
@@ -344,6 +355,12 @@ void bind_parser(py::module_ &m) {
                     return tok;
                 }));
 
+    using BranchState = py::typing::Tuple<
+        std::vector<Token>,
+        std::vector<tcalc::parser::TokenIndex>,
+        std::vector<tcalc::parser::TokenIndex>,
+        bool,
+        bool>;
     py::class_<TokensBranch>(m, "TokensBranch", "Result of tokenization with metadata.")
         .def_readonly("tokens", &TokensBranch::tokens)
         .def_readonly("latex_indices", &TokensBranch::latex_indices)
@@ -353,14 +370,15 @@ void bind_parser(py::module_ &m) {
         .def(
             py::pickle(
                 [](const TokensBranch &r) {
-                    return py::make_tuple(
-                        r.tokens,
-                        r.latex_indices,
-                        r.paren_indices,
-                        r.has_latex_descendant,
-                        r.has_call);
+                    return BranchState(
+                        py::make_tuple(
+                            r.tokens,
+                            r.latex_indices,
+                            r.paren_indices,
+                            r.has_latex_descendant,
+                            r.has_call));
                 },
-                [](const py::tuple &t) {
+                [](const BranchState &t) {
                     constexpr std::size_t kTokensBranchPickleArity = 5;
                     if (t.size() != kTokensBranchPickleArity)
                         throw std::runtime_error("Invalid TokensBranch state");
@@ -378,10 +396,13 @@ void bind_parser(py::module_ &m) {
     LatexToken_.def_readonly("op_id", &LatexToken::op_id);
     def_readonly_ref(LatexToken_, "left", &LatexToken::left);
     def_readonly_ref(LatexToken_, "right", &LatexToken::right);
+    using LatexState = py::typing::Tuple<LatexKind, OpId, std::vector<Token>, std::vector<Token>>;
     LatexToken_.def(
         py::pickle(
-            [](const LatexToken &t) { return py::make_tuple(t.kind, t.op_id, t.left, t.right); },
-            [](const py::tuple &t) {
+            [](const LatexToken &t) {
+                return LatexState(py::make_tuple(t.kind, t.op_id, t.left, t.right));
+            },
+            [](const LatexState &t) {
                 if (t.size() != 4)
                     throw std::runtime_error("Invalid LatexToken state");
                 return LatexToken{
@@ -398,9 +419,9 @@ void bind_parser(py::module_ &m) {
     ParenToken_.def_readonly("has_latex_descendant", &ParenToken::has_latex_descendant);
     def_readonly_ref(ParenToken_, "elements", &ParenToken::elements);
     ParenToken_.def("rows", [](const ParenToken &p) {
-        py::list out;
+        py::typing::List<py::typing::List<Token>> out;
         for (const auto &e : p.elements) {
-            py::list row;
+            py::typing::List<Token> row;
             if (e.index() == 0) {
                 row.append(std::get<Token>(e));
             } else {
@@ -412,13 +433,15 @@ void bind_parser(py::module_ &m) {
         }
         return out;
     });
+    using ParenState = py::typing::Tuple<ParenKind, std::vector<p::ParenElement>, bool, bool, bool>;
     ParenToken_.def(
         py::pickle(
             [](const ParenToken &t) {
-                return py::make_tuple(
-                    t.kind, t.elements, t.has_open, t.has_close, t.has_latex_descendant);
+                return ParenState(
+                    py::make_tuple(
+                        t.kind, t.elements, t.has_open, t.has_close, t.has_latex_descendant));
             },
-            [](const py::tuple &t) {
+            [](const ParenState &t) {
                 constexpr std::size_t kParenTokenPickleArity = 5;
                 if (t.size() != kParenTokenPickleArity)
                     throw std::runtime_error("Invalid ParenToken state");
@@ -446,12 +469,14 @@ void bind_parser(py::module_ &m) {
     CallToken_.def_readonly("has_close", &CallToken::has_close);
     CallToken_.def_readonly("has_latex_descendant", &CallToken::has_latex_descendant);
     def_readonly_ref(CallToken_, "args", &CallToken::args);
+    using CallState = py::typing::Tuple<OpId, std::vector<p::ParenElement>, bool, bool>;
     CallToken_.def(
         py::pickle(
             [](const CallToken &t) {
-                return py::make_tuple(t.op_id, t.args, t.has_close, t.has_latex_descendant);
+                return CallState(
+                    py::make_tuple(t.op_id, t.args, t.has_close, t.has_latex_descendant));
             },
-            [](const py::tuple &t) {
+            [](const CallState &t) {
                 constexpr std::size_t kCallTokenPickleArity = 4;
                 if (t.size() != kCallTokenPickleArity)
                     throw std::runtime_error("Invalid CallToken state");
@@ -490,7 +515,7 @@ void bind_parser(py::module_ &m) {
         .def_property_readonly(
             "aliases",
             [](const tcalc::ops::OpSpec &op) {
-                py::list out;
+                py::typing::List<std::string> out;
                 for (const auto alias : op.aliases) {
                     if (!alias.empty()) {
                         out.append(std::string(alias));
@@ -524,7 +549,7 @@ void bind_parser(py::module_ &m) {
         .def_property_readonly(
             "aliases",
             [](const ConstSpec &c) {
-                py::list out;
+                py::typing::List<std::string> out;
                 for (const auto a : c.aliases)
                     if (!a.empty())
                         out.append(std::string(a));
@@ -558,7 +583,7 @@ void bind_parser(py::module_ &m) {
     using p::ParenSplit;
 
     const auto span_to_list = [](std::span<const Token> src) {
-        py::list out;
+        py::typing::List<Token> out;
         for (const Token &t : src) {
             out.append(py::cast(&t, py::return_value_policy::reference));
         }
@@ -574,12 +599,12 @@ void bind_parser(py::module_ &m) {
         .def_property_readonly(
             "suffix", [span_to_list](const ParenSplit &s) { return span_to_list(s.suffix); })
         .def_property_readonly("elements", [](const ParenSplit &s) {
-            py::list out;
+            py::typing::List<py::typing::Union<Token, py::typing::List<Token>>> out;
             for (const auto &e : s.elements) {
                 if (e.index() == 0) {
                     out.append(py::cast(&std::get<Token>(e), py::return_value_policy::reference));
                 } else {
-                    py::list inner;
+                    py::typing::List<Token> inner;
                     for (const auto &t : std::get<std::vector<Token>>(e)) {
                         inner.append(py::cast(&t, py::return_value_policy::reference));
                     }
@@ -602,13 +627,7 @@ void bind_parser(py::module_ &m) {
 
     m.def(
         "structural_split",
-        [](const p::TokensBranch &branch) -> py::object {
-            auto result = p::structural_split(branch);
-            if (!result.has_value()) {
-                return py::none();
-            }
-            return std::visit([](auto &&v) -> py::object { return py::cast(v); }, *result);
-        },
+        [](const p::TokensBranch &branch) { return p::structural_split(branch); },
         py::arg("branch"),
         py::keep_alive<0, 1>(),
         "Find the next structural split point in a TokensBranch.");

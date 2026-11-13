@@ -14,6 +14,7 @@
 namespace py = pybind11;
 
 void bind_rational(py::module_ &m) {
+    using RationalState = py::typing::Tuple<std::int64_t, std::int64_t>;
     py::class_<Rational>(m, "Rational", "Exact rational number (numerator / denominator).")
         .def(py::init<std::int64_t>(), py::arg("n"), "Construct from integer n/1.")
         .def(
@@ -54,8 +55,10 @@ void bind_rational(py::module_ &m) {
             })
         .def(
             py::pickle(
-                [](const Rational &r) { return py::make_tuple(r.numerator(), r.denominator()); },
-                [](const py::tuple &t) -> Rational {
+                [](const Rational &r) {
+                    return RationalState(py::make_tuple(r.numerator(), r.denominator()));
+                },
+                [](const RationalState &t) -> Rational {
                     if (t.size() != 2)
                         throw std::runtime_error("Invalid Rational state");
                     return Rational(t[0].cast<std::int64_t>(), t[1].cast<std::int64_t>());

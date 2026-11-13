@@ -13,8 +13,8 @@ void bind_bigreal(py::module_ &m) {
     using B = BigReal;
 
     py::class_<B>(m, "BigReal")
-        .def(py::init<double>())
-        .def(py::init<const std::string &>())
+        .def(py::init<double>(), py::arg("value"))
+        .def(py::init<const std::string &>(), py::arg("text"))
         .def(
             "__str__",
             [](const B &v) {
