@@ -54,5 +54,9 @@ Why every stub is generated is in [architecture.md](../../architecture.md#key-de
 ## Native C++
 
 - Shared or helper code in the native core never goes into `pub/`. `pub/` is the public API of a layer (`ops.hpp`, `consts.hpp`, `parser.hpp`). Helpers go into that layer's `internal/helpers.hpp` (for example `src/native/lib/parser/internal/helpers.hpp`); create `internal/` if it does not exist yet.
+- Every native target builds with `-Wall -Wextra -Wconversion -Wsign-conversion -Wold-style-cast` (`src/native/CMakeLists.txt`), so a conversion shows at build time, not first in the pre-push tidy. A build warning gets a real fix, like a tidy warning.
+- No silent narrowing (C++ Core Guidelines ES.46). A conversion that can lose precision or range is never implicit: it goes through the named helpers in `value.hpp` (`to_double`, `as_double`, `rational_downcast`), or brace initialization, which rejects narrowing.
+- Named casts only (ES.48 to ES.50): no C-style cast, no `const_cast`, no `reinterpret_cast`.
+- A closed set is an `enum class` (`Arm`, `CollectionKind`), and a sum type is a `std::variant` visited with one overload per arm, never a `union` or a tag read by a `switch`. A `switch` that handles every value of an `enum class` names each one and has no `default`, so `-Wswitch` reports a value added later.
 - In permanent code a tidy or lint warning gets a real fix, not a `NOLINT`. Do not disable a check globally in `.clang-tidy`; the only accepted setting is one the check itself documents, with its reason written beside it.
 - In throwaway code that is scheduled for deletion, silence the warning instead of fixing it, unless the fix makes the code smaller.

@@ -478,6 +478,14 @@ void unit_eval(TestContext &ctx) {
         {.id = "sub(5, 5) keeps a difference's zero",
          .input = {OpId::Sub, {Value{5.0}, Value{5.0}}},
          .expected = Value{0.0}},
+        // An exact kernel that cannot hold its result throws and apply retries in double; an
+        // integer pair there would make Pow's (double, long long) overload ambiguous.
+        {.id = "pow(2, 64) overflows the exact arm into a double",
+         .input = {OpId::Pow, {Value{Rational(2)}, Value{Rational(64)}}},
+         .expected = Value{18446744073709551616.0}},
+        {.id = "root(2, 2) is irrational, so it falls back to double",
+         .input = {OpId::Root, {Value{Rational(2)}, Value{Rational(2)}}},
+         .expected = Value{std::numbers::sqrt2}},
     };
 
     for (const auto &tc : range_promotion_value_cases) {

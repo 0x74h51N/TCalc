@@ -58,14 +58,14 @@ struct ScanExpected {
 struct SplitExpected {
     enum class Kind { None, Paren, Latex };
     Kind kind = Kind::None;
-    std::vector<Token> prefix;
-    std::vector<Token> left;
-    std::vector<Token> right;
+    std::vector<Token> prefix{};
+    std::vector<Token> left{};
+    std::vector<Token> right{};
     ParenKind paren_kind{};
     bool has_open = true;
     bool has_close = true;
-    std::vector<std::vector<Token>> elements;
-    std::vector<Token> suffix;
+    std::vector<std::vector<Token>> elements{};
+    std::vector<Token> suffix{};
     p::LatexKind latex_kind{};
 };
 
@@ -82,8 +82,8 @@ using SplitCase = Case<TokensBranch, SplitExpected>;
 
 /// classify_tokens expected output: re-derived index vectors + has_latex_descendant.
 struct ClassifyExpected {
-    std::vector<p::TokenIndex> latex_indices;
-    std::vector<p::TokenIndex> paren_indices;
+    std::vector<p::TokenIndex> latex_indices{};
+    std::vector<p::TokenIndex> paren_indices{};
     bool has_latex_descendant = false;
 };
 
@@ -94,8 +94,8 @@ using ClassifyCase = Case<std::vector<Token>, ClassifyExpected>;
 /// (token_idx, start_pos, end_pos) tuples for the indices we want to assert.
 struct PositionExpected {
     std::size_t token_count;
-    std::vector<p::TokenIndex> latex_indices;
-    std::vector<std::tuple<p::TokenIndex, std::size_t, std::size_t>> positions;
+    std::vector<p::TokenIndex> latex_indices{};
+    std::vector<std::tuple<p::TokenIndex, std::size_t, std::size_t>> positions{};
 };
 
 /// Case row for tokenize position tests: source string -> PositionExpected.

@@ -193,12 +193,12 @@ CollectionItem Calculator::median_scalar(std::span<const CollectionItem> items) 
         v.reserve(items.size());
         for (const auto &it : items)
             v.push_back(std::get<T>(it));
-        const std::size_t m = v.size() / 2;
-        std::nth_element(v.begin(), v.begin() + m, v.end());
+        const auto mid = v.begin() + std::ssize(v) / 2;
+        std::nth_element(v.begin(), mid, v.end());
         if (v.size() % 2)
-            return CollectionItem{v[m]};
-        std::nth_element(v.begin(), v.begin() + (m - 1), v.begin() + m);
-        return mean_pair<T>(v[m - 1], v[m]);
+            return CollectionItem{*mid};
+        std::nth_element(v.begin(), mid - 1, mid);
+        return mean_pair<T>(*(mid - 1), *mid);
     }
 }
 

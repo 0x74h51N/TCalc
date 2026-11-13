@@ -1,7 +1,6 @@
 #include <pybind11/pybind11.h>
 
-#include <iomanip>
-#include <sstream>
+#include <string>
 
 #include "bindings.hpp"
 #include "calc/pub/calculator.hpp"
@@ -12,6 +11,13 @@ void bind_bigcomplex(py::module_ &m) {
     using BC = BigComplex;
     using BF = boost::multiprecision::cpp_bin_float_50;
     using B = BigReal;
+
+    const auto text = [](const BC &v) {
+        const BF re(v.backend().real_data());
+        const BF im(v.backend().imag_data());
+        return re.str(detail::kPythonPrecision) + (im >= 0 ? "+" : "") +
+               im.str(detail::kPythonPrecision) + "i";
+    };
 
     py::class_<BC>(m, "BigComplex")
         .def(py::init<>())
@@ -24,30 +30,6 @@ void bind_bigcomplex(py::module_ &m) {
             py::init([](const B &re, const B &im) { return BC(BF(re), BF(im)); }),
             py::arg("real"),
             py::arg("imag"))
-        .def(
-            "__str__",
-            [](const BC &v) {
-                std::ostringstream oss;
-                BF re(v.backend().real_data());
-                BF im(v.backend().imag_data());
-                oss << std::setprecision(detail::kPythonPrecision) << re;
-                if (im >= 0) {
-                    oss << "+";
-                }
-                oss << std::setprecision(detail::kPythonPrecision) << im << "i";
-                return oss.str();
-            })
-        .def("__repr__", [](const BC &v) {
-            std::ostringstream oss;
-            BF re(v.backend().real_data());
-            BF im(v.backend().imag_data());
-            oss << std::setprecision(detail::kPythonPrecision)
-                << re; // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
-            if (im >= 0) {
-                oss << "+";
-            }
-            oss << std::setprecision(detail::kPythonPrecision) << im
-                << "i"; // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
-            return std::string("BigComplex(\"") + oss.str() + "\")";
-        });
+        .def("__str__", text)
+        .def("__repr__", [text](const BC &v) { return "BigComplex(\"" + text(v) + "\")"; });
 }

@@ -1,7 +1,5 @@
 #include <pybind11/pybind11.h>
 
-#include <iomanip>
-#include <sstream>
 #include <string>
 
 #include "bindings.hpp"
@@ -15,18 +13,8 @@ void bind_bigreal(py::module_ &m) {
     py::class_<B>(m, "BigReal")
         .def(py::init<double>(), py::arg("value"))
         .def(py::init<const std::string &>(), py::arg("text"))
-        .def(
-            "__str__",
-            [](const B &v) {
-                std::ostringstream oss;
-                oss << std::setprecision(detail::kPythonPrecision)
-                    << v; // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
-                return oss.str();
-            })
+        .def("__str__", [](const B &v) { return v.str(detail::kPythonPrecision); })
         .def("__repr__", [](const B &v) {
-            std::ostringstream oss;
-            oss << std::setprecision(detail::kPythonPrecision)
-                << v; // NOLINT(clang-analyzer-optin.core.EnumCastOutOfRange)
-            return std::string("BigReal(\"") + oss.str() + "\")";
+            return "BigReal(\"" + v.str(detail::kPythonPrecision) + "\")";
         });
 }

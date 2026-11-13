@@ -848,15 +848,18 @@ template <class F, Shape S> constexpr ArmMask kernel_arms() {
         errmsg::unsupported_operand(sp != nullptr ? sp->symbol : "?"), ErrorKind::MathErr);
 }
 
-/// Dispatch on the (already homogeneous) first argument: one instantiation per arm,
-/// not a 7x7 grid. to_value wraps the result, since the reducers return CollectionItem
-/// rather than a Value arm.
-template <class F, Shape S>
+/// Dispatch on the (already homogeneous) first argument: one instantiation per arm in
+/// A, not a 7x7 grid. An arm outside A is never compiled, so Int64 cannot reach a double
+/// overload through an implicit conversion. to_value wraps the result, since the
+/// reducers return CollectionItem rather than a Value arm.
+template <class F, Shape S, ArmMask A>
 Value dispatch(OpId id, const Calculator &c, std::span<const Value> args, AngleUnit u) {
     return std::visit(
         [&](const auto &x) -> Value {
             using T = std::decay_t<decltype(x)>;
-            if constexpr (S == Shape::Unary) {
+            if constexpr (!tcalc::has_arm(A, kArmOf<T>)) {
+                throw_unsupported_arm(id);
+            } else if constexpr (S == Shape::Unary) {
                 if constexpr (requires { F{}(c, x); })
                     return tcalc::to_value(F{}(c, x));
             } else if constexpr (S == Shape::UnaryAngle) {
@@ -954,22 +957,27 @@ constexpr OpRow with_default(OpRow r, std::uint8_t n) {
 }
 
 template <class F> constexpr OpRow unary(OpId id, F) {
-    return OpRow{id, &dispatch<F, Shape::Unary>, kernel_arms<F, Shape::Unary>()};
+    constexpr ArmMask arms = kernel_arms<F, Shape::Unary>();
+    return OpRow{id, &dispatch<F, Shape::Unary, arms>, arms};
 }
 template <class F> constexpr OpRow unary_angle(OpId id, F) {
-    return OpRow{id, &dispatch<F, Shape::UnaryAngle>, kernel_arms<F, Shape::UnaryAngle>()};
+    constexpr ArmMask arms = kernel_arms<F, Shape::UnaryAngle>();
+    return OpRow{id, &dispatch<F, Shape::UnaryAngle, arms>, arms};
 }
 template <class F> constexpr OpRow binary(OpId id, F) {
-    return OpRow{id, &dispatch<F, Shape::Binary>, kernel_arms<F, Shape::Binary>()};
+    constexpr ArmMask arms = kernel_arms<F, Shape::Binary>();
+    return OpRow{id, &dispatch<F, Shape::Binary, arms>, arms};
 }
 /// permute / choose take `long long`. A probe reports a double arm (double -> long long
 /// is a standard conversion) and would silently truncate permute(1.2, 4.4) to (1, 4).
 /// So these declare Int64 and are never probed.
 template <class F> constexpr OpRow int_binary(OpId id, F) {
-    return OpRow{id, &dispatch<F, Shape::Binary>, arm_bit(Arm::Int64)};
+    constexpr ArmMask arms = arm_bit(Arm::Int64);
+    return OpRow{id, &dispatch<F, Shape::Binary, arms>, arms};
 }
 template <class F> constexpr OpRow reduce(OpId id, F) {
-    return OpRow{id, &dispatch<F, Shape::Unary>, arm_bit(Arm::Coll)};
+    constexpr ArmMask arms = arm_bit(Arm::Coll);
+    return OpRow{id, &dispatch<F, Shape::Unary, arms>, arms};
 }
 /// Exp is pow(e, a) and `e` is irrational, so it can have no exact Rational arm.
 constexpr OpRow without_rational(OpRow r) {
@@ -1102,7 +1110,7 @@ inline constexpr std::array kOpRows = {
         }),
     unary(
         OpId::UnaryPlus,
-        [](const Calculator &c, auto &&a) -> std::decay_t<decltype(a)> { return a; }),
+        [](const Calculator &, auto &&a) -> std::decay_t<decltype(a)> { return a; }),
     unary(OpId::Percent, TCALC_CALL_WITH(div, 100)),
     unary(OpId::Sqr, TCALC_CALL_WITH(pow, 2)),
     unary(OpId::Cube, TCALC_CALL_WITH(pow, 3)),

@@ -90,12 +90,13 @@ BigInt binom(int n, int j) {
 CppRat S_k(int k, const BigInt &m) {
     CppRat total = 0;
     for (int j = 0; j <= k; ++j) { // one binomial-expansion term per j
-        if (kBernoulli[j] == 0)
+        const CppRat &bernoulli = kBernoulli[static_cast<std::size_t>(j)];
+        if (bernoulli == 0)
             continue; // odd B_(>=3) are zero, skip
         BigInt mpow = 1;
         for (int p = 0; p < k + 1 - j; ++p) // mpow = m^(k+1-j)  (exponentiation, not the sum)
             mpow *= m;
-        total += CppRat(binom(k + 1, j)) * kBernoulli[j] * CppRat(mpow); // C(k+1,j) B_j m^(k+1-j)
+        total += CppRat(binom(k + 1, j)) * bernoulli * CppRat(mpow); // C(k+1,j) B_j m^(k+1-j)
     }
     return total / (k + 1); // the 1/(k+1) factor
 }
@@ -349,11 +350,11 @@ std::optional<std::pair<double, double>> trig_arg_phi(
 struct ClosedTerm {
     enum class Kind : std::uint8_t { Const, Poly, Geo, Trig };
     Kind kind;
-    Poly poly;                   // Kind::Poly, low degree first
-    Scalar c;                    // the constant (Const), or the multiplier (Geo, Trig)
-    Scalar r;                    // the base (Geo)
-    bool is_sin = false;         // Trig: sin vs cos
-    std::vector<Token> trig_arg; // Trig: the argument tokens (k*var + phi), sampled at finalize
+    Poly poly;                     // Kind::Poly, low degree first
+    Scalar c;                      // the constant (Const), or the multiplier (Geo, Trig)
+    Scalar r;                      // the base (Geo)
+    bool is_sin = false;           // Trig: sin vs cos
+    std::vector<Token> trig_arg{}; // Trig: the argument tokens (k*var + phi), sampled at finalize
 };
 
 ClosedTerm ct_const(const Scalar &c) {

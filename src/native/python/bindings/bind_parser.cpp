@@ -635,7 +635,8 @@ void bind_parser(py::module_ &m) {
     m.def(
         "split_operand",
         [](const std::vector<p::Token> &tokens, bool lead) {
-            auto [a, b] = p::split_operand(tokens, 0, tokens.size(), lead);
+            auto [a, b] =
+                p::split_operand(tokens, 0, static_cast<p::TokenIndex>(tokens.size()), lead);
             return py::make_tuple(
                 std::vector<p::Token>(a.begin(), a.end()),
                 std::vector<p::Token>(b.begin(), b.end()));
