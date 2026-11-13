@@ -83,7 +83,8 @@ Under `src/tcalc/`:
   `calc_native.op_table()`. There is no second source of truth. Because the
   `Operation` enum and friends are assembled dynamically at runtime, a type checker
   cannot see their members; `scripts/stubgen/generate_ops_stub.py` parses this module's
-  AST and reconstructs them into a static `stubs/tcalc/core/ops.pyi`.
+  AST and reconstructs them into a static `ops.pyi` beside it, which mypy reads in
+  place of the module.
 - `errors.py` `ErrorKind` plus the `Msg` tables for user-facing error text.
 - `ui/` the PySide6 layer. `controller/` drives the loop (tokenize, live preview,
   status); `widgets/math/` renders the LaTeX-style nodes from `build_math_nodes`;
@@ -114,12 +115,12 @@ Under `src/tcalc/`:
   derived from the `Calculator` method signatures themselves, not from a hand-kept flag
   table, so it cannot drift.
 
-- **All type stubs are generated, none hand-written.** Two generators feed `stubs/`,
+- **All type stubs are generated, none hand-written.** Two generators write them,
   and `make stub-gen` runs both. The native module is a compiled extension with no
   Python source, so `pybind11-stubgen` introspects `calc_native` into
   `stubs/calc_native.pyi`, used as it comes out.
   The Python side builds its `Operation` enum and other tables dynamically at runtime,
   invisible to a type checker, so an AST-based generator (`scripts/stubgen/`)
-  reconstructs them into static `.pyi` files. Keeping no stub by hand means the typed
+  reconstructs them into `src/tcalc/core/ops.pyi`. Keeping no stub by hand means the typed
   surface never drifts from the C++ table or the runtime-built tables: regenerate and
   it is correct by construction.

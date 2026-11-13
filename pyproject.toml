@@ -50,16 +50,13 @@ include = ["tcalc*"]
 [tool.ruff]
 target-version = "py314"
 line-length = 100
-extend-exclude = ["build", "stubs", "venv", "src/native", "src/calc_native*.so", "*.md"]
+extend-exclude = ["build", "stubs", "src/tcalc/core/ops.pyi", "venv", "src/native", "src/calc_native*.so", "*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "ANN"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-# StrEnum changes str() of a member; its own change
-"src/tcalc/core/ops.py" = ["UP042"]
-"src/tcalc/ui/widgets/calc/topbar/defins.py" = ["UP042"]
 # the annotation rule covers src/; mypy does not check tests
 "tests/**" = ["ANN"]
 
@@ -68,9 +65,7 @@ known-first-party = ["tcalc"]
 
 [tool.mypy]
 mypy_path = "stubs:src"
-files = ["src"]
-# built at runtime; mypy reads its generated stub
-exclude = ["src/tcalc/core/ops.py"]
+files = ["src", "scripts/stubgen"]
 strict = true
 warn_unreachable = true
 

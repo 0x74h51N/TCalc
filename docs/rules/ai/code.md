@@ -39,7 +39,7 @@ When something does not fit, stop and report instead of inventing. The report sa
 
 Why every stub is generated is in [architecture.md](../../architecture.md#key-design-decisions); it is not repeated here.
 
-- No hand-written `.pyi`. `stubs/calc_native.pyi` comes from `pybind11-stubgen`, the `tcalc` stubs from `scripts/stubgen/`. A wrong stub is fixed at its source, the binding or the generator, never in `stubs/`. The hookify rule `block-stub-edit` blocks file edits under `stubs/`.
+- No hand-written `.pyi`. `stubs/calc_native.pyi` comes from `pybind11-stubgen`, `src/tcalc/core/ops.pyi` from `scripts/stubgen/`, beside its source so mypy reads it in place of `ops.py`. A wrong stub is fixed at its source, the binding or the generator, never in the `.pyi`. The hookify rule `block-stub-edit` blocks file edits to any `.pyi`.
 - Every bound function names its parameters with `py::arg`, and every type a signature uses is registered before it (the order note in `module.cpp`), so the stub has no `arg0` and no raw C++ type. A binding that returns `py::object` reaches the stub as `typing.Any`; it returns the concrete type.
 - A native value never loses precision on the Python side: no `float()`, `int()`, `to_double()` or other conversion of a `Rational`, `BigReal` or `BigComplex`, and no cast to a narrower type. Formatting reads the value as it is.
 - The Python side keeps the type native returned. `int`, `float` and `complex` appear only where native itself returns that arm of `tcalc::Value` (`std::int64_t`, `double`, `Complex`); any other number stays a `Rational`, `BigReal` or `BigComplex`.

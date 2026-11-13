@@ -202,6 +202,7 @@ jobs:
           path: |
             src/native/build/native
             stubs
+            src/tcalc/core/ops.pyi
             src/calc_native*.so
 
   cpp-code-check:
