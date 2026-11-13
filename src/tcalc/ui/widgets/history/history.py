@@ -55,7 +55,7 @@ class History(QWidget):
     items_changed = Signal()
     display_mode_changed = Signal(object)
 
-    def __init__(self, parent: QWidget | None = None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("historyWidget")
         self._history_items: list[HistoryEntry] = []
@@ -146,7 +146,7 @@ class History(QWidget):
             self._icon_button_radius,
         )
 
-    def set_mode(self, mode: RenderMode):
+    def set_mode(self, mode: RenderMode) -> None:
         self._history_modes.set_current(mode)
         self._app_state.history_mode = mode
         self._begin_batch_render()

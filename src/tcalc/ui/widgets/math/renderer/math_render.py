@@ -237,7 +237,7 @@ class MathRender(QWidget):
 
         return focus_target
 
-    def render_node(self, seg, tokenized: calc_native.TokensBranch) -> None:
+    def render_node(self, seg: QLineEdit, tokenized: calc_native.TokensBranch) -> None:
 
         dirty_inputs: set[QLineEdit] = set()
         try:
@@ -273,7 +273,7 @@ class MathRender(QWidget):
         sample: QWidget,
         base_font: int,
         max_pt: int,
-    ):
+    ) -> None:
         for le in lines:
             scale = SCRIPT_SCALES[MathRender._script_depth(le)]
             apply_scaled_fonts(sample, [le], int(base_font * scale), int(max_pt * scale))

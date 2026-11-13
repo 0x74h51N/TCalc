@@ -7,10 +7,16 @@ from tcalc.theme import ThemeChoice, ThemeMode
 from tcalc.ui.controller.menubar import EditOperations, FileOperations, ViewOperations
 from tcalc.ui.icon import Icon
 
-from .menu_builder import MenuActionItem, MenuActionType, MenuSeparatorItem, SubmenuItem
+from .menu_builder import (
+    BaseMenuContext,
+    MenuActionItem,
+    MenuActionType,
+    MenuSeparatorItem,
+    SubmenuItem,
+)
 
 
-def _coming_soon(ctx) -> None:
+def _coming_soon(ctx: BaseMenuContext) -> None:
     QMessageBox.information(ctx.window, "Coming soon", "Coming soon.")
 
 

@@ -10,7 +10,8 @@ from __future__ import annotations
 from typing import ClassVar
 
 import calc_native
-from PySide6.QtCore import QEvent, QSize, Qt
+from PySide6.QtCore import QEvent, QObject, QSize, Qt
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -207,11 +208,11 @@ class ScriptNode(ExpressionNode):
         # so anything narrower than sizeHint clips them instead of reflowing.
         return self.sizeHint()
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self._place_script()
 
-    def eventFilter(self, obj, event) -> bool:
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         if event.type() == QEvent.Type.LayoutRequest:
             self.updateGeometry()
             self._place_script()
@@ -276,7 +277,7 @@ class RootWidget(ExpressionNode):
 
         grid.addWidget(self.degree, 1, 0, 3, 1, InputAlign.LEFTB.value)
 
-        self.sqrt_symbol = SqrtSymbol(grid)
+        self.sqrt_symbol = SqrtSymbol()
 
         grid.addWidget(self.sqrt_symbol, 3, 0, 3, 4, InputAlign.RIGHT.value)
         self.radicand = ExpressionSlot(
@@ -309,7 +310,7 @@ class RootWidget(ExpressionNode):
         else:
             self.degree.default_input().setFocus()
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         h = self.radicand.sizeHint().height()
         self.sqrt_symbol.setFixedHeight(h)

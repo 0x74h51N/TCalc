@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 
 from PySide6.QtCore import QTimer
-from PySide6.QtGui import QPalette
+from PySide6.QtGui import QPalette, QResizeEvent
 from PySide6.QtWidgets import QFrame, QVBoxLayout, QWidget
 
 from tcalc.theme import get_theme
@@ -83,6 +83,6 @@ class SidePanel(QWidget):
     def update_fonts(self) -> None:
         self._update_fonts()
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self._resize_timer.start()

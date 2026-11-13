@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class FileMenu:
-    def __init__(self, menu: QMenuBar, window: MainWindow, shortcuts: ShortcutManager):
+    def __init__(self, menu: QMenuBar, window: MainWindow, shortcuts: ShortcutManager) -> None:
         self.ops = FileOperations(window)
 
         file_menu = menu.addMenu("File")

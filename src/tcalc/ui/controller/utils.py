@@ -5,6 +5,7 @@ from decimal import Decimal
 import calc_native
 
 from tcalc.core.ops import Operation
+from tcalc.core.utils import CalcValue
 
 
 def _build_hyp_map() -> dict[Operation, Operation]:
@@ -43,7 +44,7 @@ def _fmt_exact_int(n: int, *, group: bool) -> str:
     return f"{n:,}" if group else str(n)
 
 
-def format_result(value, *, group: bool = False) -> str:
+def format_result(value: CalcValue, *, group: bool = False) -> str:
     """Format a numeric result (float, complex, Rational, Collection, etc.).
 
     Default output is tokenizer-safe (no thousands separators) so it can be fed

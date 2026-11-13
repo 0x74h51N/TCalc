@@ -69,7 +69,7 @@ class AppState:
         DockKind.TRIGPAD: "show_trigpad",
     }
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._settings = QSettings("TCalc", "TCalc")
 
         stored_preset = self._settings.value("keypad_preset", KeypadPreset.SIMPLE.value)

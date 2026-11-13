@@ -252,7 +252,7 @@ class CustomPresetActions(QWidget):
     update_requested = Signal()
     delete_requested = Signal()
 
-    def __init__(self, config: PresetConfig, parent: QWidget | None = None):
+    def __init__(self, config: PresetConfig, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         size = config.action_btn_size
 

@@ -197,7 +197,7 @@ class Theme:
     look: Look
     pictures: tuple[ThemePicture, ...]
 
-    def __init__(self, variant: str = "dark"):
+    def __init__(self, variant: str = "dark") -> None:
         data = _read(variant)
         self.variant = variant
         if "name" not in data:

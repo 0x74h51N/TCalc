@@ -173,7 +173,7 @@ class RootPaint(PaintNode):
             idx_w = self.right.w
         self.left.place(x + idx_w + self.glyph_w, radicand_y)
 
-    def paint(self, painter):
+    def paint(self, painter: QPainter) -> None:
         super().paint(painter)
         radicand_top = self.left.y - ROOT_OVERLINE_PAD - PEN_WIDTH
         radicand_h = self.left.h + PEN_WIDTH + ROOT_OVERLINE_PAD

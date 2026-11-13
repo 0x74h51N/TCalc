@@ -24,10 +24,10 @@ from collections.abc import Callable
 
 from calc_native import Calculator
 from PySide6.QtCore import QByteArray, QSettings, QSize, QTimer
-from PySide6.QtGui import QPaintEvent, Qt
+from PySide6.QtGui import QCloseEvent, QKeyEvent, QPaintEvent, Qt
 from PySide6.QtWidgets import QDockWidget, QMainWindow, QWidget
 
-from tcalc.app_state import DockKind, KeypadPreset, get_app_state
+from tcalc.app_state import AppState, DockKind, KeypadPreset, get_app_state
 from tcalc.theme import PictureTarget
 from tcalc.ui.controller.menubar import ViewOperations
 from tcalc.ui.keyboard import KeyboardHandler
@@ -241,12 +241,12 @@ class MainWindow(QMainWindow):
         elif not dock.isHidden():
             dock.close()
 
-    def _sync_mode_widgets(self, app_state) -> None:
+    def _sync_mode_widgets(self, app_state: AppState) -> None:
         topbar = self.calc_widget.topbar
         topbar.set_angle_visible(app_state.angle_visible)
         topbar.set_angle(app_state.angle_unit)
 
-    def _sync_memory_state(self, app_state) -> None:
+    def _sync_memory_state(self, app_state: AppState) -> None:
         self.calc_widget.topbar.set_memory_available(app_state.memory is not None)
         self.memory_bar.set_memory(
             "" if app_state.memory is None else format_result(app_state.memory, group=True)
@@ -256,12 +256,12 @@ class MainWindow(QMainWindow):
     # Events & signals
     # ------------------------------------------------------------------
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event: QKeyEvent) -> None:
         if self._keyboard_handler.handle_key_press(event):
             return
         super().keyPressEvent(event)
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event: QCloseEvent) -> None:
         self._save_window_state()
         super().closeEvent(event)
 

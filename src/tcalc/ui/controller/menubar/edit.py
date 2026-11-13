@@ -8,6 +8,9 @@ from PySide6.QtWidgets import QApplication
 from tcalc.app_state import get_app_state
 
 if TYPE_CHECKING:
+    from tcalc.ui.widgets.calc.display.display import Display
+    from tcalc.ui.widgets.history.history import History
+
     from ...window import MainWindow
 
 
@@ -56,17 +59,17 @@ class EditOperations:
         if after:
             after()
 
-    def __init__(self, window: MainWindow):
+    def __init__(self, window: MainWindow) -> None:
         self.window = window
         self.clipboard = QApplication.clipboard()
         self.app_state = get_app_state()
 
     @property
-    def _display(self):
+    def _display(self) -> Display:
         return self.window.calc_widget.display
 
     @property
-    def _history(self):
+    def _history(self) -> History:
         return self.window.history
 
     def _get_history_expression(self, index: int) -> str | None:

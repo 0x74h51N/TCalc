@@ -24,7 +24,9 @@ if TYPE_CHECKING:
 
 
 class KeyboardHandler(QObject):
-    def __init__(self, editor: Expression, keypad: Keypad, controller: CalculatorController):
+    def __init__(
+        self, editor: Expression, keypad: Keypad, controller: CalculatorController
+    ) -> None:
         super().__init__(editor)
         self._editor = editor
         self._keypad = keypad
@@ -35,7 +37,7 @@ class KeyboardHandler(QObject):
 
         self._editor.input_created.connect(self._on_input_created)
 
-    def _on_input_created(self, le: QLineEdit):
+    def _on_input_created(self, le: QLineEdit) -> None:
         le.installEventFilter(self)
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
@@ -72,7 +74,7 @@ class KeyboardHandler(QObject):
                 button.click()
 
                 # Remove pressed property after delay
-                def reset():
+                def reset() -> None:
                     button.setProperty(Prop.PRESSED, False)
                     button.style().unpolish(button)
                     button.style().polish(button)

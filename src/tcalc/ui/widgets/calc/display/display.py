@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer, Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QFrame,
     QLineEdit,
@@ -99,7 +100,7 @@ class Display(QWidget):
         self.editor.update_input_fonts(self._expr_scroll)
         self._schedule_scroll(self.editor._resolve_target())
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self._update_fonts()
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 import dataclasses
 
 from PySide6.QtCore import QEvent, QTimer, Signal
+from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
     QAbstractButton,
     QButtonGroup,
@@ -226,7 +227,7 @@ class Keypad(QWidget):
         self._update_key_radius()
         self._update_button_fonts()
 
-    def resizeEvent(self, event) -> None:
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         self._key_radius = shrink_key_radius(self, self._buttons.values(), self._key_radius)
         self._resize_timer.start()

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import calc_native
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QFont, QPainter, QPen
+from PySide6.QtGui import QFont, QPainter, QPaintEvent, QPen
 from PySide6.QtWidgets import QWidget
 
 from tcalc.ui.widgets.math.math_primitives import PEN_WIDTH
@@ -92,7 +92,7 @@ class PaintCanvas(QWidget):
     def minimumSizeHint(self) -> QSize:
         return self._size
 
-    def paintEvent(self, _event) -> None:
+    def paintEvent(self, _event: QPaintEvent) -> None:
         if self._tree is None:
             return
         painter = QPainter(self)

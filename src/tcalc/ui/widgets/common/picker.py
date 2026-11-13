@@ -7,7 +7,9 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QSortFilterProxyModel, Qt, Signal
+from collections.abc import Sequence
+
+from PySide6.QtCore import QModelIndex, QPoint, QSortFilterProxyModel, Qt, Signal
 from PySide6.QtGui import QBrush, QColor, QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import QLineEdit, QListView, QVBoxLayout, QWidget
 
@@ -21,7 +23,7 @@ class SearchablePicker(QWidget):
 
     def __init__(
         self,
-        items: list[tuple[str, object] | tuple[str, object, QColor]],
+        items: Sequence[tuple[str, object] | tuple[str, object, QColor]],
         separator_after: int | None = None,
         min_width: int = 200,
         margin: int = 4,
@@ -76,14 +78,14 @@ class SearchablePicker(QWidget):
         self._search.textChanged.connect(self._proxy.setFilterFixedString)
         self._list.clicked.connect(self._on_clicked)
 
-    def _on_clicked(self, index) -> None:
+    def _on_clicked(self, index: QModelIndex) -> None:
         source_row = self._proxy.mapToSource(index).row()
         data = self._data_by_row.get(source_row, _MISSING)
         if data is not _MISSING:
             self.item_selected.emit(data)
             self.hide()
 
-    def popup(self, global_pos) -> None:
+    def popup(self, global_pos: QPoint) -> None:
         self._search.clear()
         self._list.scrollToTop()
         self.move(global_pos)

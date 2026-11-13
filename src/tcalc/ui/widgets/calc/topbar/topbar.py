@@ -3,6 +3,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QResizeEvent
 from PySide6.QtWidgets import (
+    QGridLayout,
     QHBoxLayout,
     QPushButton,
     QSizePolicy,
@@ -94,7 +95,7 @@ class TopBar(QWidget):
         super().resizeEvent(event)
         self._fit_timer.start()
 
-    def _add_key(self, key_def: KeyDef, role: KeypadRole, grid) -> None:
+    def _add_key(self, key_def: KeyDef, role: KeypadRole, grid: QGridLayout) -> None:
         button = KeyButton(key_def, role, grid.parentWidget() or self)
         button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         button.clicked.connect(

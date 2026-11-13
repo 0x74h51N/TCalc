@@ -85,7 +85,7 @@ class Expression(QWidget):
     def expression_inputs(self) -> list[QLineEdit]:
         return self._root.line_edits()
 
-    def _on_app_focus_changed(self, _old, new) -> None:
+    def _on_app_focus_changed(self, _old: QWidget | None, new: QWidget | None) -> None:
         if isinstance(new, QLineEdit) and self.isAncestorOf(new):
             self._last_focused = new
             self.focused_input_changed.emit(new)
@@ -415,7 +415,7 @@ class Expression(QWidget):
     # ================== Node Building (tokenize -> create widget -> insert) ==================
     #
 
-    def _flush_exp_nodes(self):
+    def _flush_exp_nodes(self) -> None:
         if self._pending_seg:
             self._add_exp_node(self._pending_seg)
             self.plain_text_changed.emit(self.get_plain_text())
@@ -426,7 +426,7 @@ class Expression(QWidget):
             if isinstance(fw, QLineEdit) and self.isAncestorOf(fw):
                 self._last_focused = fw
 
-    def _on_input_changed(self, seg: QLineEdit):
+    def _on_input_changed(self, seg: QLineEdit) -> None:
         if self.renderer.is_rendering:
             return
         self._pending_seg = seg
@@ -600,7 +600,9 @@ class Expression(QWidget):
 
         return True
 
-    def _split_seg(self, seg, tokens, idx, slot):
+    def _split_seg(
+        self, seg: QLineEdit, tokens: list[calc_native.Token], idx: int, slot: ExpressionSlot
+    ) -> tuple[list[calc_native.Token], list[calc_native.Token], list[QWidget]]:
         before_toks = tokens[:idx]
         after_toks = tokens[idx + 1 :]
         detached: list[QWidget] = []

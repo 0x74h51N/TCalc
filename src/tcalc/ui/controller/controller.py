@@ -31,7 +31,7 @@ from .utils import apply_hyp_variant, format_result
 _log = logging.getLogger("tcalc.ui.controller")
 
 
-def _short_error_for_expression(expression: str, tokens) -> str | None:
+def _short_error_for_expression(expression: str, tokens: list[calc_native.Token]) -> str | None:
     """Return a short user-facing error if the expression has bare comma
     outside any Paren/Bracket. Otherwise None (caller uses raw error text)."""
     if "," not in expression:
@@ -42,7 +42,7 @@ def _short_error_for_expression(expression: str, tokens) -> str | None:
     return Msg.USE_LIST_OR_POINT
 
 
-def _compute_status(tokens) -> tuple[str, StatusKind | None]:
+def _compute_status(tokens: list[calc_native.Token]) -> tuple[str, StatusKind | None]:
     """Top-level token analysis -> ('status text', 'info' | 'error' | '').
 
     Surfaces a friendly hint while the user is typing an unclosed
@@ -117,7 +117,7 @@ class CalculatorController:
         self._memory_bar.set_memory("")
         self._compute_and_update()
 
-    def handle_key(self, label: str, operation) -> None:
+    def handle_key(self, label: str, operation: object) -> None:
         self._just_solved = False
 
         if operation == "shift":

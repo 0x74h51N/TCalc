@@ -29,7 +29,7 @@ def _separator(menu: QMenu) -> QAction:
 
 
 class ViewMenu:
-    def __init__(self, menu: QMenuBar, window: MainWindow, shortcuts: ShortcutManager):
+    def __init__(self, menu: QMenuBar, window: MainWindow, shortcuts: ShortcutManager) -> None:
         self.app_state = get_app_state()
         self.window = window
         self.ops = ViewOperations(window)

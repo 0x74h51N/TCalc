@@ -10,7 +10,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 import calc_native
-from PySide6.QtWidgets import QMenu, QProxyStyle, QStyle
+from PySide6.QtWidgets import QMenu, QProxyStyle, QStyle, QStyleOption, QWidget
 
 from tcalc.core.constants import CONST_NAMES
 from tcalc.ui.utils import split_camel
@@ -20,7 +20,12 @@ from tcalc.ui.widgets.math.painter.symbol_icon import ICON_BOX, theme_symbol_ico
 class _ConstIconStyle(QProxyStyle):
     """Enlarge a menu's icon column so the fixed-size constant icons aren't downscaled."""
 
-    def pixelMetric(self, metric, option=None, widget=None):  # noqa: N802
+    def pixelMetric(  # noqa: N802
+        self,
+        metric: QStyle.PixelMetric,
+        option: QStyleOption | None = None,
+        widget: QWidget | None = None,
+    ) -> int:
         if metric == QStyle.PixelMetric.PM_SmallIconSize:
             return max(ICON_BOX.width(), ICON_BOX.height())
         return super().pixelMetric(metric, option, widget)

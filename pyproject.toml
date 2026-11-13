@@ -53,13 +53,15 @@ line-length = 100
 extend-exclude = ["build", "stubs", "venv", "src/native", "src/calc_native*.so", "*.md"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
+select = ["E", "F", "I", "UP", "ANN"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 # StrEnum changes str() of a member; its own change
 "src/tcalc/core/ops.py" = ["UP042"]
 "src/tcalc/ui/widgets/calc/topbar/defins.py" = ["UP042"]
+# the annotation rule covers src/; mypy does not check tests
+"tests/**" = ["ANN"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["tcalc"]
