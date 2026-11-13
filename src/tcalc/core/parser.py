@@ -7,12 +7,10 @@
 
 from __future__ import annotations
 
-from typing import List
-
 import calc_native
 
 
-def tokenize_string(expression: str) -> List[calc_native.Token]:
+def tokenize_string(expression: str) -> list[calc_native.Token]:
     """Tokenize expression and return token list."""
     return calc_native.tokenize_string(expression).tokens
 

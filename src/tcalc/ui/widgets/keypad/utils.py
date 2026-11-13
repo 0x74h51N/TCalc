@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from PySide6.QtCore import SignalInstance
 from PySide6.QtWidgets import QGridLayout, QWidget
@@ -13,7 +13,7 @@ from ..common.types import KeyDef, ShiftedDef
 __all__ = ["KeyDef", "ShiftedDef", "add_keys_to_grid", "handle_button_clicked", "make_grid"]
 
 
-def make_grid(spacing: int, parent: Optional[QWidget] = None) -> QGridLayout:
+def make_grid(spacing: int, parent: QWidget | None = None) -> QGridLayout:
     grid = QGridLayout(parent)
     grid.setContentsMargins(0, 0, 0, 0)
     grid.setHorizontalSpacing(spacing)

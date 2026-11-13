@@ -20,7 +20,7 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from calc_native import Calculator
 from PySide6.QtCore import QByteArray, QSettings, QSize, QTimer

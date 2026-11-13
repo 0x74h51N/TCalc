@@ -21,7 +21,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional, Sequence
+from collections.abc import Sequence
 
 from PySide6.QtWidgets import QApplication
 
@@ -33,7 +33,7 @@ from .utils import get_icon
 from .window import MainWindow
 
 
-def run_app(argv: Optional[Sequence[str]] = None, *, debug: bool = False) -> int:
+def run_app(argv: Sequence[str] | None = None, *, debug: bool = False) -> int:
     import calc_native
 
     # Cap a single evaluation's wall-clock so a runaway expression errors instead of freezing

@@ -8,12 +8,12 @@ import tomllib
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QStandardPaths, Qt
 from PySide6.QtGui import QColor
 
-from tcalc.typed_tables import TableError, build, override, values
+from tcalc.typed_tables import TableError, Toml, build, override, values
 from tcalc.ui.look import (
     DEFAULT_LOOK,
     ColorField,
@@ -202,12 +202,16 @@ class Theme:
         self.variant = variant
         if "name" not in data:
             raise ThemeError("no name")
-        self.name = data["name"]
+        name = data["name"]
+        if not isinstance(name, str):
+            raise ThemeError(f"name must be text, not {name!r}")
+        self.name = name
         # A custom theme builds on a built-in one (Qt's color scheme, variant icon files) and
         # its file holds only what differs from it
-        self.base = data.get("base", variant if variant in BUILT_IN_VARIANTS else "")
-        if self.base not in BUILT_IN_VARIANTS:
-            raise ThemeError(f"base must be one of {BUILT_IN_VARIANTS}, not {self.base!r}")
+        base_variant = data.get("base", variant if variant in BUILT_IN_VARIANTS else "")
+        if not isinstance(base_variant, str) or base_variant not in BUILT_IN_VARIANTS:
+            raise ThemeError(f"base must be one of {BUILT_IN_VARIANTS}, not {base_variant!r}")
+        self.base = base_variant
         base = _read(self.base) if self.base != variant else {}
         where = f"theme {variant}"
         colors = {
@@ -281,7 +285,7 @@ def _folder(variant: str) -> Path:
     return user if (user / "theme.toml").exists() else BUILT_IN_DIR / variant
 
 
-def _read(variant: str) -> dict[str, Any]:
+def _read(variant: str) -> dict[str, Toml]:
     if variant in BUILT_IN_VARIANTS:
         path = BUILT_IN_DIR / f"{variant}.toml"
     else:

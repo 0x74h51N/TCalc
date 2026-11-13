@@ -9,9 +9,9 @@ from __future__ import annotations
 import dataclasses
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from operator import attrgetter
-from typing import Callable
 
 import calc_native
 import pytest

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, Optional
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QApplication
 
@@ -44,7 +45,7 @@ class EditOperations:
             self._display.result.clear_result()
             self._set_expression(expr)
 
-    def _do_clip(self, action: str, after: Optional[Callable[[], None]] = None) -> None:
+    def _do_clip(self, action: str, after: Callable[[], None] | None = None) -> None:
         exprs = self._display.expression.expression_inputs()
         cleaned = self._display.result.result_label.text()
         for expr in exprs:
@@ -68,7 +69,7 @@ class EditOperations:
     def _history(self):
         return self.window.history
 
-    def _get_history_expression(self, index: int) -> Optional[str]:
+    def _get_history_expression(self, index: int) -> str | None:
         item = self._history.get_history_item(index)
         if not item:
             return None

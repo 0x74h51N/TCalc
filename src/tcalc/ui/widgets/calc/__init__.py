@@ -19,8 +19,6 @@
 #
 from __future__ import annotations
 
-from typing import Optional
-
 from PySide6.QtGui import QPalette
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
@@ -32,7 +30,7 @@ from .topbar import TopBar
 class CalcWidget(QWidget):
     def __init__(
         self,
-        parent: Optional[QWidget] = None,
+        parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.setObjectName("calcWidget")

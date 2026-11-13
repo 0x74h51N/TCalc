@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from PySide6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QTimer, Signal
 from PySide6.QtWidgets import (
     QFrame,
@@ -32,7 +30,7 @@ from .result.result import Result
 class Display(QWidget):
     expression_changed = Signal(str)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("displayWidget")
 

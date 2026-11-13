@@ -6,8 +6,8 @@
 #
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import calc_native
 from PySide6.QtWidgets import QMenu, QProxyStyle, QStyle

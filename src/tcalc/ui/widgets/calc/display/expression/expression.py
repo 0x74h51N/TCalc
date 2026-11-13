@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Generator, Optional
+from collections.abc import Generator
 
 import calc_native
 from PySide6.QtCore import QTimer, Signal
@@ -47,7 +47,7 @@ class Expression(QWidget):
     input_created = Signal(object)
     focused_input_changed = Signal(object)
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         self._last_focused: QLineEdit | None = None
@@ -66,7 +66,7 @@ class Expression(QWidget):
 
         self._last_focused = self._root.default_input()
 
-        self._pending_seg: Optional[QLineEdit] = None
+        self._pending_seg: QLineEdit | None = None
         self._restoring: bool = False
         self._pending_parens: dict[calc_native.ParenKind, list[ParenWidget]] = {}
         self.renderer.editor = self
@@ -148,9 +148,7 @@ class Expression(QWidget):
     def navigate_down(self) -> bool:
         return self._navigate_vertical(1)
 
-    def _iter_line_edits(
-        self, start_seg: QLineEdit, direction: int
-    ) -> Generator[QLineEdit, None, None]:
+    def _iter_line_edits(self, start_seg: QLineEdit, direction: int) -> Generator[QLineEdit]:
         """
         Iter line edits between parent widgets
         Direction: 1 (Forward/Right), -1 (Backward/Left)

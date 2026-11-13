@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from enum import Enum, auto
-from typing import Callable
 
 from PySide6.QtCore import QPropertyAnimation
 from PySide6.QtWidgets import QGraphicsOpacityEffect, QWidget

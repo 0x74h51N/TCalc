@@ -7,9 +7,9 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 import pytest
 from PySide6.QtWidgets import QApplication
@@ -60,7 +60,7 @@ def theme_table(monkeypatch):
 
 
 @pytest.fixture
-def expression_widget(qapp) -> "Expression":
+def expression_widget(qapp) -> Expression:
     """Create a fresh Expression widget for testing."""
     from tcalc.ui.widgets.calc.display.expression.expression import Expression
 

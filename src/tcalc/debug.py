@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Literal
 
 import calc_native
 from PySide6.QtWidgets import QLineEdit
@@ -74,7 +74,6 @@ def debug_math_nodes(nodes: list[tuple]) -> None:
 #
 # LatexNode Debugger
 # ===================================================
-_W = TypeVar("_W", bound=ExpressionNode)
 
 
 @dataclass
@@ -133,10 +132,10 @@ class SlotInfo:
 
 
 @dataclass
-class NodeInfo(Generic[_W]):
+class NodeInfo[W: ExpressionNode]:
     """Snapshot of one ExpressionNode."""
 
-    widget: _W
+    widget: W
     cls_name: str
     paren_kind: calc_native.ParenKind | None = None
     has_open: bool | None = None  # only for ParenWidget
@@ -162,7 +161,7 @@ class TreeInfo:
     all_slots: list[SlotInfo] = field(default_factory=list)
     all_edits: list[SegInfo] = field(default_factory=list)
 
-    def _nodes_of_type(self, cls: type[_W]) -> list[NodeInfo[_W]]:
+    def _nodes_of_type[W: ExpressionNode](self, cls: type[W]) -> list[NodeInfo[W]]:
         return [n for n in self.all_nodes if isinstance(n.widget, cls)]
 
     @property
@@ -196,7 +195,7 @@ class TreeInfo:
         return "\n".join(lines)
 
 
-def snapshot_tree(widget: "Expression") -> TreeInfo:
+def snapshot_tree(widget: Expression) -> TreeInfo:
     """Walk the expression tree and return a structured TreeInfo snapshot."""
     info = TreeInfo(root=SlotInfo(key="", paren=None), plain_text=widget.get_plain_text())
 

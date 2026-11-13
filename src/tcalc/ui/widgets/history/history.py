@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QFont, QResizeEvent
@@ -56,7 +55,7 @@ class History(QWidget):
     items_changed = Signal()
     display_mode_changed = Signal(object)
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("historyWidget")
         self._history_items: list[HistoryEntry] = []
@@ -66,7 +65,7 @@ class History(QWidget):
 
         self._app_state = get_app_state()
         self._pending_entries: list[HistoryEntry] = []
-        self._pending_timer: Optional[QTimer] = None
+        self._pending_timer: QTimer | None = None
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -219,7 +218,7 @@ class History(QWidget):
         self.update_fonts(force_layout=True)
         self.items_changed.emit()
 
-    def _add_item_to_list(self, entry: HistoryEntry, index: Optional[int] = None) -> HistoryItem:
+    def _add_item_to_list(self, entry: HistoryEntry, index: int | None = None) -> HistoryItem:
         """Add item to list widget. If index is None, append to end; else insert at index."""
         item_widget = HistoryItem(
             entry, self._app_state.history_mode, painter=self._painter, parrent=self
@@ -318,9 +317,7 @@ class History(QWidget):
         """Update fonts for all history items."""
         self._update_widget_fonts(self._item_widgets, force_layout=force_layout)
 
-    def _update_widget_fonts(
-        self, widgets: list["HistoryItem"], force_layout: bool = False
-    ) -> None:
+    def _update_widget_fonts(self, widgets: list[HistoryItem], force_layout: bool = False) -> None:
         if self._updating_fonts:
             return
 

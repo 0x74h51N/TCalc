@@ -241,6 +241,7 @@ THEME_FILES = {
     },
     "built-in": {"name": "Built in", "colors": {"a": "#000000", "b": "#222222"}},
     "no name": {"base": "built-in"},
+    "number name": {"name": 3, "base": "built-in"},
     "no base": {"name": "N"},
     "bad base": {"name": "B", "base": "blue"},
 }
@@ -286,6 +287,7 @@ def test_theme_init_a_built_in_is_its_own_base():
     ("variant", "message"),
     [
         param("no name", "no name", id="no name"),
+        param("number name", "name must be text", id="number name"),
         param("no base", "base must be", id="no base"),
         param("bad base", "base must be", id="bad base"),
     ],

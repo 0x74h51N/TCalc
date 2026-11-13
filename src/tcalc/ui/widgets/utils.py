@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Iterable
 from enum import Enum
-from typing import Callable, Iterable
 
 from PySide6.QtCore import QChildEvent, QEvent, Qt, QTimer
 from PySide6.QtWidgets import (

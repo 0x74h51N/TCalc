@@ -7,7 +7,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable, ClassVar
+from collections.abc import Callable
+from typing import TYPE_CHECKING, ClassVar
 
 import calc_native
 from PySide6.QtCore import QPointF

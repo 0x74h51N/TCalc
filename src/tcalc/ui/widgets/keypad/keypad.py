@@ -8,7 +8,6 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Optional
 
 from PySide6.QtCore import QEvent, QTimer, Signal
 from PySide6.QtWidgets import (
@@ -54,7 +53,7 @@ class Keypad(QWidget):
     # Component name theme pictures can target; None takes none
     picture_target: PictureTarget | None = None
 
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 
         self._buttons: dict[str, QPushButton] = {}
@@ -189,10 +188,10 @@ class Keypad(QWidget):
     # Public accessors
     # ------------------------------------------------------------------
 
-    def get_button(self, label: str) -> Optional[QPushButton]:
+    def get_button(self, label: str) -> QPushButton | None:
         return self._buttons.get(label)
 
-    def get_op_button(self, op: Operation) -> Optional[QPushButton]:
+    def get_op_button(self, op: Operation) -> QPushButton | None:
         return self._op_buttons.get(op)
 
     @property

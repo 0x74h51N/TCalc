@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Tuple
-
 from PySide6.QtWidgets import QMessageBox
 
 from tcalc.app_state import DockKind, KeypadPreset
@@ -16,7 +14,7 @@ def _coming_soon(ctx) -> None:
     QMessageBox.information(ctx.window, "Coming soon", "Coming soon.")
 
 
-FILE_MENU_ACTIONS: Tuple[MenuActionItem, ...] = (
+FILE_MENU_ACTIONS: tuple[MenuActionItem, ...] = (
     MenuActionItem(
         text="Quit",
         icon=Icon.APPLICATION_EXIT,
@@ -25,7 +23,7 @@ FILE_MENU_ACTIONS: Tuple[MenuActionItem, ...] = (
     ),
 )
 
-EDIT_MENU_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
+EDIT_MENU_ACTIONS: tuple[MenuActionItem | MenuSeparatorItem, ...] = (
     MenuActionItem(
         text="Undo",
         icon=Icon.EDIT_UNDO,
@@ -60,7 +58,7 @@ EDIT_MENU_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem, ...] = (
 )
 
 
-VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
+VIEW_ACTIONS: tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     SubmenuItem(
         text="Theme",
         icon=Icon.PALETTE,
@@ -208,7 +206,7 @@ VIEW_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     ),
 )
 
-SETTINGS_ACTIONS: Tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
+SETTINGS_ACTIONS: tuple[MenuActionItem | MenuSeparatorItem | SubmenuItem, ...] = (
     MenuActionItem(
         text="Configure Keyboard Shortcuts...",
         icon=Icon.INPUT_KEYBOARD,

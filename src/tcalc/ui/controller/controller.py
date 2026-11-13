@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, List, Optional
+from collections.abc import Callable
 
 import calc_native
 from calc_native import Calculator
@@ -102,18 +102,18 @@ class CalculatorController:
 
         self._expression = self._display.editor.get_plain_text()
 
-        self.tokens: List[calc_native.Token] = []
+        self.tokens: list[calc_native.Token] = []
         self._tokenized: calc_native.TokensBranch
         self._result: CalcValue | None = None
         self._just_solved = False
-        self._error_text: Optional[str] = None
-        self._error_detail: Optional[str] = None
+        self._error_text: str | None = None
+        self._error_detail: str | None = None
         self._force_error_display = False
 
         self._memory_ops = {str(k.operation) for k in MEMORY_KEYS}
 
         # Build handlers dictionary
-        self._handlers: Dict[Operation, Callable[[str], None]] = self._build_handlers()
+        self._handlers: dict[Operation, Callable[[str], None]] = self._build_handlers()
         self._memory_bar.set_memory("")
         self._compute_and_update()
 
@@ -243,9 +243,9 @@ class CalculatorController:
 
     # -- Handle factory ------------------------------------------------------
 
-    def _build_handlers(self) -> Dict[Operation, Callable[[str], None]]:
+    def _build_handlers(self) -> dict[Operation, Callable[[str], None]]:
         """Auto-generate operation handlers based on Operation attributes"""
-        handlers: Dict[Operation, Callable[[str], None]] = {}
+        handlers: dict[Operation, Callable[[str], None]] = {}
 
         # Special handlers
         handlers.update(
@@ -312,7 +312,7 @@ class CalculatorController:
             _log.debug("Evaluate token native error: %s", exc)
             return None
 
-    def _can_compute_preview(self, tokens: List[calc_native.Token]) -> bool:
+    def _can_compute_preview(self, tokens: list[calc_native.Token]) -> bool:
         if not tokens:
             return False
         if (

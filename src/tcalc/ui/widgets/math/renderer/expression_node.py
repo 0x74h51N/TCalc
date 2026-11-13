@@ -8,8 +8,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from enum import Enum
-from typing import TYPE_CHECKING, Callable, ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import calc_native
 from PySide6.QtCore import Qt, QTimer
