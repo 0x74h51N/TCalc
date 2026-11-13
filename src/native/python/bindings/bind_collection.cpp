@@ -60,14 +60,6 @@ void bind_collection(py::module_ &m) {
             },
             py::keep_alive<0, 1>())
         .def(
-            "__eq__",
-            [](const tcalc::Collection &a, const py::object &other) -> py::object {
-                if (!py::isinstance<tcalc::Collection>(other)) {
-                    return py::reinterpret_borrow<py::object>(Py_NotImplemented);
-                }
-                return py::cast(a == other.cast<tcalc::Collection>());
-            })
-        .def(
             "preview",
             [](const tcalc::Collection &c) {
                 // Everything a caller needs to render one: the glyphs, and the

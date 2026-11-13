@@ -117,7 +117,7 @@ Under `src/tcalc/`:
 - **All type stubs are generated, none hand-written.** Two generators feed `stubs/`,
   and `make stub-gen` runs both. The native module is a compiled extension with no
   Python source, so `pybind11-stubgen` introspects `calc_native` into
-  `stubs/calc_native.pyi` (then a small `sed` patch fixes self-referential type names).
+  `stubs/calc_native.pyi`, used as it comes out.
   The Python side builds its `Operation` enum and other tables dynamically at runtime,
   invisible to a type checker, so an AST-based generator (`scripts/stubgen/`)
   reconstructs them into static `.pyi` files. Keeping no stub by hand means the typed

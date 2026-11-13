@@ -64,16 +64,13 @@ mypy_path = "stubs:src"
 files = ["src"]
 exclude = ["src/tcalc/core/ops.py"]
 no_implicit_optional = true
+check_untyped_defs = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
 module = ["PySide6.*"]
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = ["calc_native", "calc_native.*"]
 ignore_missing_imports = true
 
 [tool.pyright]
