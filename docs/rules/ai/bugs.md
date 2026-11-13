@@ -7,5 +7,5 @@
 - Do not add extra checks "just in case". Every `if`, guard, fallback or validation must answer one question: which concrete input takes this branch, and what breaks without it? Name the input from this repository (a value a user can type, a test that went red, an error that was actually seen). If there is no answer, it does not go in.
 - What counts as a case that happened: it happened (a bug, a red check), the input produces it (a real expression reaches it), or the platform does it (an API that is documented to fail does fail).
 - Defensive code hides the bug it was written for. A fallback that quietly returns a default turns a broken path into a wrong answer every check passes. When something unexpected arrives, fail loudly and name it; do not branch around it.
-- A case you believe is possible but have not seen goes in the report to the human agent, not in the code.
+- A case you believe is possible but have not seen is not coded and not raised; once it is proven, it goes in the report to the human agent, not in the code ([psychosis](psychosis.md#a-problem-is-something-seen)).
 - Never work around a failing test or benchmark with a patch on top of a library. Fix the structure, or report that it cannot be fixed yet.
