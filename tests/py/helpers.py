@@ -7,6 +7,11 @@
 from __future__ import annotations
 
 from PySide6.QtGui import QColor, QIcon
+from PySide6.QtWidgets import QApplication
+
+from tcalc.ui.widgets.calc.display.expression.expression import Expression
+
+_editor: Expression | None = None
 
 
 def opaque_color(icon: QIcon) -> QColor:
@@ -18,3 +23,18 @@ def opaque_color(icon: QIcon) -> QColor:
             if c.alpha() == 255:
                 return c
     raise AssertionError("icon has no opaque pixel")
+
+
+def editor_canonical(expr: str) -> str:
+    """The text the controller evaluates: *expr* through the editor's widgets and back."""
+    global _editor
+    # Subscript has no editor widget yet; its `_{...}` form already tokenizes to its final
+    # LatexToken, so it is evaluated raw instead of through a renderer that would drop it.
+    if "_{" in expr:
+        return expr
+    app = QApplication.instance() or QApplication([])
+    if _editor is None:
+        _editor = Expression()
+    _editor.set_plain_text(expr)
+    app.processEvents()
+    return _editor.get_plain_text()

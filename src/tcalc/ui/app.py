@@ -32,14 +32,16 @@ from .styles import init_styles, sync_theme
 from .utils import get_icon
 from .window import MainWindow
 
+# Cap a single evaluation's wall-clock so a runaway expression errors instead of freezing the
+# UI. Set only on the real app launch (and the smoke run, which runs the app's path); tests and
+# benchmarks keep the native default (unlimited) and stay deterministic.
+EVAL_TIME_BUDGET_MS = 500
+
 
 def run_app(argv: Sequence[str] | None = None, *, debug: bool = False) -> int:
     import calc_native
 
-    # Cap a single evaluation's wall-clock so a runaway expression errors instead of freezing
-    # the UI. Set only on the real app launch; tests and benchmarks never call run_app, so they
-    # keep the native default (unlimited) and stay deterministic.
-    calc_native.set_eval_time_budget_ms(500)
+    calc_native.set_eval_time_budget_ms(EVAL_TIME_BUDGET_MS)
 
     if debug:
         logging.basicConfig(level=logging.DEBUG, format="%(name)s | %(message)s")
