@@ -13,6 +13,7 @@
 #include <optional>
 #include <utility>
 
+#include <boost/math/policies/policy.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include "calc/pub/calculator.hpp"
@@ -20,6 +21,14 @@
 namespace calc_detail {
 
 constexpr double kDefaultEpsilon = 1e-12;
+
+namespace policies = boost::math::policies;
+/// Past BigReal's range a Boost.Math call that throws by default returns inf instead, as Γ does.
+using InfOnOverflow = policies::policy<policies::overflow_error<policies::ignore_error>>;
+/// Twice BigReal's digits, with its 64-bit exponent, for a kernel whose rounding to an
+/// integer needs more than BigReal's own last digit.
+using WideReal = boost::multiprecision::number<
+    boost::multiprecision::cpp_dec_float<2 * kBigRealPrecisionDigits, std::int64_t>>;
 
 [[noreturn]] inline void math_error() {
     throw CalculatorError("Math error");

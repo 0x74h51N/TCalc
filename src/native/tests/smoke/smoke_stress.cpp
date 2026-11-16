@@ -49,7 +49,6 @@ struct SmokePin {
 };
 
 const std::vector<SmokePin> kSmokePins = {
-    {.case_id = "nPr :: i64 MAX, i64 MAX", .issue = "#248", .date = "2026-11-16"},
     {.case_id = "^ :: i64 MIN, i64 -1", .issue = "#249", .date = "2026-11-16"},
     {.case_id = "⁻¹ :: i64 MIN", .issue = "#249", .date = "2026-11-16"},
     {.case_id = "⌄ :: i64 1, i64 MIN", .issue = "#249", .date = "2026-11-16"},
