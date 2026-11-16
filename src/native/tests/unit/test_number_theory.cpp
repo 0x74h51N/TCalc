@@ -8,6 +8,7 @@
 #include "calc/pub/calculator.hpp"
 #include "internal/test_helpers.hpp"
 
+#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -65,6 +66,19 @@ void unit_number_theory(TestContext &ctx) {
         EXPECT_EQ(ctx, std::get<std::int64_t>(c.gcd(list({4.0, 6.0}))), 2LL);
     });
     TEST_CASE(ctx, "gcd :: non-integer rejected", { EXPECT_THROWS(ctx, c.gcd(list({1.5, 2.0}))); });
+    TEST_CASE(ctx, "gcd :: a double past int64 rejected", {
+        EXPECT_THROWS(ctx, c.gcd(list({1e19, 3.0})));
+        EXPECT_THROWS(ctx, c.gcd(list({0x1p63, 2.0})));
+    });
+    TEST_CASE(ctx, "gcd/lcm :: INT64_MIN rejected", {
+        const auto lo = std::numeric_limits<std::int64_t>::min();
+        EXPECT_THROWS(ctx, c.gcd(list({lo, std::int64_t{2}})));
+        EXPECT_THROWS(ctx, c.lcm(list({lo, std::int64_t{1}})));
+    });
+    TEST_CASE(ctx, "gcd :: INT64_MIN + 1 accepted", {
+        const auto lo = std::numeric_limits<std::int64_t>::min() + 1;
+        EXPECT_EQ(ctx, std::get<std::int64_t>(c.gcd(list({lo, std::int64_t{1}}))), 1LL);
+    });
     TEST_CASE(ctx, "gcd :: empty rejected", { EXPECT_THROWS(ctx, c.gcd(list({}))); });
     TEST_CASE(ctx, "lcm :: list fold", {
         EXPECT_EQ(ctx, std::get<std::int64_t>(c.lcm(list({4LL, 6LL}))), 12LL);
