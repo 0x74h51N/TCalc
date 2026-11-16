@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include <boost/math/special_functions/beta.hpp>
 #include <boost/math/special_functions/gamma.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
@@ -59,12 +60,9 @@ BigReal Calculator::permute(long long a, long long b) const {
         return BigReal(0);
     }
 
-    BigReal res = 1;
-
-    for (long long i = 0; i < b; ++i) {
-        res *= BigReal(a - i);
-    }
-    return res;
+    // a! / (a-b)! as one gamma ratio, so neither factorial is formed on its own.
+    return round(
+        boost::math::tgamma_delta_ratio(BigReal(a) + 1, BigReal(-b), calc_detail::InfOnOverflow()));
 }
 
 BigReal Calculator::choose(long long a, long long b) const {
@@ -72,13 +70,12 @@ BigReal Calculator::choose(long long a, long long b) const {
         return BigReal(0);
     }
 
-    long long r = std::min(b, a - b);
-    BigReal res = 1;
-
-    for (long long i = 1; i <= r; ++i) {
-        res *= BigReal(a - r + i);
-        res /= BigReal(i);
+    const long long k = std::min(b, a - b);
+    // beta(0, x) is a pole.
+    if (k == 0) {
+        return BigReal(1);
     }
-
-    return res;
+    // In BigReal, beta's last digit is off past 1e47 and round would take the neighbor.
+    using calc_detail::WideReal;
+    return BigReal(round(1 / (WideReal(k) * boost::math::beta(WideReal(k), WideReal(a - k) + 1))));
 }
