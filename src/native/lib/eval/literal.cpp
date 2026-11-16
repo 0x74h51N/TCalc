@@ -189,15 +189,15 @@ Value literal_value(std::string_view text) {
         const std::string real_part = s.substr(0, s.size() - 1);
         double magnitude = 1.0;
         if (!real_part.empty()) {
-            // parse_real only ever returns an Int64, Double or BigReal, the arms
-            // to_double already has an overload for.
+            // parse_real only ever returns an Int64, Double or BigReal. A BigReal is a value a
+            // double cannot carry exactly, so it keeps its magnitude the way `i·1e400` does.
             const Value real = parse_real(real_part);
             if (const auto *i = std::get_if<std::int64_t>(&real))
                 magnitude = to_double(*i);
             else if (const auto *d = std::get_if<double>(&real))
                 magnitude = to_double(*d);
             else
-                magnitude = to_double(std::get<BigReal>(real));
+                return Value{BigComplex(0, detail::BigComplexComponent(std::get<BigReal>(real)))};
         }
         return Value{Complex(0.0, magnitude)};
     }

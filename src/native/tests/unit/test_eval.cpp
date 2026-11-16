@@ -562,6 +562,12 @@ void unit_eval(TestContext &ctx) {
         {.id = "an exponent past double", .input = "1e309", .expected = Arm::Big},
         {.id = "an underflowing exponent", .input = "1e-400", .expected = Arm::Big},
         {.id = "a huge exponent does not hang", .input = "1e1000000000", .expected = Arm::Big},
+        {.id = "an imaginary exponent past double", .input = "1e400i", .expected = Arm::BigCx},
+        {.id = "an underflowing imaginary exponent", .input = "1e-400i", .expected = Arm::BigCx},
+        {.id = "an imaginary integer past int64",
+         .input = "99999999999999999999i",
+         .expected = Arm::BigCx},
+        {.id = "an imaginary exponent a double holds", .input = "1e300i", .expected = Arm::Cx},
     };
 
     for (const auto &tc : literal_arm_cases) {

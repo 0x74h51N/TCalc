@@ -242,6 +242,17 @@ def _eval(expr: str) -> object:
         param("ln(10^{-400})", "BigReal", "-921.0340371976183", id="ln-tiny-positive-stays-real"),
         param("sqrt(10^{-400})", "BigReal", "1e-200", id="sqrt-tiny-positive-stays-real"),
         # ----------------------------
+        # an imaginary literal or a complex result past double's range -> BigComplex
+        # ----------------------------
+        param("1e400i", "BigComplex", "0+1e+400i", id="imaginary-literal-past-double"),
+        param("i1e400", "BigComplex", "0+1e+400i", id="imaginary-constant-past-double"),
+        param("1e-400i", "BigComplex", "0+1e-400i", id="imaginary-literal-underflow"),
+        param("1e400i-1e400i", "BigComplex", "0+0i", id="imaginary-literal-past-double-cancels"),
+        param(
+            "(1e400i)^{2}", "BigComplex", "-1e+800+0i", id="imaginary-literal-past-double-squared"
+        ),
+        param("1e400+1e400i", "BigComplex", "1e+400+1e+400i", id="bigreal-plus-imaginary-literal"),
+        # ----------------------------
         # a negative base under a root's exponent
         # ----------------------------
         param("(-4)^{0.5}", "complex", (0.0, 2.0), id="pow-negative-base-half"),
