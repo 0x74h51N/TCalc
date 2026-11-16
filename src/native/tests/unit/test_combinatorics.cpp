@@ -6,7 +6,27 @@
 
 namespace {
 
+using RealFn = double (Calculator::*)(double) const;
+using BigFn = BigReal (Calculator::*)(const BigReal &) const;
 using CombFn = BigReal (Calculator::*)(long long, long long) const;
+
+/// tol 0 is equality.
+struct RealCase {
+    const char *id;
+    RealFn fn;
+    double input;
+    double expected;
+    double tol;
+};
+
+/// Input, expected and tol as text, so no double sneaks in.
+struct BigCase {
+    const char *id;
+    BigFn fn;
+    const char *input;
+    const char *expected;
+    const char *tol;
+};
 
 /// a and b, then the expected value as text. A null tol asserts exact equality; a tol is
 /// relative, since the results span hundreds of thousands of decades.
@@ -24,31 +44,64 @@ struct CombCase {
 void unit_combinatorics(TestContext &ctx) {
     Calculator c;
 
-    TEST_CASE(ctx, "fact :: zero", { EXPECT_TRUE(ctx, c.fact(0.0) == 1.0); });
-    TEST_CASE(ctx, "fact :: positive int", { EXPECT_TRUE(ctx, c.fact(5.0) == 120.0); });
-    TEST_CASE(ctx, "fact :: domain throws", { EXPECT_THROWS(ctx, c.fact(-1.0)); });
-    TEST_CASE(ctx, "fact :: fractional", { EXPECT_TRUE(ctx, c.fact(0.25) == 0.9064024770554771); });
+    const std::vector<RealCase> real_cases = {
+        {.id = "fact :: zero", .fn = &Calculator::fact, .input = 0.0, .expected = 1.0, .tol = 0.0},
+        {.id = "fact :: positive int",
+         .fn = &Calculator::fact,
+         .input = 5.0,
+         .expected = 120.0,
+         .tol = 0.0},
+        {.id = "fact :: fractional",
+         .fn = &Calculator::fact,
+         .input = 0.25,
+         .expected = 0.9064024770554771,
+         .tol = 0.0},
+        {.id = "gamma :: one", .fn = &Calculator::gamma, .input = 1.0, .expected = 1.0, .tol = 0.0},
+        {.id = "gamma :: half",
+         .fn = &Calculator::gamma,
+         .input = 0.5,
+         .expected = 1.7724538509055159,
+         .tol = 1e-15},
+    };
+    for (const auto &tc : real_cases) {
+        test_detail::with_case(ctx, tc.id, [&] {
+            const double got = (c.*tc.fn)(tc.input);
+            if (tc.tol == 0.0)
+                EXPECT_EQ(ctx, got, tc.expected);
+            else
+                EXPECT_TRUE(ctx, approx(got, tc.expected, tc.tol));
+        });
+    }
 
-    TEST_CASE(ctx, "gamma :: one", { EXPECT_TRUE(ctx, c.gamma(1.0) == 1.0); });
-    TEST_CASE(ctx, "gamma :: half positive", { EXPECT_TRUE(ctx, c.gamma(0.5) > 1.7); });
+    const std::vector<BigCase> big_cases = {
+        {.id = "bigreal :: gamma",
+         .fn = &Calculator::gamma,
+         .input = "6",
+         .expected = "120",
+         .tol = "1e-30"},
+        {.id = "bigreal :: fact large",
+         .fn = &Calculator::fact,
+         .input = "20",
+         .expected = "2432902008176640000",
+         .tol = "1e-10"},
+        {.id = "bigreal :: fact fractional",
+         .fn = &Calculator::fact,
+         .input = "0.25",
+         .expected = "0.9064024770554771",
+         .tol = "1e-10"},
+    };
+    for (const auto &tc : big_cases) {
+        test_detail::with_case(ctx, tc.id, [&] {
+            EXPECT_TRUE(
+                ctx,
+                approx_big((c.*tc.fn)(BigReal(tc.input)), BigReal(tc.expected), BigReal(tc.tol)));
+        });
+    }
+
+    TEST_CASE(ctx, "fact :: domain throws", { EXPECT_THROWS(ctx, c.fact(-1.0)); });
     TEST_CASE(ctx, "gamma :: domain zero throws", { EXPECT_THROWS(ctx, c.gamma(0.0)); });
     TEST_CASE(ctx, "gamma :: domain negative int throws", { EXPECT_THROWS(ctx, c.gamma(-2.0)); });
-
-    TEST_CASE(ctx, "bigreal :: gamma", {
-        EXPECT_TRUE(ctx, approx_big(c.gamma(BigReal("6")), BigReal("120"), BigReal("1e-30")));
-    });
-    TEST_CASE(ctx, "bigreal :: fact large", {
-        EXPECT_TRUE(
-            ctx,
-            approx_big(c.fact(BigReal("20")), BigReal("2432902008176640000"), BigReal("1e-10")));
-    });
     TEST_CASE(ctx, "bigreal :: fact domain throws", { EXPECT_THROWS(ctx, c.fact(BigReal("-1"))); });
-    TEST_CASE(ctx, "bigreal :: fact fractional", {
-        EXPECT_TRUE(
-            ctx,
-            approx_big(c.fact(BigReal("0.25")), BigReal("0.9064024770554771"), BigReal("1e-10")));
-    });
-
     TEST_CASE(
         ctx, "bigreal :: gamma domain zero throws", { EXPECT_THROWS(ctx, c.gamma(BigReal("0"))); });
     // A pole reached through a division that leaves a guard-digit residue is still a pole.
@@ -59,6 +112,7 @@ void unit_combinatorics(TestContext &ctx) {
         EXPECT_THROWS(ctx, c.gamma(BigReal("-2")));
     });
 
+    // A ratio of two calls, not one call against a value, so it is no table row.
     const BigReal f199 = c.fact(BigReal("199"));
     const BigReal f200 = c.fact(BigReal("200"));
     TEST_CASE(ctx, "bigreal :: fact ratio", {
