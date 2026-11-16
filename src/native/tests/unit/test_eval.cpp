@@ -19,6 +19,7 @@
  */
 
 #include <cmath>
+#include <limits>
 #include <numbers>
 #include "calc/internal/helpers.hpp"
 #include "calc/pub/error_messages.hpp"
@@ -457,6 +458,31 @@ void unit_eval(TestContext &ctx) {
         {.id = "pow(2, -1030) goes subnormal into BigReal",
          .input = {OpId::Pow, {Value{2.0}, Value{-1030.0}}},
          .expected = Arm::Big},
+        {.id = "mul(1e200i, 1e200i) overflows into BigComplex",
+         .input = {OpId::Mul, {Value{Complex(0.0, 1e200)}, Value{Complex(0.0, 1e200)}}},
+         .expected = Arm::BigCx},
+        {.id = "add(1e308i, 1e308i) overflows into BigComplex",
+         .input = {OpId::Add, {Value{Complex(0.0, 1e308)}, Value{Complex(0.0, 1e308)}}},
+         .expected = Arm::BigCx},
+        {.id = "mul(1e-200i, 1e-200i) underflows into BigComplex",
+         .input = {OpId::Mul, {Value{Complex(0.0, 1e-200)}, Value{Complex(0.0, 1e-200)}}},
+         .expected = Arm::BigCx},
+        {.id = "mul(1e-160i, 1e-160i) goes subnormal into BigComplex",
+         .input = {OpId::Mul, {Value{Complex(0.0, 1e-160)}, Value{Complex(0.0, 1e-160)}}},
+         .expected = Arm::BigCx},
+        {.id = "mul of 1e300+1e300i by itself overflows into BigComplex",
+         .input = {OpId::Mul, {Value{Complex(1e300, 1e300)}, Value{Complex(1e300, 1e300)}}},
+         .expected = Arm::BigCx},
+        {.id = "pow(2i, 2000) overflows into BigComplex",
+         .input = {OpId::Pow, {Value{Complex(0.0, 2.0)}, Value{Complex(2000.0, 0.0)}}},
+         .expected = Arm::BigCx},
+        {.id = "exp(1000+i) overflows into BigComplex",
+         .input = {OpId::Exp, {Value{Complex(1000.0, 1.0)}}},
+         .expected = Arm::BigCx},
+        // An op with no BigCx arm keeps its Complex, as one with no BigReal arm keeps its double.
+        {.id = "sinh(1000+i) keeps its Complex",
+         .input = {OpId::Sinh, {Value{Complex(1000.0, 1.0)}}},
+         .expected = Arm::Cx},
     };
 
     for (const auto &tc : range_promotion_arm_cases) {
@@ -486,6 +512,28 @@ void unit_eval(TestContext &ctx) {
         {.id = "root(2, 2) is irrational, so it falls back to double",
          .input = {OpId::Root, {Value{Rational(2)}, Value{Rational(2)}}},
          .expected = Value{std::numbers::sqrt2}},
+        {.id = "mul(i, i) keeps a zero part",
+         .input = {OpId::Mul, {Value{Complex(0.0, 1.0)}, Value{Complex(0.0, 1.0)}}},
+         .expected = Value{Complex(-1.0, 0.0)}},
+        {.id = "sub(1+i, 1+i) keeps a difference's zero",
+         .input = {OpId::Sub, {Value{Complex(1.0, 1.0)}, Value{Complex(1.0, 1.0)}}},
+         .expected = Value{Complex(0.0, 0.0)}},
+        {.id = "mul(0, 5) keeps a complex zero operand's zero",
+         .input = {OpId::Mul, {Value{Complex(0.0, 0.0)}, Value{Complex(5.0, 0.0)}}},
+         .expected = Value{Complex(0.0, 0.0)}},
+        {.id = "add(1.5e308, 1.5e308i) keeps parts a double holds",
+         .input = {OpId::Add, {Value{Complex(1.5e308, 0.0)}, Value{Complex(0.0, 1.5e308)}}},
+         .expected = Value{Complex(1.5e308, 1.5e308)}},
+        // sinh(1000+i) has no BigCx arm and stays inf+infi; the inf came in, it did not escape.
+        {.id = "mul(inf+infi, 2) keeps an infinite operand's Complex",
+         .input =
+             {OpId::Mul,
+              {Value{Complex(
+                   std::numeric_limits<double>::infinity(),
+                   std::numeric_limits<double>::infinity())},
+               Value{Complex(2.0, 0.0)}}},
+         .expected = Value{Complex(
+             std::numeric_limits<double>::infinity(), std::numeric_limits<double>::infinity())}},
     };
 
     for (const auto &tc : range_promotion_value_cases) {

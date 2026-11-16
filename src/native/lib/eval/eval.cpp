@@ -137,14 +137,16 @@ bool any_operand_zero(const std::vector<Value> &args) {
     return false;
 }
 
+/// Overflow to infinity, or the subnormal band where a double sheds digits unnoticed.
+bool outside_double_range(double x) {
+    return std::isinf(x) || std::fpclassify(x) == FP_SUBNORMAL;
+}
+
 /// The three exact signs that a double result lost its range: it overflowed to infinity,
-/// it collapsed to zero although no operand was zero, or it landed in the subnormal band
-/// below 1e-308, where a double keeps shedding significant digits unnoticed. IEEE-754
-/// makes each of them an exact detector, so no magnitude estimate is needed.
+/// it collapsed to zero although no operand was zero, or it landed in the subnormal band.
+/// IEEE-754 makes each of them an exact detector, so no magnitude estimate is needed.
 bool escaped_double_range(double result, const std::vector<Value> &args, bool exact_zero) {
-    if (std::isinf(result))
-        return true;
-    if (std::fpclassify(result) == FP_SUBNORMAL)
+    if (outside_double_range(result))
         return true;
     // fmod and a difference of two doubles are exact, so a zero out of them is the answer,
     // not a magnitude that fell out of range. Overflow and the subnormal band still apply.
@@ -153,38 +155,76 @@ bool escaped_double_range(double result, const std::vector<Value> &args, bool ex
     return result == 0.0 && !any_operand_zero(args);
 }
 
-/// Re-run the op in BigReal. Only reached once the result is known to have escaped the
-/// double range and the op is known to have a BigReal arm.
+/// True when every Complex operand is finite: an inf from sinh(1000+i) came in, it did not escape.
+bool complex_operands_finite(const std::vector<Value> &args) {
+    for (const auto &a : args)
+        if (const auto *z = std::get_if<Complex>(&a))
+            if (!std::isfinite(z->real()) || !std::isfinite(z->imag()))
+                return false;
+    return true;
+}
+
+/// Per part, but only a whole zero counts: a zero part is often the answer (i·i).
+bool escaped_double_range(const Complex &result, const std::vector<Value> &args, bool exact_zero) {
+    if (outside_double_range(result.real()) || outside_double_range(result.imag()))
+        return complex_operands_finite(args);
+    if (exact_zero)
+        return false;
+    return result == 0.0 && !any_operand_zero(args);
+}
+
+/// Re-run the op on its operands widened by `lift`.
 Value redispatch_big(
-    OpId id, const Calculator &c, const std::vector<Value> &args, Calculator::AngleUnit unit) {
+    OpId id,
+    const Calculator &c,
+    const std::vector<Value> &args,
+    Calculator::AngleUnit unit,
+    Value (*lift)(const Value &)) {
     std::vector<Value> big_args;
     big_args.reserve(args.size());
     for (const auto &a : args)
-        big_args.push_back(lift_to_big(a));
+        big_args.push_back(lift(a));
     return ops::kernel_of(id)(id, c, big_args, unit);
 }
 
+/// An op with no `wide_arm` keeps its result: permute must never be re-run in a type it rejects.
+template <class Wide, class Narrow>
+Value widen_escaped(
+    OpId id,
+    const Calculator &c,
+    const std::vector<Value> &args,
+    Value result,
+    const Narrow &narrow,
+    Arm wide_arm,
+    Value (*lift)(const Value &),
+    Calculator::AngleUnit unit) {
+    if (!escaped_double_range(narrow, args, ops::has_trait(id, ops::Trait::ExactZero)))
+        return result;
+    if (!has_arm(ops::arms_of(id), wide_arm))
+        return result;
+    // A zero the widened run confirms was never an underflow, so the narrow result stands
+    // rather than leaking a wide type into everything after it.
+    Value widened = redispatch_big(id, c, args, unit, lift);
+    const auto *w = std::get_if<Wide>(&widened);
+    if (w != nullptr && *w == 0)
+        return result;
+    return widened;
+}
+
 /// Range promotion: one rule, above every kernel, so it cannot differ between ops. A
-/// no-op unless a double result escaped its range and the op has a BigReal arm to widen
-/// into (an integer-only op like permute must never be re-run in a type it rejects).
+/// double result widens into BigReal, a Complex one into BigComplex.
 Value promote_range(
     OpId id,
     const Calculator &c,
     const std::vector<Value> &args,
     Value result,
     Calculator::AngleUnit unit) {
-    const auto *d = std::get_if<double>(&result);
-    if (d == nullptr || !escaped_double_range(*d, args, ops::has_trait(id, ops::Trait::ExactZero)))
-        return result;
-    if (!has_arm(ops::arms_of(id), Arm::Big))
-        return result;
-    // A zero the widened run confirms was never an underflow, so the double stands rather
-    // than leaking a BigReal into everything after it.
-    Value widened = redispatch_big(id, c, args, unit);
-    const auto *w = std::get_if<BigReal>(&widened);
-    if (w != nullptr && *w == 0)
-        return result;
-    return widened;
+    if (const auto *d = std::get_if<double>(&result))
+        return widen_escaped<BigReal>(id, c, args, result, *d, Arm::Big, lift_to_big, unit);
+    if (const auto *z = std::get_if<Complex>(&result))
+        return widen_escaped<BigComplex>(
+            id, c, args, result, *z, Arm::BigCx, lift_to_big_complex, unit);
+    return result;
 }
 
 } // namespace
