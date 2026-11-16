@@ -347,6 +347,56 @@ jobs:
           . .venv/bin/activate
           make py-test PYTEST_ARGS="-rA -s"
 
+  py-smoke:
+    name: Python Smoke
+    runs-on: ubuntu-24.04
+    needs: [changes, native-build]
+    if: needs.changes.outputs.py-test == 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: "pyproject.toml"
+
+      - name: Install Qt system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libegl1 \
+            libgl1 \
+            libx11-xcb1 \
+            libxrender1 \
+            libxrandr2 \
+            libxkbcommon-x11-0 \
+            libxcb-icccm4 \
+            libxcb-image0 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render-util0 \
+            libxcb-xinerama0 \
+            libxcb-xfixes0 \
+            libxcb-cursor0
+
+      - name: Install python deps
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install "pip>=26.2,<26.3"
+          pip install -e ".[dev]"
+
+      - name: Download native build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: native-build-debug
+
+      - name: Run py-smoke
+        run: |
+          . .venv/bin/activate
+          make py-smoke
+
   py-test-benchmark:
     name: Benchmark Tests
     runs-on: ubuntu-24.04
@@ -418,6 +468,7 @@ jobs:
       - py-typecheck
       - native-test
       - py-test
+      - py-smoke
       - py-test-benchmark
     steps:
       - name: Fail on a failed or cancelled job

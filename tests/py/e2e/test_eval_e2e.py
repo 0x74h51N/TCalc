@@ -16,12 +16,13 @@ import pytest
 pytest.importorskip("calc_native")
 import calc_native
 
+from tests.py.helpers import editor_canonical
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("QT_LOGGING_RULES", "*=false")
 
 param = pytest.param
 
-_editor = None
 
 # raw -> canonical round-trips for the current test; conftest dumps this only when
 # the test fails, so a failing eval shows exactly where the round-trip landed.
@@ -29,28 +30,7 @@ CANON_LOG: list[tuple[str, str]] = []
 
 
 def _canonicalize(expr: str) -> str:
-    """Mirror the running app: raw text -> editor widgets (build_math_nodes folds
-    trailing operands into empty script slots) -> get_plain_text() canonical form.
-    The controller evaluates this canonical text, not the raw tokenize output, so
-    `3^4` becomes `3^{4}` before eval."""
-    global _editor
-    from PySide6.QtWidgets import QApplication
-
-    from tcalc.ui.widgets.calc.display.expression.expression import Expression
-
-    # Subscript has no editor widget yet (a later UI phase); its `_{…}` form already
-    # tokenizes to its final LatexToken, so eval it raw instead of round-tripping it
-    # through a renderer that would drop it.
-    if "_{" in expr:
-        CANON_LOG.append((expr, expr))
-        return expr
-
-    app = QApplication.instance() or QApplication([])
-    if _editor is None:
-        _editor = Expression()
-    _editor.set_plain_text(expr)
-    app.processEvents()
-    canonical = _editor.get_plain_text()
+    canonical = editor_canonical(expr)
     CANON_LOG.append((expr, canonical))
     return canonical
 
