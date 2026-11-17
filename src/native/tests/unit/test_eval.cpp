@@ -3043,10 +3043,10 @@ void unit_eval(TestContext &ctx) {
     }
 
     test_detail::with_case(ctx, "iterated brute :: degree 25 is one past the Bernoulli table", [&] {
-        // The exact sum overflows int64, so brute lands on a double.
+        // The exact sum overflows int64, so brute lands on BigReal, which holds it whole.
         tcalc::eval::reset_closed_form_taken();
         const Value v = eval_text(c, "\\sum_{n=4}^{6} n^{25}");
-        EXPECT_EQ(ctx, near_rel(std::get<double>(v), 2.8729437153713496e+19), true);
+        EXPECT_EQ(ctx, std::get<BigReal>(v), BigReal("28729437153713497125"));
         EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), false);
     });
 
