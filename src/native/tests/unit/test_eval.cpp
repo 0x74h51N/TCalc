@@ -441,7 +441,24 @@ void unit_eval(TestContext &ctx) {
     // Range promotion: one rule, after dispatch, for every op. IEEE-754 makes inf, a
     // spurious zero and a subnormal exact detectors, so no magnitude estimate is needed.
     // Every row below returned a collapsed or overflowed double before the rule existed.
+    constexpr std::int64_t kI64Max = std::numeric_limits<std::int64_t>::max();
     const std::vector<ApplyArmCase> range_promotion_arm_cases = {
+        // An exact kernel that overflows int64 retries in BigReal, which holds the integer.
+        {.id = "pow(3, 40) overflows the exact arm into BigReal",
+         .input = {OpId::Pow, {Value{Rational(3)}, Value{Rational(40)}}},
+         .expected = Arm::Big},
+        {.id = "pow(1/3, 40) overflows the exact denominator into BigReal",
+         .input = {OpId::Pow, {Value{Rational(1, 3)}, Value{Rational(40)}}},
+         .expected = Arm::Big},
+        {.id = "add(int64 max, 2) overflows the exact arm into BigReal",
+         .input = {OpId::Add, {Value{Rational(kI64Max)}, Value{Rational(2)}}},
+         .expected = Arm::Big},
+        {.id = "mul(3037000500, 3037000500) overflows the exact arm into BigReal",
+         .input = {OpId::Mul, {Value{Rational(3037000500)}, Value{Rational(3037000500)}}},
+         .expected = Arm::Big},
+        {.id = "div(int64 max, 1/2) overflows the exact arm into BigReal",
+         .input = {OpId::Div, {Value{Rational(kI64Max)}, Value{Rational(1, 2)}}},
+         .expected = Arm::Big},
         {.id = "pow(1e-200, 3) underflows into BigReal",
          .input = {OpId::Pow, {Value{1e-200}, Value{3.0}}},
          .expected = Arm::Big},
@@ -509,6 +526,12 @@ void unit_eval(TestContext &ctx) {
         {.id = "pow(2, 64) overflows the exact arm into a double",
          .input = {OpId::Pow, {Value{Rational(2)}, Value{Rational(64)}}},
          .expected = Value{18446744073709551616.0}},
+        {.id = "pow(3, 40) is exact in BigReal",
+         .input = {OpId::Pow, {Value{Rational(3)}, Value{Rational(40)}}},
+         .expected = Value{BigReal("12157665459056928801")}},
+        {.id = "mul(int64 max, int64 max) is exact in BigReal",
+         .input = {OpId::Mul, {Value{Rational(kI64Max)}, Value{Rational(kI64Max)}}},
+         .expected = Value{BigReal("85070591730234615847396907784232501249")}},
         {.id = "root(2, 2) is irrational, so it falls back to double",
          .input = {OpId::Root, {Value{Rational(2)}, Value{Rational(2)}}},
          .expected = Value{std::numbers::sqrt2}},

@@ -148,6 +148,12 @@ def _eval(expr: str) -> object:
         param("14^308", "BigReal", "e+353", id="pow-overflow-promotes-bigreal"),
         param("10^(-400)", "BigReal", "e-400", id="pow-underflow-promotes-bigreal"),
         param("10^309", "BigReal", "e+309", id="pow-promotes-bigreal"),
+        param("10^{23}", "BigReal", "1e+23", id="pow-ten-23-exact"),
+        param("10^{200}", "BigReal", "1e+200", id="pow-ten-200-exact"),
+        param("10^{200}*10^{200}", "BigReal", "1e+400", id="pow-ten-200-squared-exact"),
+        param("10^{19}", "BigReal", "1e+19", id="pow-ten-19-exact"),
+        param("3^{40}", "BigReal", "1.215766545905693e+19", id="pow-three-40-exact"),
+        param("(1/3)^{-40}", "BigReal", "1.215766545905693e+19", id="pow-third-neg-40-exact"),
         param("sqrt(10^309)", "BigReal", "e+154", id="bigreal-sqrt-does-not-overflow"),
         param("(10^307)/(10^306)", "float", 10.0, id="float-div-keeps-float"),
         param("(10^309)/(10^308)", "BigReal", "10", id="bigreal-div-keeps-bigreal"),
@@ -476,6 +482,58 @@ def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> N
         param("floor((1e400/7)*7/1e400)", "1", id="floor-exact-product"),
         param("(-8)^{9e400/3e400}", "-512", id="pow-negative-base-exact-quotient-exponent"),
         param("(-8)^{(1e400/3)*3/1e400}", "-8", id="pow-negative-base-exact-product-exponent"),
+        # A result past int64 is exact; str shows 16 digits, so a longer value is checked by a
+        # difference.
+        param(
+            "3^{40}-12157665459056928801",
+            "0",
+            id="pow-past-i64-exact",
+        ),
+        param(
+            "9223372036854775807+2-9223372036854775809",
+            "0",
+            id="add-past-i64-exact",
+        ),
+        param(
+            "-9223372036854775807-2+9223372036854775809",
+            "0",
+            id="sub-past-i64-min-exact",
+        ),
+        param(
+            "3037000500*3037000500-9223372037000250000",
+            "0",
+            id="mul-past-i64-exact",
+        ),
+        param(
+            "(-3)^{41}+36472996377170786403",
+            "0",
+            id="pow-negative-past-i64-exact",
+        ),
+        param(
+            "7^{23}-27368747340080916343",
+            "0",
+            id="pow-seven-23-exact",
+        ),
+        param(
+            "9223372036854775807*9223372036854775807-85070591730234615847396907784232501249",
+            "0",
+            id="mul-i64-max-squared-exact",
+        ),
+        param(
+            "3^{40}*3^{40}-147808829414345923316083210206383297601",
+            "0",
+            id="mul-past-i64-chain-exact",
+        ),
+        param(
+            "9223372036854775807/(1/2)-18446744073709551614",
+            "0",
+            id="div-past-i64-exact",
+        ),
+        param(
+            "(1/3)^{40}*3^{40}",
+            "1",
+            id="pow-denominator-past-i64-cancels",
+        ),
     ],
 )
 def test_bigreal_exact_results(expr: str, expected: str) -> None:
@@ -551,6 +609,7 @@ class TestRational:
             param("(-2)^(-1)", -1, 2, id="pow-neg-base-neg-exp"),
             param("(-2)^(-2)", 1, 4, id="pow-neg-base-neg-even"),
             param("2^61", 2**61, 1, id="pow-i64-boundary-fits"),
+            param("3^{39}", 4052555153018976267, 1, id="pow-i64-largest-power-of-three"),
             param("(1/2)^(-61)", 2**61, 1, id="pow-neg-exp-i64-boundary-fits"),
             param("(1/4)^(1/2)", 1, 2, id="pow-frac-exp-exact-half"),
             param("8^(1/3)", 2, 1, id="pow-frac-exp-cbrt8"),
