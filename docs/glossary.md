@@ -396,6 +396,8 @@ $`\color{#3b82f6}\textbf{snap\_integer}`$: Reads a BigReal as the integer it equ
 
 $\color{#3b82f6}\textbf{Splice}$: Inserting segments into a slot at an index and merging the fields that meet at the merge points (\_splice). A paren glyph among them is not inserted; its symbol is written into the field before it. It returns the field at the left merge point, or at the right one when only that one merges.
 
+$\color{#3b82f6}\textbf{Split}$: Cutting a row of tokens into the parts the math nodes are built from. The structural split carves out a LatexSplit or a ParenSplit with the prefix and the suffix around it; the operand split fills an empty side of a LaTeX expression from its neighbour. It runs in the math nodes only, not in eval.
+
 $\color{#3b82f6}\textbf{Sqrt}$: The LatexKind of a square root, with no degree field. The tokenizer writes its degree, 2, into its right side. It evaluates through OpId::Root.
 
 $\color{#3b82f6}\textbf{SqrtN}$: The LatexKind of an n-th root: the radicand left, the degree right, though the LaTeX text writes the degree first. It evaluates through OpId::Root.
