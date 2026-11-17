@@ -521,11 +521,10 @@ void unit_eval(TestContext &ctx) {
         {.id = "sub(5, 5) keeps a difference's zero",
          .input = {OpId::Sub, {Value{5.0}, Value{5.0}}},
          .expected = Value{0.0}},
-        // An exact kernel that cannot hold its result throws and apply retries in double; an
-        // integer pair there would make Pow's (double, long long) overload ambiguous.
-        {.id = "pow(2, 64) overflows the exact arm into a double",
+        // An exact kernel whose answer is rational but past int64 retries in BigReal.
+        {.id = "pow(2, 64) overflows the exact arm into BigReal",
          .input = {OpId::Pow, {Value{Rational(2)}, Value{Rational(64)}}},
-         .expected = Value{18446744073709551616.0}},
+         .expected = Value{BigReal("18446744073709551616")}},
         {.id = "pow(3, 40) is exact in BigReal",
          .input = {OpId::Pow, {Value{Rational(3)}, Value{Rational(40)}}},
          .expected = Value{BigReal("12157665459056928801")}},
@@ -598,17 +597,18 @@ void unit_eval(TestContext &ctx) {
     }
 
     // The Rational kernel throws on overflow (denominator past int64); apply retries
-    // in double and the caller gets a value, not an exception.
-    TEST_CASE(ctx, "apply :: mul of two small rationals overflows the kernel, recovers as double", {
-        const Calculator c;
-        const Value r = apply(
-            c,
-            OpId::Mul,
-            {Value{Rational(1, 4000000000)}, Value{Rational(1, 4000000000)}},
-            Calculator::AngleUnit::RAD);
-        EXPECT_EQ(ctx, arm_of(r), Arm::Double);
-        EXPECT_EQ(ctx, std::get<double>(r), 6.25e-20);
-    });
+    // in BigReal and the caller gets a value, not an exception.
+    TEST_CASE(
+        ctx, "apply :: mul of two small rationals overflows the kernel, recovers as BigReal", {
+            const Calculator c;
+            const Value r = apply(
+                c,
+                OpId::Mul,
+                {Value{Rational(1, 4000000000)}, Value{Rational(1, 4000000000)}},
+                Calculator::AngleUnit::RAD);
+            EXPECT_EQ(ctx, arm_of(r), Arm::Big);
+            EXPECT_EQ(ctx, std::get<BigReal>(r), BigReal("6.25e-20"));
+        });
 
     const std::vector<LitCase> literal_cases = {
         {.id = "integer", .input = "123", .expected = Value{std::int64_t{123}}},

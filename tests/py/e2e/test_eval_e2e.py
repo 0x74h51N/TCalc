@@ -137,7 +137,7 @@ def _eval(expr: str) -> object:
         # ----------------------------
         # BigReal promotion + non-overflow path
         # ----------------------------
-        param("2^309", "float", 2.0**309, id="pow-large-exp-stays-float"),
+        param("2^309", "BigReal", "1.042962419883257e+93", id="pow-large-exp-exact"),
         param("10^308", "BigReal", "e+308", id="pow-ten-308-promotes"),
         param(
             "1.7976931348623157e308^2",
@@ -155,7 +155,7 @@ def _eval(expr: str) -> object:
         param("3^{40}", "BigReal", "1.215766545905693e+19", id="pow-three-40-exact"),
         param("(1/3)^{-40}", "BigReal", "1.215766545905693e+19", id="pow-third-neg-40-exact"),
         param("sqrt(10^309)", "BigReal", "e+154", id="bigreal-sqrt-does-not-overflow"),
-        param("(10^307)/(10^306)", "float", 10.0, id="float-div-keeps-float"),
+        param("(10^307)/(10^306)", "BigReal", "10", id="div-of-big-powers-stays-big"),
         param("(10^309)/(10^308)", "BigReal", "10", id="bigreal-div-keeps-bigreal"),
         param("1e16!", "BigReal", "e+155657055180967490", id="factorial-bigreal-huge"),
         param("1e17!", "BigReal", "inf", id="factorial-overflows-to-inf"),
@@ -350,8 +350,8 @@ def _eval(expr: str) -> object:
         param("log_{3}(3^{5})", "int", "5", id="log-of-its-own-power"),
         # Without a base script the log stays an ordinary prefix op, so its value is computed
         # before it runs and the token rule has nothing left to read. Nothing is lost but the
-        # integer type: base ten is exact through std::log10 either way.
-        param("log(10^{21})", "float", 21.0, id="log-of-its-own-power-implicit-base"),
+        # integer type: 10^{21} is an exact BigReal, and its log is 21.
+        param("log(10^{21})", "BigReal", "21", id="log-of-its-own-power-implicit-base"),
         param("2^{log_{3}9}", "float", 4.0, id="log-inverse-declines-other-base"),
         param("log_{2}(3^{5})", "float", 7.924812503605781, id="log-of-power-declines-other-base"),
         # A negative base is structurally self-matching but the logarithm rejects it, so the
@@ -662,18 +662,6 @@ class TestRational:
             # factorial
             param("5!", 120.0, id="factorial-drops-rational"),
             param("0!", 1.0, id="factorial-zero"),
-            param("3^40", 3.0**40, id="pow-i64-overflow"),
-            param("2^62", 2.0**62, id="pow-i64-boundary-overflows"),
-            param("(1/2)^(-62)", 2.0**62, id="pow-neg-exp-i64-boundary-overflows"),
-            param("(3/2)^100", (3 / 2) ** 100, id="pow-frac-overflow"),
-            # Both operands parse to exact Rationals whose product needs a denominator of
-            # 1e20, well past int64. The exact kernel has to report that rather than wrap,
-            # and the row recovers as a float.
-            param(
-                "0.0000000001 * 0.0000000001",
-                1e-20,
-                id="rational-denominator-overflows-i64",
-            ),
         ],
     )
     def test_downcasts_to_float(self, expr: str, expected_approx: float | None) -> None:
@@ -708,6 +696,11 @@ class TestRational:
             param("2^1024", id="pow-2-1024"),
             param("10^400", id="pow-10-400"),
             param("3^700", id="pow-3-700"),
+            param("3^40", id="pow-i64-overflow"),
+            param("2^62", id="pow-i64-boundary-overflows"),
+            param("(1/2)^(-62)", id="pow-neg-exp-i64-boundary-overflows"),
+            param("(3/2)^100", id="pow-frac-overflow"),
+            param("0.0000000001 * 0.0000000001", id="rational-denominator-overflows-i64"),
         ],
     )
     def test_promotes_to_bigreal(self, expr: str) -> None:
