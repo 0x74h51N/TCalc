@@ -54,6 +54,8 @@ $`\color{#3b82f6}\textbf{calc\_native}`$: The Python module of the native core, 
 
 $\color{#3b82f6}\textbf{CallToken}$: A function call with its arguments, an OpId and the argument list.
 
+$\color{#3b82f6}\textbf{Case}$: One situation to test: an input, the operation it runs through (a kernel call, or the app's path end to end), and the expected result it is checked against. A case passes when the result it gets matches the expected one. A test table holds one case per row.
+
 $\color{#3b82f6}\textbf{Cascade}$: After a dissolve, a ParenWidget around the cursor that no longer holds a Math Widget dissolves too.
 
 $\color{#3b82f6}\textbf{CharToken}$: A single ASCII letter, a one-letter variable. Letters side by side become an implicit product.
@@ -63,6 +65,8 @@ $\color{#3b82f6}\textbf{Closed form}$: Answering an iterated op in one step from
 ```math
 \sum_{n=1}^{m} n = \frac{m(m+1)}{2}
 ```
+
+$\color{#3b82f6}\textbf{Coerce}$: The step in apply that moves an op's operands onto one arm its kernel accepts: it lifts integers into Rational, downcasts a Rational for an op with no exact arm, joins a BigReal and a Complex into BigComplex, and rejects a complex operand for an op with no complex arm. It never demotes a BigReal.
 
 $\color{#3b82f6}\textbf{Coll}$: The arm of a Value that holds a Collection.
 
@@ -84,7 +88,7 @@ $\color{#3b82f6}\textbf{Correctly rounded}$: The exact value rounded to the near
 
 $\color{#3b82f6}\textbf{Cx}$: The arm of a Value that holds a Complex.
 
-$\color{#3b82f6}\textbf{Çiçek}$: 1. Everything's coming up roses. 2. All systems are operational.
+$\color{#3b82f6}\textbf{Çiçek (flower)}$: 1. Everything's coming up roses. 2. All systems are operational.
 
 $\color{#3b82f6}\textbf{Deadline}$: The wall-clock budget of one evaluation, 500 ms in the app. It starts at the outermost evaluate, and long loops check it and stop with an error, so a heavy expression cannot freeze the app.
 
@@ -135,8 +139,6 @@ $\color{#3b82f6}\textbf{Faulhaber's formula}$: Closed form of a sum of powers as
 $\color{#3b82f6}\textbf{Field}$: A text input of a slot, where the user types: an ExprInput, which is a QLineEdit. It is named after its slot and its index, as main_0 or numerator_0.
 
 $\color{#3b82f6}\textbf{First index}$: Of a field, index 0. Of a slot, index 0 of its first field.
-
-$\color{#3b82f6}\textbf{Flower}$: Çiçek.
 
 $\color{#3b82f6}\textbf{Fold}$: Another word for a reduction: walking the items and combining them into one value.
 
@@ -395,6 +397,8 @@ $\color{#3b82f6}\textbf{Splice}$: Inserting segments into a slot at an index and
 $\color{#3b82f6}\textbf{Sqrt}$: The LatexKind of a square root, with no degree field. The tokenizer writes its degree, 2, into its right side. It evaluates through OpId::Root.
 
 $\color{#3b82f6}\textbf{SqrtN}$: The LatexKind of an n-th root: the radicand left, the degree right, though the LaTeX text writes the degree first. It evaluates through OpId::Root.
+
+$`\color{#3b82f6}\textbf{static\_cast}`$: The C++ named cast for a conversion the compiler can check. From a double to an integer it is undefined behavior when the value does not fit: the intdiv kernel's cast of its quotient wraps past int64 (#252). A conversion that can lose precision or range goes through the named helpers in value.hpp (to_double, as_double, rational_downcast), not a bare cast. A cast is not an arm change: a Value moved down an arm is a downcast, moved up a promotion.
 
 $\color{#3b82f6}\textbf{Statistic}$: The kernel file of the reductions (statistic.cpp): mean, sum, min, max, median, variance and standard deviation over a Collection.
 
