@@ -61,11 +61,11 @@ In `apply`'s catch, when the op's rule holds for the Rational operands the kerne
 
 ### 3. intdiv of integers runs exact (#252)
 
-`intdiv` gets a Rational kernel, `std::int64_t intdiv(const Rational &, const Rational &)`: it divides in the existing `WideRational`, truncates toward zero as the double and BigReal kernels do, and returns the quotient as int64. Only `intdiv(INT64_MIN, -1)` overflows it; its row retries in BigReal (`retry_in_big`). The row keeps its range rule for doubles: it holds when an operand or the quotient is $2^{53}$ or more in magnitude, and `promote_big` then lifts the operands to BigReal. A new `Trait::DoubleKernelRange` on the row tells `promote_big` that the rule guards only the double kernel, so Int64 and Rational operands skip it and reach the exact kernel. A zero divisor is the same math error as today.
+`intdiv` gets a Rational kernel, `std::int64_t intdiv(const Rational &, const Rational &)`: it divides in the existing `WideRational`, truncates toward zero as the double and BigReal kernels do, and returns the quotient as int64. A quotient past int64 overflows it, as `intdiv(INT64_MIN, -1)` and `intdiv(INT64_MAX, 1/2)` do; its row retries in BigReal (`retry_in_big`). The row keeps its range rule for doubles: it holds when an operand or the quotient is $2^{53}$ or more in magnitude, and `promote_big` then lifts the operands to BigReal. A new `Trait::DoubleKernelRange` on the row tells `promote_big` that the rule guards only the double kernel, so Int64 and Rational operands skip it and reach the exact kernel. A zero divisor is the same math error as today.
 
 ### 4. Nothing else changes
 
-`coerce`, `promote_complex`, `promote_range`, the other Rational kernels and the formatter stay as they are. A Pow retry reads only the exponent: a whole one retries in BigReal, any other one in double, so a fractional power such as `2^(0.1)` stays a double and `atan` of it works. A Rational result inside int64 stays a Rational; `sqrt(2)` and `2^{1/2}` stay double.
+`promote_complex`, `promote_range`, the other Rational kernels and the formatter stay as they are. `coerce` runs an op with no BigReal arm (`atan`, `asin`, `acos`, `sinh`, `cosh`, `tanh`, `asinh`, `acosh`, `atanh`, `cbrt`, `∠`) in double when every BigReal operand converts to a double that neither overflows nor loses its range; a BigReal past that range is still an error. Without it the fix turned `atan(3^{40})`, which master answers in double, into an error. A Pow retry reads only the exponent: a whole one retries in BigReal, any other one in double, so a fractional power such as `2^(0.1)` stays a double and `atan` of it works. A Rational result inside int64 stays a Rational; `sqrt(2)` and `2^{1/2}` stay double.
 
 ## What the user sees
 
