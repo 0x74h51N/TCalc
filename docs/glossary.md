@@ -160,6 +160,8 @@ $\color{#3b82f6}\textbf{Guard digits}$: The digits a BigReal keeps past the 50 i
 
 $\color{#3b82f6}\textbf{Half turn}$: An angle as a multiple of π, the unit the exact trig table works in: 30° is 1/6 of a half turn.
 
+$\color{#3b82f6}\textbf{Hole}$: A whole-branch review: one fresh reviewer reads every commit of a branch, and its uncommitted diff, against the spec and the plan before the branch is finished. Spelled like what it is there to find.
+
 $\color{#3b82f6}\textbf{Index}$: A cursor position in a field, counted in characters: 0 is before the first character, the text length is after the last.
 
 $\color{#3b82f6}\textbf{Inner slot}$: The one slot of a ParenWidget, between its paren glyphs, which are segments of it. It starts with the open glyph instead of a field, and its plain text includes the paren symbols.
