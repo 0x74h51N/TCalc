@@ -22,6 +22,24 @@
 
 namespace tcalc::ops {
 
+/// How tightly an op binds, weakest first; the shunting yard compares the values.
+enum class Precedence : std::uint8_t {
+    Assign,
+    Additive,
+    Multiplicative,
+    Power, // powers, roots and a sign
+    Function,
+};
+
+/// The other spellings an op is read under.
+inline constexpr std::size_t kMaxAliases = 2;
+/// The operand count of a binary kernel.
+inline constexpr std::uint8_t kBinaryOperands = 2;
+
+/// The constant each derived op builds on.
+inline constexpr int kPercentDivisor = 100;
+inline constexpr int kReciprocal = -1;
+
 /// Operator associativity for precedence resolution.
 enum class Assoc : std::uint8_t { Left, Right };
 /// Operator arity classification for parser rules.
@@ -104,10 +122,10 @@ enum class OpId : std::uint8_t {
 struct OpSpec {
     OpId id;
     std::string_view symbol;
-    int precedence;
+    Precedence precedence;
     Assoc associativity;
     Arity arity;
-    std::array<std::string_view, 2> aliases{};
+    std::array<std::string_view, kMaxAliases> aliases{};
     std::string_view method;
     /// Bitflags describing extra operator capabilities. Type support (BigReal, Rational,
     /// the angle unit) is no longer a flag: the evaluator derives it from Calculator's own
@@ -157,7 +175,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Add,
         .symbol = "+",
-        .precedence = 1,
+        .precedence = Precedence::Additive,
         .associativity = Assoc::Left,
         .arity = Arity::Binary,
         .aliases = {"add"},
@@ -166,7 +184,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Sub,
         .symbol = "-",
-        .precedence = 1,
+        .precedence = Precedence::Additive,
         .associativity = Assoc::Left,
         .arity = Arity::Binary,
         .aliases = {"sub"},
@@ -175,7 +193,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Mul,
         .symbol = "·",
-        .precedence = 2,
+        .precedence = Precedence::Multiplicative,
         .associativity = Assoc::Left,
         .arity = Arity::Binary,
         .aliases = {"*", "mul"},
@@ -184,7 +202,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Div,
         .symbol = "÷",
-        .precedence = 2,
+        .precedence = Precedence::Multiplicative,
         .associativity = Assoc::Left,
         .arity = Arity::Binary,
         .aliases = {"/", "div"},
@@ -193,7 +211,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Pow,
         .symbol = "^",
-        .precedence = 3,
+        .precedence = Precedence::Power,
         .associativity = Assoc::Right,
         .arity = Arity::Binary,
         .aliases = {"pow"},
@@ -202,7 +220,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Percent,
         .symbol = "%",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Left,
         .arity = Arity::Postfix,
         .aliases = {"percent"},
@@ -211,7 +229,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Negate,
         .symbol = "u-",
-        .precedence = 3,
+        .precedence = Precedence::Power,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"negate"},
@@ -220,7 +238,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::UnaryPlus,
         .symbol = "u+",
-        .precedence = 3,
+        .precedence = Precedence::Power,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"plus"},
@@ -230,7 +248,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Sin,
         .symbol = "sin",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -240,7 +258,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Cos,
         .symbol = "cos",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -250,7 +268,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Tan,
         .symbol = "tan",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -260,7 +278,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Sinh,
         .symbol = "sinh",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -270,7 +288,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Cosh,
         .symbol = "cosh",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -280,7 +298,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Tanh,
         .symbol = "tanh",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -290,7 +308,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Asin,
         .symbol = "asin",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -300,7 +318,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Acos,
         .symbol = "acos",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -310,7 +328,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Atan,
         .symbol = "atan",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -320,7 +338,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Asinh,
         .symbol = "asinh",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -330,7 +348,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Acosh,
         .symbol = "acosh",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -340,7 +358,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Atanh,
         .symbol = "atanh",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -350,7 +368,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Polar,
         .symbol = "∠",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"polar", ""},
@@ -361,7 +379,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Log,
         .symbol = "log",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         // No "log10" alias: base ten is what a bare log already means, and the alias ate
@@ -373,7 +391,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Ln,
         .symbol = "ln",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -384,7 +402,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Recip,
         .symbol = "⁻¹",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Left,
         .arity = Arity::Postfix,
         .aliases = {},
@@ -394,7 +412,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Fact,
         .symbol = "!",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Left,
         .arity = Arity::Postfix,
         .aliases = {"factorial", "fact"},
@@ -405,52 +423,52 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Mod,
         .symbol = "mod",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Left,
         .arity = Arity::Unary,
         .aliases = {},
         .method = "mod",
         .flags = Flags::CallFunction,
-        .call_arity = 2,
+        .call_arity = kBinaryOperands,
     },
     OpSpec{
         .id = OpId::IntDiv,
         .symbol = "intdiv",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Left,
         .arity = Arity::Unary,
         .aliases = {},
         .method = "intdiv",
         .flags = Flags::CallFunction,
-        .call_arity = 2,
+        .call_arity = kBinaryOperands,
     },
 
     OpSpec{
         .id = OpId::Choose,
         .symbol = "nCr",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"choose"},
         .method = "choose",
         .flags = Flags::CallFunction,
-        .call_arity = 2,
+        .call_arity = kBinaryOperands,
     },
     OpSpec{
         .id = OpId::Permute,
         .symbol = "nPr",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"permute"},
         .method = "permute",
         .flags = Flags::CallFunction,
-        .call_arity = 2,
+        .call_arity = kBinaryOperands,
     },
     OpSpec{
         .id = OpId::Gamma,
         .symbol = "Γ",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"gamma", ""},
@@ -460,7 +478,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Cbrt,
         .symbol = "³√",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"cbrt"},
@@ -471,7 +489,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Sqr,
         .symbol = "²",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Left,
         .arity = Arity::Postfix,
         .aliases = {"sqr"},
@@ -481,7 +499,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Cube,
         .symbol = "³",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Left,
         .arity = Arity::Postfix,
         .aliases = {"cube"},
@@ -492,7 +510,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Sqrt,
         .symbol = "√",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"sqrt", ""},
@@ -503,7 +521,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Root,
         .symbol = "⌄",
-        .precedence = 3,
+        .precedence = Precedence::Power,
         .associativity = Assoc::Right,
         .arity = Arity::Binary,
         .aliases = {"root"},
@@ -513,7 +531,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Exp,
         .symbol = "exp",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -523,7 +541,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Pow10,
         .symbol = "⏨",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -533,7 +551,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Trunc,
         .symbol = "trunc",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"int"},
@@ -543,7 +561,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Floor,
         .symbol = "⌊",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"floor"},
@@ -553,7 +571,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Ceil,
         .symbol = "⌈",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"ceil"},
@@ -563,7 +581,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Gcd,
         .symbol = "gcd",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -574,7 +592,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Lcm,
         .symbol = "lcm",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -585,7 +603,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Mean,
         .symbol = "x̄",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"mean"},
@@ -596,7 +614,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Median,
         .symbol = "x̃",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"median"},
@@ -607,7 +625,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Min,
         .symbol = "min",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -618,7 +636,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Max,
         .symbol = "max",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {},
@@ -629,7 +647,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Sum,
         .symbol = "Σ",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"sum"},
@@ -640,7 +658,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Var,
         .symbol = "s²",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"var"},
@@ -651,7 +669,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::VarP,
         .symbol = "σ²",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"varp"},
@@ -662,7 +680,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Std,
         .symbol = "s",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"std"},
@@ -673,7 +691,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::StdP,
         .symbol = "σ",
-        .precedence = 4,
+        .precedence = Precedence::Function,
         .associativity = Assoc::Right,
         .arity = Arity::Unary,
         .aliases = {"stdp"},
@@ -684,7 +702,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Assign,
         .symbol = "=",
-        .precedence = 0,
+        .precedence = Precedence::Assign,
         .associativity = Assoc::Right,
         .arity = Arity::Binary,
         .aliases = {},
@@ -693,7 +711,7 @@ inline constexpr std::array kOps{
     OpSpec{
         .id = OpId::Equal,
         .symbol = "==",
-        .precedence = 0,
+        .precedence = Precedence::Assign,
         .associativity = Assoc::Right,
         .arity = Arity::Binary,
         .aliases = {},
@@ -870,7 +888,7 @@ Value dispatch(OpId id, const Calculator &c, std::span<const Value> args, AngleU
             } else {
                 // The evaluator pops by arity, so a short argument list can only come from
                 // a caller of the binding. Reading args[1] anyway would be out of bounds.
-                if (args.size() < 2)
+                if (args.size() < kBinaryOperands)
                     throw_unsupported_arm(id);
                 const T *y = std::get_if<T>(&args[1]);
                 if (y == nullptr)
@@ -891,7 +909,6 @@ namespace detail {
 /// The decades a double can still carry. Past these a power is computed in BigReal.
 inline constexpr double kPowToBigUp = 308.0;
 inline constexpr double kPowToBigLow = -324.0;
-inline constexpr double kBaseTen = 10.0;
 /// 2^53: past it a double no longer holds every integer.
 inline constexpr double kExactIntBound =
     static_cast<double>(std::uint64_t{1} << std::numeric_limits<double>::digits);
@@ -911,7 +928,8 @@ struct DomainRule {
 using RangeRule = bool (*)(double x, double y);
 
 /// The arm an exact kernel that threw on these Rational operands retries in. A rational
-/// answer can only have overflowed int64, and BigReal holds it.
+/// answer can only have overflowed int64, and BigReal holds it; an irrational one fits no
+/// arm exactly and retries in double, like every other inexact result.
 using RetryArmRule = Arm (*)(std::span<const Value> args);
 
 /// Eval-time properties an op's kernel signature cannot report. Separate from
@@ -1031,7 +1049,7 @@ namespace detail {
 inline bool power_needs_big(double base, double exp) {
     const double base_mag = std::fabs(base);
     const bool exp_is_int = calc_detail::int_like(exp);
-    if (base_mag == kBaseTen && exp_is_int && std::fabs(exp) >= kPowToBigUp)
+    if (base_mag == kDecimalBase && exp_is_int && std::fabs(exp) >= kPowToBigUp)
         return true;
     const double log10_mag = exp * std::log10(base_mag);
     return log10_mag > kPowToBigUp || log10_mag < kPowToBigLow;
@@ -1049,8 +1067,8 @@ constexpr Arm retry_in_big(std::span<const Value>) {
     return Arm::Big;
 }
 
-/// A whole exponent keeps a rational base rational.
-inline Arm power_retry_arm(const Rational & /*base*/, const Rational &exp) {
+/// A whole exponent keeps a rational base rational; any other one can make it irrational.
+inline Arm power_retry_arm(const Rational &exp) {
     return exp.denominator() == 1 ? Arm::Big : Arm::Double;
 }
 
@@ -1073,8 +1091,7 @@ inline constexpr std::array kOpRows = {
                 [](const auto &x, const auto &y) { return x < 0.0 && !calc_detail::whole(y); }),
             [](double x, double y) { return detail::power_needs_big(x, y); }),
         [](std::span<const Value> args) {
-            return detail::power_retry_arm(
-                std::get<Rational>(args[0]), std::get<Rational>(args[1]));
+            return detail::power_retry_arm(std::get<Rational>(args[1]));
         }),
     with_range(
         with_domain(
@@ -1136,7 +1153,7 @@ inline constexpr std::array kOpRows = {
             // The value leaving the real domain promotes to complex. An invalid base is a
             // math error the kernel raises, not a promotion: log base 1 has no complex answer.
             [](const auto &x, const auto &) { return x <= 0.0; }),
-        10),
+        kDecimalBase),
     with_domain(
         unary(OpId::Ln, TCALC_CALL(ln)), [](const auto &x, const auto &) { return x <= 0.0; }),
     unary(OpId::Fact, TCALC_CALL(fact)),
@@ -1161,14 +1178,15 @@ inline constexpr std::array kOpRows = {
     unary(
         OpId::UnaryPlus,
         [](const Calculator &, auto &&a) -> std::decay_t<decltype(a)> { return a; }),
-    with_retry_arm(unary(OpId::Percent, TCALC_CALL_WITH(div, 100)), detail::retry_in_big),
-    with_retry_arm(unary(OpId::Sqr, TCALC_CALL_WITH(pow, 2)), detail::retry_in_big),
-    with_retry_arm(unary(OpId::Cube, TCALC_CALL_WITH(pow, 3)), detail::retry_in_big),
-    unary(OpId::Recip, TCALC_CALL_WITH(pow, -1)),
     with_retry_arm(
-        unary(OpId::Pow10, TCALC_CALL_ONTO(pow, 10)),
+        unary(OpId::Percent, TCALC_CALL_WITH(div, kPercentDivisor)), detail::retry_in_big),
+    with_retry_arm(unary(OpId::Sqr, TCALC_CALL_WITH(pow, kSquare)), detail::retry_in_big),
+    with_retry_arm(unary(OpId::Cube, TCALC_CALL_WITH(pow, kCube)), detail::retry_in_big),
+    unary(OpId::Recip, TCALC_CALL_WITH(pow, kReciprocal)),
+    with_retry_arm(
+        unary(OpId::Pow10, TCALC_CALL_ONTO(pow, kDecimalBase)),
         [](std::span<const Value> args) {
-            return detail::power_retry_arm(Rational(10), std::get<Rational>(args[0]));
+            return detail::power_retry_arm(std::get<Rational>(args[0]));
         }),
     unary(OpId::Exp, TCALC_CALL(exp)),
 

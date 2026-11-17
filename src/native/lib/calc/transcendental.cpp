@@ -17,10 +17,6 @@
 #include <boost/math/tools/roots.hpp>
 
 namespace {
-// The base a bare log is taken in, and the one base with a dedicated library function.
-constexpr int kBaseTen = 10;
-// The one degree with a dedicated library function, sqrt.
-constexpr double kSquareDegree = 2.0;
 
 /// Newton on z^n - x from the pow guess, whose exp(log) leaves noise in both parts.
 BigComplex newton_root(const BigComplex &x, int n) {
@@ -89,7 +85,7 @@ double Calculator::log(double a, double b) const {
     calc_detail::require(b > 0.0 && b != 1.0);
     // log(1e21) is exactly 21 today through std::log10, and log(a)/log(10) is
     // 20.999999999999996. Base ten keeps its own function so this arm does not regress it.
-    if (b == kBaseTen)
+    if (b == kDecimalBase)
         return std::log10(a);
     return std::log(a) / std::log(b);
 }
@@ -119,7 +115,7 @@ BigReal Calculator::log(const BigReal &a, const BigReal &b) const {
     calc_detail::require(a > 0);
     calc_detail::require(b > 0 && b != 1);
     using boost::multiprecision::log10;
-    if (b == kBaseTen)
+    if (b == kDecimalBase)
         return log10(a);
     using boost::multiprecision::log;
     return log(a) / log(b);
@@ -156,7 +152,7 @@ Calculator::Complex Calculator::sqrt(Complex a) const {
 Calculator::Complex Calculator::root(Complex x, Complex y) const {
     calc_detail::require_nonzero(y);
     if (y.imag() == 0.0) {
-        if (y.real() == kSquareDegree)
+        if (y.real() == kSquare)
             return this->sqrt(x);
         if (const auto m = calc_detail::as_int(1.0 / y.real()))
             if (const auto r = calc_detail::integer_power(x, *m))
@@ -200,7 +196,7 @@ BigComplex Calculator::sqrt(const BigComplex &a) const {
 BigComplex Calculator::root(const BigComplex &x, const BigComplex &y) const {
     calc_detail::require_nonzero(y);
     if (y.imag() == 0) {
-        if (y.real() == kSquareDegree)
+        if (y.real() == kSquare)
             return this->sqrt(x);
         if (const auto m = calc_detail::as_int(BigComplex::value_type(1) / y.real()))
             if (const auto r = calc_detail::integer_power(x, *m))

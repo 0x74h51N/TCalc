@@ -210,11 +210,11 @@ Rational Calculator::root(const Rational &a, const Rational &b) const {
 }
 
 Rational Calculator::sqrt(const Rational &a) const {
-    return root(a, Rational(2));
+    return root(a, Rational(kSquare));
 }
 
 Rational Calculator::cbrt(const Rational &a) const {
-    return root(a, Rational(3));
+    return root(a, Rational(kCube));
 }
 
 // -----------------

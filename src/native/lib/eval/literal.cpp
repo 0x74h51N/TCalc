@@ -24,7 +24,6 @@ namespace {
 
 using BigInt = boost::multiprecision::cpp_int;
 
-constexpr int kDecimalBase = 10;
 /// A decimal whose adjusted exponent runs past int64's ~19 significant digits cannot fit a
 /// Rational, so the exact path bails at this magnitude.
 constexpr long long kMaxRationalExp = 18;

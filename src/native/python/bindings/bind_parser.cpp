@@ -499,6 +499,14 @@ void bind_parser(py::module_ &m) {
         .value("Left", tcalc::ops::Assoc::Left)
         .value("Right", tcalc::ops::Assoc::Right);
 
+    py::enum_<tcalc::ops::Precedence>(
+        m, "OpPrecedence", "How tightly an operator binds, weakest first.")
+        .value("Assign", tcalc::ops::Precedence::Assign)
+        .value("Additive", tcalc::ops::Precedence::Additive)
+        .value("Multiplicative", tcalc::ops::Precedence::Multiplicative)
+        .value("Power", tcalc::ops::Precedence::Power)
+        .value("Function", tcalc::ops::Precedence::Function);
+
     py::enum_<tcalc::ops::Arity>(m, "OpArity", "Operator arity: unary, binary, or postfix.")
         .value("Binary", tcalc::ops::Arity::Binary)
         .value("Unary", tcalc::ops::Arity::Unary)

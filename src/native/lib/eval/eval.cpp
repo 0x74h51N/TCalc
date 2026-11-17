@@ -281,7 +281,7 @@ bool exact_lift_accepts(ArmMask present) {
 
 bool promote_big(OpId id, std::vector<Value> &args) {
     const ops::RangeRule rule = ops::range_of(id);
-    if (rule == nullptr || args.size() < 2)
+    if (rule == nullptr || args.size() < ops::kBinaryOperands)
         return false;
     // A BigReal operand is already there, and a complex one has a magnitude the rule
     // cannot read off a single real.
@@ -548,7 +548,7 @@ Value eval_latex(const parser::LatexToken &latex, const Calculator &c, Calculato
         if (auto v = rule(latex.left, latex.right, c, unit))
             return *v;
     Value left = latex.left.empty() ? Value{Rational(0)} : eval_row(latex.left, c, unit);
-    Value right = Value{Rational(latex.kind == LatexKind::Root ? 2 : 0)};
+    Value right = Value{Rational(latex.kind == LatexKind::Root ? kSquare : 0)};
     if (!latex.right.empty())
         right = eval_row(latex.right, c, unit);
     return apply(c, latex.op_id, args_of(std::move(left), std::move(right)), unit);
@@ -757,7 +757,7 @@ bool ends_operand(const Token &t) {
 }
 
 /// Add's precedence: an iterated body keeps everything that binds tighter than this.
-inline constexpr std::uint8_t kIteratedBodyPrecedence = ops::op_spec(OpId::Add)->precedence;
+inline constexpr ops::Precedence kIteratedBodyPrecedence = ops::op_spec(OpId::Add)->precedence;
 
 /// True when tok ends the iterated body collected so far. An operator in operand position
 /// is a sign, not a terminator, so the body of `\sum_{n=1}^{3} +n` keeps its `+`.
