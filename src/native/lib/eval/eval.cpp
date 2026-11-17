@@ -270,6 +270,15 @@ bool promote_complex(OpId id, std::vector<Value> &args) {
     return true;
 }
 
+namespace {
+
+/// Int64 and Rational are exactly the arms an exact lift accepts.
+bool exact_lift_accepts(ArmMask present) {
+    return (present & ~(arm_bit(Arm::Int64) | arm_bit(Arm::Rat))) == 0;
+}
+
+} // namespace
+
 bool promote_big(OpId id, std::vector<Value> &args) {
     const ops::RangeRule rule = ops::range_of(id);
     if (rule == nullptr || args.size() < 2)
@@ -278,6 +287,8 @@ bool promote_big(OpId id, std::vector<Value> &args) {
     // cannot read off a single real.
     const ArmMask present = arms_present(args);
     if ((present & ~(arm_bit(Arm::Int64) | arm_bit(Arm::Double) | arm_bit(Arm::Rat))) != 0)
+        return false;
+    if (ops::has_trait(id, ops::Trait::DoubleKernelRange) && exact_lift_accepts(present))
         return false;
 
     if (!rule(as_double(args[0]), as_double(args[1])))
@@ -334,11 +345,10 @@ std::vector<Value> coerce(OpId id, std::vector<Value> args) {
     // Only the real arms remain here.
     // TODO: Fix Calculator (int, int) returning Rational(n, 1) instead of int.
     if (has_arm(arms, Arm::Rat)) {
-        // Int64 and Rational are exactly the arms an exact lift accepts, so the mask settles
-        // this all-or-nothing arm up front: one double among the operands leaves args
-        // untouched for the double arm below. Past the check only the integers convert, and
-        // like every other arm this one lifts in place.
-        if ((present & ~(arm_bit(Arm::Int64) | arm_bit(Arm::Rat))) == 0) {
+        // The mask settles this all-or-nothing arm up front: one double among the operands
+        // leaves args untouched for the double arm below. Past the check only the integers
+        // convert, and like every other arm this one lifts in place.
+        if (exact_lift_accepts(present)) {
             for (auto &a : args)
                 if (const auto *i = std::get_if<std::int64_t>(&a))
                     a = Value{Rational(*i)};

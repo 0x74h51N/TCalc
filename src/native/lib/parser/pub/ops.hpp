@@ -925,6 +925,9 @@ enum class Trait : std::uint8_t {
     /// A fractional degree a/b is the power b/a, read before the degree is lifted out of its
     /// fraction.
     InverseDegree,
+    /// The range rule guards only the double kernel: an exact arm takes integers whole and
+    /// its overflow retries in BigReal.
+    DoubleKernelRange,
     Count,
 };
 using TraitMask = std::uint8_t;
@@ -1084,9 +1087,13 @@ inline constexpr std::array kOpRows = {
         // the degree is an inverse exponent: root(x, y) is x^(1/y)
         [](double x, double y) { return y != 0.0 && detail::power_needs_big(x, 1.0 / y); }),
     with_trait(binary(OpId::Mod, TCALC_CALL(mod)), Trait::ExactZero),
-    with_range(
-        binary(OpId::IntDiv, TCALC_CALL(intdiv)),
-        [](double x, double y) { return detail::quotient_needs_big(x, y); }),
+    with_retry_arm(
+        with_trait(
+            with_range(
+                binary(OpId::IntDiv, TCALC_CALL(intdiv)),
+                [](double x, double y) { return detail::quotient_needs_big(x, y); }),
+            Trait::DoubleKernelRange),
+        detail::retry_in_big),
 
     // trig, angle-taking
     unary_angle(OpId::Sin, TCALC_CALL(sin)),

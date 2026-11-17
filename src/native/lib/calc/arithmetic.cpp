@@ -143,6 +143,15 @@ Rational Calculator::div(const Rational &a, const Rational &b) const {
     calc_detail::math_error();
 }
 
+std::int64_t Calculator::intdiv(const Rational &a, const Rational &b) const {
+    calc_detail::require_nonzero(b.frac);
+    const calc_detail::WideRational q = calc_detail::widen(a) / calc_detail::widen(b);
+    // int256 division truncates toward zero, as the double and BigReal arms do.
+    if (auto r = calc_detail::narrow(calc_detail::WideRational(q.numerator() / q.denominator())))
+        return r->numerator();
+    calc_detail::math_error();
+}
+
 Rational Calculator::pow(const Rational &base, const Rational &exp) const {
     // A fractional exponent is a root, and a root is exact only when it comes out
     // rational: 4^(1/2) is 2, while 2^(1/2) is not a rational at all and is left to the
