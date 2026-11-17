@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <span>
 #include <string_view>
 
 #include "calc/internal/helpers.hpp"
@@ -909,9 +910,9 @@ struct DomainRule {
 /// looking at the double it produced can recover the digits the rounding dropped.
 using RangeRule = bool (*)(double x, double y);
 
-/// True when the op's answer on these two Rationals is rational, so an exact kernel that
-/// throws on them can only have overflowed int64, and BigReal holds what it lost.
-using RationalAnswerRule = bool (*)(const Rational &x, const Rational &y);
+/// The arm an exact kernel that threw on these Rational operands retries in. A rational
+/// answer can only have overflowed int64, and BigReal holds it.
+using RetryArmRule = Arm (*)(std::span<const Value> args);
 
 /// Eval-time properties an op's kernel signature cannot report. Separate from
 /// OpSpec::OpFlags, which carries the syntax the tokenizer reads.
@@ -936,9 +937,9 @@ struct OpRow {
     OpId id{};
     Kernel fn{};
     ArmMask arms{};
-    DomainRule domain{};                  // most ops have no domain boundary
-    RangeRule range{};                    // and only powers can predict their own range
-    RationalAnswerRule rational_answer{}; // only ops whose exact answer stays rational
+    DomainRule domain{};      // most ops have no domain boundary
+    RangeRule range{};        // and only powers can predict their own range
+    RetryArmRule retry_arm{}; // without one, a refused exact kernel retries in double
     TraitMask traits{};
     std::uint8_t second_default{}; // stands in for a missing second operand
 };
@@ -949,25 +950,24 @@ template <class F> constexpr OpRow with_domain(OpRow r, F rule) {
     const DomainRule d{
         static_cast<bool (*)(const double &, const double &)>(rule),
         static_cast<bool (*)(const BigReal &, const BigReal &)>(rule)};
-    return OpRow{r.id, r.fn, r.arms, d, r.range, r.rational_answer, r.traits, r.second_default};
+    return OpRow{r.id, r.fn, r.arms, d, r.range, r.retry_arm, r.traits, r.second_default};
 }
 
 constexpr OpRow with_range(OpRow r, RangeRule g) {
-    return OpRow{r.id, r.fn, r.arms, r.domain, g, r.rational_answer, r.traits, r.second_default};
+    return OpRow{r.id, r.fn, r.arms, r.domain, g, r.retry_arm, r.traits, r.second_default};
 }
 
-constexpr OpRow with_rational_answer(OpRow r, RationalAnswerRule g) {
+constexpr OpRow with_retry_arm(OpRow r, RetryArmRule g) {
     return OpRow{r.id, r.fn, r.arms, r.domain, r.range, g, r.traits, r.second_default};
 }
 
 constexpr OpRow with_trait(OpRow r, Trait t) {
     const auto traits = static_cast<TraitMask>(r.traits | trait_bit(t));
-    return OpRow{
-        r.id, r.fn, r.arms, r.domain, r.range, r.rational_answer, traits, r.second_default};
+    return OpRow{r.id, r.fn, r.arms, r.domain, r.range, r.retry_arm, traits, r.second_default};
 }
 
 constexpr OpRow with_default(OpRow r, std::uint8_t n) {
-    return OpRow{r.id, r.fn, r.arms, r.domain, r.range, r.rational_answer, r.traits, n};
+    return OpRow{r.id, r.fn, r.arms, r.domain, r.range, r.retry_arm, r.traits, n};
 }
 
 template <class F> constexpr OpRow unary(OpId id, F) {
@@ -1001,7 +1001,7 @@ constexpr OpRow without_rational(OpRow r) {
         static_cast<ArmMask>(r.arms & ~arm_bit(Arm::Rat)),
         r.domain,
         r.range,
-        r.rational_answer,
+        r.retry_arm,
         r.traits,
         r.second_default};
 }
@@ -1041,22 +1041,27 @@ inline bool quotient_needs_big(double x, double y) {
            std::fabs(x / y) >= kExactIntBound;
 }
 
-/// The four basic ops of two rationals are rational.
-constexpr bool always_rational(const Rational &, const Rational &) {
-    return true;
+/// The four basic ops of rationals, and the ops built on them, have a rational answer.
+constexpr Arm retry_in_big(std::span<const Value>) {
+    return Arm::Big;
+}
+
+/// A whole exponent keeps a rational base rational.
+inline Arm power_retry_arm(const Rational & /*base*/, const Rational &exp) {
+    return exp.denominator() == 1 ? Arm::Big : Arm::Double;
 }
 
 } // namespace detail
 
 inline constexpr std::array kOpRows = {
     // arithmetic
-    with_rational_answer(
-        with_trait(binary(OpId::Add, TCALC_CALL(add)), Trait::ExactZero), detail::always_rational),
-    with_rational_answer(
-        with_trait(binary(OpId::Sub, TCALC_CALL(sub)), Trait::ExactZero), detail::always_rational),
-    with_rational_answer(binary(OpId::Mul, TCALC_CALL(mul)), detail::always_rational),
-    with_rational_answer(binary(OpId::Div, TCALC_CALL(div)), detail::always_rational),
-    with_rational_answer(
+    with_retry_arm(
+        with_trait(binary(OpId::Add, TCALC_CALL(add)), Trait::ExactZero), detail::retry_in_big),
+    with_retry_arm(
+        with_trait(binary(OpId::Sub, TCALC_CALL(sub)), Trait::ExactZero), detail::retry_in_big),
+    with_retry_arm(binary(OpId::Mul, TCALC_CALL(mul)), detail::retry_in_big),
+    with_retry_arm(binary(OpId::Div, TCALC_CALL(div)), detail::retry_in_big),
+    with_retry_arm(
         with_range(
             with_domain(
                 with_trait(binary(OpId::Pow, TCALC_CALL(pow)), Trait::RootExponent),
@@ -1064,8 +1069,10 @@ inline constexpr std::array kOpRows = {
                 // has no denominator to read, so a negative base takes the principal power
                 [](const auto &x, const auto &y) { return x < 0.0 && !calc_detail::whole(y); }),
             [](double x, double y) { return detail::power_needs_big(x, y); }),
-        // a whole exponent keeps a rational base rational
-        [](const Rational &, const Rational &y) { return y.denominator() == 1; }),
+        [](std::span<const Value> args) {
+            return detail::power_retry_arm(
+                std::get<Rational>(args[0]), std::get<Rational>(args[1]));
+        }),
     with_range(
         with_domain(
             with_trait(binary(OpId::Root, TCALC_CALL(root)), Trait::InverseDegree),
@@ -1137,19 +1144,25 @@ inline constexpr std::array kOpRows = {
 
     // derived: expressed through a real Calculator call, so each inherits that call's
     // arms. That is what keeps sqr of a fraction exact.
-    unary(
-        OpId::Negate,
-        [](const Calculator &c, auto &&a) -> decltype(c.sub(std::decay_t<decltype(a)>{}, a)) {
-            return c.sub(std::decay_t<decltype(a)>{}, a); // zero of the arm's own type
-        }),
+    with_retry_arm(
+        unary(
+            OpId::Negate,
+            [](const Calculator &c, auto &&a) -> decltype(c.sub(std::decay_t<decltype(a)>{}, a)) {
+                return c.sub(std::decay_t<decltype(a)>{}, a); // zero of the arm's own type
+            }),
+        detail::retry_in_big),
     unary(
         OpId::UnaryPlus,
         [](const Calculator &, auto &&a) -> std::decay_t<decltype(a)> { return a; }),
-    unary(OpId::Percent, TCALC_CALL_WITH(div, 100)),
-    unary(OpId::Sqr, TCALC_CALL_WITH(pow, 2)),
-    unary(OpId::Cube, TCALC_CALL_WITH(pow, 3)),
+    with_retry_arm(unary(OpId::Percent, TCALC_CALL_WITH(div, 100)), detail::retry_in_big),
+    with_retry_arm(unary(OpId::Sqr, TCALC_CALL_WITH(pow, 2)), detail::retry_in_big),
+    with_retry_arm(unary(OpId::Cube, TCALC_CALL_WITH(pow, 3)), detail::retry_in_big),
     unary(OpId::Recip, TCALC_CALL_WITH(pow, -1)),
-    unary(OpId::Pow10, TCALC_CALL_ONTO(pow, 10)),
+    with_retry_arm(
+        unary(OpId::Pow10, TCALC_CALL_ONTO(pow, 10)),
+        [](std::span<const Value> args) {
+            return detail::power_retry_arm(Rational(10), std::get<Rational>(args[0]));
+        }),
     unary(OpId::Exp, TCALC_CALL(exp)),
 
     // collection reducers (calculator.hpp). Note the OpId and the method name differ
@@ -1211,17 +1224,17 @@ constexpr RangeRule range_of(OpId id) {
     return kRanges[static_cast<std::size_t>(id)];
 }
 
-constexpr std::array<RationalAnswerRule, kOpCount> build_rational_answers() {
-    std::array<RationalAnswerRule, kOpCount> t{};
+constexpr std::array<RetryArmRule, kOpCount> build_retry_arms() {
+    std::array<RetryArmRule, kOpCount> t{};
     for (const auto &row : kOpRows)
-        t[static_cast<std::size_t>(row.id)] = row.rational_answer;
+        t[static_cast<std::size_t>(row.id)] = row.retry_arm;
     return t;
 }
-inline constexpr auto kRationalAnswers = build_rational_answers();
+inline constexpr auto kRetryArms = build_retry_arms();
 
-/// The op's rational answer rule, or nullptr when its exact answer can be irrational.
-constexpr RationalAnswerRule rational_answer_of(OpId id) {
-    return kRationalAnswers[static_cast<std::size_t>(id)];
+/// The op's retry arm rule, or nullptr when a refused exact kernel retries in double.
+constexpr RetryArmRule retry_arm_of(OpId id) {
+    return kRetryArms[static_cast<std::size_t>(id)];
 }
 
 constexpr std::array<TraitMask, kOpCount> build_traits() {

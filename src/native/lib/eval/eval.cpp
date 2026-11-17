@@ -435,28 +435,25 @@ Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::A
         // lifted arguments that need unwinding.
         if (!has_arm(arms_present(dispatch_args), Arm::Rat))
             throw;
-        // A rational answer can only have overflowed int64, and BigReal holds it. coerce
-        // made both operands Rational, as the rule reads them.
-        if (const ops::RationalAnswerRule rational = ops::rational_answer_of(id);
-            rational != nullptr &&
-            rational(std::get<Rational>(dispatch_args[0]), std::get<Rational>(dispatch_args[1]))) {
+        // The op's row names the arm: BigReal holds a rational answer that overflowed int64.
+        // coerce made every operand Rational, as the rule reads them.
+        if (const ops::RetryArmRule retry = ops::retry_arm_of(id);
+            retry != nullptr && retry(dispatch_args) == Arm::Big) {
             for (auto &a : dispatch_args)
                 a = lift_to_big(a);
         } else {
-            // An answer that can be irrational goes straight to double: an integer is no arm
-            // of an op with a Rational arm, and Pow's (double, long long) overload would make
-            // an integer pair ambiguous.
+            // An integer is no arm of an op with a Rational arm, and Pow's (double, long long)
+            // overload would make an integer pair ambiguous.
             for (auto &a : dispatch_args)
                 a = Value{as_double(a)};
-            // The domain rule reads a real operand, so a Rational never met it. The downcast
-            // has produced one: sqrt of a negative rational leaves the real domain here, and
-            // the promotion has to run before the retry rather than after it. coerce only
-            // follows when the promotion fired, since it would otherwise lift the operands
-            // straight back into the exact arm the retry just left.
-            promote_complex(id, dispatch_args);
-            if (has_arm(arms_present(dispatch_args), Arm::Cx))
-                dispatch_args = coerce(id, dispatch_args);
         }
+        // The domain rule reads a real operand, so a Rational never met it. The lift has
+        // produced one: sqrt of a negative rational leaves the real domain here, and the
+        // promotion has to run before the retry rather than after it. coerce only follows
+        // when the promotion fired, since it would otherwise lift the operands straight back
+        // into the exact arm the retry just left.
+        if (promote_complex(id, dispatch_args))
+            dispatch_args = coerce(id, dispatch_args);
         result = ops::kernel_of(id)(id, c, dispatch_args, unit); // a second throw propagates
     }
 
