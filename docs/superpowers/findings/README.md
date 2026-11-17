@@ -20,3 +20,4 @@ One line per findings file: the file, then the subject in a few words. Read this
 - [combinatorics.md](combinatorics.md): the nPr and nCr loops against a Gamma closed form, accuracy and time by size (#248).
 - [imaginary-range.md](imaginary-range.md): an imaginary literal past double's range, and the Cx arm results no range promotion widens (#239).
 - [native-abort.md](native-abort.md): what can end the process (a libstdc++ assertion), and the unchecked int64 conversions next to it, and the native and Python smoke runs (#246, #247, #248, #249).
+- [rational-overflow.md](rational-overflow.md): an exact Rational result past int64 retried in double, in Add, Sub, Mul, Div and Pow (#245), and `intdiv` past int64 (#252).
