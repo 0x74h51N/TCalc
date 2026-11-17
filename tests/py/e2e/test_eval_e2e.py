@@ -154,6 +154,23 @@ def _eval(expr: str) -> object:
         param("10^{19}", "BigReal", "1e+19", id="pow-ten-19-exact"),
         param("3^{40}", "BigReal", "1.215766545905693e+19", id="pow-three-40-exact"),
         param("(1/3)^{-40}", "BigReal", "1.215766545905693e+19", id="pow-third-neg-40-exact"),
+        param("intdiv(1e19,1)", "BigReal", "1e+19", id="intdiv-past-i64-widens"),
+        param("intdiv(1e300,1)", "BigReal", "1e+300", id="intdiv-huge-widens"),
+        param(
+            "intdiv(9223372036854775807,1)",
+            "BigReal",
+            "9.223372036854776e+18",
+            id="intdiv-i64-max-widens",
+        ),
+        param("intdiv(1e19,3)", "BigReal", "3.333333333333333e+18", id="intdiv-past-i64-third"),
+        param("intdiv(7,2)", "int", "3", id="intdiv-small-stays-int"),
+        param("intdiv(-7,2)", "int", "-3", id="intdiv-negative-truncates"),
+        param(
+            "intdiv(9007199254740991,1)",
+            "int",
+            "9007199254740991",
+            id="intdiv-below-bound-stays-int",
+        ),
         param("sqrt(10^309)", "BigReal", "e+154", id="bigreal-sqrt-does-not-overflow"),
         param("(10^307)/(10^306)", "BigReal", "10", id="div-of-big-powers-stays-big"),
         param("(10^309)/(10^308)", "BigReal", "10", id="bigreal-div-keeps-bigreal"),
@@ -534,6 +551,20 @@ def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> N
             "1",
             id="pow-denominator-past-i64-cancels",
         ),
+        param("intdiv(9223372036854775807,1)-9223372036854775807", "0", id="intdiv-i64-max-exact"),
+        param("intdiv(1e19,3)-3333333333333333333", "0", id="intdiv-past-i64-exact"),
+        param("intdiv(-1e19,3)+3333333333333333333", "0", id="intdiv-negative-past-i64-exact"),
+        param("intdiv(9007199254740993,1)-9007199254740993", "0", id="intdiv-bound-exact"),
+        param(
+            "intdiv(9223372036854775807,1099511627776)",
+            "8388607",
+            id="intdiv-large-operand-small-quotient",
+        ),
+        param(
+            "intdiv(-9223372036854775807,2)+4611686018427387903",
+            "0",
+            id="intdiv-negative-truncates-exact",
+        ),
     ],
 )
 def test_bigreal_exact_results(expr: str, expected: str) -> None:
@@ -720,6 +751,7 @@ class TestRational:
             param("0^(-2)", id="zero-to-neg-even-power"),
             param("0^(-3)", id="zero-frac-neg-odd"),
             param("(0/1)^(-2)", id="zero-frac-neg-exp"),
+            param("intdiv(7,0)", id="intdiv-by-zero"),
         ],
     )
     def test_raises_math_error(self, expr: str) -> None:

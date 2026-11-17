@@ -9,6 +9,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <string_view>
 
 #include "calc/internal/helpers.hpp"
@@ -890,6 +891,9 @@ namespace detail {
 inline constexpr double kPowToBigUp = 308.0;
 inline constexpr double kPowToBigLow = -324.0;
 inline constexpr double kBaseTen = 10.0;
+/// 2^53: past it a double no longer holds every integer.
+inline constexpr double kExactIntBound =
+    static_cast<double>(std::uint64_t{1} << std::numeric_limits<double>::digits);
 } // namespace detail
 
 /// The rule is written once and read in the operands' own type: a BigReal read as a double
@@ -1030,6 +1034,13 @@ inline bool power_needs_big(double base, double exp) {
     return log10_mag > kPowToBigUp || log10_mag < kPowToBigLow;
 }
 
+/// True when a double cannot hold an operand or the quotient whole. Inclusive, because the
+/// operands are read through as_double, where 2^53+1 is already 2^53.
+inline bool quotient_needs_big(double x, double y) {
+    return std::fabs(x) >= kExactIntBound || std::fabs(y) >= kExactIntBound ||
+           std::fabs(x / y) >= kExactIntBound;
+}
+
 /// The four basic ops of two rationals are rational.
 constexpr bool always_rational(const Rational &, const Rational &) {
     return true;
@@ -1066,7 +1077,9 @@ inline constexpr std::array kOpRows = {
         // the degree is an inverse exponent: root(x, y) is x^(1/y)
         [](double x, double y) { return y != 0.0 && detail::power_needs_big(x, 1.0 / y); }),
     with_trait(binary(OpId::Mod, TCALC_CALL(mod)), Trait::ExactZero),
-    binary(OpId::IntDiv, TCALC_CALL(intdiv)),
+    with_range(
+        binary(OpId::IntDiv, TCALC_CALL(intdiv)),
+        [](double x, double y) { return detail::quotient_needs_big(x, y); }),
 
     // trig, angle-taking
     unary_angle(OpId::Sin, TCALC_CALL(sin)),
