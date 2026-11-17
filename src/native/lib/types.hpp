@@ -8,6 +8,15 @@
 
 constexpr int kBigRealPrecisionDigits = 50;
 
+/// The base of a decimal numeral, of a bare log and of ⏨.
+inline constexpr int kDecimalBase = 10;
+/// The power of a square, and the degree of its root.
+inline constexpr int kSquare = 2;
+/// The power of a cube, and the degree of its root.
+inline constexpr int kCube = 3;
+/// The modulus that splits the integers into even and odd.
+inline constexpr int kParityModulus = 2;
+
 // Wider exponent range so expressions like 1e-100000000 remain representable
 // (cpp_dec_float_50 underflows at |exponent10| > 67108864).
 using BigReal = boost::multiprecision::number<

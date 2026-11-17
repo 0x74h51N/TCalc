@@ -246,9 +246,35 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, arm_of(out[1]), Arm::Big);
     });
 
-    // An op with no Big arm: a BigReal is rejected, never demoted.
-    TEST_CASE(ctx, "coerce :: BigReal into an op with no Big arm is an error", {
-        EXPECT_THROWS(ctx, coerce(OpId::Cbrt, {Value{BigReal("8")}}));
+    // An op with no Big arm: a BigReal a double holds runs its double arm; one past double's
+    // range is rejected, never demoted.
+    TEST_CASE(ctx, "coerce :: BigReal a double holds into an op with no Big arm is a double", {
+        const auto out = coerce(OpId::Cbrt, {Value{BigReal("8")}});
+        EXPECT_EQ(ctx, out[0], Value{8.0});
+    });
+    TEST_CASE(ctx, "coerce :: a BigReal zero into an op with no Big arm is a double zero", {
+        const auto out = coerce(OpId::Atan, {Value{BigReal("0")}});
+        EXPECT_EQ(ctx, out[0], Value{0.0});
+    });
+    TEST_CASE(ctx, "coerce :: BigReal past double into an op with no Big arm is an error", {
+        EXPECT_THROWS(ctx, coerce(OpId::Cbrt, {Value{BigReal("1e400")}}));
+    });
+    TEST_CASE(
+        ctx, "coerce :: BigReal in the subnormal band into an op with no Big arm is an error", {
+            EXPECT_THROWS(ctx, coerce(OpId::Cbrt, {Value{BigReal("1e-310")}}));
+        });
+    TEST_CASE(ctx, "coerce :: BigReal below double into an op with no Big arm is an error", {
+        EXPECT_THROWS(ctx, coerce(OpId::Cbrt, {Value{BigReal("1e-400")}}));
+    });
+    // A held BigReal goes on as a double, so an integer-only op names its integer rule.
+    test_detail::with_case(ctx, "coerce :: BigReal into an integer-only op names its rule", [&] {
+        const std::vector<Value> args{Value{BigReal("12157665459056928801")}, Value{Rational(2)}};
+        EXPECT_THROWS(ctx, coerce(OpId::Choose, args));
+        try {
+            coerce(OpId::Choose, args);
+        } catch (const CalculatorError &e) {
+            EXPECT_EQ(ctx, std::string(e.what()), tcalc::errmsg::integers_only("choose"));
+        }
     });
 
     // A BigReal paired with a Complex joins upward.
@@ -441,7 +467,61 @@ void unit_eval(TestContext &ctx) {
     // Range promotion: one rule, after dispatch, for every op. IEEE-754 makes inf, a
     // spurious zero and a subnormal exact detectors, so no magnitude estimate is needed.
     // Every row below returned a collapsed or overflowed double before the rule existed.
+    constexpr std::int64_t kI64Max = std::numeric_limits<std::int64_t>::max();
     const std::vector<ApplyArmCase> range_promotion_arm_cases = {
+        // An exact kernel that overflows int64 retries in BigReal, which holds the integer.
+        {.id = "pow(3, 40) overflows the exact arm into BigReal",
+         .input = {OpId::Pow, {Value{Rational(3)}, Value{Rational(40)}}},
+         .expected = Arm::Big},
+        {.id = "pow(1/3, 40) overflows the exact denominator into BigReal",
+         .input = {OpId::Pow, {Value{Rational(1, 3)}, Value{Rational(40)}}},
+         .expected = Arm::Big},
+        {.id = "add(int64 max, 2) overflows the exact arm into BigReal",
+         .input = {OpId::Add, {Value{Rational(kI64Max)}, Value{Rational(2)}}},
+         .expected = Arm::Big},
+        {.id = "mul(3037000500, 3037000500) overflows the exact arm into BigReal",
+         .input = {OpId::Mul, {Value{Rational(3037000500)}, Value{Rational(3037000500)}}},
+         .expected = Arm::Big},
+        {.id = "div(int64 max, 1/2) overflows the exact arm into BigReal",
+         .input = {OpId::Div, {Value{Rational(kI64Max)}, Value{Rational(1, 2)}}},
+         .expected = Arm::Big},
+        // intdiv of integers runs exact; doubles widen once a double could not hold an
+        // operand or the quotient, and a quotient past int64 overflows the exact arm.
+        {.id = "intdiv(int64 max, 1) stays an integer",
+         .input = {OpId::IntDiv, {Value{kI64Max}, Value{std::int64_t{1}}}},
+         .expected = Arm::Int64},
+        {.id = "intdiv(2^53+1, 1) stays an integer",
+         .input = {OpId::IntDiv, {Value{std::int64_t{9007199254740993}}, Value{std::int64_t{1}}}},
+         .expected = Arm::Int64},
+        {.id = "intdiv(1e18, 1e18) stays an integer",
+         .input =
+             {OpId::IntDiv,
+              {Value{Rational(1000000000000000000)}, Value{Rational(1000000000000000000)}}},
+         .expected = Arm::Int64},
+        {.id = "intdiv(int64 min, -1) overflows the exact arm into BigReal",
+         .input =
+             {OpId::IntDiv,
+              {Value{Rational(std::numeric_limits<std::int64_t>::min())}, Value{Rational(-1)}}},
+         .expected = Arm::Big},
+        {.id = "intdiv(1e19, 3) widens into BigReal",
+         .input = {OpId::IntDiv, {Value{1e19}, Value{3.0}}},
+         .expected = Arm::Big},
+        // The ops built on pow and sub overflow the same exact kernel.
+        {.id = "sqr(3037000500) overflows the exact arm into BigReal",
+         .input = {OpId::Sqr, {Value{Rational(3037000500)}}},
+         .expected = Arm::Big},
+        {.id = "cube(3486784401) overflows the exact arm into BigReal",
+         .input = {OpId::Cube, {Value{Rational(3486784401)}}},
+         .expected = Arm::Big},
+        {.id = "pow10(23) overflows the exact arm into BigReal",
+         .input = {OpId::Pow10, {Value{Rational(23)}}},
+         .expected = Arm::Big},
+        {.id = "percent(1/922337203685477580) overflows the exact denominator into BigReal",
+         .input = {OpId::Percent, {Value{Rational(1, 922337203685477580)}}},
+         .expected = Arm::Big},
+        {.id = "negate(int64 min) overflows the exact arm into BigReal",
+         .input = {OpId::Negate, {Value{Rational(std::numeric_limits<std::int64_t>::min())}}},
+         .expected = Arm::Big},
         {.id = "pow(1e-200, 3) underflows into BigReal",
          .input = {OpId::Pow, {Value{1e-200}, Value{3.0}}},
          .expected = Arm::Big},
@@ -483,6 +563,16 @@ void unit_eval(TestContext &ctx) {
         {.id = "sinh(1000+i) keeps its Complex",
          .input = {OpId::Sinh, {Value{Complex(1000.0, 1.0)}}},
          .expected = Arm::Cx},
+        // An op with no BigReal arm runs its double arm on a BigReal a double holds.
+        {.id = "atan(3^40 in BigReal) runs the double arm",
+         .input = {OpId::Atan, {Value{BigReal("12157665459056928801")}}},
+         .expected = Arm::Double},
+        {.id = "asin(3^-40 in BigReal) runs the double arm",
+         .input = {OpId::Asin, {Value{BigReal(1) / BigReal("12157665459056928801")}}},
+         .expected = Arm::Double},
+        {.id = "cbrt(3^42 in BigReal) runs the double arm",
+         .input = {OpId::Cbrt, {Value{BigReal("109418989131512359209")}}},
+         .expected = Arm::Double},
     };
 
     for (const auto &tc : range_promotion_arm_cases) {
@@ -492,6 +582,14 @@ void unit_eval(TestContext &ctx) {
             EXPECT_EQ(ctx, arm_of(r), tc.expected);
         });
     }
+
+    // A BigReal past double's range has no double to run on, so an op with no BigReal arm
+    // rejects it. An EXPECT_THROWS row, so it stays a single case.
+    test_detail::with_case(ctx, "apply :: atan(1e400 in BigReal) has no arm to run on", [&] {
+        const Calculator c;
+        EXPECT_THROWS(
+            ctx, apply(c, OpId::Atan, {Value{BigReal("1e400")}}, Calculator::AngleUnit::RAD));
+    });
 
     // The other side of the rule: a zero it cannot mistake for an underflow keeps its double.
     const std::vector<ApplyValueCase> range_promotion_value_cases = {
@@ -504,11 +602,68 @@ void unit_eval(TestContext &ctx) {
         {.id = "sub(5, 5) keeps a difference's zero",
          .input = {OpId::Sub, {Value{5.0}, Value{5.0}}},
          .expected = Value{0.0}},
-        // An exact kernel that cannot hold its result throws and apply retries in double; an
-        // integer pair there would make Pow's (double, long long) overload ambiguous.
-        {.id = "pow(2, 64) overflows the exact arm into a double",
+        // An exact kernel whose answer is rational but past int64 retries in BigReal.
+        {.id = "pow(2, 64) overflows the exact arm into BigReal",
          .input = {OpId::Pow, {Value{Rational(2)}, Value{Rational(64)}}},
-         .expected = Value{18446744073709551616.0}},
+         .expected = Value{BigReal("18446744073709551616")}},
+        {.id = "pow(3, 40) is exact in BigReal",
+         .input = {OpId::Pow, {Value{Rational(3)}, Value{Rational(40)}}},
+         .expected = Value{BigReal("12157665459056928801")}},
+        {.id = "mul(int64 max, int64 max) is exact in BigReal",
+         .input = {OpId::Mul, {Value{Rational(kI64Max)}, Value{Rational(kI64Max)}}},
+         .expected = Value{BigReal("85070591730234615847396907784232501249")}},
+        {.id = "intdiv(int64 max, 2^40) is an exact integer",
+         .input = {OpId::IntDiv, {Value{kI64Max}, Value{std::int64_t{1099511627776}}}},
+         .expected = Value{std::int64_t{8388607}}},
+        {.id = "intdiv(-int64 max, 2) truncates to an exact integer",
+         .input = {OpId::IntDiv, {Value{-kI64Max}, Value{std::int64_t{2}}}},
+         .expected = Value{std::int64_t{-4611686018427387903}}},
+        {.id = "intdiv(2^62, 3) is an exact integer",
+         .input = {OpId::IntDiv, {Value{Rational(4611686018427387904)}, Value{Rational(3)}}},
+         .expected = Value{std::int64_t{1537228672809129301}}},
+        {.id = "intdiv(-int64 max, -1) is an exact integer",
+         .input = {OpId::IntDiv, {Value{Rational(-kI64Max)}, Value{Rational(-1)}}},
+         .expected = Value{kI64Max}},
+        {.id = "intdiv(7/2, 1/3) truncates a fraction's quotient",
+         .input = {OpId::IntDiv, {Value{Rational(7, 2)}, Value{Rational(1, 3)}}},
+         .expected = Value{std::int64_t{10}}},
+        {.id = "intdiv(-7, 2) truncates toward zero",
+         .input = {OpId::IntDiv, {Value{Rational(-7)}, Value{Rational(2)}}},
+         .expected = Value{std::int64_t{-3}}},
+        {.id = "intdiv(int64 min, -1) is exact in BigReal",
+         .input =
+             {OpId::IntDiv,
+              {Value{Rational(std::numeric_limits<std::int64_t>::min())}, Value{Rational(-1)}}},
+         .expected = Value{BigReal("9223372036854775808")}},
+        {.id = "intdiv(int64 max, 1/2) is exact in BigReal",
+         .input = {OpId::IntDiv, {Value{Rational(kI64Max)}, Value{Rational(1, 2)}}},
+         .expected = Value{BigReal("18446744073709551614")}},
+        {.id = "sqr(3037000500) is exact in BigReal",
+         .input = {OpId::Sqr, {Value{Rational(3037000500)}}},
+         .expected = Value{BigReal("9223372037000250000")}},
+        // Pinned 2026-11-17: the square fits int64, but rational_pow_overflows bounds the
+        // squaring loop by a log2 estimate with a 62-bit margin, so it retries in BigReal.
+        {.id = "sqr(3037000499) is exact in BigReal",
+         .input = {OpId::Sqr, {Value{Rational(3037000499)}}},
+         .expected = Value{BigReal("9223372030926249001")}},
+        {.id = "cube(3486784401) is exact in BigReal",
+         .input = {OpId::Cube, {Value{Rational(3486784401)}}},
+         .expected = Value{BigReal("42391158275216203514294433201")}},
+        {.id = "pow10(23) is exact in BigReal",
+         .input = {OpId::Pow10, {Value{Rational(23)}}},
+         .expected = Value{BigReal("100000000000000000000000")}},
+        {.id = "pow10(-23) is exact in BigReal",
+         .input = {OpId::Pow10, {Value{Rational(-23)}}},
+         .expected = Value{BigReal("1e-23")}},
+        {.id = "negate(int64 min) is exact in BigReal",
+         .input = {OpId::Negate, {Value{Rational(std::numeric_limits<std::int64_t>::min())}}},
+         .expected = Value{BigReal("9223372036854775808")}},
+        {.id = "intdiv(7, 2) stays an integer",
+         .input = {OpId::IntDiv, {Value{std::int64_t{7}}, Value{std::int64_t{2}}}},
+         .expected = Value{std::int64_t{3}}},
+        {.id = "intdiv(2^53-1, 1) stays an integer",
+         .input = {OpId::IntDiv, {Value{std::int64_t{9007199254740991}}, Value{std::int64_t{1}}}},
+         .expected = Value{std::int64_t{9007199254740991}}},
         {.id = "root(2, 2) is irrational, so it falls back to double",
          .input = {OpId::Root, {Value{Rational(2)}, Value{Rational(2)}}},
          .expected = Value{std::numbers::sqrt2}},
@@ -575,17 +730,18 @@ void unit_eval(TestContext &ctx) {
     }
 
     // The Rational kernel throws on overflow (denominator past int64); apply retries
-    // in double and the caller gets a value, not an exception.
-    TEST_CASE(ctx, "apply :: mul of two small rationals overflows the kernel, recovers as double", {
-        const Calculator c;
-        const Value r = apply(
-            c,
-            OpId::Mul,
-            {Value{Rational(1, 4000000000)}, Value{Rational(1, 4000000000)}},
-            Calculator::AngleUnit::RAD);
-        EXPECT_EQ(ctx, arm_of(r), Arm::Double);
-        EXPECT_EQ(ctx, std::get<double>(r), 6.25e-20);
-    });
+    // in BigReal and the caller gets a value, not an exception.
+    TEST_CASE(
+        ctx, "apply :: mul of two small rationals overflows the kernel, recovers as BigReal", {
+            const Calculator c;
+            const Value r = apply(
+                c,
+                OpId::Mul,
+                {Value{Rational(1, 4000000000)}, Value{Rational(1, 4000000000)}},
+                Calculator::AngleUnit::RAD);
+            EXPECT_EQ(ctx, arm_of(r), Arm::Big);
+            EXPECT_EQ(ctx, std::get<BigReal>(r), BigReal("6.25e-20"));
+        });
 
     const std::vector<LitCase> literal_cases = {
         {.id = "integer", .input = "123", .expected = Value{std::int64_t{123}}},
@@ -3020,10 +3176,10 @@ void unit_eval(TestContext &ctx) {
     }
 
     test_detail::with_case(ctx, "iterated brute :: degree 25 is one past the Bernoulli table", [&] {
-        // The exact sum overflows int64, so brute lands on a double.
+        // The exact sum overflows int64, so brute lands on BigReal, which holds it whole.
         tcalc::eval::reset_closed_form_taken();
         const Value v = eval_text(c, "\\sum_{n=4}^{6} n^{25}");
-        EXPECT_EQ(ctx, near_rel(std::get<double>(v), 2.8729437153713496e+19), true);
+        EXPECT_EQ(ctx, std::get<BigReal>(v), BigReal("28729437153713497125"));
         EXPECT_EQ(ctx, tcalc::eval::closed_form_taken(), false);
     });
 

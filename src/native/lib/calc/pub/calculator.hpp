@@ -90,6 +90,7 @@ class Calculator {
     Rational sub(const Rational &a, const Rational &b) const;
     Rational mul(const Rational &a, const Rational &b) const;
     Rational div(const Rational &a, const Rational &b) const;
+    std::int64_t intdiv(const Rational &a, const Rational &b) const;
     Rational pow(const Rational &base, const Rational &exp) const;
     Rational sqrt(const Rational &a) const;
     Rational cbrt(const Rational &a) const;

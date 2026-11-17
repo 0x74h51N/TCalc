@@ -74,7 +74,7 @@ inline BigReal snap_integer(const BigReal &v) {
     using boost::multiprecision::abs;
     using boost::multiprecision::pow;
     using boost::multiprecision::round;
-    static const BigReal resolution = pow(BigReal(10), -kBigRealPrecisionDigits);
+    static const BigReal resolution = pow(BigReal(kDecimalBase), -kBigRealPrecisionDigits);
     BigReal n = round(v);
     if (n == v || n == 0) {
         return v;
@@ -84,9 +84,6 @@ inline BigReal snap_integer(const BigReal &v) {
     }
     return v;
 }
-
-/// The modulus that splits the integers into even and odd.
-inline constexpr int kParityModulus = 2;
 
 /// Whether y is an integer, read exactly, as std::pow reads its exponent.
 inline bool whole(double y) {
@@ -240,7 +237,7 @@ integer_root_floor(const boost::multiprecision::cpp_int &m, long long q) {
     const auto bits = static_cast<long long>(boost::multiprecision::msb(m)) + 1;
     if (q > bits)
         return 1;
-    if (q == 2)
+    if (q == kSquare)
         return boost::multiprecision::sqrt(m);
     // Newton for the integer q-th root, quadratic convergence from an overestimate:
     // r_{k+1} = ((q-1) r_k + m / r_k^(q-1)) / q.
@@ -276,9 +273,9 @@ template <class Int> std::optional<Int> exact_int_root(const Int &val, long long
     if (v == 0 || v == 1)
         return val; // 0^(1/q) = 0, 1^(1/q) = 1
     if (v == -1)
-        return (q % 2 != 0) ? std::optional<Int>(val) : std::nullopt;
+        return (q % kParityModulus != 0) ? std::optional<Int>(val) : std::nullopt;
     const bool negative = v < 0;
-    if (negative && (q % 2 == 0))
+    if (negative && (q % kParityModulus == 0))
         return std::nullopt;
     const cpp_int mag = boost::multiprecision::abs(v);
     const cpp_int r = integer_root_floor(mag, q);

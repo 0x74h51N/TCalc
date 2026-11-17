@@ -270,14 +270,25 @@ bool promote_complex(OpId id, std::vector<Value> &args) {
     return true;
 }
 
+namespace {
+
+/// Int64 and Rational are exactly the arms an exact lift accepts.
+bool exact_lift_accepts(ArmMask present) {
+    return (present & ~(arm_bit(Arm::Int64) | arm_bit(Arm::Rat))) == 0;
+}
+
+} // namespace
+
 bool promote_big(OpId id, std::vector<Value> &args) {
     const ops::RangeRule rule = ops::range_of(id);
-    if (rule == nullptr || args.size() < 2)
+    if (rule == nullptr || args.size() < ops::kBinaryOperands)
         return false;
     // A BigReal operand is already there, and a complex one has a magnitude the rule
     // cannot read off a single real.
     const ArmMask present = arms_present(args);
     if ((present & ~(arm_bit(Arm::Int64) | arm_bit(Arm::Double) | arm_bit(Arm::Rat))) != 0)
+        return false;
+    if (ops::has_trait(id, ops::Trait::DoubleKernelRange) && exact_lift_accepts(present))
         return false;
 
     if (!rule(as_double(args[0]), as_double(args[1])))
@@ -322,23 +333,30 @@ std::vector<Value> coerce(OpId id, std::vector<Value> args) {
         return args;
     }
 
-    if (has_big) {
-        // Never demote a BigReal either: it exists to hold what a double cannot.
-        if (!has_arm(arms, Arm::Big))
-            throw_math(errmsg::unsupported_operand(op_name(id)));
+    if (has_big && has_arm(arms, Arm::Big)) {
         for (auto &a : args)
             a = lift_to_big(a);
         return args;
     }
+    // Never demote a BigReal a double cannot hold: it exists for that. One a double holds,
+    // such as an exact result past int64, goes on below as the double it was before it widened.
+    // Past double's range the conversion is inf; below DBL_MIN boost gives 0, never a subnormal.
+    if (has_big)
+        for (auto &a : args)
+            if (const auto *b = std::get_if<BigReal>(&a)) {
+                const double d = to_double(*b);
+                if (std::isinf(d) || (d == 0.0 && *b != 0))
+                    throw_math(errmsg::unsupported_operand(op_name(id)));
+                a = Value{d};
+            }
 
     // Only the real arms remain here.
     // TODO: Fix Calculator (int, int) returning Rational(n, 1) instead of int.
     if (has_arm(arms, Arm::Rat)) {
-        // Int64 and Rational are exactly the arms an exact lift accepts, so the mask settles
-        // this all-or-nothing arm up front: one double among the operands leaves args
-        // untouched for the double arm below. Past the check only the integers convert, and
-        // like every other arm this one lifts in place.
-        if ((present & ~(arm_bit(Arm::Int64) | arm_bit(Arm::Rat))) == 0) {
+        // The mask settles this all-or-nothing arm up front: one double among the operands
+        // leaves args untouched for the double arm below. Past the check only the integers
+        // convert, and like every other arm this one lifts in place.
+        if (exact_lift_accepts(present)) {
             for (auto &a : args)
                 if (const auto *i = std::get_if<std::int64_t>(&a))
                     a = Value{Rational(*i)};
@@ -429,23 +447,30 @@ Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::A
         result = ops::kernel_of(id)(id, c, dispatch_args, unit);
     } catch (const CalculatorError &) {
         // Exact arithmetic that cannot represent its own result throws: a rational root
-        // that is irrational, a rational power that overflows. Retrying in double is how
-        // the calculator reaches an answer anyway. The trigger is what the failing call
-        // actually ran with, not what the caller passed: coerce lifts plain integers into
-        // Rational, so it is the lifted arguments that need unwinding.
+        // that is irrational, a rational result past int64. The retry is how the calculator
+        // reaches an answer anyway. The trigger is what the failing call actually ran with,
+        // not what the caller passed: coerce lifts plain integers into Rational, so it is the
+        // lifted arguments that need unwinding.
         if (!has_arm(arms_present(dispatch_args), Arm::Rat))
             throw;
-        // Straight to double: an integer is no arm of an op with a Rational arm, and Pow's
-        // (double, long long) overload would make an integer pair ambiguous.
-        for (auto &a : dispatch_args)
-            a = Value{as_double(a)};
-        // The domain rule reads a real operand, so a Rational never met it. The downcast
-        // has produced one: sqrt of a negative rational leaves the real domain here, and
-        // the promotion has to run before the retry rather than after it. coerce only
-        // follows when the promotion fired, since it would otherwise lift the operands
-        // straight back into the exact arm the retry just left.
-        promote_complex(id, dispatch_args);
-        if (has_arm(arms_present(dispatch_args), Arm::Cx))
+        // The op's row names the arm: BigReal holds a rational answer that overflowed int64.
+        // coerce made every operand Rational, as the rule reads them.
+        if (const ops::RetryArmRule retry = ops::retry_arm_of(id);
+            retry != nullptr && retry(dispatch_args) == Arm::Big) {
+            for (auto &a : dispatch_args)
+                a = lift_to_big(a);
+        } else {
+            // An integer is no arm of an op with a Rational arm, and Pow's (double, long long)
+            // overload would make an integer pair ambiguous.
+            for (auto &a : dispatch_args)
+                a = Value{as_double(a)};
+        }
+        // The domain rule reads a real operand, so a Rational never met it. The lift has
+        // produced one: sqrt of a negative rational leaves the real domain here, and the
+        // promotion has to run before the retry rather than after it. coerce only follows
+        // when the promotion fired, since it would otherwise lift the operands straight back
+        // into the exact arm the retry just left.
+        if (promote_complex(id, dispatch_args))
             dispatch_args = coerce(id, dispatch_args);
         result = ops::kernel_of(id)(id, c, dispatch_args, unit); // a second throw propagates
     }
@@ -531,7 +556,7 @@ Value eval_latex(const parser::LatexToken &latex, const Calculator &c, Calculato
         if (auto v = rule(latex.left, latex.right, c, unit))
             return *v;
     Value left = latex.left.empty() ? Value{Rational(0)} : eval_row(latex.left, c, unit);
-    Value right = Value{Rational(latex.kind == LatexKind::Root ? 2 : 0)};
+    Value right = Value{Rational(latex.kind == LatexKind::Root ? kSquare : 0)};
     if (!latex.right.empty())
         right = eval_row(latex.right, c, unit);
     return apply(c, latex.op_id, args_of(std::move(left), std::move(right)), unit);
@@ -740,7 +765,7 @@ bool ends_operand(const Token &t) {
 }
 
 /// Add's precedence: an iterated body keeps everything that binds tighter than this.
-inline constexpr std::uint8_t kIteratedBodyPrecedence = ops::op_spec(OpId::Add)->precedence;
+inline constexpr ops::Precedence kIteratedBodyPrecedence = ops::op_spec(OpId::Add)->precedence;
 
 /// True when tok ends the iterated body collected so far. An operator in operand position
 /// is a sign, not a terminator, so the body of `\sum_{n=1}^{3} +n` keeps its `+`.

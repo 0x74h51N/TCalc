@@ -25,7 +25,11 @@ using tcalc::ScalarArm;
 
 namespace {
 
-constexpr double kPairMeanDivisor = 2.0;
+constexpr int kPairMeanDivisor = 2;
+/// The median's index splits the sorted values into two halves.
+constexpr std::ptrdiff_t kMedianHalves = 2;
+/// A sample's variance needs two values to have one degree of freedom.
+constexpr std::size_t kMinSampleSize = 2;
 
 // Neumaier (Kahan-Babuska-Neumaier) compensated sum: error ~2*eps, independent of
 // element count and magnitude spread (recovers low bits lost to cancellation).
@@ -80,7 +84,7 @@ template <typename T> CollectionItem mean_pair(const T &a, const T &b) {
         const __int128 sum = static_cast<__int128>(a) + static_cast<__int128>(b);
         return static_cast<double>(sum) / kPairMeanDivisor;
     } else {
-        return (a + b) / T(2);
+        return (a + b) / T(kPairMeanDivisor);
     }
 }
 
@@ -193,9 +197,9 @@ CollectionItem Calculator::median_scalar(std::span<const CollectionItem> items) 
         v.reserve(items.size());
         for (const auto &it : items)
             v.push_back(std::get<T>(it));
-        const auto mid = v.begin() + std::ssize(v) / 2;
+        const auto mid = v.begin() + std::ssize(v) / kMedianHalves;
         std::nth_element(v.begin(), mid, v.end());
-        if (v.size() % 2)
+        if (v.size() % kParityModulus != 0)
             return CollectionItem{*mid};
         std::nth_element(v.begin(), mid - 1, mid);
         return mean_pair<T>(*(mid - 1), *mid);
@@ -229,7 +233,7 @@ CollectionItem Calculator::variance_scalar(std::span<const CollectionItem> items
         throw CalculatorError("variance is not defined for complex values");
     } else if constexpr (std::is_same_v<T, BigReal>) {
         const std::size_t n = items.size();
-        if (Sample && n < 2)
+        if (Sample && n < kMinSampleSize)
             throw CalculatorError("sample variance needs at least 2 elements");
         BigReal sum = 0;
         for (const auto &it : items)
@@ -243,7 +247,7 @@ CollectionItem Calculator::variance_scalar(std::span<const CollectionItem> items
         return ss / BigReal(static_cast<long long>(Sample ? n - 1 : n));
     } else {
         const std::size_t n = items.size();
-        if (Sample && n < 2)
+        if (Sample && n < kMinSampleSize)
             throw CalculatorError("sample variance needs at least 2 elements");
         const auto as_double = [](const CollectionItem &it) {
             return static_cast<double>(std::get<T>(it));

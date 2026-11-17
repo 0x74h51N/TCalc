@@ -137,7 +137,7 @@ def _eval(expr: str) -> object:
         # ----------------------------
         # BigReal promotion + non-overflow path
         # ----------------------------
-        param("2^309", "float", 2.0**309, id="pow-large-exp-stays-float"),
+        param("2^309", "BigReal", "1.042962419883257e+93", id="pow-large-exp-exact"),
         param("10^308", "BigReal", "e+308", id="pow-ten-308-promotes"),
         param(
             "1.7976931348623157e308^2",
@@ -148,9 +148,145 @@ def _eval(expr: str) -> object:
         param("14^308", "BigReal", "e+353", id="pow-overflow-promotes-bigreal"),
         param("10^(-400)", "BigReal", "e-400", id="pow-underflow-promotes-bigreal"),
         param("10^309", "BigReal", "e+309", id="pow-promotes-bigreal"),
+        param("10^{23}", "BigReal", "1e+23", id="pow-ten-23-exact"),
+        param("10^{200}", "BigReal", "1e+200", id="pow-ten-200-exact"),
+        param("10^{200}*10^{200}", "BigReal", "1e+400", id="pow-ten-200-squared-exact"),
+        param("10^{19}", "BigReal", "1e+19", id="pow-ten-19-exact"),
+        param("3^{40}", "BigReal", "1.215766545905693e+19", id="pow-three-40-exact"),
+        param("(1/3)^{-40}", "BigReal", "1.215766545905693e+19", id="pow-third-neg-40-exact"),
+        param("intdiv(1e19,1)", "BigReal", "1e+19", id="intdiv-past-i64-widens"),
+        param("intdiv(1e300,1)", "BigReal", "1e+300", id="intdiv-huge-widens"),
+        param(
+            "intdiv(9223372036854775807,1)",
+            "int",
+            "9223372036854775807",
+            id="intdiv-i64-max-stays-int",
+        ),
+        param(
+            "intdiv(1000000000000000000,1000000000000000000)",
+            "int",
+            "1",
+            id="intdiv-large-operands-quotient-one",
+        ),
+        param(
+            "intdiv(4611686018427387904,3)",
+            "int",
+            "1537228672809129301",
+            id="intdiv-large-quotient-exact-int",
+        ),
+        param(
+            "intdiv(1152921504606846976,7)",
+            "int",
+            "164703072086692425",
+            id="intdiv-large-quotient-by-seven",
+        ),
+        param(
+            "intdiv(-9223372036854775807,-1)",
+            "int",
+            "9223372036854775807",
+            id="intdiv-negative-by-minus-one",
+        ),
+        param(
+            "intdiv(-9223372036854775807,2)",
+            "int",
+            "-4611686018427387903",
+            id="intdiv-large-negative-truncates",
+        ),
+        param(
+            "intdiv(9223372036854775807,1099511627776)",
+            "int",
+            "8388607",
+            id="intdiv-large-operand-small-quotient",
+        ),
+        param(
+            "intdiv(9007199254740993,1)",
+            "int",
+            "9007199254740993",
+            id="intdiv-past-bound-stays-int",
+        ),
+        param("intdiv(7/2,1/3)", "int", "10", id="intdiv-of-fractions"),
+        param(
+            "intdiv(-9223372036854775807-1,-1)",
+            "BigReal",
+            "9.223372036854776e+18",
+            id="intdiv-i64-min-by-minus-one-widens",
+        ),
+        param(
+            "atan(intdiv(1000000000000000000,1000000000000000000))",
+            "float",
+            0.7853981633974483,
+            id="atan-of-intdiv",
+        ),
+        param("intdiv(1e19,3)", "BigReal", "3.333333333333333e+18", id="intdiv-past-i64-third"),
+        param("intdiv(7,2)", "int", "3", id="intdiv-small-stays-int"),
+        param("intdiv(-7,2)", "int", "-3", id="intdiv-negative-truncates"),
+        param(
+            "intdiv(9007199254740991,1)",
+            "int",
+            "9007199254740991",
+            id="intdiv-below-bound-stays-int",
+        ),
+        param("3037000500²", "BigReal", "9.22337203700025e+18", id="sqr-past-i64-exact"),
+        param("sqr(3037000500)", "BigReal", "9.22337203700025e+18", id="sqr-call-past-i64-exact"),
+        param("3486784401³", "BigReal", "4.23911582752162e+28", id="cube-past-i64-exact"),
+        param("⏨19", "BigReal", "1e+19", id="pow10-19-exact"),
+        param("⏨23", "BigReal", "1e+23", id="pow10-23-exact"),
+        param("⏨30", "BigReal", "1e+30", id="pow10-30-exact"),
+        param("⏨(-23)", "BigReal", "1e-23", id="pow10-neg-23-exact"),
+        param("10^{2.5}", "float", 316.22776601683796, id="pow-half-exp-ten-stays-double"),
+        param("2^{0.5}", "float", 1.4142135623730951, id="pow-half-exp-stays-double"),
+        param("2^(0.1)", "float", 1.0717734625362931, id="pow-decimal-exp-stays-double"),
+        param("atan(2^(0.1))", "float", 0.8200278036585581, id="atan-of-fractional-power"),
+        param("asin((1/3)^(1/2))", "float", 0.6154797086703873, id="asin-of-fractional-power"),
+        param("acos(0.9^(1.5))", "float", 0.5475261377077443, id="acos-of-fractional-power"),
+        param("sinh(1.05^(2.5))", "float", 1.3858438635844228, id="sinh-of-fractional-power"),
+        param("cosh(2^(0.1))", "float", 1.6314775737232652, id="cosh-of-fractional-power"),
+        param("tanh(3^(1/3))", "float", 0.8941496661860572, id="tanh-of-fractional-power"),
+        param("asinh(2^(0.1))", "float", 0.9312255966719867, id="asinh-of-fractional-power"),
+        param("acosh(2^(0.1))", "float", 0.3766455997542678, id="acosh-of-fractional-power"),
+        param("atanh(0.5^(0.1))", "float", 1.6813227297368156, id="atanh-of-fractional-power"),
+        param(
+            "atan((-2)^(0.1))",
+            "complex",
+            (0.8218037832200523, 0.15931969729966955),
+            id="atan-of-negative-base-fractional-power",
+        ),
+        param(
+            "acosh((-2)^(0.1))",
+            "complex",
+            (0.6055675116158038, 0.5408543608076344),
+            id="acosh-of-negative-base-fractional-power",
+        ),
+        param("atan(3^{40})", "float", 1.5707963267948966, id="atan-of-power-past-i64"),
+        param("asin((1/3)^{40})", "float", 8.225263339969959e-20, id="asin-of-tiny-power"),
+        param("acos((1/2)^{64})", "float", 1.5707963267948966, id="acos-of-tiny-power"),
+        param("sinh(1/10^{19})", "float", 1e-19, id="sinh-of-tiny-quotient"),
+        param("cosh(1/10^{19})", "float", 1.0, id="cosh-of-tiny-quotient"),
+        param("tanh(2^{64})", "float", 1.0, id="tanh-of-power-past-i64"),
+        param(
+            "asinh(9223372036854775807+1)", "float", 44.3614195558365, id="asinh-of-sum-past-i64"
+        ),
+        param("acosh(10^{19})", "float", 44.44226394744682, id="acosh-of-power-past-i64"),
+        param(
+            "atanh(1/(3037000500*3037000500))",
+            "float",
+            1.084202172468404e-19,
+            id="atanh-of-tiny-quotient",
+        ),
+        param("cbrt(3^{42})", "float", 4782969.0, id="cbrt-of-power-past-i64"),
+        param("atan(intdiv(1e16,1))", "float", 1.5707963267948966, id="atan-of-wide-intdiv"),
+        param(
+            "atan(10000000000000000000)", "float", 1.5707963267948966, id="atan-of-bigreal-literal"
+        ),
+        param("atan(10^{400}-10^{400})", "float", 0.0, id="atan-of-bigreal-zero"),
         param("sqrt(10^309)", "BigReal", "e+154", id="bigreal-sqrt-does-not-overflow"),
-        param("(10^307)/(10^306)", "float", 10.0, id="float-div-keeps-float"),
+        param("(10^307)/(10^306)", "BigReal", "10", id="div-of-big-powers-stays-big"),
         param("(10^309)/(10^308)", "BigReal", "10", id="bigreal-div-keeps-bigreal"),
+        param("3^40", "BigReal", "1.215766545905693e+19", id="pow-i64-overflow-value"),
+        param("2^62", "BigReal", "4.611686018427388e+18", id="pow-i64-boundary-value"),
+        param("(1/2)^(-62)", "BigReal", "4.611686018427388e+18", id="pow-neg-exp-boundary-value"),
+        param("(3/2)^100", "BigReal", "4.065611775352152e+17", id="pow-frac-overflow-value"),
+        param("0.0000000001 * 0.0000000001", "BigReal", "1e-20", id="rational-denominator-value"),
         param("1e16!", "BigReal", "e+155657055180967490", id="factorial-bigreal-huge"),
         param("1e17!", "BigReal", "inf", id="factorial-overflows-to-inf"),
         param("10^309 + e", "BigReal", "e+309", id="bigreal-promotes-e"),
@@ -344,8 +480,8 @@ def _eval(expr: str) -> object:
         param("log_{3}(3^{5})", "int", "5", id="log-of-its-own-power"),
         # Without a base script the log stays an ordinary prefix op, so its value is computed
         # before it runs and the token rule has nothing left to read. Nothing is lost but the
-        # integer type: base ten is exact through std::log10 either way.
-        param("log(10^{21})", "float", 21.0, id="log-of-its-own-power-implicit-base"),
+        # integer type: 10^{21} is an exact BigReal, and its log is 21.
+        param("log(10^{21})", "BigReal", "21", id="log-of-its-own-power-implicit-base"),
         param("2^{log_{3}9}", "float", 4.0, id="log-inverse-declines-other-base"),
         param("log_{2}(3^{5})", "float", 7.924812503605781, id="log-of-power-declines-other-base"),
         # A negative base is structurally self-matching but the logarithm rejects it, so the
@@ -403,7 +539,12 @@ def test_native_eval_golden(expr: str, expected_type: str, expected_value: objec
     out = _eval(expr)
     assert type(out).__name__ == expected_type
     assert isinstance(expected_value, str)
-    assert expected_value in str(out)
+    if expected_type.startswith("Big"):
+        # A wide value is pinned by the part of it that matters, and always by its sign.
+        assert expected_value in str(out)
+        assert str(out).startswith("-") == expected_value.startswith("-")
+    else:
+        assert str(out) == expected_value
 
 
 @pytest.mark.parametrize(
@@ -476,6 +617,85 @@ def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> N
         param("floor((1e400/7)*7/1e400)", "1", id="floor-exact-product"),
         param("(-8)^{9e400/3e400}", "-512", id="pow-negative-base-exact-quotient-exponent"),
         param("(-8)^{(1e400/3)*3/1e400}", "-8", id="pow-negative-base-exact-product-exponent"),
+        # A result past int64 is exact; str shows 16 digits, so a longer value is checked by a
+        # difference.
+        param(
+            "3^{40}-12157665459056928801",
+            "0",
+            id="pow-past-i64-exact",
+        ),
+        param(
+            "9223372036854775807+2-9223372036854775809",
+            "0",
+            id="add-past-i64-exact",
+        ),
+        param(
+            "-9223372036854775807-2+9223372036854775809",
+            "0",
+            id="sub-past-i64-min-exact",
+        ),
+        param(
+            "3037000500*3037000500-9223372037000250000",
+            "0",
+            id="mul-past-i64-exact",
+        ),
+        param(
+            "(-3)^{41}+36472996377170786403",
+            "0",
+            id="pow-negative-past-i64-exact",
+        ),
+        param(
+            "7^{23}-27368747340080916343",
+            "0",
+            id="pow-seven-23-exact",
+        ),
+        param(
+            "9223372036854775807*9223372036854775807-85070591730234615847396907784232501249",
+            "0",
+            id="mul-i64-max-squared-exact",
+        ),
+        param(
+            "3^{40}*3^{40}-147808829414345923316083210206383297601",
+            "0",
+            id="mul-past-i64-chain-exact",
+        ),
+        param(
+            "9223372036854775807/(1/2)-18446744073709551614",
+            "0",
+            id="div-past-i64-exact",
+        ),
+        param(
+            "(1/3)^{40}*3^{40}",
+            "1",
+            id="pow-denominator-past-i64-cancels",
+        ),
+        param(
+            "intdiv(-9223372036854775807-1,-1)-9223372036854775808",
+            "0",
+            id="intdiv-i64-min-by-minus-one-exact",
+        ),
+        param("intdiv(1e19,3)-3333333333333333333", "0", id="intdiv-past-i64-exact"),
+        param("intdiv(-1e19,3)+3333333333333333333", "0", id="intdiv-negative-past-i64-exact"),
+        param("3037000500²-9223372037000250000", "0", id="sqr-past-i64-diff"),
+        param("3037000499²-9223372030926249001", "0", id="sqr-near-i64-max-diff"),
+        param("sqr(3037000500)-9223372037000250000", "0", id="sqr-call-past-i64-diff"),
+        param("3486784401³-42391158275216203514294433201", "0", id="cube-past-i64-diff"),
+        param("2097151³-9223358842721533951", "0", id="cube-near-i64-max-diff"),
+        param("(3^{20})³-3^{60}", "0", id="cube-of-power-diff"),
+        param("⏨23-100000000000000000000000", "0", id="pow10-23-diff"),
+        param("⏨30-1000000000000000000000000000000", "0", id="pow10-30-diff"),
+        param("⏨(-23)*⏨23", "1", id="pow10-neg-times-pos"),
+        param("3037000499^{2}-9223372030926249001", "0", id="pow-near-i64-max-diff"),
+        param(
+            "(1/922337203685477580)%*922337203685477580",
+            "0.01",
+            id="percent-denominator-past-i64",
+        ),
+        param(
+            "-(-9223372036854775807-1)+1-9223372036854775809",
+            "0",
+            id="negate-i64-min-diff",
+        ),
     ],
 )
 def test_bigreal_exact_results(expr: str, expected: str) -> None:
@@ -551,6 +771,7 @@ class TestRational:
             param("(-2)^(-1)", -1, 2, id="pow-neg-base-neg-exp"),
             param("(-2)^(-2)", 1, 4, id="pow-neg-base-neg-even"),
             param("2^61", 2**61, 1, id="pow-i64-boundary-fits"),
+            param("3^{39}", 4052555153018976267, 1, id="pow-i64-largest-power-of-three"),
             param("(1/2)^(-61)", 2**61, 1, id="pow-neg-exp-i64-boundary-fits"),
             param("(1/4)^(1/2)", 1, 2, id="pow-frac-exp-exact-half"),
             param("8^(1/3)", 2, 1, id="pow-frac-exp-cbrt8"),
@@ -603,18 +824,6 @@ class TestRational:
             # factorial
             param("5!", 120.0, id="factorial-drops-rational"),
             param("0!", 1.0, id="factorial-zero"),
-            param("3^40", 3.0**40, id="pow-i64-overflow"),
-            param("2^62", 2.0**62, id="pow-i64-boundary-overflows"),
-            param("(1/2)^(-62)", 2.0**62, id="pow-neg-exp-i64-boundary-overflows"),
-            param("(3/2)^100", (3 / 2) ** 100, id="pow-frac-overflow"),
-            # Both operands parse to exact Rationals whose product needs a denominator of
-            # 1e20, well past int64. The exact kernel has to report that rather than wrap,
-            # and the row recovers as a float.
-            param(
-                "0.0000000001 * 0.0000000001",
-                1e-20,
-                id="rational-denominator-overflows-i64",
-            ),
         ],
     )
     def test_downcasts_to_float(self, expr: str, expected_approx: float | None) -> None:
@@ -649,6 +858,11 @@ class TestRational:
             param("2^1024", id="pow-2-1024"),
             param("10^400", id="pow-10-400"),
             param("3^700", id="pow-3-700"),
+            param("3^40", id="pow-i64-overflow"),
+            param("2^62", id="pow-i64-boundary-overflows"),
+            param("(1/2)^(-62)", id="pow-neg-exp-i64-boundary-overflows"),
+            param("(3/2)^100", id="pow-frac-overflow"),
+            param("0.0000000001 * 0.0000000001", id="rational-denominator-overflows-i64"),
         ],
     )
     def test_promotes_to_bigreal(self, expr: str) -> None:
@@ -668,6 +882,11 @@ class TestRational:
             param("0^(-2)", id="zero-to-neg-even-power"),
             param("0^(-3)", id="zero-frac-neg-odd"),
             param("(0/1)^(-2)", id="zero-frac-neg-exp"),
+            param("intdiv(7,0)", id="intdiv-by-zero"),
+            param("atan(10^{400})", id="atan-of-bigreal-past-double"),
+            param("cbrt(10^{400})", id="cbrt-of-bigreal-past-double"),
+            param("asin((1/2)^{1030})", id="asin-of-bigreal-subnormal-in-double"),
+            param("asin((1/2)^{1100})", id="asin-of-bigreal-zero-in-double"),
         ],
     )
     def test_raises_math_error(self, expr: str) -> None:
