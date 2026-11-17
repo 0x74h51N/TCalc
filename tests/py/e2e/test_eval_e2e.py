@@ -257,9 +257,36 @@ def _eval(expr: str) -> object:
             (0.6055675116158038, 0.5408543608076344),
             id="acosh-of-negative-base-fractional-power",
         ),
+        param("atan(3^{40})", "float", 1.5707963267948966, id="atan-of-power-past-i64"),
+        param("asin((1/3)^{40})", "float", 8.225263339969959e-20, id="asin-of-tiny-power"),
+        param("acos((1/2)^{64})", "float", 1.5707963267948966, id="acos-of-tiny-power"),
+        param("sinh(1/10^{19})", "float", 1e-19, id="sinh-of-tiny-quotient"),
+        param("cosh(1/10^{19})", "float", 1.0, id="cosh-of-tiny-quotient"),
+        param("tanh(2^{64})", "float", 1.0, id="tanh-of-power-past-i64"),
+        param(
+            "asinh(9223372036854775807+1)", "float", 44.3614195558365, id="asinh-of-sum-past-i64"
+        ),
+        param("acosh(10^{19})", "float", 44.44226394744682, id="acosh-of-power-past-i64"),
+        param(
+            "atanh(1/(3037000500*3037000500))",
+            "float",
+            1.084202172468404e-19,
+            id="atanh-of-tiny-quotient",
+        ),
+        param("cbrt(3^{42})", "float", 4782969.0, id="cbrt-of-power-past-i64"),
+        param("atan(intdiv(1e16,1))", "float", 1.5707963267948966, id="atan-of-wide-intdiv"),
+        param(
+            "atan(10000000000000000000)", "float", 1.5707963267948966, id="atan-of-bigreal-literal"
+        ),
+        param("atan(10^{400}-10^{400})", "float", 0.0, id="atan-of-bigreal-zero"),
         param("sqrt(10^309)", "BigReal", "e+154", id="bigreal-sqrt-does-not-overflow"),
         param("(10^307)/(10^306)", "BigReal", "10", id="div-of-big-powers-stays-big"),
         param("(10^309)/(10^308)", "BigReal", "10", id="bigreal-div-keeps-bigreal"),
+        param("3^40", "BigReal", "1.215766545905693e+19", id="pow-i64-overflow-value"),
+        param("2^62", "BigReal", "4.611686018427388e+18", id="pow-i64-boundary-value"),
+        param("(1/2)^(-62)", "BigReal", "4.611686018427388e+18", id="pow-neg-exp-boundary-value"),
+        param("(3/2)^100", "BigReal", "4.065611775352152e+17", id="pow-frac-overflow-value"),
+        param("0.0000000001 * 0.0000000001", "BigReal", "1e-20", id="rational-denominator-value"),
         param("1e16!", "BigReal", "e+155657055180967490", id="factorial-bigreal-huge"),
         param("1e17!", "BigReal", "inf", id="factorial-overflows-to-inf"),
         param("10^309 + e", "BigReal", "e+309", id="bigreal-promotes-e"),
@@ -512,7 +539,12 @@ def test_native_eval_golden(expr: str, expected_type: str, expected_value: objec
     out = _eval(expr)
     assert type(out).__name__ == expected_type
     assert isinstance(expected_value, str)
-    assert expected_value in str(out)
+    if expected_type.startswith("Big"):
+        # A wide value is pinned by the part of it that matters, and always by its sign.
+        assert expected_value in str(out)
+        assert str(out).startswith("-") == expected_value.startswith("-")
+    else:
+        assert str(out) == expected_value
 
 
 @pytest.mark.parametrize(
@@ -851,6 +883,10 @@ class TestRational:
             param("0^(-3)", id="zero-frac-neg-odd"),
             param("(0/1)^(-2)", id="zero-frac-neg-exp"),
             param("intdiv(7,0)", id="intdiv-by-zero"),
+            param("atan(10^{400})", id="atan-of-bigreal-past-double"),
+            param("cbrt(10^{400})", id="cbrt-of-bigreal-past-double"),
+            param("asin((1/2)^{1030})", id="asin-of-bigreal-subnormal-in-double"),
+            param("asin((1/2)^{1100})", id="asin-of-bigreal-zero-in-double"),
         ],
     )
     def test_raises_math_error(self, expr: str) -> None:

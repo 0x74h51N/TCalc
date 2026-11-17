@@ -333,14 +333,22 @@ std::vector<Value> coerce(OpId id, std::vector<Value> args) {
         return args;
     }
 
-    if (has_big) {
-        // Never demote a BigReal either: it exists to hold what a double cannot.
-        if (!has_arm(arms, Arm::Big))
-            throw_math(errmsg::unsupported_operand(op_name(id)));
+    if (has_big && has_arm(arms, Arm::Big)) {
         for (auto &a : args)
             a = lift_to_big(a);
         return args;
     }
+    // Never demote a BigReal a double cannot hold: it exists for that. One a double holds,
+    // such as an exact result past int64, goes on below as the double it was before it widened.
+    // Past double's range the conversion is inf; below DBL_MIN boost gives 0, never a subnormal.
+    if (has_big)
+        for (auto &a : args)
+            if (const auto *b = std::get_if<BigReal>(&a)) {
+                const double d = to_double(*b);
+                if (std::isinf(d) || (d == 0.0 && *b != 0))
+                    throw_math(errmsg::unsupported_operand(op_name(id)));
+                a = Value{d};
+            }
 
     // Only the real arms remain here.
     // TODO: Fix Calculator (int, int) returning Rational(n, 1) instead of int.

@@ -246,9 +246,35 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, arm_of(out[1]), Arm::Big);
     });
 
-    // An op with no Big arm: a BigReal is rejected, never demoted.
-    TEST_CASE(ctx, "coerce :: BigReal into an op with no Big arm is an error", {
-        EXPECT_THROWS(ctx, coerce(OpId::Cbrt, {Value{BigReal("8")}}));
+    // An op with no Big arm: a BigReal a double holds runs its double arm; one past double's
+    // range is rejected, never demoted.
+    TEST_CASE(ctx, "coerce :: BigReal a double holds into an op with no Big arm is a double", {
+        const auto out = coerce(OpId::Cbrt, {Value{BigReal("8")}});
+        EXPECT_EQ(ctx, out[0], Value{8.0});
+    });
+    TEST_CASE(ctx, "coerce :: a BigReal zero into an op with no Big arm is a double zero", {
+        const auto out = coerce(OpId::Atan, {Value{BigReal("0")}});
+        EXPECT_EQ(ctx, out[0], Value{0.0});
+    });
+    TEST_CASE(ctx, "coerce :: BigReal past double into an op with no Big arm is an error", {
+        EXPECT_THROWS(ctx, coerce(OpId::Cbrt, {Value{BigReal("1e400")}}));
+    });
+    TEST_CASE(
+        ctx, "coerce :: BigReal in the subnormal band into an op with no Big arm is an error", {
+            EXPECT_THROWS(ctx, coerce(OpId::Cbrt, {Value{BigReal("1e-310")}}));
+        });
+    TEST_CASE(ctx, "coerce :: BigReal below double into an op with no Big arm is an error", {
+        EXPECT_THROWS(ctx, coerce(OpId::Cbrt, {Value{BigReal("1e-400")}}));
+    });
+    // A held BigReal goes on as a double, so an integer-only op names its integer rule.
+    test_detail::with_case(ctx, "coerce :: BigReal into an integer-only op names its rule", [&] {
+        const std::vector<Value> args{Value{BigReal("12157665459056928801")}, Value{Rational(2)}};
+        EXPECT_THROWS(ctx, coerce(OpId::Choose, args));
+        try {
+            coerce(OpId::Choose, args);
+        } catch (const CalculatorError &e) {
+            EXPECT_EQ(ctx, std::string(e.what()), tcalc::errmsg::integers_only("choose"));
+        }
     });
 
     // A BigReal paired with a Complex joins upward.
@@ -460,7 +486,7 @@ void unit_eval(TestContext &ctx) {
          .input = {OpId::Div, {Value{Rational(kI64Max)}, Value{Rational(1, 2)}}},
          .expected = Arm::Big},
         // intdiv of integers runs exact; doubles widen once a double could not hold an
-        // operand or the quotient, and only int64 min by -1 overflows the exact arm.
+        // operand or the quotient, and a quotient past int64 overflows the exact arm.
         {.id = "intdiv(int64 max, 1) stays an integer",
          .input = {OpId::IntDiv, {Value{kI64Max}, Value{std::int64_t{1}}}},
          .expected = Arm::Int64},
@@ -537,6 +563,16 @@ void unit_eval(TestContext &ctx) {
         {.id = "sinh(1000+i) keeps its Complex",
          .input = {OpId::Sinh, {Value{Complex(1000.0, 1.0)}}},
          .expected = Arm::Cx},
+        // An op with no BigReal arm runs its double arm on a BigReal a double holds.
+        {.id = "atan(3^40 in BigReal) runs the double arm",
+         .input = {OpId::Atan, {Value{BigReal("12157665459056928801")}}},
+         .expected = Arm::Double},
+        {.id = "asin(3^-40 in BigReal) runs the double arm",
+         .input = {OpId::Asin, {Value{BigReal(1) / BigReal("12157665459056928801")}}},
+         .expected = Arm::Double},
+        {.id = "cbrt(3^42 in BigReal) runs the double arm",
+         .input = {OpId::Cbrt, {Value{BigReal("109418989131512359209")}}},
+         .expected = Arm::Double},
     };
 
     for (const auto &tc : range_promotion_arm_cases) {
@@ -546,6 +582,14 @@ void unit_eval(TestContext &ctx) {
             EXPECT_EQ(ctx, arm_of(r), tc.expected);
         });
     }
+
+    // A BigReal past double's range has no double to run on, so an op with no BigReal arm
+    // rejects it. An EXPECT_THROWS row, so it stays a single case.
+    test_detail::with_case(ctx, "apply :: atan(1e400 in BigReal) has no arm to run on", [&] {
+        const Calculator c;
+        EXPECT_THROWS(
+            ctx, apply(c, OpId::Atan, {Value{BigReal("1e400")}}, Calculator::AngleUnit::RAD));
+    });
 
     // The other side of the rule: a zero it cannot mistake for an underflow keeps its double.
     const std::vector<ApplyValueCase> range_promotion_value_cases = {
@@ -591,9 +635,14 @@ void unit_eval(TestContext &ctx) {
              {OpId::IntDiv,
               {Value{Rational(std::numeric_limits<std::int64_t>::min())}, Value{Rational(-1)}}},
          .expected = Value{BigReal("9223372036854775808")}},
+        {.id = "intdiv(int64 max, 1/2) is exact in BigReal",
+         .input = {OpId::IntDiv, {Value{Rational(kI64Max)}, Value{Rational(1, 2)}}},
+         .expected = Value{BigReal("18446744073709551614")}},
         {.id = "sqr(3037000500) is exact in BigReal",
          .input = {OpId::Sqr, {Value{Rational(3037000500)}}},
          .expected = Value{BigReal("9223372037000250000")}},
+        // Pinned 2026-11-17: the square fits int64, but rational_pow_overflows bounds the
+        // squaring loop by a log2 estimate with a 62-bit margin, so it retries in BigReal.
         {.id = "sqr(3037000499) is exact in BigReal",
          .input = {OpId::Sqr, {Value{Rational(3037000499)}}},
          .expected = Value{BigReal("9223372030926249001")}},
