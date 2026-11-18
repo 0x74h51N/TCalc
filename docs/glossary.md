@@ -160,13 +160,13 @@ $\color{#3b82f6}\textbf{Guard digits}$: The digits a BigReal keeps past the 50 i
 
 $\color{#3b82f6}\textbf{Half turn}$: An angle as a multiple of π, the unit the exact trig table works in: 30° is 1/6 of a half turn.
 
-$\color{#3b82f6}\textbf{Hole}$: A whole-branch review: one fresh reviewer reads every commit of a branch, and its uncommitted diff, against the spec and the plan before the branch is finished. Spelled like what it is there to find.
-
 $\color{#3b82f6}\textbf{Index}$: A cursor position in a field, counted in characters: 0 is before the first character, the text length is after the last.
 
 $\color{#3b82f6}\textbf{Inner slot}$: The one slot of a ParenWidget, between its paren glyphs, which are segments of it. It starts with the open glyph instead of a field, and its plain text includes the paren symbols.
 
 $\color{#3b82f6}\textbf{Int64}$: The arm of a Value that holds a 64-bit integer.
+
+$\color{#3b82f6}\textbf{int\_like}$: The loose integer test (int_like in calc/internal/helpers.hpp): a double within 1e-12 of an integer counts as one. The domain checks read it, such as factorial refusing a negative integer. -inf is not int_like, though it is whole.
 
 $\color{#3b82f6}\textbf{Integer fold}$: Pairwise left fold of gcd or lcm over a List of integers (fold_integers in number_theory.cpp).
 
@@ -288,6 +288,8 @@ $\color{#3b82f6}\textbf{Per-column reduction}$: On a List of Points the reductio
 
 $\color{#3b82f6}\textbf{Periodic sum}$: Trig sum whose angle is a rational multiple of a half turn. The terms repeat; one period is summed exactly from the half-turn table.
 
+$\color{#3b82f6}\textbf{Pin}$: A red check held at today's value instead of silenced, with its reason and date beside it, so the number can only improve. A smoke pin names the issue that fixes it, and a pin that no longer fails is red too.
+
 $\color{#3b82f6}\textbf{Plain text}$: The expression as one string, LaTeX included, which the editor builds by joining its slots (get_plain_text). The controller evaluates it, and the debug tree dump prints it last as [plain_text]. The editor emits it as plain_text_changed.
 
 $\color{#3b82f6}\textbf{Point}$: Two or three scalars in round brackets. A single value in round brackets is a plain grouping, not a Point.
@@ -295,6 +297,8 @@ $\color{#3b82f6}\textbf{Point}$: Two or three scalars in round brackets. A singl
 ```math
 (3, 4) \qquad (1, 2, 3)
 ```
+
+$\color{#3b82f6}\textbf{Pole}$: A point where a function has no value because it grows without bound: Γ at 0 and every negative integer, so (-1)! and Γ(0) are a math error; tan at an odd multiple of π/2.
 
 $\color{#3b82f6}\textbf{Population standard deviation}$: A reduction: the square root of the population variance. Symbol σ, alias stdp.
 
@@ -345,6 +349,8 @@ $\color{#3b82f6}\textbf{Render mode}$: How an expression is shown: Math with Mat
 $\color{#3b82f6}\textbf{Renderer}$: MathRender (renderer/math_render.py) turns the tokens of one field into Math Widgets, each with its prefix and suffix, and recurses into their slots. The result display uses a read-only renderer, whose fields cannot be focused or edited.
 
 $\color{#3b82f6}\textbf{Replace with}$: Swapping a Math Widget in a slot for a list of segments (replace_with): the Math Widget is taken out, the segments are spliced in its place, and the field returned by the splice gets the focus. A dissolve with a Math Widget in its left slot goes this way.
+
+$\color{#3b82f6}\textbf{Retry}$: The second try in apply after an exact kernel throws, as an irrational root or a rational past int64 does. The op's row names the arm (retry_arm): BigReal for a result that stays rational, double otherwise; a row without one retries in double. A whole exponent retries in BigReal, a fractional one in double (power_retry_arm).
 
 $\color{#3b82f6}\textbf{Right}$: 1. The LatexToken field that holds the second operand of its op: the denominator, the exponent, the index of a subscript, the degree, the upper limit. 2. The math node field built from it, the row the right slot renders.
 
@@ -451,5 +457,7 @@ $\color{#3b82f6}\textbf{Variadic call}$: A reduction, gcd or lcm called with sev
 ```
 
 $\color{#3b82f6}\textbf{VarStore}$: The native store of the session's variables: an assignment writes a value into it, and a later row reads it by name. There is one store for now.
+
+$\color{#3b82f6}\textbf{Whole}$: 1. The exact integer test (whole in calc/internal/helpers.hpp): floor(y) == y for a double, the same after snapping to 50 digits for a BigReal, a denominator of 1 for a Rational. A rule that must not round reads it, such as the power's domain rule: a negative base under an exponent that is not whole leaves the real domain. int_like is the loose one. 2. Whole review: one fresh reviewer reads every commit of a branch, and its uncommitted diff, against the spec and the plan before the branch is finished.
 
 $\color{#3b82f6}\textbf{Write-back}$: Writing a dissolved Math Widget's left slot as text into the parent field at the cursor (\_write_back_at_cursor), the dissolve path when the left slot holds no Math Widget. The cursor ends after the written text.
