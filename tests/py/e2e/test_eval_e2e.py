@@ -205,6 +205,11 @@ def _eval(expr: str) -> object:
             id="intdiv-past-bound-stays-int",
         ),
         param("intdiv(7/2,1/3)", "int", "10", id="intdiv-of-fractions"),
+        param("0!", "int", "1", id="factorial-zero"),
+        param("5!", "int", "120", id="factorial-is-an-integer"),
+        param("18!-6402373705728000", "float", 0.0, id="factorial-18-diff"),
+        param("19!-121645100408832000", "float", 0.0, id="factorial-19-diff"),
+        param("Γ(19)-6402373705728000", "float", 0.0, id="gamma-19-diff"),
         param(
             "intdiv(-9223372036854775807-1,-1)",
             "BigReal",
@@ -677,6 +682,10 @@ def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> N
         param("intdiv(1e19,3)-3333333333333333333", "0", id="intdiv-past-i64-exact"),
         param("intdiv(-1e19,3)+3333333333333333333", "0", id="intdiv-negative-past-i64-exact"),
         param("3037000500²-9223372037000250000", "0", id="sqr-past-i64-diff"),
+        param("21!-51090942171709440000", "0", id="factorial-21-diff"),
+        param("22!-1124000727777607680000", "0", id="factorial-22-diff"),
+        param("25!-15511210043330985984000000", "0", id="factorial-25-diff"),
+        param("Γ(23)-1124000727777607680000", "0", id="gamma-23-diff"),
         param("3037000499²-9223372030926249001", "0", id="sqr-near-i64-max-diff"),
         param("sqr(3037000500)-9223372037000250000", "0", id="sqr-call-past-i64-diff"),
         param("3486784401³-42391158275216203514294433201", "0", id="cube-past-i64-diff"),
@@ -821,9 +830,10 @@ class TestRational:
             # fractional exponent => irrational result
             param("2^(1/2)", 1.4142135623730951, id="pow-frac-exp-sqrt2"),
             param("3^(1/3)", 1.4422495703074083, id="pow-frac-exp-cbrt3"),
-            # factorial
-            param("5!", 120.0, id="factorial-drops-rational"),
-            param("0!", 1.0, id="factorial-zero"),
+            # factorial of a fraction
+            param("(1/2)!", 0.886226925452758, id="factorial-of-half"),
+            param("(-1/2)!", 1.772453850905516, id="factorial-of-minus-half"),
+            param("Γ(5/2)", 1.329340388179137, id="gamma-of-five-halves"),
         ],
     )
     def test_downcasts_to_float(self, expr: str, expected_approx: float | None) -> None:
@@ -863,6 +873,7 @@ class TestRational:
             param("(1/2)^(-62)", id="pow-neg-exp-i64-boundary-overflows"),
             param("(3/2)^100", id="pow-frac-overflow"),
             param("0.0000000001 * 0.0000000001", id="rational-denominator-overflows-i64"),
+            param("Γ(172)", id="gamma-past-double-range"),
         ],
     )
     def test_promotes_to_bigreal(self, expr: str) -> None:
@@ -883,6 +894,8 @@ class TestRational:
             param("0^(-3)", id="zero-frac-neg-odd"),
             param("(0/1)^(-2)", id="zero-frac-neg-exp"),
             param("intdiv(7,0)", id="intdiv-by-zero"),
+            param("(-1)!", id="factorial-of-negative-integer"),
+            param("Γ(0)", id="gamma-pole"),
             param("atan(10^{400})", id="atan-of-bigreal-past-double"),
             param("cbrt(10^{400})", id="cbrt-of-bigreal-past-double"),
             param("asin((1/2)^{1030})", id="asin-of-bigreal-subnormal-in-double"),

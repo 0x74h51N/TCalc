@@ -1156,8 +1156,16 @@ inline constexpr std::array kOpRows = {
         kDecimalBase),
     with_domain(
         unary(OpId::Ln, TCALC_CALL(ln)), [](const auto &x, const auto &) { return x <= 0.0; }),
-    unary(OpId::Fact, TCALC_CALL(fact)),
-    unary(OpId::Gamma, TCALC_CALL(gamma)),
+    with_retry_arm(
+        unary(OpId::Fact, TCALC_CALL(fact)),
+        [](std::span<const Value> args) {
+            return detail::power_retry_arm(std::get<Rational>(args[0]));
+        }),
+    with_retry_arm(
+        unary(OpId::Gamma, TCALC_CALL(gamma)),
+        [](std::span<const Value> args) {
+            return detail::power_retry_arm(std::get<Rational>(args[0]));
+        }),
     unary(OpId::Trunc, TCALC_CALL(trunc)),
     unary(OpId::Floor, TCALC_CALL(floor)),
     unary(OpId::Ceil, TCALC_CALL(ceil)),

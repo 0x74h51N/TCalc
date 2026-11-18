@@ -1,6 +1,7 @@
 #include "calc/pub/calculator.hpp"
 #include "internal/test_helpers.hpp"
 
+#include <cmath>
 #include <limits>
 #include <vector>
 
@@ -56,7 +57,47 @@ void unit_combinatorics(TestContext &ctx) {
          .input = 0.25,
          .expected = 0.9064024770554771,
          .tol = 0.0},
+        {.id = "fact :: 18 is exact",
+         .fn = &Calculator::fact,
+         .input = 18.0,
+         .expected = 6402373705728000.0,
+         .tol = 0.0},
+        {.id = "fact :: 19 is exact",
+         .fn = &Calculator::fact,
+         .input = 19.0,
+         .expected = 121645100408832000.0,
+         .tol = 0.0},
+        {.id = "fact :: 21 is exact",
+         .fn = &Calculator::fact,
+         .input = 21.0,
+         .expected = 51090942171709440000.0,
+         .tol = 0.0},
+        {.id = "fact :: 22 is exact",
+         .fn = &Calculator::fact,
+         .input = 22.0,
+         .expected = 1124000727777607680000.0,
+         .tol = 0.0},
+        {.id = "fact :: 100 is correctly rounded",
+         .fn = &Calculator::fact,
+         .input = 100.0,
+         .expected = 9.332621544394415e157,
+         .tol = 0.0},
         {.id = "gamma :: one", .fn = &Calculator::gamma, .input = 1.0, .expected = 1.0, .tol = 0.0},
+        {.id = "gamma :: 19 is exact",
+         .fn = &Calculator::gamma,
+         .input = 19.0,
+         .expected = 6402373705728000.0,
+         .tol = 0.0},
+        {.id = "gamma :: 23 is exact",
+         .fn = &Calculator::gamma,
+         .input = 23.0,
+         .expected = 1124000727777607680000.0,
+         .tol = 0.0},
+        {.id = "gamma :: fraction past one",
+         .fn = &Calculator::gamma,
+         .input = 2.5,
+         .expected = 1.329340388179137,
+         .tol = 1e-15},
         {.id = "gamma :: half",
          .fn = &Calculator::gamma,
          .input = 0.5,
@@ -84,6 +125,16 @@ void unit_combinatorics(TestContext &ctx) {
          .input = "20",
          .expected = "2432902008176640000",
          .tol = "1e-10"},
+        {.id = "bigreal :: fact 25 is exact",
+         .fn = &Calculator::fact,
+         .input = "25",
+         .expected = "15511210043330985984000000",
+         .tol = "0"},
+        {.id = "bigreal :: gamma 26 is exact",
+         .fn = &Calculator::gamma,
+         .input = "26",
+         .expected = "15511210043330985984000000",
+         .tol = "0"},
         {.id = "bigreal :: fact fractional",
          .fn = &Calculator::fact,
          .input = "0.25",
@@ -99,6 +150,11 @@ void unit_combinatorics(TestContext &ctx) {
     }
 
     TEST_CASE(ctx, "fact :: domain throws", { EXPECT_THROWS(ctx, c.fact(-1.0)); });
+    // nan cannot be compared in the table; -inf is whole but no factorial, so it stays tgamma's
+    // nan.
+    TEST_CASE(ctx, "fact :: -inf is nan", {
+        EXPECT_TRUE(ctx, std::isnan(c.fact(-std::numeric_limits<double>::infinity())));
+    });
     TEST_CASE(ctx, "gamma :: domain zero throws", { EXPECT_THROWS(ctx, c.gamma(0.0)); });
     TEST_CASE(ctx, "gamma :: domain negative int throws", { EXPECT_THROWS(ctx, c.gamma(-2.0)); });
     TEST_CASE(ctx, "bigreal :: fact domain throws", { EXPECT_THROWS(ctx, c.fact(BigReal("-1"))); });
