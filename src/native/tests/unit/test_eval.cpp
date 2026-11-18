@@ -299,10 +299,10 @@ void unit_eval(TestContext &ctx) {
     });
 
     // An op with no Rational arm downcasts, and then has to land on an arm the op really
-    // has. Fact's only real arm is Double, so the integer goes on to double rather than
+    // has. Sinh's only real arm is Double, so the integer goes on to double rather than
     // reaching a kernel with no integer overload to take it.
-    TEST_CASE(ctx, "coerce :: fact of a rational lands on the Double arm", {
-        const auto out = coerce(OpId::Fact, {Value{Rational(5)}});
+    TEST_CASE(ctx, "coerce :: sinh of a rational lands on the Double arm", {
+        const auto out = coerce(OpId::Sinh, {Value{Rational(5)}});
         EXPECT_EQ(ctx, arm_of(out[0]), Arm::Double);
     });
 
@@ -424,10 +424,10 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, std::get<Rational>(r), Rational(1, 4));
     });
 
-    TEST_CASE(ctx, "apply :: fact of a rational downcasts to double", {
+    TEST_CASE(ctx, "apply :: fact of a rational is an exact integer", {
         const Calculator c;
         const Value r = apply(c, OpId::Fact, {Value{Rational(5)}}, Calculator::AngleUnit::RAD);
-        EXPECT_EQ(ctx, std::get<double>(r), 120.0);
+        EXPECT_EQ(ctx, std::get<std::int64_t>(r), std::int64_t{120});
     });
 
     TEST_CASE(ctx, "apply :: sin honours the angle unit", {
@@ -635,6 +635,21 @@ void unit_eval(TestContext &ctx) {
              {OpId::IntDiv,
               {Value{Rational(std::numeric_limits<std::int64_t>::min())}, Value{Rational(-1)}}},
          .expected = Value{BigReal("9223372036854775808")}},
+        {.id = "fact(18) is an exact integer",
+         .input = {OpId::Fact, {Value{std::int64_t{18}}}},
+         .expected = Value{std::int64_t{6402373705728000}}},
+        {.id = "fact(21) is exact in BigReal",
+         .input = {OpId::Fact, {Value{std::int64_t{21}}}},
+         .expected = Value{BigReal("51090942171709440000")}},
+        {.id = "fact(25) is exact in BigReal",
+         .input = {OpId::Fact, {Value{std::int64_t{25}}}},
+         .expected = Value{BigReal("15511210043330985984000000")}},
+        {.id = "gamma(19) is an exact integer",
+         .input = {OpId::Gamma, {Value{std::int64_t{19}}}},
+         .expected = Value{std::int64_t{6402373705728000}}},
+        {.id = "gamma(26) is exact in BigReal",
+         .input = {OpId::Gamma, {Value{std::int64_t{26}}}},
+         .expected = Value{BigReal("15511210043330985984000000")}},
         {.id = "intdiv(int64 max, 1/2) is exact in BigReal",
          .input = {OpId::IntDiv, {Value{Rational(kI64Max)}, Value{Rational(1, 2)}}},
          .expected = Value{BigReal("18446744073709551614")}},
@@ -807,7 +822,7 @@ void unit_eval(TestContext &ctx) {
          .expected = Value{Rational(3)}},
         {.id = "a power with no exponent is one", .input = "2^{}", .expected = Value{Rational(1)}},
         {.id = "a power", .input = "2^{10}", .expected = Value{Rational(1024)}},
-        {.id = "a postfix factorial", .input = "5!", .expected = Value{120.0}},
+        {.id = "a postfix factorial", .input = "5!", .expected = Value{std::int64_t{120}}},
         // The stack pops right operand first, so a non-commutative op is the only thing
         // that can tell the two apart.
         {.id = "the operands of a subtraction keep their order",
@@ -1575,7 +1590,7 @@ void unit_eval(TestContext &ctx) {
         EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} (n+1)*n"), Value{Rational(20)});
     });
     test_detail::with_case(ctx, "iterated :: ! binds past a paren body into the term", [&] {
-        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} (n+1)!"), Value{32.0});
+        EXPECT_EQ(ctx, eval_text(c, "\\sum_{n=1}^{3} (n+1)!"), Value{Rational(32)});
     });
     test_detail::with_case(
         ctx, "iterated :: a comma'd paren body is a point, not a pass-through", [&] {
@@ -3061,7 +3076,7 @@ void unit_eval(TestContext &ctx) {
          .expected = Value{Rational(25, 12)}},
         {.id = "sum: a postfix factorial",
          .input = "\\sum_{n=1}^{4} n!",
-         .expected = Value{33.0}}, // factorial has no Rational arm, so this is a double
+         .expected = Value{Rational(33)}},
         {.id = "sum: a function-call mask",
          .input = "\\sum_{n=1}^{3} n(1-mod(n,2))",
          .expected = Value{2.0}}, // mod has no Rational kernel, so the mask is a double

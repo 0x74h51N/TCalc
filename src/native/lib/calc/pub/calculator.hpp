@@ -201,6 +201,9 @@ class Calculator {
 
     BigReal fact(const BigReal &a) const;
     BigReal gamma(const BigReal &a) const;
+
+    std::int64_t fact(const Rational &a) const;
+    std::int64_t gamma(const Rational &a) const;
     // Permute/Choose
     BigReal permute(long long a, long long b) const;
     BigReal choose(long long a, long long b) const;

@@ -11,13 +11,22 @@
 #include <cmath>
 
 #include <boost/math/special_functions/beta.hpp>
+#include <boost/math/special_functions/factorials.hpp>
 #include <boost/math/special_functions/gamma.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
+
+namespace {
+/// 20! is the largest factorial int64 holds.
+constexpr std::int64_t kMaxInt64Factorial = 20;
+} // namespace
 
 double Calculator::fact(double a) const {
     if (calc_detail::int_like(a) && a < 0.0) {
         calc_detail::math_error();
     }
+    // Boost's table is correctly rounded; tgamma misses a whole number by a few ulp (#261).
+    if (calc_detail::whole(a) && a >= 0.0 && a <= boost::math::max_factorial<double>::value)
+        return boost::math::factorial<double>(static_cast<unsigned>(a));
 
     return std::tgamma(a + 1.0);
 }
@@ -26,12 +35,32 @@ double Calculator::gamma(double a) const {
     if (a <= 0.0 && calc_detail::int_like(a)) {
         calc_detail::math_error();
     }
+    if (calc_detail::whole(a) && a >= 1.0 && a <= boost::math::max_factorial<double>::value + 1)
+        return boost::math::factorial<double>(static_cast<unsigned>(a) - 1);
 
     return std::tgamma(a);
 }
 
+// Past 20, or for a fraction, it throws, and the op's row retries a whole number in BigReal and
+// a fraction in double. Every factorial up to 20 is exact in Boost's double table.
+std::int64_t Calculator::fact(const Rational &a) const {
+    calc_detail::require(calc_detail::whole(a));
+    const std::int64_t n = a.numerator();
+    calc_detail::require(n >= 0 && n <= kMaxInt64Factorial);
+    return static_cast<std::int64_t>(boost::math::factorial<double>(static_cast<unsigned>(n)));
+}
+
+// The pole check also keeps n - 1 from overflowing at INT64_MIN.
+std::int64_t Calculator::gamma(const Rational &a) const {
+    calc_detail::require(calc_detail::whole(a) && a.numerator() >= 1);
+    return fact(Rational(a.numerator() - 1));
+}
+
 BigReal Calculator::fact(const BigReal &a) const {
     calc_detail::require(a >= 0);
+    // Boost's BigReal table is exact to 50 digits and far cheaper than its tgamma.
+    if (calc_detail::whole(a) && a <= boost::math::max_factorial<BigReal>::value)
+        return boost::math::factorial<BigReal>(a.convert_to<unsigned>());
 
     using boost::math::tgamma;
     return tgamma(a + 1);
@@ -47,6 +76,8 @@ BigReal Calculator::gamma(const BigReal &a) const {
             calc_detail::math_error();
         }
     }
+    if (calc_detail::whole(a) && a <= boost::math::max_factorial<BigReal>::value + 1)
+        return boost::math::factorial<BigReal>(a.convert_to<unsigned>() - 1);
 
     using boost::math::tgamma;
     return tgamma(a);
