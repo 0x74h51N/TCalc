@@ -63,4 +63,4 @@ Not a regression: `number_theory.cpp` is the same in v0.13.2 and master. The bui
 
 ## 2026-11-16, master 552eb93: factorial past 20 is a double
 
-`21!` is `float 5.1090942171709432e+19`, `20!*21` is `5.1090942171709440e+19` (exact 51090942171709440000); `25!-15511210043330985984000000` is `BigReal 4366270464`.
+Fixed on fix/factorial-exact (#261): a whole number is exact, an integer up to 20! and a BigReal past it. The measurements are in [combinatorics.md](combinatorics.md).

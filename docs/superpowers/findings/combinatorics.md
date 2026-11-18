@@ -60,3 +60,35 @@ Every $0 \le b \le a \le 400$ with an exact result of at most 50 digits (35262 p
 - nPr: no error up to 50 digits (`a <= 400`, `b <= 40`).
 - `beta` in `cpp_dec_float<100, std::int64_t>`, rounded, then converted to BigReal: 0 of 35262 wrong; `nCr(1000000,500000)` 0.09 ms against 1.4 ms in BigReal (`-O2`, scratch `ncr100.cpp`). With `cpp_dec_float_100` (32-bit exponent) `nCr(100000000000,50000000000)` wrongly becomes `inf`, so the exponent type must stay 64-bit as BigReal's.
 - Applied (`choose` through `calc_detail::WideReal`): `ncr_dump.cpp` on the real `Calculator` gives 0 of 35262 nCr and 0 nPr wrong; `nCr(176,60)-700938637298704280812242467451564851471559064800` is `0` through the app.
+
+## 2026-11-18, fix/factorial-exact: factorial of a whole number (#261)
+
+`std::tgamma` misses a whole number by a few ulp: master gives `18!` `6.4023737057280010e+15` (exact 6402373705728000), `21!` `5.1090942171709432e+19` (exact 51090942171709440000, which a double holds), `100!` `9.332621544394414e+157` (correctly rounded `…415e+157`).
+
+Boost has correctly rounded factorial tables: `boost::math::factorial<double>` up to `max_factorial<double>::value` = 170, `factorial<BigReal>` up to 100, exact to 50 digits. C++ probe, `g++ -O2 -DNDEBUG`, best of 5:
+
+| n | double `tgamma` | double table | BigReal `tgamma` | BigReal table | BigReal product loop |
+|---|---|---|---|---|---|
+| 21 | 79 ns | 0.2 ns | 146 ns | 3 ns | 264 ns |
+| 100 | 76 ns | 0.2 ns | 54410 ns | 3 ns | 1398 ns |
+| 170 | 76 ns | 0.2 ns | 112572 ns | none | 2392 ns |
+
+A throw and catch costs 720 ns.
+
+Tried and dropped:
+
+- An exact Rational kernel whose overflow retried in BigReal `tgamma`: exact, but `100!` went from 0.6 µs to 58.5 µs through `evaluate_branch` (Release, best of 5 runs of 200).
+- The double table alone: fast, but `25!` does not fit a double, so `25!-15511210043330985984000000` stays `71303168`. An exact result past int64 is a BigReal, as for `3^40`.
+
+Kept: an int64 kernel up to 20! from the double table; past it the row retries in BigReal, which reads the BigReal table up to 100! and `tgamma` past it; a fraction retries in double. A whole double, such as `2e1`, reads the double table up to 170!. Through `apply` from Python, Release, best of 5 runs of 200, master against the branch, in µs:
+
+| Input | Master | Branch |
+|---|---|---|
+| 5!, 18! | 1.2 | 1.2 |
+| 21!, 25!, 100!, Γ(23) | 1.3 | 4.5 to 4.8 |
+| 101! | 1.3 | 64.2 |
+| 170! | 1.3 | 119.1 |
+| 171! | 113.4 | 117.7 |
+| (1/2)! | 1.2 | 3.4 |
+
+The 3 µs from 21! up is the throw and the retry. From 101! to 170! the BigReal `tgamma` costs what master already paid from 171! up.
