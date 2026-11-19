@@ -48,18 +48,7 @@ struct SmokePin {
     std::string_view date;
 };
 
-const std::vector<SmokePin> kSmokePins = {
-    {.case_id = "^ :: i64 MIN, i64 -1", .issue = "#249", .date = "2026-11-16"},
-    {.case_id = "⁻¹ :: i64 MIN", .issue = "#249", .date = "2026-11-16"},
-    {.case_id = "⌄ :: i64 1, i64 MIN", .issue = "#249", .date = "2026-11-16"},
-    {.case_id = "⌄ :: i64 -1, i64 MIN", .issue = "#249", .date = "2026-11-16"},
-    {.case_id = "⌄ :: i64 MAX, i64 MIN", .issue = "#249", .date = "2026-11-16"},
-    {.case_id = "⌄ :: i64 MIN, i64 -1", .issue = "#249", .date = "2026-11-16"},
-    {.case_id = "⌄ :: i64 MIN, i64 MIN", .issue = "#249", .date = "2026-11-16"},
-    {.case_id = "⌄ :: rat 1/3, i64 MIN", .issue = "#249", .date = "2026-11-16"},
-    {.case_id = "⌄ :: rat MAX/1, i64 MIN", .issue = "#249", .date = "2026-11-16"},
-    {.case_id = "⌄ :: rat 1/MAX, i64 MIN", .issue = "#249", .date = "2026-11-16"},
-};
+const std::vector<SmokePin> kSmokePins = {};
 
 std::vector<Edge> scalar_edges() {
     constexpr auto kMax = std::numeric_limits<std::int64_t>::max();
