@@ -359,8 +359,8 @@ template <class R> std::optional<long long> exact_rational_log(const R &value, c
 /// Try to compute base^exp as an exact Rational.
 /// Returns nullopt if the result is not exactly representable:
 ///   - integer exp: int64 overflow
-///   - fractional exp (p/q): either overflow in base^p, or p-th power's
-///     numerator/denominator is not a perfect q-th power
+///   - fractional exp (p/q): base is not a perfect q-th power, or the root's
+///     p-th power overflows
 /// Caller is expected to fall back to double / BigReal.
 inline std::optional<Rational>
 try_rational_pow(const Calculator &calc, const Rational &base, const Rational &exp) {
@@ -374,12 +374,12 @@ try_rational_pow(const Calculator &calc, const Rational &base, const Rational &e
         return calc.pow(base, exp);
     }
 
-    // Fractional exponent p/q: compute base^p exactly, then try exact q-th root.
-    if (rational_pow_overflows(base, p))
+    // p/q is in lowest terms, so base^p is a perfect q-th power exactly when base is; the
+    // root goes first, since base^p can overflow where the root's power fits ((-2^63)^(-1/3)).
+    const auto root = exact_rational_root(base, q);
+    if (!root || rational_pow_overflows(*root, p))
         return std::nullopt;
-
-    const Rational powered = calc.pow(base, Rational(p));
-    return exact_rational_root(powered, q);
+    return calc.pow(*root, Rational(p));
 }
 
 /// Wide rational for overflow-safe add/sub/mul/div: int64 arithmetic on
