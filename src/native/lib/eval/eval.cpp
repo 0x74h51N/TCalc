@@ -416,12 +416,12 @@ Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::A
     if (args.size() > 1 && negative_real(args[0]))
         if (const auto *e = std::get_if<Rational>(&args[1]);
             e != nullptr && !calc_detail::whole(*e)) {
+            // A degree whose reciprocal is past int64 takes the ordinary path instead, where
+            // the kernel's math error reaches the retry; a throw here would skip it.
             if (ops::has_trait(id, ops::Trait::InverseDegree))
-                return apply(
-                    c,
-                    OpId::Pow,
-                    {args[0], Value{Rational(e->denominator(), e->numerator())}},
-                    unit);
+                if (const auto inv =
+                        calc_detail::narrow(calc_detail::WideRational(1) / calc_detail::widen(*e)))
+                    return apply(c, OpId::Pow, {args[0], Value{*inv}}, unit);
             if (ops::has_trait(id, ops::Trait::RootExponent) &&
                 calc_detail::odd_integer(e->denominator())) {
                 const Value power = apply(c, id, {args[0], Value{e->numerator()}}, unit);
