@@ -36,14 +36,16 @@ constexpr int kRootPowWithinUlpExponent = 8;
 /// Boost's Newton takes a step cap; it bounds a stall, not the usual run from the pow guess.
 constexpr std::uintmax_t kRootNewtonMaxIter = 20;
 
+constexpr long double kLongDoubleOne = 1.0L;
+
 /// z^k by squaring: std::pow on a long double is exp(log) again.
 long double power_by_squaring(long double z, int k) {
     auto m = static_cast<unsigned>(k < 0 ? -static_cast<long long>(k) : k);
-    long double r = 1.0L;
+    long double r = kLongDoubleOne;
     for (; m != 0; m >>= 1U, z *= z)
         if ((m & 1U) != 0)
             r *= z;
-    return k < 0 ? 1.0L / r : r;
+    return k < 0 ? kLongDoubleOne / r : r;
 }
 
 /// Newton on z^n - x in long double, within 1 ulp once rounded to double. The derivative
