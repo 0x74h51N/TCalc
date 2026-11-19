@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import math
 import os
+from dataclasses import dataclass
 from decimal import Decimal
 
 import pytest
@@ -705,12 +706,75 @@ def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> N
             "0",
             id="negate-i64-min-diff",
         ),
+        param("(8*10^300)⌄3-2*10^100", "0", id="root-cube-8e300-diff"),
+        param("(-8*10^300)⌄3+2*10^100", "0", id="root-cube-minus-8e300-diff"),
+        param("(10^300)⌄3-10^100", "0", id="root-cube-1e300-diff"),
+        param("(10^400)⌄4-10^100", "0", id="root-fourth-1e400-diff"),
+        param("(32*10^500)⌄5-2*10^100", "0", id="root-fifth-32e500-diff"),
+        param("(10^600)⌄6-10^100", "0", id="root-sixth-1e600-diff"),
+        param("(10^300)⌄(-3)-10^(-100)", "0", id="root-minus-cube-1e300-diff"),
+        param("(4*10^200)⌄2-2*10^100", "0", id="root-square-4e200-diff"),
+        param("(2*10^300)⌄3", "1.259921049894873e+100", id="root-cube-2e300"),
+        param("(3*10^400)⌄7", "1.625613593056498e+57", id="root-seventh-3e400"),
+        param("(1e300*0)⌄3", "0", id="root-cube-zero-radicand"),
+        param("(8*10^300)⌄(9*10^400/(3*10^400))-2*10^100", "0", id="root-quotient-degree-diff"),
     ],
 )
 def test_bigreal_exact_results(expr: str, expected: str) -> None:
     out = _eval(expr)
     assert isinstance(out, calc_native.BigReal), f"expected BigReal, got {type(out).__name__}"
     assert Decimal(str(out)) == Decimal(expected)
+
+
+@dataclass(frozen=True)
+class RootCase:
+    expr: str
+    expected: float  # the correctly rounded double
+    ulps: int  # 1 only under the magnitude bound, where pow's root stays within 1 ulp
+    id: str
+
+
+# Not in the golden table: its pytest.approx accepts a root several ulps off.
+ROOT_CASES = [
+    RootCase("(1e300)⌄3", 1e100, 0, "root-cube-1e300"),
+    RootCase("(-1e300)⌄3", -1e100, 0, "root-cube-minus-1e300"),
+    RootCase("(1e-300)⌄3", 1e-100, 0, "root-cube-1e-minus-300"),
+    RootCase("(1e300)⌄(-3)", 1e-100, 0, "root-minus-cube-1e300"),
+    RootCase("(1e100)⌄7", 193069772888325.03, 0, "root-seventh-1e100"),
+    RootCase("9223372036854775807⌄3", 2097152.0, 0, "root-cube-i64-max"),
+    RootCase("123456789⌄9", 7.926057519414248, 0, "root-ninth-123456789"),
+    RootCase("(-10)⌄5", -1.5848931924611134, 1, "root-fifth-minus-ten"),
+    RootCase("2⌄3", 1.2599210498948732, 0, "root-cube-two"),
+    RootCase("3⌄3", 1.4422495703074083, 0, "root-cube-three"),
+    RootCase("10⌄3", 2.154434690031884, 0, "root-cube-ten"),
+    RootCase("(0.5)⌄3", 0.7937005259840998, 0, "root-cube-half"),
+    RootCase("2⌄2", 1.4142135623730951, 0, "root-square-two"),
+    RootCase("(1.5)⌄2", 1.224744871391589, 0, "root-square-one-and-half"),
+    RootCase("2⌄7", 1.1040895136738123, 0, "root-seventh-two"),
+    RootCase("100⌄5", 2.51188643150958, 0, "root-fifth-hundred"),
+    RootCase("5⌄10", 1.174618943088019, 0, "root-tenth-five"),
+    RootCase("2⌄(-3)", 0.7937005259840998, 0, "root-minus-cube-two"),
+    RootCase("(2.5)⌄4", 1.2574334296829355, 0, "root-fourth-two-and-half"),
+    RootCase("17⌄6", 1.6035216215125492, 0, "root-sixth-seventeen"),
+    RootCase("(-2)⌄3", -1.2599210498948732, 0, "root-cube-minus-two"),
+    RootCase("(1.7976931348623157e308)⌄2", 1.3407807929942596e154, 0, "root-square-double-max"),
+    RootCase("(4.042789004645595e299)⌄2", 6.358293013573371e149, 0, "root-square-4e299"),
+    RootCase("(4.5699183073566334e170)⌄4", 4.623566508069751e42, 0, "root-midpoint-fourth"),
+    RootCase(
+        "(7.4762568165974985e-159)⌄(-4)", 3.4007832048414286e39, 0, "root-midpoint-minus-fourth"
+    ),
+    RootCase("(2.114202629437795e-81)⌄16", 9.074478228903526e-06, 0, "root-midpoint-sixteenth"),
+    RootCase(
+        "(2.8842032797071242e-41)⌄(-20)", 106.41398492378998, 0, "root-midpoint-minus-twentieth"
+    ),
+]
+
+
+@pytest.mark.parametrize("case", [param(c, id=c.id) for c in ROOT_CASES])
+def test_root_correctly_rounded(case: RootCase) -> None:
+    out = _eval(case.expr)
+    assert type(out) is float
+    assert abs(out - case.expected) <= case.ulps * math.ulp(case.expected)
 
 
 # ============================================================================
