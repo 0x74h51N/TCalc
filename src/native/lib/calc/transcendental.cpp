@@ -8,9 +8,11 @@
 #include "calc/internal/helpers.hpp"
 
 #include <cmath>
+#include <cstdint>
 #include <complex>
 #include <limits>
 #include <optional>
+#include <utility>
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
 #include <boost/multiprecision/cpp_complex.hpp>
@@ -26,6 +28,70 @@ BigComplex newton_root(const BigComplex &x, int n) {
         return std::pair<BigComplex, BigComplex>(p * z - x, BigComplex(n) * p);
     };
     return boost::math::tools::complex_newton(f, pow(x, BigComplex(1) / BigComplex(n)));
+}
+
+/// Up to this |ilogb(x)| pow's root stays within 1 ulp, the accepted error (findings
+/// real-root.md); past it the rounded 1/n times ln x reaches several ulps.
+constexpr int kRootPowWithinUlpExponent = 8;
+/// Boost's Newton takes a step cap; it bounds a stall, not the usual run from the pow guess.
+constexpr std::uintmax_t kRootNewtonMaxIter = 20;
+
+constexpr long double kLongDoubleOne = 1.0L;
+
+/// z^k by squaring: std::pow on a long double is exp(log) again.
+long double power_by_squaring(long double z, int k) {
+    auto m = static_cast<unsigned>(k < 0 ? -static_cast<long long>(k) : k);
+    long double r = kLongDoubleOne;
+    for (; m != 0; m >>= 1U, z *= z)
+        if ((m & 1U) != 0)
+            r *= z;
+    return k < 0 ? kLongDoubleOne / r : r;
+}
+
+/// Newton on z^n - x in long double, within 1 ulp once rounded to double. The derivative
+/// is n p / z from the same p, so no n - 1 overflows at degree INT_MIN.
+double newton_root(double x, int n) {
+    const long double lx = x;
+    const auto f = [&](long double z) {
+        const long double p = power_by_squaring(z, n);
+        return std::pair<long double, long double>(p - lx, static_cast<long double>(n) * p / z);
+    };
+    const long double guess = std::pow(x, 1.0 / n);
+    std::uintmax_t iter = kRootNewtonMaxIter;
+    const long double z = boost::math::tools::newton_raphson_iterate(
+        f, guess, guess / 2, guess * 2, std::numeric_limits<long double>::digits, iter);
+    const auto r = static_cast<double>(z);
+    // A z on the midpoint of two doubles rounds twice, the tie going either way
+    // ((7.4762568165974985e-159)⌄(-4)): the sign of z^n - x mostly says which side the root
+    // is on (157 of 176 midpoints, findings real-root.md).
+    const double other = std::nextafter(
+        r,
+        z > r ? std::numeric_limits<double>::infinity() : -std::numeric_limits<double>::infinity());
+    if (z != (static_cast<long double>(r) + other) / 2)
+        return r;
+    const bool root_below = (f(z).first > 0) == (n > 0);
+    return root_below ? std::fmin(r, other) : std::fmax(r, other);
+}
+
+/// pow's root is within 1 ulp near 1; Newton pays only where it is not.
+bool root_needs_newton(double x) {
+    return std::abs(std::ilogb(x)) > kRootPowWithinUlpExponent;
+}
+
+/// Newton from the pow guess, then the root at its 50 advertised digits when that is
+/// exact: Newton leaves a residue in the guard digits even on 8e300 at 3.
+BigReal newton_root(const BigReal &x, int n) {
+    using boost::multiprecision::pow;
+    const auto f = [&](const BigReal &z) {
+        const BigReal p = pow(z, n);
+        return std::pair<BigReal, BigReal>(p - x, BigReal(n) * p / z);
+    };
+    const BigReal guess = pow(x, BigReal(1) / n);
+    std::uintmax_t iter = kRootNewtonMaxIter;
+    const BigReal z = boost::math::tools::newton_raphson_iterate(
+        f, guess, BigReal(0), BigReal(guess * 2), std::numeric_limits<BigReal>::digits, iter);
+    const BigReal rounded(z.str(kBigRealPrecisionDigits));
+    return pow(rounded, n) == x ? rounded : z;
 }
 } // namespace
 
@@ -50,9 +116,17 @@ double Calculator::root(double x, double y) const {
         if (calc_detail::whole(1.0 / y))
             return this->pow(x, 1.0 / y);
         calc_detail::require(calc_detail::odd_integer(y));
+        if (const auto n = calc_detail::as_int(y); n && root_needs_newton(x))
+            return -newton_root(-x, *n);
         return -this->pow(-x, 1.0 / y);
     }
 
+    const auto n = calc_detail::as_int(y);
+    // sqrt is correctly rounded; the Newton rounds twice ((1.7976931348623157e308)⌄2).
+    if (n == 2)
+        return this->sqrt(x);
+    if (n && root_needs_newton(x))
+        return newton_root(x, *n);
     return this->pow(x, 1.0 / y);
 }
 
@@ -135,9 +209,13 @@ BigReal Calculator::root(const BigReal &x, const BigReal &y) const {
         if (const BigReal m = BigReal(1) / y; calc_detail::whole(m))
             return this->pow(x, m);
         calc_detail::require(calc_detail::odd_integer(y));
+        if (const auto n = calc_detail::as_int(calc_detail::snap_integer(y)))
+            return -newton_root(-x, *n);
         return -this->pow(-x, BigReal(1) / y);
     }
 
+    if (const auto n = calc_detail::as_int(calc_detail::snap_integer(y)))
+        return newton_root(x, *n);
     return this->pow(x, BigReal(1) / y);
 }
 
