@@ -360,6 +360,87 @@ def _eval(expr: str) -> object:
         param(
             "(-π)⌄(1/3)", "float", -31.006276680299816, id="root-reciprocal-degree-negative-double"
         ),
+        # The reciprocal of int64 min (#249). The float and complex checks are approximate, so
+        # the digits a double drops below 1e-16 in the roots near 1 are #231's.
+        param(
+            "(-9223372036854775807-1)^(-1)",
+            "BigReal",
+            "-1.084202172485504e-19",
+            id="pow-minus-one-recip-i64-min",
+        ),
+        param(
+            "(-9223372036854775807-1)⁻¹",
+            "float",
+            -1.0842021724855044e-19,
+            id="recip-recip-i64-min",
+        ),
+        param(
+            "((-9223372036854775807-1)/3)⁻¹",
+            "float",
+            -3.2526065174565133e-19,
+            id="recip-of-third-recip-i64-min",
+        ),
+        param("(1)⌄(-9223372036854775807-1)", "float", 1.0, id="root-of-one-recip-i64-min"),
+        param(
+            "(-1)⌄(-9223372036854775807-1)",
+            "complex",
+            (1.0, -3.4061215800865546e-19),
+            id="root-of-minus-one-recip-i64-min",
+        ),
+        param(
+            "(0.5)⌄(-9223372036854775807-1)",
+            "float",
+            1.000000000000000000075151,
+            id="root-of-half-recip-i64-min",
+        ),
+        param(
+            "(1/3)⌄(-9223372036854775807-1)",
+            "float",
+            1.000000000000000000119112,
+            id="root-of-third-recip-i64-min",
+        ),
+        param(
+            "(9223372036854775807)⌄(-9223372036854775807-1)",
+            "float",
+            0.9999999999999999952654764,
+            id="root-of-i64-max-recip-i64-min",
+        ),
+        param(
+            "(-9223372036854775807-1)⌄(-1)",
+            "float",
+            -1.0842021724855044e-19,
+            id="root-degree-minus-one-recip-i64-min",
+        ),
+        param(
+            "(-9223372036854775807-1)⌄(-9223372036854775807-1)",
+            "complex",
+            (0.9999999999999999952654764, -3.4061215800865546e-19),
+            id="root-of-itself-recip-i64-min",
+        ),
+        param(
+            "(-9223372036854775807-1)^(-1/3)",
+            "BigReal",
+            "-4.76837158203125e-07",
+            id="pow-minus-third-recip-i64-min",
+        ),
+        param(
+            "((-9223372036854775807-1)/3)⌄(-8)",
+            "complex",
+            (0.0045148599892078299, -0.0018701162397455287),
+            id="root-of-third-degree-minus-eight-recip-i64-min",
+        ),
+        param(
+            "(8)⌄((-9223372036854775807-1)/3)",
+            "float",
+            0.9999999999999999993236395,
+            id="root-degree-third-recip-i64-min",
+        ),
+        param(
+            "(-8)⌄((-9223372036854775807-1)/3)",
+            "complex",
+            (0.9999999999999999993236395, -1.021836474025966376e-18),
+            id="root-negative-degree-third-recip-i64-min",
+        ),
         param("ln(10^{-400})", "BigReal", "-921.0340371976183", id="ln-tiny-positive-stays-real"),
         param("sqrt(10^{-400})", "BigReal", "1e-200", id="sqrt-tiny-positive-stays-real"),
         # ----------------------------
@@ -796,6 +877,19 @@ class TestRational:
             param("(1/2)^2 * 8", 2, 1, id="pow-then-mul"),
             # log base equal to its value cancels exactly
             param("log(10)", 1, 1, id="log-base-ten-of-ten-exact"),
+            param(
+                "(-9223372036854775807)⁻¹",
+                -1,
+                9223372036854775807,
+                id="recip-of-minus-i64-max-stays-exact",
+            ),
+            param("(-8)⌄(1/3)", -512, 1, id="root-reciprocal-degree-stays-exact"),
+            param(
+                "(-9223372036854775807-1)⌄(-3)",
+                -1,
+                2097152,
+                id="root-degree-minus-three-recip-i64-min",
+            ),
             # ----------------------------
             # Variable assignment returns value (single-expression)
             # ----------------------------
