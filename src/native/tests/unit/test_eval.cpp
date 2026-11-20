@@ -468,6 +468,7 @@ void unit_eval(TestContext &ctx) {
     // spurious zero and a subnormal exact detectors, so no magnitude estimate is needed.
     // Every row below returned a collapsed or overflowed double before the rule existed.
     constexpr std::int64_t kI64Max = std::numeric_limits<std::int64_t>::max();
+    constexpr std::int64_t kI64Min = std::numeric_limits<std::int64_t>::min();
     const std::vector<ApplyArmCase> range_promotion_arm_cases = {
         // An exact kernel that overflows int64 retries in BigReal, which holds the integer.
         {.id = "pow(3, 40) overflows the exact arm into BigReal",
@@ -635,6 +636,44 @@ void unit_eval(TestContext &ctx) {
              {OpId::IntDiv,
               {Value{Rational(std::numeric_limits<std::int64_t>::min())}, Value{Rational(-1)}}},
          .expected = Value{BigReal("9223372036854775808")}},
+        // The reciprocal of int64 min does not fit int64 (#249): the retry gives the correctly
+        // rounded value of its arm. A root near 1 is 1 in double; the digits past it are #231.
+        {.id = "pow(int64 min, -1) is exact in BigReal",
+         .input = {OpId::Pow, {Value{Rational(kI64Min)}, Value{Rational(-1)}}},
+         .expected = Value{BigReal("-1.08420217248550443400745280086994171142578125e-19")}},
+        // The root of int64 min fits before its reciprocal is taken.
+        // TODO(BigReal root): root(BigReal, BigReal) is pow(x, 1/y) with 1/3 rounded, so this
+        // is 2.9e-63 off (2026-11-19); the row comes back once that arm roots an integer degree.
+        // {.id = "pow(int64 min, -1/3) is exact in BigReal",
+        //  .input = {OpId::Pow, {Value{Rational(kI64Min)}, Value{Rational(-1, 3)}}},
+        //  .expected = Value{BigReal("-4.76837158203125e-7")}},
+        {.id = "root(int64 min, -3) is exact",
+         .input = {OpId::Root, {Value{Rational(kI64Min)}, Value{Rational(-3)}}},
+         .expected = Value{Rational(-1, 2097152)}},
+        {.id = "recip(int64 min) is exact in double",
+         .input = {OpId::Recip, {Value{Rational(kI64Min)}}},
+         .expected = Value{-1.0842021724855044e-19}},
+        {.id = "recip(int64 min / 3) is exact in double",
+         .input = {OpId::Recip, {Value{Rational(kI64Min, 3)}}},
+         .expected = Value{-3.2526065174565133e-19}},
+        {.id = "root(int64 min, -1) is exact in double",
+         .input = {OpId::Root, {Value{Rational(kI64Min)}, Value{Rational(-1)}}},
+         .expected = Value{-1.0842021724855044e-19}},
+        {.id = "root(1, int64 min) is 1",
+         .input = {OpId::Root, {Value{Rational(1)}, Value{Rational(kI64Min)}}},
+         .expected = Value{1.0}},
+        {.id = "root(1/2, int64 min) is 1 in double",
+         .input = {OpId::Root, {Value{Rational(1, 2)}, Value{Rational(kI64Min)}}},
+         .expected = Value{1.0}},
+        {.id = "root(1/3, int64 min) is 1 in double",
+         .input = {OpId::Root, {Value{Rational(1, 3)}, Value{Rational(kI64Min)}}},
+         .expected = Value{1.0}},
+        {.id = "root(int64 max, int64 min) is 1 in double",
+         .input = {OpId::Root, {Value{Rational(kI64Max)}, Value{Rational(kI64Min)}}},
+         .expected = Value{1.0}},
+        {.id = "root(8, int64 min / 3) is 1 in double",
+         .input = {OpId::Root, {Value{Rational(8)}, Value{Rational(kI64Min, 3)}}},
+         .expected = Value{1.0}},
         {.id = "fact(18) is an exact integer",
          .input = {OpId::Fact, {Value{std::int64_t{18}}}},
          .expected = Value{std::int64_t{6402373705728000}}},
@@ -1039,6 +1078,23 @@ void unit_eval(TestContext &ctx) {
          .input = {OpId::Root, {Value{-std::numbers::pi}, Value{0.5}}},
          .expected = Value{9.869604401089358},
          .tol = kUlpsTol},
+        // #249: the degree's reciprocal does not fit int64, the correctly rounded complex.
+        {.id = "root :: -1 at degree int64 min is complex",
+         .input = {OpId::Root, {Value{Rational(-1)}, Value{Rational(kI64Min)}}},
+         .expected = Value{Complex(1.0, -3.4061215800865545e-19)},
+         .tol = 0},
+        {.id = "root :: int64 min at degree int64 min is complex",
+         .input = {OpId::Root, {Value{Rational(kI64Min)}, Value{Rational(kI64Min)}}},
+         .expected = Value{Complex(1.0, -3.4061215800865545e-19)},
+         .tol = 0},
+        {.id = "root :: -8 at degree int64 min / 3 skips the real-first rewrite",
+         .input = {OpId::Root, {Value{Rational(-8)}, Value{Rational(kI64Min, 3)}}},
+         .expected = Value{Complex(1.0, -1.0218364740259663e-18)},
+         .tol = 0},
+        {.id = "root :: int64 min / 3 at degree -8 is complex",
+         .input = {OpId::Root, {Value{Rational(kI64Min, 3)}, Value{Rational(-8)}}},
+         .expected = Value{Complex(0.00451485998920783, -0.0018701162397455288)},
+         .tol = 0},
     };
 
     for (const auto &tc : negative_base_apply_cases) {

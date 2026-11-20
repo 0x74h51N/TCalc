@@ -193,16 +193,16 @@ Rational Calculator::pow(const Rational &base, const Rational &exp) const {
             b *= b;
     }
 
-    if (neg_exp) {
-        result = boost::rational<std::int64_t>(result.denominator(), result.numerator());
-    }
+    // The reciprocal of int64 min does not fit int64; div raises the math error the retry reads.
+    if (neg_exp)
+        return div(Rational(1), Rational(result));
 
     return Rational(result);
 }
 
 Rational Calculator::root(const Rational &a, const Rational &b) const {
     calc_detail::require_nonzero(b.frac);
-    const Rational inv(b.denominator(), b.numerator());
+    const Rational inv = div(Rational(1), b);
     if (auto r = calc_detail::try_rational_pow(*this, a, inv)) {
         return *r;
     }

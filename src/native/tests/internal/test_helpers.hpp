@@ -581,7 +581,11 @@ inline void expect_true(
 template <typename Fn>
 inline void
 expect_msg(TestContext &ctx, bool ok, const char *expr, const char *file, int line, Fn &&builder) {
-
+    // The builder may read what only a failure has (smoke's failure iterator), so a pass skips it.
+    if (ok) {
+        expect_true(ctx, ok, expr, file, line);
+        return;
+    }
     std::ostringstream os;
     std::forward<Fn>(builder)(os);
     const std::string msg = os.str();
