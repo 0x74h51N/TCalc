@@ -460,6 +460,11 @@ Value apply(const Calculator &c, OpId id, std::vector<Value> args, Calculator::A
             for (auto &a : dispatch_args)
                 a = lift_to_big(a);
         } else {
+            // A cast would round the exponent p/q before the power is taken; the row computes
+            // it from the exact operands instead.
+            if (const ops::ExactRetry exact = ops::exact_retry_of(id); exact != nullptr)
+                if (const auto value = exact(c, dispatch_args))
+                    return promote_range(id, c, dispatch_args, *value, unit);
             // An integer is no arm of an op with a Rational arm, and Pow's (double, long long)
             // overload would make an integer pair ambiguous.
             for (auto &a : dispatch_args)

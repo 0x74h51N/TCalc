@@ -2,6 +2,7 @@
 
 #include <complex>
 #include <cstdint>
+#include <limits>
 #include <boost/multiprecision/cpp_complex.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
 #include <boost/rational.hpp>
@@ -16,6 +17,9 @@ inline constexpr int kSquare = 2;
 inline constexpr int kCube = 3;
 /// The modulus that splits the integers into even and odd.
 inline constexpr int kParityModulus = 2;
+/// 2^53: past it a double no longer holds every integer.
+inline constexpr std::int64_t kExactIntLimit = std::int64_t{1}
+                                               << std::numeric_limits<double>::digits;
 
 // Wider exponent range so expressions like 1e-100000000 remain representable
 // (cpp_dec_float_50 underflows at |exponent10| > 67108864).

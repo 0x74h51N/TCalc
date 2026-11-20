@@ -799,6 +799,12 @@ def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> N
         param("(3*10^400)⌄7", "1.625613593056498e+57", id="root-seventh-3e400"),
         param("(1e300*0)⌄3", "0", id="root-cube-zero-radicand"),
         param("(8*10^300)⌄(9*10^400/(3*10^400))-2*10^100", "0", id="root-quotient-degree-diff"),
+        param(
+            "3037000500^2",
+            "9223372037000250000",
+            id="pow-whole-exponent-past-int64-stays-bigreal",
+        ),
+        param("⏨(19)", "1e19", id="pow10-whole-past-int64-stays-bigreal"),
     ],
 )
 def test_bigreal_exact_results(expr: str, expected: str) -> None:
@@ -810,12 +816,15 @@ def test_bigreal_exact_results(expr: str, expected: str) -> None:
 @dataclass(frozen=True)
 class RootCase:
     expr: str
-    expected: float  # the correctly rounded double
-    ulps: int  # 1 only under the magnitude bound, where pow's root stays within 1 ulp
+    expected: float | complex  # each part mpmath rounded to double; a zero part is +0
+    ulps: int  # 0 where the kernel is correctly rounded, else 1
     id: str
+    rel: float = 0.0  # 0: within ulps; else each part within rel of its own size
 
 
-# Not in the golden table: its pytest.approx accepts a root several ulps off.
+I64_MIN = "(-9223372036854775807-1)"
+
+# Not in the golden table: its pytest.approx accepts a power several ulps off.
 ROOT_CASES = [
     RootCase("(1e300)⌄3", 1e100, 0, "root-cube-1e300"),
     RootCase("(-1e300)⌄3", -1e100, 0, "root-cube-minus-1e300"),
@@ -824,6 +833,7 @@ ROOT_CASES = [
     RootCase("(1e100)⌄7", 193069772888325.03, 0, "root-seventh-1e100"),
     RootCase("9223372036854775807⌄3", 2097152.0, 0, "root-cube-i64-max"),
     RootCase("123456789⌄9", 7.926057519414248, 0, "root-ninth-123456789"),
+    RootCase("109889063671⌄3", 4789.80858033901, 0, "root-integer-degree-correctly-rounded"),
     RootCase("(-10)⌄5", -1.5848931924611134, 1, "root-fifth-minus-ten"),
     RootCase("2⌄3", 1.2599210498948732, 0, "root-cube-two"),
     RootCase("3⌄3", 1.4422495703074083, 0, "root-cube-three"),
@@ -848,14 +858,110 @@ ROOT_CASES = [
     RootCase(
         "(2.8842032797071242e-41)⌄(-20)", 106.41398492378998, 0, "root-midpoint-minus-twentieth"
     ),
+    # #231: a power the exact kernel refused, from its exact base and exponent.
+    RootCase(
+        "(-2)^(1.0000000000001)",
+        complex(-2.0000000000001386, -6.283185307180022e-13),
+        1,
+        "pow-negative-base-near-one",
+    ),
+    RootCase(
+        "(-2)^(0.5000000000001)",
+        complex(-4.4428829381586743e-13, 1.414213562373193),
+        1,
+        "pow-negative-base-near-half",
+    ),
+    RootCase(
+        "(-2)^(1.1)", complex(-2.0386342710747227, -0.6623924280875912), 1, "pow-negative-base-1-1"
+    ),
+    RootCase(
+        "(-2)^(2.9999999999999)",
+        complex(-7.999999999999446, 2.5132741228716605e-12),
+        1,
+        "pow-negative-base-near-three",
+    ),
+    RootCase("(-2)^(3/2)", complex(0.0, -2.8284271247461903), 1, "pow-three-halves-axis"),
+    RootCase("(-1/2)^(3/2)", complex(0.0, -0.3535533905932738), 1, "pow-half-three-halves-axis"),
+    RootCase("(-2)^(7/4)", complex(2.378414230005442, -2.378414230005442), 1, "pow-seven-quarters"),
+    RootCase("(-8)^(5/6)", complex(-4.898979485566356, 2.8284271247461903), 1, "pow-five-sixths"),
+    RootCase(
+        "(-10)^(301/2)", complex(0.0, 3.1622776601683793e150), 1, "pow-half-integer-large-axis"
+    ),
+    RootCase(
+        "(-3)^(609803/1058)",
+        complex(3.8745589136552445e274, 9.2182330420805e274),
+        1,
+        "pow-negative-base-large-angle",
+    ),
+    RootCase(
+        "(-2)^(0.3333333333333)",
+        complex(0.6299605249475363, 1.0911236359716303),
+        1,
+        "pow-negative-base-near-third",
+    ),
+    RootCase("(-2)^(0.5)", complex(0.0, 1.4142135623730951), 1, "pow-decimal-half"),
+    RootCase("(-4)^(1/2)", complex(0.0, 2.0), 1, "pow-half-minus-four"),
+    RootCase("(-1)^(1/2)", complex(0.0, 1.0), 1, "pow-half-minus-one"),
+    RootCase(
+        "(-3)^(1/4)", complex(0.9306048591020996, 0.9306048591020996), 1, "pow-quarter-minus-three"
+    ),
+    RootCase(
+        "(-2)^(1/4)", complex(0.8408964152537145, 0.8408964152537145), 1, "pow-quarter-minus-two"
+    ),
+    RootCase(f"{I64_MIN}^(1/2)", complex(0.0, 3037000499.97605), 1, "pow-half-int64-min"),
+    RootCase("17^(8711/674)", 7993386127887876.0, 1, "pow-positive-base-fraction"),
+    RootCase("(17)⌄(674/8711)", 7993386127887876.0, 1, "root-fraction-degree-17"),
+    RootCase("17^(-8711/674)", 1.251034272585846e-16, 1, "pow-negative-fraction"),
+    RootCase("(1/2)^(8711/674)", 0.00012864363123970833, 1, "pow-half-base-fraction"),
+    RootCase("(38/3)^(20993/82)", 1.9724528358173784e282, 1, "pow-non-dyadic-base"),
+    RootCase("29^(9973/1000)", 384145042658027.44, 1, "pow-29-fraction"),
+    RootCase("2^(1000001/1000)", 1.0722515778205376e301, 1, "pow-two-near-1000"),
+    RootCase("7^(3001/10)", 4.110757031007188e253, 1, "pow-seven-tenths"),
+    RootCase("10^(331897/1242)", 1.6898894438436359e267, 1, "pow-ten-large"),
+    RootCase("11^(1005956/3671)", 2.3470978086479803e285, 1, "pow-eleven-large"),
+    RootCase("10^(185396/641)", 1.6956225092842887e289, 1, "pow-ten-near-1e289"),
+    RootCase("27^(720892/4087)", 2.9742381884890863e252, 1, "pow-27-large"),
+    RootCase("20^(39129/1157)", 1.0000053740448948e44, 1, "pow-twenty-midpoint"),
+    RootCase("10^(22/7)", 1389.4954943731377, 1, "pow-ten-twenty-two-sevenths"),
+    RootCase("⏨(22/7)", 1389.4954943731377, 1, "pow10-twenty-two-sevenths"),
+    RootCase("⏨(331897/1242)", 1.6898894438436359e267, 1, "pow10-large"),
+    RootCase("27^(41/3)", 3.647299637717079e19, 1, "pow-27-past-int64"),
+    RootCase("3^(1/3)", 1.4422495703074083, 1, "pow-cube-root-three"),
+    RootCase("2^(1/10)", 1.0717734625362931, 1, "pow-tenth-root-two"),
+    RootCase("⏨(-1/2)", 0.31622776601683794, 1, "pow10-minus-half"),
+    RootCase("(17)⌄(3)", 2.571281590658235, 1, "root-cube-17"),
+    RootCase("(3037000500)⌄(1/2)", 9.22337203700025e18, 1, "root-half-degree-stays-double"),
+    RootCase("(-2)^(1/9007199254740993)", -1.0, 1, "pow-parity-past-2-53"),
+    RootCase("(-2)⌄(9007199254740993)", -1.0, 1, "root-parity-past-2-53"),
+    RootCase("(-2)^(-1/9007199254740993)", -0.9999999999999999, 1, "pow-minus-parity-past-2-53"),
+    RootCase("(-2)^(1/9007199254740991)", -1.0, 1, "pow-odd-below-2-53"),
+    RootCase(f"{I64_MIN}⌄(9223372036854775807)", -1.0, 1, "root-int64-min-odd-degree"),
+    RootCase(f"(2)⌄{I64_MIN}", 1.0, 1, "root-int64-min-degree"),
+    RootCase(
+        f"(-1)⌄{I64_MIN}", complex(1.0, -3.4061215800865545e-19), 1, "root-int64-min-degree-complex"
+    ),
+    RootCase(
+        "\\sum_{n=1}^{10} (-2)^{1+n/10000000000000}",
+        complex(-20.000000000007624, -3.455751918950449e-11),
+        1,
+        "sum-negative-base-near-one",
+        rel=1e-14,
+    ),
 ]
 
 
 @pytest.mark.parametrize("case", [param(c, id=c.id) for c in ROOT_CASES])
 def test_root_correctly_rounded(case: RootCase) -> None:
     out = _eval(case.expr)
-    assert type(out) is float
-    assert abs(out - case.expected) <= case.ulps * math.ulp(case.expected)
+    assert type(out) is type(case.expected)
+    assert isinstance(out, float | complex)
+    for got, want in ((out.real, case.expected.real), (out.imag, case.expected.imag)):
+        if want == 0:
+            assert got == 0 and math.copysign(1.0, got) == 1.0, (got, want)
+            continue
+        # the ulp on got's side of want: below a power of two it is half the one above
+        ulp = abs(math.nextafter(want, got) - want) if got != want else 0.0
+        assert abs(got - want) <= max(case.ulps * ulp, case.rel * abs(want)), (got, want)
 
 
 # ============================================================================
@@ -1058,6 +1164,9 @@ class TestRational:
             param("cbrt(10^{400})", id="cbrt-of-bigreal-past-double"),
             param("asin((1/2)^{1030})", id="asin-of-bigreal-subnormal-in-double"),
             param("asin((1/2)^{1100})", id="asin-of-bigreal-zero-in-double"),
+            param("(5)⌄(0)", id="root-zero-degree"),
+            param("0^(-1/2)", id="zero-to-neg-fraction"),
+            param("0⌄(-2)", id="zero-root-neg-degree"),
         ],
     )
     def test_raises_math_error(self, expr: str) -> None:

@@ -10,6 +10,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <span>
 #include <string_view>
 
@@ -909,9 +910,8 @@ namespace detail {
 /// The decades a double can still carry. Past these a power is computed in BigReal.
 inline constexpr double kPowToBigUp = 308.0;
 inline constexpr double kPowToBigLow = -324.0;
-/// 2^53: past it a double no longer holds every integer.
-inline constexpr double kExactIntBound =
-    static_cast<double>(std::uint64_t{1} << std::numeric_limits<double>::digits);
+/// kExactIntLimit as a double, for the operands the range rules read.
+inline constexpr auto kExactIntBound = static_cast<double>(kExactIntLimit);
 } // namespace detail
 
 /// The rule is written once and read in the operands' own type: a BigReal read as a double
@@ -931,6 +931,10 @@ using RangeRule = bool (*)(double x, double y);
 /// answer can only have overflowed int64, and BigReal holds it; an irrational one fits no
 /// arm exactly and retries in double, like every other inexact result.
 using RetryArmRule = Arm (*)(std::span<const Value> args);
+
+/// The value of a power the exact kernel refused, computed from its exact Rational operands
+/// where a cast to double would round the exponent first. No value: the catch casts to double.
+using ExactRetry = std::optional<Value> (*)(const Calculator &c, std::span<const Value> args);
 
 /// Eval-time properties an op's kernel signature cannot report. Separate from
 /// OpSpec::OpFlags, which carries the syntax the tokenizer reads.
@@ -961,6 +965,7 @@ struct OpRow {
     DomainRule domain{};      // most ops have no domain boundary
     RangeRule range{};        // and only powers can predict their own range
     RetryArmRule retry_arm{}; // without one, a refused exact kernel retries in double
+    ExactRetry exact_retry{}; // read where the retry would cast to double
     TraitMask traits{};
     std::uint8_t second_default{}; // stands in for a missing second operand
 };
@@ -968,27 +973,35 @@ struct OpRow {
 /// Attach the domain rule to an op's own row, next to its kernel and its arms. The rule is a
 /// capture-less generic lambda taking its operands by value, so it converts to both readings.
 template <class F> constexpr OpRow with_domain(OpRow r, F rule) {
-    const DomainRule d{
+    r.domain = DomainRule{
         static_cast<bool (*)(const double &, const double &)>(rule),
         static_cast<bool (*)(const BigReal &, const BigReal &)>(rule)};
-    return OpRow{r.id, r.fn, r.arms, d, r.range, r.retry_arm, r.traits, r.second_default};
+    return r;
 }
 
 constexpr OpRow with_range(OpRow r, RangeRule g) {
-    return OpRow{r.id, r.fn, r.arms, r.domain, g, r.retry_arm, r.traits, r.second_default};
+    r.range = g;
+    return r;
 }
 
 constexpr OpRow with_retry_arm(OpRow r, RetryArmRule g) {
-    return OpRow{r.id, r.fn, r.arms, r.domain, r.range, g, r.traits, r.second_default};
+    r.retry_arm = g;
+    return r;
+}
+
+constexpr OpRow with_exact_retry(OpRow r, ExactRetry g) {
+    r.exact_retry = g;
+    return r;
 }
 
 constexpr OpRow with_trait(OpRow r, Trait t) {
-    const auto traits = static_cast<TraitMask>(r.traits | trait_bit(t));
-    return OpRow{r.id, r.fn, r.arms, r.domain, r.range, r.retry_arm, traits, r.second_default};
+    r.traits = static_cast<TraitMask>(r.traits | trait_bit(t));
+    return r;
 }
 
 constexpr OpRow with_default(OpRow r, std::uint8_t n) {
-    return OpRow{r.id, r.fn, r.arms, r.domain, r.range, r.retry_arm, r.traits, n};
+    r.second_default = n;
+    return r;
 }
 
 template <class F> constexpr OpRow unary(OpId id, F) {
@@ -1016,15 +1029,8 @@ template <class F> constexpr OpRow reduce(OpId id, F) {
 }
 /// Exp is pow(e, a) and `e` is irrational, so it can have no exact Rational arm.
 constexpr OpRow without_rational(OpRow r) {
-    return OpRow{
-        r.id,
-        r.fn,
-        static_cast<ArmMask>(r.arms & ~arm_bit(Arm::Rat)),
-        r.domain,
-        r.range,
-        r.retry_arm,
-        r.traits,
-        r.second_default};
+    r.arms = static_cast<ArmMask>(r.arms & ~arm_bit(Arm::Rat));
+    return r;
 }
 
 /// The ops defined through another one: Sqr is `c.pow(a, 2)`, Pow10 is `c.pow(10, a)`.
@@ -1072,6 +1078,13 @@ inline Arm power_retry_arm(const Rational &exp) {
     return exp.denominator() == 1 ? Arm::Big : Arm::Double;
 }
 
+/// x^y from the exact operands: a negative base at an even denominator has no real value.
+inline Value exact_power(const Calculator &c, const Rational &x, const Rational &y) {
+    if (x.numerator() < 0 && !calc_detail::odd_integer(y.denominator()))
+        return Value{c.principal_power(x, y)};
+    return Value{c.real_power(x, y)};
+}
+
 } // namespace detail
 
 inline constexpr std::array kOpRows = {
@@ -1082,27 +1095,42 @@ inline constexpr std::array kOpRows = {
         with_trait(binary(OpId::Sub, TCALC_CALL(sub)), Trait::ExactZero), detail::retry_in_big),
     with_retry_arm(binary(OpId::Mul, TCALC_CALL(mul)), detail::retry_in_big),
     with_retry_arm(binary(OpId::Div, TCALC_CALL(div)), detail::retry_in_big),
-    with_retry_arm(
+    with_exact_retry(
+        with_retry_arm(
+            with_range(
+                with_domain(
+                    with_trait(binary(OpId::Pow, TCALC_CALL(pow)), Trait::RootExponent),
+                    // an exact exponent with an odd denominator never reaches here; an inexact one
+                    // has no denominator to read, so a negative base takes the principal power
+                    [](const auto &x, const auto &y) { return x < 0.0 && !calc_detail::whole(y); }),
+                [](double x, double y) { return detail::power_needs_big(x, y); }),
+            [](std::span<const Value> args) {
+                return detail::power_retry_arm(std::get<Rational>(args[1]));
+            }),
+        [](const Calculator &c, std::span<const Value> args) -> std::optional<Value> {
+            return detail::exact_power(c, std::get<Rational>(args[0]), std::get<Rational>(args[1]));
+        }),
+    with_exact_retry(
         with_range(
             with_domain(
-                with_trait(binary(OpId::Pow, TCALC_CALL(pow)), Trait::RootExponent),
-                // an exact exponent with an odd denominator never reaches here; an inexact one
-                // has no denominator to read, so a negative base takes the principal power
-                [](const auto &x, const auto &y) { return x < 0.0 && !calc_detail::whole(y); }),
-            [](double x, double y) { return detail::power_needs_big(x, y); }),
-        [](std::span<const Value> args) {
-            return detail::power_retry_arm(std::get<Rational>(args[1]));
+                with_trait(binary(OpId::Root, TCALC_CALL(root)), Trait::InverseDegree),
+                [](const auto &x, const auto &y) {
+                    // a negative radicand is real at an odd integer degree, and at a degree whose
+                    // reciprocal is an integer, which is that power: (-8) root 1/3 is -512
+                    return x < 0.0 && !calc_detail::odd_integer(y) && !calc_detail::whole(1.0 / y);
+                }),
+            // the degree is an inverse exponent: root(x, y) is x^(1/y)
+            [](double x, double y) { return y != 0.0 && detail::power_needs_big(x, 1.0 / y); }),
+        [](const Calculator &c, std::span<const Value> args) -> std::optional<Value> {
+            const auto &degree = std::get<Rational>(args[1]);
+            // the zero degree's math error, before its reciprocal throws bad_rational
+            calc_detail::require_nonzero(degree.frac);
+            // int64 min has no reciprocal in int64; that degree keeps the double retry
+            if (degree.numerator() == (std::numeric_limits<std::int64_t>::min)())
+                return std::nullopt;
+            return detail::exact_power(
+                c, std::get<Rational>(args[0]), Rational(degree.denominator(), degree.numerator()));
         }),
-    with_range(
-        with_domain(
-            with_trait(binary(OpId::Root, TCALC_CALL(root)), Trait::InverseDegree),
-            [](const auto &x, const auto &y) {
-                // a negative radicand is real at an odd integer degree, and at a degree whose
-                // reciprocal is an integer, which is that power: (-8) root 1/3 is -512
-                return x < 0.0 && !calc_detail::odd_integer(y) && !calc_detail::whole(1.0 / y);
-            }),
-        // the degree is an inverse exponent: root(x, y) is x^(1/y)
-        [](double x, double y) { return y != 0.0 && detail::power_needs_big(x, 1.0 / y); }),
     with_trait(binary(OpId::Mod, TCALC_CALL(mod)), Trait::ExactZero),
     with_retry_arm(
         with_trait(
@@ -1191,10 +1219,14 @@ inline constexpr std::array kOpRows = {
     with_retry_arm(unary(OpId::Sqr, TCALC_CALL_WITH(pow, kSquare)), detail::retry_in_big),
     with_retry_arm(unary(OpId::Cube, TCALC_CALL_WITH(pow, kCube)), detail::retry_in_big),
     unary(OpId::Recip, TCALC_CALL_WITH(pow, kReciprocal)),
-    with_retry_arm(
-        unary(OpId::Pow10, TCALC_CALL_ONTO(pow, kDecimalBase)),
-        [](std::span<const Value> args) {
-            return detail::power_retry_arm(std::get<Rational>(args[0]));
+    with_exact_retry(
+        with_retry_arm(
+            unary(OpId::Pow10, TCALC_CALL_ONTO(pow, kDecimalBase)),
+            [](std::span<const Value> args) {
+                return detail::power_retry_arm(std::get<Rational>(args[0]));
+            }),
+        [](const Calculator &c, std::span<const Value> args) -> std::optional<Value> {
+            return detail::exact_power(c, Rational(kDecimalBase), std::get<Rational>(args[0]));
         }),
     unary(OpId::Exp, TCALC_CALL(exp)),
 
@@ -1265,9 +1297,22 @@ constexpr std::array<RetryArmRule, kOpCount> build_retry_arms() {
 }
 inline constexpr auto kRetryArms = build_retry_arms();
 
+constexpr std::array<ExactRetry, kOpCount> build_exact_retries() {
+    std::array<ExactRetry, kOpCount> t{};
+    for (const auto &row : kOpRows)
+        t[static_cast<std::size_t>(row.id)] = row.exact_retry;
+    return t;
+}
+inline constexpr auto kExactRetries = build_exact_retries();
+
 /// The op's retry arm rule, or nullptr when a refused exact kernel retries in double.
 constexpr RetryArmRule retry_arm_of(OpId id) {
     return kRetryArms[static_cast<std::size_t>(id)];
+}
+
+/// The op's exact retry, or nullptr when a refused exact kernel only casts to double.
+constexpr ExactRetry exact_retry_of(OpId id) {
+    return kExactRetries[static_cast<std::size_t>(id)];
 }
 
 constexpr std::array<TraitMask, kOpCount> build_traits() {

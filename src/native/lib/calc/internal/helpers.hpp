@@ -13,6 +13,7 @@
 #include <optional>
 #include <utility>
 
+#include <boost/math/constants/constants.hpp>
 #include <boost/math/policies/policy.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
@@ -216,13 +217,69 @@ inline bool rational_div_overflows(const Rational &a, std::int64_t divisor) {
     return a.denominator() > (std::numeric_limits<std::int64_t>::max)() / factor;
 }
 
-/// Whether folding t into the first quadrant (Calculator::real_half_turns) would overflow
+/// Whether folding t into the first quadrant (fold_half_turns) would overflow
 /// int64: the reduction forms p in [0, 2*denominator) and then 2*p to find the quadrant, so
 /// 2*p reaches up to 4*denominator - 2. A denominator past a quarter of int64's range cannot
 /// take the plain int64 fold. Written as a division comparison, never a multiplication, since
 /// multiplying denominator by 4 first is exactly the overflow this is checking for.
 inline bool half_turn_fold_overflows(std::int64_t denominator) {
     return denominator > (std::numeric_limits<std::int64_t>::max)() / 4;
+}
+
+template <class T> struct HalfTurns {
+    T sin;
+    T cos;
+};
+
+/// p/q folded to a quarter turn: its quadrant, whether it is past the quadrant's middle, and
+/// pi times its distance from the nearer quadrant edge, in [0, pi/4]. fold_to_quarter takes
+/// an integer type wide enough for 2p < 4q. Casting num and 2q to T independently loses the
+/// residual exactly when num is close to q, so the nearer of num and q - num is what gets cast.
+template <class T> struct QuarterFold {
+    std::int64_t quadrant;
+    bool upper_half;
+    T eps;
+};
+template <class T, class I> QuarterFold<T> fold_to_quarter(I p, const I &q) {
+    // u = p/q mod 2 half turns, then quadrant = floor(2u) and num/2q = u - quadrant/2.
+    const I two_q = 2 * q;
+    p %= two_q;
+    if (p < 0)
+        p += two_q;
+    const I quadrant = 2 * p / q;       // 0..3, since 0 <= 2p < 4q
+    const I num = 2 * p - quadrant * q; // in [0, q)
+    const bool upper_half = 2 * num > q;
+    const I near = upper_half ? q - num : num;
+    return {
+        .quadrant = static_cast<std::int64_t>(quadrant),
+        .upper_half = upper_half,
+        .eps = boost::math::constants::pi<T>() * (static_cast<T>(near) / static_cast<T>(two_q))};
+}
+
+/// sin and cos of pi*t from its quarter-turn fold. int64 is the path taken and int256_t the
+/// fallback where the fold would overflow int64, because a wide-rational route measured 3.3x
+/// an int64 one.
+template <class T> HalfTurns<T> fold_half_turns(const Rational &t) {
+    using boost::multiprecision::int256_t;
+    const auto [quadrant, upper_half, eps] =
+        half_turn_fold_overflows(t.denominator())
+            ? fold_to_quarter<T, int256_t>(int256_t(t.numerator()), int256_t(t.denominator()))
+            : fold_to_quarter<T, std::int64_t>(t.numerator(), t.denominator());
+    const T s0 = std::sin(eps);
+    const T c0 = std::cos(eps);
+    // Within a quadrant, sine and cosine are these swapped and sign-changed at the edges; the
+    // upper_half swap is the same identity applied a second time, at the finer pi/4 boundary.
+    const T s = upper_half ? c0 : s0;
+    const T k = upper_half ? s0 : c0;
+    return {
+        .sin = quadrant == 0   ? s
+               : quadrant == 1 ? k
+               : quadrant == 2 ? -s
+                               : -k,
+        .cos = quadrant == 0   ? k
+               : quadrant == 1 ? -s
+               : quadrant == 2 ? -k
+                               : s};
 }
 
 /// floor(m^(1/q)) for m >= 2, q >= 2, over exact big integers. Only a floor estimate; the

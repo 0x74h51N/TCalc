@@ -15,7 +15,6 @@
 #include <boost/multiprecision/cpp_bin_float.hpp>
 #include <boost/multiprecision/cpp_complex.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
-#include <boost/multiprecision/cpp_int.hpp>
 
 namespace {
 
@@ -197,52 +196,8 @@ std::optional<Rational> Calculator::exact_half_turns(TrigFn fn, const Rational &
     return halves == kNoExact ? std::nullopt : std::optional<Rational>(Rational(halves, 2));
 }
 
-// t here has any denominator, not just the small ones exact_half_turns's grid filters for, so
-// the int64 fold below can overflow; int64 is still the path taken and int256_t the fallback,
-// because a wide-rational route measured 3.3x an int64 one.
-//
-// Casting num and 2*q to double independently loses the residual exactly when num is close to
-// q, so the nearer of num and q - num is what gets cast, at the cost of one more swap.
 double Calculator::real_half_turns(TrigFn fn, const Rational &t) const {
-    // u = t mod 2 half turns, then quadrant = floor(2u) and num/2q = u - quadrant/2, in [0, 1/2).
-    const std::int64_t q = t.denominator();
-    std::int64_t quadrant = 0;
-    bool upper_half = false;
-    double eps =
-        0.0; // pi times the fold's residual from whichever quadrant edge is nearer, in [0, pi/4]
-    if (!calc_detail::half_turn_fold_overflows(q)) {
-        std::int64_t p = t.numerator() % (2 * q);
-        if (p < 0)
-            p += 2 * q;
-        quadrant = (2 * p) / q;                        // 0..3, since 0 <= 2p < 4q
-        const std::int64_t num = 2 * p - quadrant * q; // in [0, q)
-        upper_half = 2 * num > q;
-        const std::int64_t near = upper_half ? q - num : num;
-        eps = boost::math::constants::pi<double>() *
-              (static_cast<double>(near) / static_cast<double>(2 * q));
-    } else {
-        using boost::multiprecision::int256_t;
-        const int256_t wq(q);
-        const int256_t two_q = 2 * wq;
-        int256_t p = int256_t(t.numerator()) % two_q;
-        if (p < 0)
-            p += two_q;
-        const int256_t wquadrant = 2 * p / wq; // 0..3, since 0 <= 2p < 4q
-        quadrant = static_cast<std::int64_t>(wquadrant);
-        const int256_t num = 2 * p - wquadrant * wq; // in [0, q)
-        upper_half = 2 * num > wq;
-        const int256_t near = upper_half ? wq - num : num;
-        eps = boost::math::constants::pi<double>() *
-              (near.convert_to<double>() / two_q.convert_to<double>());
-    }
-    const double s0 = std::sin(eps);
-    const double c0 = std::cos(eps);
-    // Within a quadrant, sine and cosine are these swapped and sign-changed at the edges; the
-    // upper_half swap is the same identity applied a second time, at the finer pi/4 boundary.
-    const double s = upper_half ? c0 : s0;
-    const double k = upper_half ? s0 : c0;
-    const double sin_v = quadrant == 0 ? s : quadrant == 1 ? k : quadrant == 2 ? -s : -k;
-    const double cos_v = quadrant == 0 ? k : quadrant == 1 ? -s : quadrant == 2 ? -k : s;
+    const auto [sin_v, cos_v] = calc_detail::fold_half_turns<double>(t);
     switch (fn) {
     case TrigFn::Sin:
         return sin_v;
