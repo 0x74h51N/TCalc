@@ -97,6 +97,12 @@ class Calculator {
     Rational root(const Rational &a, const Rational &b) const;
     Rational log(const Rational &a, const Rational &b) const;
 
+    /// x^y for a power the exact kernel refused, within 1 ulp: x > 0, or x < 0 at an odd
+    /// denominator of y, where the sign is (-1)^numerator.
+    double real_power(const Rational &x, const Rational &y) const;
+    /// The principal x^y for x < 0 at an even denominator of y, each part within 1 ulp.
+    Complex principal_power(const Rational &x, const Rational &y) const;
+
     /// Which trigonometric function an exact half-turn lookup is for.
     enum class TrigFn : std::uint8_t { Sin, Cos, Tan };
 

@@ -1,6 +1,10 @@
 #include "calc/pub/calculator.hpp"
 #include "internal/test_helpers.hpp"
 
+#include <cmath>
+#include <cstdint>
+#include <limits>
+
 void unit_arithmetic(TestContext &ctx) {
     Calculator c;
     using Z = Calculator::Complex;
@@ -124,4 +128,112 @@ void unit_arithmetic(TestContext &ctx) {
     TEST_CASE(ctx, "bigcomplex :: div roundtrip", {
         EXPECT_TRUE(ctx, approx_big(c.mul(bc_div, bc_b), bc_a));
     });
+
+    // A power refused by the exact kernel, computed from its exact base and exponent (#231).
+    // Each part within `tol` ulps of the double nearest the exact value; an exact zero part is
+    // +0. The ulp is taken on got's side: below a power of two it is half the one above.
+    const auto within = [](double got, double want, int tol) {
+        if (want == 0.0)
+            return got == 0.0 && !std::signbit(got);
+        const double ulp = std::fabs(std::nextafter(want, got) - want);
+        return std::fabs(got - want) <= tol * ulp;
+    };
+    constexpr std::int64_t kMin = (std::numeric_limits<std::int64_t>::min)();
+    constexpr std::int64_t kMax = (std::numeric_limits<std::int64_t>::max)();
+
+    struct RealPowerCase {
+        const char *id;
+        Rational x;
+        Rational y;
+        double expected;
+        int tol = 1;
+    };
+    const std::vector<RealPowerCase> real_power_cases = {
+        {.id = "a positive base",
+         .x = Rational(17),
+         .y = Rational(8711, 674),
+         .expected = 7993386127887876.0},
+        {.id = "a base that is no double",
+         .x = Rational(38, 3),
+         .y = Rational(20993, 82),
+         .expected = 1.9724528358173784e+282},
+        {.id = "a result near 1e267",
+         .x = Rational(10),
+         .y = Rational(331897, 1242),
+         .expected = 1.6898894438436359e+267},
+        {.id = "a base below one",
+         .x = Rational(1, 2),
+         .y = Rational(8711, 674),
+         .expected = 0.00012864363123970833},
+        {.id = "an odd degree past 2^53",
+         .x = Rational(-2),
+         .y = Rational(1, 9007199254740993),
+         .expected = -1.0},
+        {.id = "int64 min at an odd degree",
+         .x = Rational(kMin),
+         .y = Rational(1, kMax),
+         .expected = -1.0},
+        {.id = "a cube root past 2^53",
+         .x = Rational(kMax),
+         .y = Rational(1, 3),
+         .expected = 2097152.0},
+        {.id = "a cube root keeps the real root kernel",
+         .x = Rational(109889063671LL),
+         .y = Rational(1, 3),
+         .expected = 4789.80858033901,
+         .tol = 0},
+        {.id = "a negative base at an odd degree",
+         .x = Rational(-10),
+         .y = Rational(1, 5),
+         .expected = -1.5848931924611134},
+    };
+    for (const auto &tc : real_power_cases) {
+        test_detail::with_case(ctx, std::string("real_power :: ") + tc.id, [&] {
+            EXPECT_TRUE(ctx, within(c.real_power(tc.x, tc.y), tc.expected, tc.tol));
+        });
+    }
+
+    struct PrincipalPowerCase {
+        const char *id;
+        Rational x;
+        Rational y;
+        Z expected;
+    };
+    const std::vector<PrincipalPowerCase> principal_power_cases = {
+        {.id = "an exponent near one",
+         .x = Rational(-2),
+         .y = Rational(10000000000001LL, 10000000000000LL),
+         .expected = Z(-2.0000000000001386, -6.283185307180022e-13)},
+        {.id = "three halves on the axis",
+         .x = Rational(-2),
+         .y = Rational(3, 2),
+         .expected = Z(0.0, -2.8284271247461903)},
+        {.id = "a fraction base on the axis",
+         .x = Rational(-1, 2),
+         .y = Rational(3, 2),
+         .expected = Z(0.0, -0.3535533905932738)},
+        {.id = "a half of minus four",
+         .x = Rational(-4),
+         .y = Rational(1, 2),
+         .expected = Z(0.0, 2.0)},
+        {.id = "a large result on the axis",
+         .x = Rational(-10),
+         .y = Rational(301, 2),
+         .expected = Z(0.0, 3.1622776601683793e+150)},
+        {.id = "a large angle",
+         .x = Rational(-3),
+         .y = Rational(609803, 1058),
+         .expected = Z(3.8745589136552445e+274, 9.2182330420805e+274)},
+        {.id = "a half of int64 min",
+         .x = Rational(kMin),
+         .y = Rational(1, 2),
+         .expected = Z(0.0, 3037000499.97605)},
+    };
+    for (const auto &tc : principal_power_cases) {
+        test_detail::with_case(ctx, std::string("principal_power :: ") + tc.id, [&] {
+            const Z got = c.principal_power(tc.x, tc.y);
+            EXPECT_TRUE(ctx, within(got.real(), tc.expected.real(), 1));
+            EXPECT_TRUE(ctx, within(got.imag(), tc.expected.imag(), 1));
+        });
+    }
 }

@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <complex>
+#include <cstdint>
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
@@ -207,6 +208,49 @@ Rational Calculator::root(const Rational &a, const Rational &b) const {
         return *r;
     }
     calc_detail::math_error();
+}
+
+namespace {
+/// pow on the rounded |x| and y, and t, the log of the factor their roundings left out.
+struct CorrectedPow {
+    double r;
+    double t;
+};
+
+CorrectedPow corrected_pow(const Rational &x, const Rational &y) {
+    // INT64_MIN has no int64 negation; its double has one.
+    const double a = std::fabs(static_cast<double>(x.numerator()));
+    const auto c = static_cast<double>(x.denominator());
+    const auto p = static_cast<double>(y.numerator());
+    const auto q = static_cast<double>(y.denominator());
+    const double b = a / c;
+    const double e = p / q;
+    // Both residuals are exact for operands that are doubles; log1p and expm1 keep a base near
+    // 1 at a large exponent right, where a first-order term leaves it 9 ulps off.
+    const double de = std::fma(-e, q, p) / q;
+    const double db = std::fma(-b, c, a) / c;
+    return {.r = std::pow(b, e), .t = de * std::log(b) + e * std::log1p(db / b)};
+}
+} // namespace
+
+double Calculator::real_power(const Rational &x, const Rational &y) const {
+    // A root at an integer degree keeps the real root kernel's correctly rounded result; up to
+    // kExactIntLimit the degree is a double exactly.
+    if (y.numerator() == 1 && y.denominator() <= kExactIntLimit)
+        return root(x.to_double(), static_cast<double>(y.denominator()));
+    const auto [r, t] = corrected_pow(x, y);
+    const double m = std::fma(r, std::expm1(t), r);
+    return x.numerator() < 0 && calc_detail::odd_integer(y.numerator()) ? -m : m;
+}
+
+Calculator::Complex Calculator::principal_power(const Rational &x, const Rational &y) const {
+    const auto [r, t] = corrected_pow(x, y);
+    // Each part is rounded to double once; a double product leaves a part 2 or 3 ulps off.
+    const long double m = static_cast<long double>(r) +
+                          static_cast<long double>(r) * static_cast<long double>(std::expm1(t));
+    const auto turns = calc_detail::fold_half_turns<long double>(y);
+    // Adding +0 turns the fold's -0 on an axis into +0.
+    return {static_cast<double>(m * turns.cos) + 0.0, static_cast<double>(m * turns.sin) + 0.0};
 }
 
 Rational Calculator::sqrt(const Rational &a) const {
