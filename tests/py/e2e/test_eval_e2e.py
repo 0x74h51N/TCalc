@@ -1175,6 +1175,30 @@ class TestRational:
         with pytest.raises(Error, match="Math Error"):
             _eval(expr)
 
+    # A power whose operands lose digits as doubles is more than 1 ulp off in double (#277).
+    @pytest.mark.parametrize(
+        "expr",
+        [
+            param(
+                "(999999999999999999/1000000000000000000)^(1000000000000000001/2)",
+                id="pow-base-near-one-past-2-53",
+            ),
+            param(
+                "(9223372036854775807/9223372036854775806)^(9223372036854775805/2)",
+                id="pow-base-near-one-int64-max",
+            ),
+            param(
+                "(9007199255125041)^(900719925570883/455875633794574)",
+                id="pow-base-past-2-53-two-ulps",
+            ),
+        ],
+    )
+    def test_raises_needs_multiprecision(self, expr: str) -> None:
+        from tcalc.errors import Error
+
+        with pytest.raises(Error, match="Math Error: needs multiprecision mode"):
+            _eval(expr)
+
     # -- No-crash stress --
     @pytest.mark.parametrize(
         "expr",
