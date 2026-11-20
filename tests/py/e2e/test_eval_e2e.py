@@ -834,6 +834,27 @@ ROOT_CASES = [
     RootCase("9223372036854775807⌄3", 2097152.0, 0, "root-cube-i64-max"),
     RootCase("123456789⌄9", 7.926057519414248, 0, "root-ninth-123456789"),
     RootCase("109889063671⌄3", 4789.80858033901, 0, "root-integer-degree-correctly-rounded"),
+    RootCase(
+        "(2491763619252117747/5395514989418479)⌄3",
+        7.729617067401427,
+        1,
+        "root-integer-degree-quotient-not-a-double",
+    ),
+    RootCase("(1/2)⌄3", 0.7937005259840998, 1, "root-fraction-base-half"),
+    RootCase("(-1/3)⌄3", -0.6933612743506347, 1, "root-fraction-base-negative-odd"),
+    RootCase("(5/7)⌄5", 0.9349198761484702, 1, "root-fraction-base-fifth"),
+    RootCase("(1/10)⌄2", 0.31622776601683794, 1, "root-fraction-base-tenth"),
+    RootCase("(2/3)^(1/2)", 0.816496580927726, 1, "pow-half-fraction-base"),
+    RootCase("(9007199254740993)⌄2", 94906265.62425156, 1, "root-integer-base-past-2-53"),
+    RootCase(
+        "(-9007199254740993)⌄3", -208063.83068357586, 1, "root-negative-integer-base-past-2-53"
+    ),
+    RootCase("(9223372036854775807)⌄3", 2097152.0, 1, "root-int64-max-base"),
+    RootCase("(999999999999999999/1000000000000000000)⌄2", 1.0, 1, "root-fraction-base-near-one"),
+    RootCase(
+        "(1/9223372036854775807)⌄7", 0.001953125, 1, "root-fraction-base-int64-max-denominator"
+    ),
+    RootCase("(355/113)⌄1000", 1.0011453854241978, 1, "root-fraction-base-degree-1000"),
     RootCase("(-10)⌄5", -1.5848931924611134, 1, "root-fifth-minus-ten"),
     RootCase("2⌄3", 1.2599210498948732, 0, "root-cube-two"),
     RootCase("3⌄3", 1.4422495703074083, 0, "root-cube-three"),

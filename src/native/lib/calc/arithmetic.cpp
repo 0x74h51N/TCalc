@@ -255,9 +255,11 @@ CorrectedPow corrected_pow(const Rational &x, const Rational &y) {
 } // namespace
 
 double Calculator::real_power(const Rational &x, const Rational &y) const {
-    // A root at an integer degree keeps the real root kernel's correctly rounded result; up to
-    // kExactIntLimit the degree is a double exactly.
-    if (y.numerator() == 1 && y.denominator() <= kExactIntLimit)
+    // A root at an integer degree keeps the real root kernel's correctly rounded result where
+    // both the degree and the base are doubles exactly; a rounded quotient a/c leaves 2 ulps.
+    const bool base_is_double =
+        x.denominator() == 1 && x.numerator() >= -kExactIntLimit && x.numerator() <= kExactIntLimit;
+    if (base_is_double && y.numerator() == 1 && y.denominator() <= kExactIntLimit)
         return root(x.to_double(), static_cast<double>(y.denominator()));
     const auto [r, t] = corrected_pow(x, y);
     const double m = std::fma(r, std::expm1(t), r);
