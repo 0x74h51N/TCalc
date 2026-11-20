@@ -30,6 +30,9 @@ inline std::string unsupported_operand(std::string_view fn) {
     return "unsupported operand type for " + std::string(fn);
 }
 
+/// A power whose operands lose digits as doubles would be more than 1 ulp off in double.
+inline constexpr std::string_view kNeedsMultiprecision = "needs multiprecision mode";
+
 /// An op asked for an operand the stack cannot give.
 inline constexpr std::string_view kPopOperand = "Pop operand, not operand in stack.";
 

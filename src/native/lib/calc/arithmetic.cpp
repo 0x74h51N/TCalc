@@ -6,10 +6,13 @@
 
 #include "calc/pub/calculator.hpp"
 #include "calc/internal/helpers.hpp"
+#include "calc/pub/error_messages.hpp"
 
 #include <cmath>
 #include <complex>
 #include <cstdint>
+#include <limits>
+#include <string>
 
 #include <boost/multiprecision/cpp_dec_float.hpp>
 
@@ -211,6 +214,16 @@ Rational Calculator::root(const Rational &a, const Rational &b) const {
 }
 
 namespace {
+/// Half an ulp, relative: past it a result's error can pass 1 ulp.
+constexpr double kHalfUlp = std::numeric_limits<double>::epsilon() / 2;
+
+/// n's relative error as a double; 0 up to 2^53. int128 holds the double of int64 max, 2^63.
+double cast_loss(std::int64_t n) {
+    const auto d = static_cast<double>(n);
+    const __int128 lost = static_cast<__int128>(n) - static_cast<__int128>(d);
+    return std::fabs(static_cast<double>(lost)) / std::fabs(d);
+}
+
 /// pow on the rounded |x| and y, and t, the log of the factor their roundings left out.
 struct CorrectedPow {
     double r;
@@ -229,7 +242,15 @@ CorrectedPow corrected_pow(const Rational &x, const Rational &y) {
     // 1 at a large exponent right, where a first-order term leaves it 9 ulps off.
     const double de = std::fma(-e, q, p) / q;
     const double db = std::fma(-b, c, a) / c;
-    return {.r = std::pow(b, e), .t = de * std::log(b) + e * std::log1p(db / b)};
+    const double log_b = std::log(b);
+    // The residuals read the rounded operands, so a digit the cast dropped is gone. A base's
+    // relative error reaches the result |e| times, the exponent's |e ln b| times.
+    const double loss =
+        std::fabs(e) * (cast_loss(x.numerator()) + cast_loss(x.denominator())) +
+        std::fabs(e * log_b) * (cast_loss(y.numerator()) + cast_loss(y.denominator()));
+    if (loss > kHalfUlp)
+        throw CalculatorError(std::string(tcalc::errmsg::kNeedsMultiprecision));
+    return {.r = std::pow(b, e), .t = de * log_b + e * std::log1p(db / b)};
 }
 } // namespace
 
