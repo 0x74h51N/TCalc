@@ -30,6 +30,16 @@
 - Native test cases are a typed struct with designated initializers in one vector. Calls with the same signature share one table and one loop; the function to call is a field of the row (a member function pointer, cast to pin an overload), and the function is told apart in the `id` (`"exp :: ln two"`). Field names say input and expected (`input`, `expected`, `tol`; `x`, `y` for binary). `tol == 0` means exact equality. BigReal inputs and expected values are text, so no double sneaks in. Overloads with a different signature, `EXPECT_THROWS` rows and ordering claims stay as single test cases with a one-line reason.
 - Native tests use `test_detail::with_case(ctx, id, ...)`, not raw `TEST` macros or `EXPECT_NE`.
 
+## Operation results, precision and errors
+
+- A test or a finding about the result of an operation, a precision loss or the catching of an error is first an e2e test with the binding in it: the expression through `tokenize`, `evaluate_branch` and `format_result`, as `tests/py/e2e/test_eval_e2e.py` does.
+- To find where the problem comes from, the same case then runs on the other layers on its own: `calc_native.apply` with its `OpId` (the op alone), `format_result` (the text), and the native e2e without the binding (`src/native/tests/`). The first layer that goes wrong is the source.
+- The case is written in the flat op form (`(1)⌄(2)`, `(2)⁻¹`), apart from the LaTeX pipeline (`MathNode`, `structural_split`). A test or a finding names the op, not the LaTeX form.
+- Each op a form reaches is tried on its own. Read the op id from the tokens before assuming two forms share one: `\root{a}{b}` and `⌄` are both `OpId.Root`, `^{}` is `OpId.Pow`, `⁻¹` is `OpId.Recip`.
+- Only a form the editor or the keypad produces is tested. A name in an op's aliases is not a form to type: `2 pow 3` is not an expression, and its result is no finding.
+- When the LaTeX form is tested too and does not give the result the flat form gives, look at the op the LaTeX form maps to and at the split, not at the op.
+- A chain of operations is not tested in LaTeX form. `2^{3}^{4}` gives `4096`: the tokenizer runs `2^3` first and then `8^4`, while the GUI does not show it that way. The correct writing is `(2^{3})^{4}`, or `2^{3^{4}}` for a power on the exponent; that is a LaTeX writing rule and belongs to render. A chain is tested without LaTeX, so a writing mistake never stands for a wrong chain result.
+
 ## What earns a test
 
 - Test behavior, not the final state. A pure relocation or rename, or a UI element with no behavior yet, gets no new "assert the final shape" test; the existing suite staying green is the verification. Real behavior (a dock toggle kept in sync with its menu check and the app state) does deserve an integration test.

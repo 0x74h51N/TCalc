@@ -22,3 +22,4 @@ One line per findings file: the file, then the subject in a few words. Read this
 - [native-abort.md](native-abort.md): what can end the process (a libstdc++ assertion), and the unchecked int64 conversions next to it, and the native and Python smoke runs (#246, #247, #248, #249).
 - [rational-overflow.md](rational-overflow.md): an exact Rational result past int64 retried in double, in Add, Sub, Mul, Div and Pow (#245), and `intdiv` past int64 (#252).
 - [int64-min-reciprocal.md](int64-min-reciprocal.md): the three places a reciprocal of INT64_MIN throws `bad_rational`, and a root near 1 that loses its small part in double (#249, #231).
+- [real-root.md](real-root.md): why the double and BigReal root is a power at every degree, the errors it leaves, and the cost and exactness of Newton, long double and cbrt.

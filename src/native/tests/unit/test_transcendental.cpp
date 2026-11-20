@@ -14,6 +14,7 @@ namespace {
 using RealFn = double (Calculator::*)(double) const;
 using RealBinFn = double (Calculator::*)(double, double) const;
 using BigFn = BigReal (Calculator::*)(const BigReal &) const;
+using BigBinFn = BigReal (Calculator::*)(const BigReal &, const BigReal &) const;
 using RatBinFn = Rational (Calculator::*)(const Rational &, const Rational &) const;
 using ComplexBinFn =
     Calculator::Complex (Calculator::*)(Calculator::Complex, Calculator::Complex) const;
@@ -23,6 +24,7 @@ using BigComplexBinFn = BigComplex (Calculator::*)(const BigComplex &, const Big
 #define REAL_FN(name) static_cast<RealFn>(&Calculator::name)
 #define REAL_BIN_FN(name) static_cast<RealBinFn>(&Calculator::name)
 #define BIG_FN(name) static_cast<BigFn>(&Calculator::name)
+#define BIG_BIN_FN(name) static_cast<BigBinFn>(&Calculator::name)
 #define RAT_BIN_FN(name) static_cast<RatBinFn>(&Calculator::name)
 #define COMPLEX_BIN_FN(name) static_cast<ComplexBinFn>(&Calculator::name)
 #define BIG_COMPLEX_BIN_FN(name) static_cast<BigComplexBinFn>(&Calculator::name)
@@ -67,6 +69,15 @@ struct BigCase {
     const char *id;
     BigFn fn;
     const char *input;
+    const char *expected;
+    const char *tol;
+};
+
+struct BigBinCase {
+    const char *id;
+    BigBinFn fn;
+    const char *x;
+    const char *y;
     const char *expected;
     const char *tol;
 };
@@ -180,13 +191,182 @@ void unit_transcendental(TestContext &ctx) {
          .x = 27.0,
          .y = 3.0,
          .expected = 3.0,
-         .tol = kDefaultApproxEps},
+         .tol = 0.0},
         {.id = "root :: negative at an odd degree",
          .fn = REAL_BIN_FN(root),
          .x = -8.0,
          .y = 3.0,
          .expected = -2.0,
-         .tol = kDefaultApproxEps},
+         .tol = 0.0},
+        {.id = "root :: 1e300 at 3",
+         .fn = REAL_BIN_FN(root),
+         .x = 1e300,
+         .y = 3.0,
+         .expected = 1e100,
+         .tol = 0.0},
+        {.id = "root :: -1e300 at 3",
+         .fn = REAL_BIN_FN(root),
+         .x = -1e300,
+         .y = 3.0,
+         .expected = -1e100,
+         .tol = 0.0},
+        {.id = "root :: 1e-300 at 3",
+         .fn = REAL_BIN_FN(root),
+         .x = 1e-300,
+         .y = 3.0,
+         .expected = 1e-100,
+         .tol = 0.0},
+        {.id = "root :: 1e300 at -3",
+         .fn = REAL_BIN_FN(root),
+         .x = 1e300,
+         .y = -3.0,
+         .expected = 1e-100,
+         .tol = 0.0},
+        {.id = "root :: 1e100 at 7",
+         .fn = REAL_BIN_FN(root),
+         .x = 1e100,
+         .y = 7.0,
+         .expected = 193069772888325.03,
+         .tol = 0.0},
+        {.id = "root :: int64 max at 3",
+         .fn = REAL_BIN_FN(root),
+         .x = 9223372036854775807.0,
+         .y = 3.0,
+         .expected = 2097152.0,
+         .tol = 0.0},
+        {.id = "root :: 123456789 at 9",
+         .fn = REAL_BIN_FN(root),
+         .x = 123456789.0,
+         .y = 9.0,
+         .expected = 7.926057519414248,
+         .tol = 0.0},
+        // Under the magnitude bound pow stays, 1 ulp off here: the accepted error.
+        {.id = "root :: -10 at 5",
+         .fn = REAL_BIN_FN(root),
+         .x = -10.0,
+         .y = 5.0,
+         .expected = -1.5848931924611134,
+         .tol = std::numeric_limits<double>::epsilon()},
+        {.id = "root :: 2 at int min",
+         .fn = REAL_BIN_FN(root),
+         .x = 2.0,
+         .y = -2147483648.0,
+         .expected = 0.9999999996772282,
+         .tol = 0.0},
+        {.id = "root :: double max at 2",
+         .fn = REAL_BIN_FN(root),
+         .x = 1.7976931348623157e308,
+         .y = 2.0,
+         .expected = 1.3407807929942596e154,
+         .tol = 0.0},
+        {.id = "root :: 4.042789004645595e299 at 2",
+         .fn = REAL_BIN_FN(root),
+         .x = 4.042789004645595e299,
+         .y = 2.0,
+         .expected = 6.358293013573371e149,
+         .tol = 0.0},
+        {.id = "root :: midpoint, 4.5699183073566334e170 at 4",
+         .fn = REAL_BIN_FN(root),
+         .x = 4.5699183073566334e170,
+         .y = 4.0,
+         .expected = 4.623566508069751e42,
+         .tol = 0.0},
+        {.id = "root :: midpoint, 7.4762568165974985e-159 at -4",
+         .fn = REAL_BIN_FN(root),
+         .x = 7.4762568165974985e-159,
+         .y = -4.0,
+         .expected = 3.4007832048414286e39,
+         .tol = 0.0},
+        {.id = "root :: midpoint, 2.114202629437795e-81 at 16",
+         .fn = REAL_BIN_FN(root),
+         .x = 2.114202629437795e-81,
+         .y = 16.0,
+         .expected = 9.074478228903526e-06,
+         .tol = 0.0},
+        {.id = "root :: midpoint, 2.8842032797071242e-41 at -20",
+         .fn = REAL_BIN_FN(root),
+         .x = 2.8842032797071242e-41,
+         .y = -20.0,
+         .expected = 106.41398492378998,
+         .tol = 0.0},
+        {.id = "root :: 2 at 3",
+         .fn = REAL_BIN_FN(root),
+         .x = 2.0,
+         .y = 3.0,
+         .expected = 1.2599210498948732,
+         .tol = 0.0},
+        {.id = "root :: 3 at 3",
+         .fn = REAL_BIN_FN(root),
+         .x = 3.0,
+         .y = 3.0,
+         .expected = 1.4422495703074083,
+         .tol = 0.0},
+        {.id = "root :: 10 at 3",
+         .fn = REAL_BIN_FN(root),
+         .x = 10.0,
+         .y = 3.0,
+         .expected = 2.154434690031884,
+         .tol = 0.0},
+        {.id = "root :: 0.5 at 3",
+         .fn = REAL_BIN_FN(root),
+         .x = 0.5,
+         .y = 3.0,
+         .expected = 0.7937005259840998,
+         .tol = 0.0},
+        {.id = "root :: 2 at 2",
+         .fn = REAL_BIN_FN(root),
+         .x = 2.0,
+         .y = 2.0,
+         .expected = 1.4142135623730951,
+         .tol = 0.0},
+        {.id = "root :: 1.5 at 2",
+         .fn = REAL_BIN_FN(root),
+         .x = 1.5,
+         .y = 2.0,
+         .expected = 1.224744871391589,
+         .tol = 0.0},
+        {.id = "root :: 2 at 7",
+         .fn = REAL_BIN_FN(root),
+         .x = 2.0,
+         .y = 7.0,
+         .expected = 1.1040895136738123,
+         .tol = 0.0},
+        {.id = "root :: 100 at 5",
+         .fn = REAL_BIN_FN(root),
+         .x = 100.0,
+         .y = 5.0,
+         .expected = 2.51188643150958,
+         .tol = 0.0},
+        {.id = "root :: 5 at 10",
+         .fn = REAL_BIN_FN(root),
+         .x = 5.0,
+         .y = 10.0,
+         .expected = 1.174618943088019,
+         .tol = 0.0},
+        {.id = "root :: 2 at -3",
+         .fn = REAL_BIN_FN(root),
+         .x = 2.0,
+         .y = -3.0,
+         .expected = 0.7937005259840998,
+         .tol = 0.0},
+        {.id = "root :: 2.5 at 4",
+         .fn = REAL_BIN_FN(root),
+         .x = 2.5,
+         .y = 4.0,
+         .expected = 1.2574334296829355,
+         .tol = 0.0},
+        {.id = "root :: 17 at 6",
+         .fn = REAL_BIN_FN(root),
+         .x = 17.0,
+         .y = 6.0,
+         .expected = 1.6035216215125492,
+         .tol = 0.0},
+        {.id = "root :: -2 at 3",
+         .fn = REAL_BIN_FN(root),
+         .x = -2.0,
+         .y = 3.0,
+         .expected = -1.2599210498948732,
+         .tol = 0.0},
         {.id = "pow :: fractional exponent",
          .fn = REAL_BIN_FN(pow),
          .x = 9.0,
@@ -352,19 +532,99 @@ void unit_transcendental(TestContext &ctx) {
         EXPECT_TRUE(ctx, approx_big(c.exp(c.ln(BigReal("2"))), BigReal("2"), BigReal("1e-45")));
     });
 
-    TEST_CASE(ctx, "bigreal :: root negative odd degree", {
-        EXPECT_TRUE(
-            ctx, approx_big(c.root(BigReal("-27"), BigReal("3")), BigReal("-3"), BigReal("1e-30")));
-    });
+    const std::vector<BigBinCase> big_bin_cases = {
+        {.id = "root :: -27 at 3",
+         .fn = BIG_BIN_FN(root),
+         .x = "-27",
+         .y = "3",
+         .expected = "-3",
+         .tol = nullptr},
+        {.id = "root :: 8e300 at 3",
+         .fn = BIG_BIN_FN(root),
+         .x = "8e300",
+         .y = "3",
+         .expected = "2e100",
+         .tol = nullptr},
+        {.id = "root :: -8e300 at 3",
+         .fn = BIG_BIN_FN(root),
+         .x = "-8e300",
+         .y = "3",
+         .expected = "-2e100",
+         .tol = nullptr},
+        {.id = "root :: 1e300 at 3",
+         .fn = BIG_BIN_FN(root),
+         .x = "1e300",
+         .y = "3",
+         .expected = "1e100",
+         .tol = nullptr},
+        {.id = "root :: 1e400 at 4",
+         .fn = BIG_BIN_FN(root),
+         .x = "1e400",
+         .y = "4",
+         .expected = "1e100",
+         .tol = nullptr},
+        {.id = "root :: 3.2e501 at 5",
+         .fn = BIG_BIN_FN(root),
+         .x = "3.2e501",
+         .y = "5",
+         .expected = "2e100",
+         .tol = nullptr},
+        {.id = "root :: 1e600 at 6",
+         .fn = BIG_BIN_FN(root),
+         .x = "1e600",
+         .y = "6",
+         .expected = "1e100",
+         .tol = nullptr},
+        {.id = "root :: 1e300 at -3",
+         .fn = BIG_BIN_FN(root),
+         .x = "1e300",
+         .y = "-3",
+         .expected = "1e-100",
+         .tol = nullptr},
+        {.id = "root :: 4e200 at 2",
+         .fn = BIG_BIN_FN(root),
+         .x = "4e200",
+         .y = "2",
+         .expected = "2e100",
+         .tol = nullptr},
+        {.id = "root :: 0 at 3",
+         .fn = BIG_BIN_FN(root),
+         .x = "0",
+         .y = "3",
+         .expected = "0",
+         .tol = nullptr},
+        {.id = "root :: 2e300 at 3",
+         .fn = BIG_BIN_FN(root),
+         .x = "2e300",
+         .y = "3",
+         .expected = "1.25992104989487316476721060727822835057025146470150798008197511216e100",
+         .tol = "1e40"},
+        {.id = "root :: 3e400 at 7",
+         .fn = BIG_BIN_FN(root),
+         .x = "3e400",
+         .y = "7",
+         .expected = "1625613593056498357175533955454820663630388491453130156256.14649566",
+         .tol = "1e-3"},
+    };
+
+    for (const auto &tc : big_bin_cases) {
+        test_detail::with_case(ctx, std::string("bigreal :: ") + tc.id, [&] {
+            const BigReal got = (c.*tc.fn)(BigReal(tc.x), BigReal(tc.y));
+            if (tc.tol == nullptr)
+                EXPECT_EQ(ctx, got, BigReal(tc.expected));
+            else
+                EXPECT_TRUE(ctx, approx_big(got, BigReal(tc.expected), BigReal(tc.tol)));
+        });
+    }
+
     // An odd degree reached through a division that leaves a guard-digit residue is still
-    // odd, so this must compute rather than reject.
+    // odd, so this must compute rather than reject; a text operand cannot carry the residue.
     TEST_CASE(ctx, "bigreal :: root of a negative takes a quotient degree", {
-        EXPECT_TRUE(
-            ctx,
-            approx_big(
-                c.root(BigReal("-8"), BigReal("9e400") / BigReal("3e400")),
-                BigReal("-2"),
-                BigReal("1e-40")));
+        EXPECT_EQ(ctx, c.root(BigReal("-8"), BigReal("9e400") / BigReal("3e400")), BigReal("-2"));
+    });
+    TEST_CASE(ctx, "bigreal :: root of a positive takes a quotient degree", {
+        EXPECT_EQ(
+            ctx, c.root(BigReal("8e300"), BigReal("9e400") / BigReal("3e400")), BigReal("2e100"));
     });
 
     TEST_CASE(
