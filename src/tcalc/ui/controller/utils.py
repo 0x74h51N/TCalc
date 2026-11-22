@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from decimal import Decimal
+import math
+import re
 
 import calc_native
 
@@ -37,11 +38,16 @@ def apply_hyp_variant(op: Operation, hyp_enabled: bool) -> Operation:
     return HYP_MAP.get(op, op)
 
 
-def _fmt_exact_int(n: int, *, group: bool) -> str:
-    """Format an exact integer off its own digits; a double rounds away past 2**53."""
-    if abs(n) >= 10**10:
-        return f"{Decimal(n):.{max(16, len(str(abs(n))) - 1)}e}"
-    return f"{n:,}" if group else str(n)
+# Significant digits of an exact value on the result line; #128 makes it a setting.
+RESULT_DIGITS = 20
+
+# An integer digit run: not after a point or a digit, and not an exponent.
+_INT_RUN = re.compile(r"(?<![\d.])(?<!e[+-])\d{4,}")
+
+
+def _group_digits(text: str) -> str:
+    """Thousands separators into every integer digit run, both parts of a complex too."""
+    return _INT_RUN.sub(lambda m: f"{int(m.group()):,}", text)
 
 
 def format_result(value: CalcValue, *, group: bool = False) -> str:
@@ -65,25 +71,24 @@ def format_result(value: CalcValue, *, group: bool = False) -> str:
             parts += [format_result(value[i]) for i in range(n - tail, n)]
         return opener + ", ".join(parts) + closer
 
-    if isinstance(value, int) and not isinstance(value, bool):
-        return _fmt_exact_int(value, group=group)
-
-    if isinstance(value, calc_native.Rational):
-        if value.denominator == 1:
-            return _fmt_exact_int(value.numerator, group=group)
-        # Display as decimal value for now; fraction widget will use .numerator/.denominator
-        return format_result(value.to_double(), group=group)
-
-    if isinstance(value, calc_native.BigReal):
-        return str(value)
-
-    if isinstance(value, calc_native.BigComplex):
-        return str(value)
+    if isinstance(value, int | calc_native.Rational | calc_native.BigReal | calc_native.BigComplex):
+        if group:
+            return _group_digits(calc_native.decimal_text(value, RESULT_DIGITS))
+        # Written into the expression, so it must read back as the same value.
+        if isinstance(value, int):
+            return str(value)
+        if isinstance(value, calc_native.Rational):
+            return str(value.numerator) if value.denominator == 1 else f"({value})"
+        return calc_native.decimal_text(value, RESULT_DIGITS)
 
     def fmt_real(x: float) -> str:
         abs_val = abs(x)
+        # cosh(1000) is inf, which has no exponent to split.
+        if not math.isfinite(x):
+            return str(x)
         if abs_val >= 1e10 or (0 < abs_val < 1e-6):
-            return f"{x:.16e}"
+            mantissa, exponent = f"{x:.15e}".split("e")
+            return f"{mantissa.rstrip('0').rstrip('.')}e{exponent}"
 
         if x.is_integer():
             return f"{int(x):,}" if group else str(int(x))
@@ -92,12 +97,7 @@ def format_result(value: CalcValue, *, group: bool = False) -> str:
         if "999999999999" in result:
             result = f"{x:.15g}"
 
-        if "." in result:
-            int_part, dec_part = result.split(".", 1)
-            if group and abs(float(int_part)) >= 1000:
-                return f"{int(int_part):,}.{dec_part}"
-
-        return result
+        return _group_digits(result) if group else result
 
     # Complex handling
     if isinstance(value, complex):
