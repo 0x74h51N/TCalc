@@ -209,7 +209,7 @@ inline int significant_digits(const std::string &text) {
 /// passes the digits, so a value past kScientificFrom is written with only its significant
 /// digits and its trailing zeros become the exponent (10000000000 is 1e+10).
 inline std::string decimal_text(const BigReal &b, int digits) {
-    const std::string text = b.str(digits);
+    std::string text = b.str(digits);
     // The rounded text decides: 9999999999.999999999999 writes as 10000000000 at 20 digits.
     if (abs(BigReal(text)) < detail::kScientificFrom) {
         return text;
@@ -229,7 +229,7 @@ inline std::string decimal_text(const BigComplex &c, int digits) {
     if (im == 0) {
         return decimal_text(re, digits);
     }
-    const std::string imag = decimal_text(im, digits) + "i";
+    std::string imag = decimal_text(im, digits) + "i";
     if (re == 0) {
         return imag;
     }
