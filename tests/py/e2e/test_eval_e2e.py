@@ -455,9 +455,7 @@ def _eval(expr: str) -> object:
             "(1e400i)^{2}", "BigComplex", "-1e+800+0i", id="imaginary-literal-past-double-squared"
         ),
         param("1e400+1e400i", "BigComplex", "1e+400+1e+400i", id="bigreal-plus-imaginary-literal"),
-        param(
-            "1e200i*1e200i", "BigComplex", "-9.999999999999999e+399+0i", id="complex-mul-overflow"
-        ),
+        param("1e200i*1e200i", "BigComplex", "-1e+400+0i", id="complex-mul-overflow"),
         param("1e-200i*1e-200i", "BigComplex", "-1e-400+0i", id="complex-mul-underflow"),
         param("(2i)^{2000}", "BigComplex", "1.148130695274255e+602+0i", id="complex-pow-overflow"),
         param(

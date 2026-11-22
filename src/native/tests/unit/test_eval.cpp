@@ -36,6 +36,7 @@
 using tcalc::Arm;
 using tcalc::arm_of;
 using tcalc::CollectionKind;
+using tcalc::decimal_text;
 using tcalc::is_num_or_big;
 using tcalc::rational_downcast;
 using tcalc::to_big;
@@ -93,6 +94,11 @@ using ScalarCase = Case<ScalarOps, tcalc::eval::Scalar>;
 using NearCase = Case<const char *, double>;
 /// Case row for a rejected expression: source text -> nothing, it must throw.
 using RejectCase = Case<const char *, std::monostate>;
+/// Case rows for decimal_text, one table per overload: the value -> its display text.
+using IntTextCase = Case<std::int64_t, const char *>;
+using RationalTextCase = Case<Rational, const char *>;
+using BigRealTextCase = Case<BigReal, const char *>;
+using BigComplexTextCase = Case<BigComplex, const char *>;
 /// Case row for a rejected expression whose message text is part of the contract.
 using MsgCase = Case<const char *, const char *>;
 /// Source text paired with the angle unit to evaluate it under (EvalCase always uses the
@@ -203,6 +209,9 @@ void unit_eval(TestContext &ctx) {
         // Exact: must not round-trip through double, which would give ...992.
         EXPECT_EQ(ctx, to_big(std::int64_t{9007199254740993}), BigReal("9007199254740993"));
         EXPECT_EQ(ctx, to_big(2.5), BigReal("2.5"));
+        // A double widens as its shortest decimal: 1e308 is not 1.00000000000000001097e308.
+        EXPECT_EQ(ctx, to_big(1e308), BigReal("1e308"));
+        EXPECT_EQ(ctx, to_big(0.1), BigReal("0.1"));
     });
 
     TEST_CASE(ctx, "to_complex :: one overload per arm", {
@@ -216,11 +225,98 @@ void unit_eval(TestContext &ctx) {
         const BigComplex bc(1.0, 2.0);
         EXPECT_EQ(ctx, to_big_complex(bc), bc);
         EXPECT_EQ(ctx, to_big_complex(Complex(1.0, 2.0)), BigComplex(1.0, 2.0));
+        EXPECT_EQ(
+            ctx,
+            to_big_complex(Complex(0.1, 1e200)),
+            BigComplex(
+                tcalc::detail::BigComplexComponent("0.1"),
+                tcalc::detail::BigComplexComponent("1e200")));
         EXPECT_EQ(ctx, to_big_complex(BigReal("1.5")), BigComplex(1.5, 0.0));
         EXPECT_EQ(ctx, to_big_complex(std::int64_t{3}), BigComplex(3.0, 0.0));
         EXPECT_EQ(ctx, to_big_complex(2.5), BigComplex(2.5, 0.0));
         EXPECT_EQ(ctx, to_big_complex(Rational(1, 2)), BigComplex(0.5, 0.0));
     });
+
+    // Twenty significant digits, the result line's default.
+    constexpr int kTextDigits = 20;
+    using Part = tcalc::detail::BigComplexComponent;
+
+    const std::vector<IntTextCase> int_text_cases = {
+        {.id = "ten digits ending in zeros abbreviate", .input = 10000000000, .expected = "1e+10"},
+        {.id = "negative abbreviates", .input = -10000000000, .expected = "-1e+10"},
+        {.id = "trailing zeros drop", .input = 12345678900, .expected = "1.23456789e+10"},
+        {.id = "no trailing zero stays full", .input = 12345678901, .expected = "12345678901"},
+        {.id = "under 1e10 stays full", .input = 9999999999, .expected = "9999999999"},
+        {.id = "int64 max stays full",
+         .input = 9223372036854775807,
+         .expected = "9223372036854775807"},
+    };
+    for (const auto &tc : int_text_cases) {
+        test_detail::with_case(ctx, std::string("decimal_text :: int64 ") + tc.id, [&] {
+            EXPECT_EQ(ctx, decimal_text(tc.input, kTextDigits), std::string(tc.expected));
+        });
+    }
+
+    const std::vector<RationalTextCase> rational_text_cases = {
+        {.id = "a third", .input = Rational(1, 3), .expected = "0.33333333333333333333"},
+        {.id = "rounds the last digit",
+         .input = Rational(-2, 7),
+         .expected = "-0.28571428571428571429"},
+        {.id = "half past 2^53 keeps its half",
+         .input = Rational(9007199254740993, 2),
+         .expected = "4503599627370496.5"},
+        {.id = "a tenth of a millionth", .input = Rational(1, 10000000), .expected = "1e-07"},
+        {.id = "past 1e10 with no trailing zero",
+         .input = Rational(9223372036854775807, 3),
+         .expected = "3074457345618258602.3"},
+        {.id = "past 1e10 with a fraction",
+         .input = Rational(1000000000005, 10),
+         .expected = "100000000000.5"},
+    };
+    for (const auto &tc : rational_text_cases) {
+        test_detail::with_case(ctx, std::string("decimal_text :: Rational ") + tc.id, [&] {
+            EXPECT_EQ(ctx, decimal_text(tc.input, kTextDigits), std::string(tc.expected));
+        });
+    }
+
+    const std::vector<BigRealTextCase> bigreal_text_cases = {
+        {.id = "past double, twenty digits",
+         .input = BigReal("1e400") / BigReal(3),
+         .expected = "3.3333333333333333333e+399"},
+        {.id = "2^63 exact",
+         .input = BigReal("9223372036854775808"),
+         .expected = "9223372036854775808"},
+        {.id = "rounds up to 1e10 at twenty digits",
+         .input = BigReal("9999999999.999999999999"),
+         .expected = "1e+10"},
+    };
+    for (const auto &tc : bigreal_text_cases) {
+        test_detail::with_case(ctx, std::string("decimal_text :: BigReal ") + tc.id, [&] {
+            EXPECT_EQ(ctx, decimal_text(tc.input, kTextDigits), std::string(tc.expected));
+        });
+    }
+
+    const std::vector<BigComplexTextCase> bigcomplex_text_cases = {
+        {.id = "imaginary alone",
+         .input = BigComplex(Part(0), Part("1e400")),
+         .expected = "1e+400i"},
+        {.id = "negative imaginary alone",
+         .input = BigComplex(Part(0), Part("-5e-201")),
+         .expected = "-5e-201i"},
+        {.id = "real alone", .input = BigComplex(Part("-1e800"), Part(0)), .expected = "-1e+800"},
+        {.id = "zero", .input = BigComplex(Part(0), Part(0)), .expected = "0"},
+        {.id = "both parts",
+         .input = BigComplex(Part(1234), Part("5e200")),
+         .expected = "1234+5e+200i"},
+        {.id = "both parts, negative imaginary",
+         .input = BigComplex(Part(1234), Part(-5)),
+         .expected = "1234-5i"},
+    };
+    for (const auto &tc : bigcomplex_text_cases) {
+        test_detail::with_case(ctx, std::string("decimal_text :: BigComplex ") + tc.id, [&] {
+            EXPECT_EQ(ctx, decimal_text(tc.input, kTextDigits), std::string(tc.expected));
+        });
+    }
 
     TEST_CASE(ctx, "is_num_or_big :: true for int64/double/BigReal/Rational only", {
         EXPECT_EQ(ctx, is_num_or_big(Value{std::int64_t{3}}), true);
