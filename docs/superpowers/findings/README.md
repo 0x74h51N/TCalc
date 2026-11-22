@@ -24,3 +24,4 @@ One line per findings file: the file, then the subject in a few words. Read this
 - [int64-min-reciprocal.md](int64-min-reciprocal.md): the three places a reciprocal of INT64_MIN throws `bad_rational`, and a root near 1 that loses its small part in double (#249, #231).
 - [fractional-exponent.md](fractional-exponent.md): a fractional exponent rounded to double in the retry, its loss for a positive and a negative base, the corrected pow and its 1 ulp line, the exact angle, the correctly rounded paths left to #275, and the parity of a root degree past 2^53 (#231).
 - [real-root.md](real-root.md): why the double and BigReal root is a power at every degree, the errors it leaves, and the cost and exactness of Newton, long double and cbrt.
+- [result-text.md](result-text.md): where the result line lost digits (`to_double`, 16-digit bindings, zero padding), how Boost writes exact text without a double, and the repeating decimal period (#244, #235, #255, #282).
