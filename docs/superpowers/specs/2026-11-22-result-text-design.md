@@ -1,4 +1,4 @@
-# Result text: exact values shown from their own digits (#244, #235, #255)
+# Result text: exact values shown from their own digits (#244, #235, #255, #264)
 
 Milestone: none of the open ones fits (the three issues have none); none proposed.
 
@@ -39,6 +39,8 @@ A Rational is turned into a double before it is written (`to_double()`, `utils.p
 - BigComplex: each part through `BigReal(c.real())` and `BigReal(c.imag())` and the BigReal overload; a part that is zero is dropped (#255), `0` when both are: `1e+400i`, `-1e+800`, `1234+3.3333333333333333333e+199i`.
 
 A double that overflows into a BigReal or a BigComplex is widened through its shortest decimal (`std::to_chars`) in `to_big(double)` and `to_big_complex(Complex)`, not through its binary value: at 20 digits the binary value of the literal `1e308` shows `1e308*10` as `1.000000000000000011e+309`; through its shortest decimal it is `1e+309`, and a computed double keeps every digit it carries.
+
+A decimal literal is read as a double only when the double's shortest decimal is the literal's value; any other literal is a BigReal (#264), so a BigReal's 20-digit text read back by MR or `=` is the same value: `100000000001234567890-1.0000000000123456789e20` is `0`, and `0.1234567890123456789012*10^22-1234567890123456789012` is `0`.
 
 It is bound in `bind_eval.cpp` (after the number types) with `py::arg("value"), py::arg("digits")`, and tested in `src/native/tests/unit/test_eval.cpp` beside `to_big`'s tests. A value is formatted only when it is shown: `evaluate` keeps returning the value, which the fraction view, memory, M+, #282 and #275 need, and a digits setting (#128) re-formats without evaluating again. The bindings' `__str__` stay as they are, the debug form.
 
@@ -94,6 +96,5 @@ Default: `10000000000`, `(1/3)`, `(9007199254740993/2)`, `10000000000000001`, `1
 ## Out of scope
 
 - A double or a BigReal recalled through MR is not made exact; the human agent chose the `Rational` fix.
-- A literal of more than 19 significant digits is read as a double (#264).
 - The repeating decimal shown with a line (#282).
 - Copy (Ctrl+C) keeps copying the display text.

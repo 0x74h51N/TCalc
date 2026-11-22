@@ -18,7 +18,7 @@ On master:
 - A double past `1e10` was written with `.16e`, 17 digits padded with zeros: `1e10` showed `1.0000000000000000e+10`, and the 17th digit of `1e-7` showed its noise.
 - A `BigReal` and a `BigComplex` were written by their binding at 16 of their 50 digits (`kPythonPrecision`), and a BigComplex kept its zero part (`0+1e+400i`).
 - MR and `=` wrote the same 16-digit text into the expression: `1/3`, MS, MR, `*3-1` gave `-9.9999999999999998e-17`.
-- A literal of more than 19 significant digits (`4503599627370496.4845789`) is read as a double before any formatting (#264).
+- A literal of more than 19 significant digits (`4503599627370496.4845789`) is read as a double before any formatting (#264); fixed below.
 
 ## 2026-11-22: what writes exact text without a double
 
@@ -51,3 +51,14 @@ print([period(q) for q in (3, 7, 97, 9973, 999983, 2147483647)])'
 ```
 
 A line-over decimal reads back exactly: integer part plus $\frac{\text{all decimal digits} - \text{non-repeating digits}}{10^n (10^k - 1)}$ (`0.16̄` is `1/6`, `12.50̄1̄2̄3̄` is `208333/16665`), with $n + k \le 18$ for an int64 denominator.
+
+## 2026-11-22: a BigReal's 20-digit text read back as a double (#264)
+
+At 20 digits `100000000001234567890` is shown as `1.0000000000123456789e+20`; MR or `=` wrote that text back and `parse_real` (`eval/literal.cpp`) read it with `strtod`, so `100000000001234567890-1.0000000000123456789e20` was `722`. `parse_real` now keeps the double only when `to_big(f)` (the double's shortest decimal) equals `BigReal(literal)`; otherwise the literal is a BigReal. The comparison runs only past 15 significant digits (`digits10`), where a double can differ from the literal: the brute iterated loop reads its literals every step, and comparing every literal made `\sum_{n=1}^{200000}{n*1e-3}` (closed forms off) 3.44 s against 2.41 s before; with the digit check it is 2.43 s. The check also keeps `0e99999999999999999999` a `0.0`; Boost cannot parse its exponent and threw. `1e10`, `10e+1` and `1e308` stay doubles. A 17-digit literal whose double has a 16-digit shortest decimal (`7.4762568165974985e-159`, double `7.476256816597498e-159`) is now a BigReal, the value typed; two root rows in `tests/py/e2e/test_eval_e2e.py` that meant the double now write its shortest text.
+
+```bash
+QT_QPA_PLATFORM=offscreen PYTHONPATH=.:src:tests/py/e2e .venv/bin/python -c '
+from test_eval_e2e import _eval
+for t in ["100000000001234567890-1.0000000000123456789e20", "0.1234567890123456789012*10^22-1234567890123456789012", "1e10", "7.4762568165974985e-159"]:
+    print(t, repr(_eval(t)))'
+```
