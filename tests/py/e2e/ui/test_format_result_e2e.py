@@ -192,6 +192,7 @@ def test_default_output_round_trips(value, expected_kind):
         pytest.param("10000000000", id="int-zeros"),
         pytest.param("2^{40}", id="whole-rational"),
         pytest.param("10^{16}+1", id="int-past-double"),
+        pytest.param("100000000001234567890", id="bigreal-twenty-digits"),
         pytest.param("1e400i", id="bigcomplex"),
     ],
 )

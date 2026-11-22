@@ -134,7 +134,8 @@ std::optional<Rational> exact_decimal(const std::string &s) {
 /// The real reader: no '.' and no 'e' is an integer (int64, or BigReal past int64's
 /// range); otherwise a double, promoted to BigReal when the literal has an exponent
 /// and the double came out non-finite, or came out zero although the literal is not
-/// itself zero (an underflow, the reason 1e-400 must not collapse to 0.0).
+/// itself zero (an underflow, the reason 1e-400 must not collapse to 0.0), or carries
+/// more digits than the double does.
 Value parse_real(const std::string &s) {
     const bool has_dot = s.find('.') != std::string::npos;
     const bool has_e = s.find('e') != std::string::npos || s.find('E') != std::string::npos;
@@ -170,6 +171,13 @@ Value parse_real(const std::string &s) {
                 return Value{f}; // BigReal could not parse it either; keep the double
             }
         }
+    }
+    // The double holds the literal only when its shortest decimal is the literal's value;
+    // 0.1234567890123456789012 has more digits than a double carries (#264). Up to digits10
+    // digits it always is, and the iterated brute loop reads its literals every step.
+    if (tcalc::detail::significant_digits(s) > std::numeric_limits<double>::digits10) {
+        if (BigReal exact(s); exact != to_big(f))
+            return Value{exact};
     }
     return Value{f};
 }
