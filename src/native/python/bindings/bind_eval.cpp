@@ -93,4 +93,26 @@ void bind_eval(py::module_ &m) {
     // the app sets ~500ms so a runaway expression errors instead of freezing the UI.
     m.def("set_eval_time_budget_ms", &tcalc::eval::set_eval_time_budget_ms, py::arg("ms"));
     m.def("eval_time_budget_ms", &tcalc::eval::eval_time_budget_ms);
+
+    // The display text of an exact value, written from the value itself (no double).
+    m.def(
+        "decimal_text",
+        py::overload_cast<std::int64_t, int>(&tcalc::decimal_text),
+        py::arg("value"),
+        py::arg("digits"));
+    m.def(
+        "decimal_text",
+        py::overload_cast<const Rational &, int>(&tcalc::decimal_text),
+        py::arg("value"),
+        py::arg("digits"));
+    m.def(
+        "decimal_text",
+        py::overload_cast<const BigReal &, int>(&tcalc::decimal_text),
+        py::arg("value"),
+        py::arg("digits"));
+    m.def(
+        "decimal_text",
+        py::overload_cast<const BigComplex &, int>(&tcalc::decimal_text),
+        py::arg("value"),
+        py::arg("digits"));
 }

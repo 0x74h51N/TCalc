@@ -5,8 +5,14 @@
 
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <charconv>
+#include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
+#include <string>
 #include <utility>
 #include <variant>
 
@@ -107,6 +113,19 @@ inline double to_double(const BigReal &b) {
     return b.convert_to<double>();
 }
 
+namespace detail {
+// Longest shortest round-trip text of a double (sign, 17 digits, point, exponent).
+inline constexpr std::size_t kShortestDoubleChars = 32;
+
+// The shortest decimal that reads back as `d`: the value the user wrote or was shown.
+// Its binary value carries the rounding past 16 digits (1e308 is 1.00000000000000001097e308).
+inline std::string shortest_decimal(double d) {
+    std::array<char, kShortestDoubleChars> buf{};
+    const auto end = std::to_chars(buf.data(), std::to_address(buf.end()), d).ptr;
+    return {buf.data(), end};
+}
+} // namespace detail
+
 /// Widen to BigReal. int64 converts exactly through boost's integral ctor; routing it
 /// through double would corrupt anything past 2^53. A Rational is divided in BigReal for
 /// the same reason: through double a degree of 1/3 kept 16 digits. The complex arms have no
@@ -121,7 +140,7 @@ inline BigReal to_big(std::int64_t i) {
     return BigReal(i);
 }
 inline BigReal to_big(double d) {
-    return BigReal(d);
+    return BigReal(detail::shortest_decimal(d));
 }
 
 /// Widen to Complex. The real arms embed with a zero imaginary part. BigReal has no
@@ -155,7 +174,9 @@ inline BigComplex to_big_complex(const BigComplex &bc) {
     return bc;
 }
 inline BigComplex to_big_complex(const Complex &c) {
-    return BigComplex(c.real(), c.imag());
+    return BigComplex(
+        detail::BigComplexComponent(detail::shortest_decimal(c.real())),
+        detail::BigComplexComponent(detail::shortest_decimal(c.imag())));
 }
 inline BigComplex to_big_complex(const BigReal &b) {
     return detail::real_to_big_complex(b);
@@ -168,6 +189,51 @@ inline BigComplex to_big_complex(double d) {
 }
 inline BigComplex to_big_complex(const Rational &r) {
     return detail::real_to_big_complex(to_big(r));
+}
+
+namespace detail {
+// From here up a value whose digits end in zeros is written in scientific form.
+inline constexpr std::int64_t kScientificFrom = 10'000'000'000;
+
+// The digits of a decimal text before its exponent, trailing zeros dropped.
+inline int significant_digits(const std::string &text) {
+    const std::string mantissa = text.substr(0, text.find('e'));
+    const std::string kept = mantissa.substr(0, mantissa.find_last_not_of("0.") + 1);
+    return static_cast<int>(
+        std::ranges::count_if(kept, [](char c) { return c >= '0' && c <= '9'; }));
+}
+} // namespace detail
+
+/// Write an exact value as decimal text: `digits` significant digits, rounded from the
+/// value itself, trailing zeros dropped. Boost writes the scientific form once the exponent
+/// passes the digits, so a value past kScientificFrom is written with only its significant
+/// digits and its trailing zeros become the exponent (10000000000 is 1e+10).
+inline std::string decimal_text(const BigReal &b, int digits) {
+    std::string text = b.str(digits);
+    // The rounded text decides: 9999999999.999999999999 writes as 10000000000 at 20 digits.
+    if (abs(BigReal(text)) < detail::kScientificFrom) {
+        return text;
+    }
+    return b.str(detail::significant_digits(text));
+}
+inline std::string decimal_text(std::int64_t i, int digits) {
+    return decimal_text(to_big(i), digits);
+}
+inline std::string decimal_text(const Rational &r, int digits) {
+    return decimal_text(to_big(r), digits);
+}
+/// A part that is zero is not written; both zero is "0".
+inline std::string decimal_text(const BigComplex &c, int digits) {
+    const BigReal re(c.real());
+    const BigReal im(c.imag());
+    if (im == 0) {
+        return decimal_text(re, digits);
+    }
+    std::string imag = decimal_text(im, digits) + "i";
+    if (re == 0) {
+        return imag;
+    }
+    return decimal_text(re, digits) + (im > 0 ? "+" : "") + imag;
 }
 
 /// Wrap a kernel's result into a Value. The reducers return CollectionItem, which is a

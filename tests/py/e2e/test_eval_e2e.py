@@ -455,9 +455,7 @@ def _eval(expr: str) -> object:
             "(1e400i)^{2}", "BigComplex", "-1e+800+0i", id="imaginary-literal-past-double-squared"
         ),
         param("1e400+1e400i", "BigComplex", "1e+400+1e+400i", id="bigreal-plus-imaginary-literal"),
-        param(
-            "1e200i*1e200i", "BigComplex", "-9.999999999999999e+399+0i", id="complex-mul-overflow"
-        ),
+        param("1e200i*1e200i", "BigComplex", "-1e+400+0i", id="complex-mul-overflow"),
         param("1e-200i*1e-200i", "BigComplex", "-1e-400+0i", id="complex-mul-underflow"),
         param("(2i)^{2000}", "BigComplex", "1.148130695274255e+602+0i", id="complex-pow-overflow"),
         param(
@@ -805,6 +803,16 @@ def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> N
             id="pow-whole-exponent-past-int64-stays-bigreal",
         ),
         param("⏨(19)", "1e19", id="pow10-whole-past-int64-stays-bigreal"),
+        param(
+            "0.1234567890123456789012*10^22-1234567890123456789012",
+            "0",
+            id="decimal-past-double-digits-diff",
+        ),
+        param(
+            "100000000001234567890-1.0000000000123456789e20",
+            "0",
+            id="scientific-past-double-digits-diff",
+        ),
     ],
 )
 def test_bigreal_exact_results(expr: str, expected: str) -> None:
@@ -873,11 +881,11 @@ ROOT_CASES = [
     RootCase("(4.042789004645595e299)⌄2", 6.358293013573371e149, 0, "root-square-4e299"),
     RootCase("(4.5699183073566334e170)⌄4", 4.623566508069751e42, 0, "root-midpoint-fourth"),
     RootCase(
-        "(7.4762568165974985e-159)⌄(-4)", 3.4007832048414286e39, 0, "root-midpoint-minus-fourth"
+        "(7.476256816597498e-159)⌄(-4)", 3.4007832048414286e39, 0, "root-midpoint-minus-fourth"
     ),
     RootCase("(2.114202629437795e-81)⌄16", 9.074478228903526e-06, 0, "root-midpoint-sixteenth"),
     RootCase(
-        "(2.8842032797071242e-41)⌄(-20)", 106.41398492378998, 0, "root-midpoint-minus-twentieth"
+        "(2.884203279707124e-41)⌄(-20)", 106.41398492378998, 0, "root-midpoint-minus-twentieth"
     ),
     # #231: a power the exact kernel refused, from its exact base and exponent.
     RootCase(
