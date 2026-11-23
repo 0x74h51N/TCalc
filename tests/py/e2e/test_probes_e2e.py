@@ -25,7 +25,7 @@ from probes.grade import (
     grade_of,
 )
 from probes.layers import layer_rows
-from probes.options import Options, add_arguments, options_from, read_inputs
+from probes.options import READS_CASES, Options, add_arguments, options_from, read_inputs
 from probes.rows import (
     UNIT_COLUMN,
     Layer,
@@ -373,7 +373,7 @@ def test_collect_nothing() -> None:
 def _options(*argv: str) -> Options:
     """Options as the command line gives them."""
     parser = argparse.ArgumentParser()
-    add_arguments(parser)
+    add_arguments(parser, READS_CASES)
     return options_from(parser.parse_args(argv))
 
 
@@ -385,7 +385,7 @@ def test_read_inputs_from_a_test() -> None:
 
 
 def test_test_without_field_lists_rows(capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["grade", "--test", GOLDEN]) == 0
+    assert main(["eval", "--test", GOLDEN]) == 0
     assert "expr=" in capsys.readouterr().out
 
 

@@ -2,7 +2,7 @@
 
 Two commands look at one TCalc case on one layer at a time, so the first layer that goes wrong is seen instead of guessed: `scripts/probe` for the Python side and the UI, `scripts/native_probe` for the C++ layers without the binding. They hold no cases: a case comes from the command line, from stdin (`-`, one per line), or from a row of a test suite. Each prints the same aligned table, so any table can be piped into `scripts/probe grade`.
 
-`scripts/probe` with no command lists its commands with an example each; `scripts/native_probe` does the same. `COMMAND --help` gives a command's options.
+`scripts/probe` with no command lists its commands with an example each; `scripts/native_probe` does the same. `COMMAND --help` gives a command's options; a flag the command does not read is rejected.
 
 ## Which command answers which question
 

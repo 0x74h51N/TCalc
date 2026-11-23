@@ -122,7 +122,7 @@ class Options:
             Flag(
                 "--step",
                 FlagKind.REPEATED,
-                "editor: a key after the text, in order: left right up down bs key:NAME text:TEXT",
+                "a key after the text, in order: left right up down bs key:NAME text:TEXT",
                 "STEP",
             )
         )
@@ -132,14 +132,14 @@ class Options:
             Flag(
                 "--theme",
                 FlagKind.TEXT,
-                "editor, render, paint, shot: the theme, by name (default: the app's)",
+                "the theme, by name (default: the app's)",
                 "NAME",
             )
         )
     )
     size: str | None = declared(
         metadata=_declare(
-            Flag("--size", FlagKind.TEXT, "shot: the window size (default: the app's)", "WxH")
+            Flag("--size", FlagKind.TEXT, "the window size (default: the app's)", "WxH")
         )
     )
     png: Path | None = declared(
@@ -147,7 +147,7 @@ class Options:
             Flag(
                 "--png",
                 FlagKind.PATH,
-                "editor, render, paint, shot: save a picture of the last input's widget or window",
+                "save a picture of the last input's widget or window",
                 "FILE",
             )
         )
@@ -161,6 +161,22 @@ class Options:
     )
 
 
+# the fields every command that reads cases takes
+READS_CASES = frozenset({"inputs", "define", "defs", "test", "keyword", "field"})
+
+
+def _default(kind: FlagKind) -> object:
+    match kind:
+        case FlagKind.REPEATED:
+            return []
+        case FlagKind.SWITCH:
+            return False
+        case FlagKind.ANGLE_UNIT:
+            return APP_ANGLE_UNIT
+        case FlagKind.PATH | FlagKind.TEXT:
+            return None
+
+
 def _add_flag(parser: argparse.ArgumentParser, dest: str, flag: Flag) -> None:
     match flag.kind:
         case FlagKind.REPEATED:
@@ -168,7 +184,7 @@ def _add_flag(parser: argparse.ArgumentParser, dest: str, flag: Flag) -> None:
                 flag.flag,
                 dest=dest,
                 action="append",
-                default=[],
+                default=_default(flag.kind),
                 help=flag.help,
                 metavar=flag.metavar,
             )
@@ -185,22 +201,28 @@ def _add_flag(parser: argparse.ArgumentParser, dest: str, flag: Flag) -> None:
                 flag.flag,
                 dest=dest,
                 type=_angle_unit,
-                default=APP_ANGLE_UNIT,
+                default=_default(flag.kind),
                 help=f"{flag.help}: {', '.join(UNITS)} (default {APP_ANGLE_UNIT.name})",
                 metavar=flag.metavar,
             )
 
 
-def add_arguments(parser: argparse.ArgumentParser) -> None:
-    """One argument per Options field, as the field declares it."""
+def add_arguments(parser: argparse.ArgumentParser, reads: frozenset[str]) -> None:
+    """An argument for each Options field the command reads; argparse rejects the others."""
+    unknown = reads - {f.name for f in fields(Options)}
+    if unknown:
+        raise ProbeError(f"no Options field {sorted(unknown)}")
     for f in fields(Options):
         arg = f.metadata[_ARG]
         if isinstance(arg, Positional):
             parser.add_argument(f.name, nargs="*", help=arg.help, metavar=arg.metavar)
-        else:
-            # metadata is untyped; _declare only ever stores a Positional or a Flag
-            assert isinstance(arg, Flag)
+            continue
+        # metadata is untyped; _declare only ever stores a Positional or a Flag
+        assert isinstance(arg, Flag)
+        if f.name in reads:
             _add_flag(parser, f.name, arg)
+        else:
+            parser.set_defaults(**{f.name: _default(arg.kind)})
 
 
 def options_from(namespace: argparse.Namespace) -> Options:

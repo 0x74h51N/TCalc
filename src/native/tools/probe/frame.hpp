@@ -273,25 +273,6 @@ inline std::string python_complex(const Complex &c) {
 
 } // namespace detail
 
-/// A typed operand, KIND:TEXT, in the forms the Python probes write it.
-inline Value parse_operand(std::string_view text) {
-    const auto colon = text.find(detail::kKindSeparator);
-    const std::string_view prefix = text.substr(0, colon);
-    const auto *kind =
-        std::ranges::find(detail::kOperandKinds, prefix, &detail::OperandKind::prefix);
-    if (colon == std::string_view::npos || kind == detail::kOperandKinds.end()) {
-        throw ProbeError(
-            "operand '" + std::string(text) + "' has no kind; the kinds are " + detail::prefixes());
-    }
-    auto value = kind->read(text.substr(colon + 1));
-    if (!value) {
-        throw ProbeError(
-            "operand '" + std::string(text) + "' does not read as " + std::string(prefix) +
-            detail::kKindSeparator);
-    }
-    return std::move(*value);
-}
-
 struct ArmNames {
     // the Python type name, as the e2e tables write it
     std::string_view type;
@@ -319,6 +300,29 @@ inline ArmNames arm_names(Arm arm) {
         break;
     }
     throw ProbeError("Arm::Count names no arm");
+}
+
+/// A typed operand, KIND:TEXT, in the forms the Python probes write it.
+inline Value parse_operand(std::string_view text) {
+    const auto colon = text.find(detail::kKindSeparator);
+    const std::string_view prefix = text.substr(0, colon);
+    const auto *kind =
+        std::ranges::find(detail::kOperandKinds, prefix, &detail::OperandKind::prefix);
+    if (colon != std::string_view::npos && prefix == arm_names(Arm::Coll).prefix) {
+        throw ProbeError(
+            "operand '" + std::string(text) + "': a collection is printed but not read here");
+    }
+    if (colon == std::string_view::npos || kind == detail::kOperandKinds.end()) {
+        throw ProbeError(
+            "operand '" + std::string(text) + "' has no kind; the kinds are " + detail::prefixes());
+    }
+    auto value = kind->read(text.substr(colon + 1));
+    if (!value) {
+        throw ProbeError(
+            "operand '" + std::string(text) + "' does not read as " + std::string(prefix) +
+            detail::kKindSeparator);
+    }
+    return std::move(*value);
 }
 
 inline std::string type_name(const Value &v) {
