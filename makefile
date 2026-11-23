@@ -1,6 +1,6 @@
 .PHONY: dev hooks lint lint-fix typecheck check stubs clear-history
 .PHONY: py-format py-format-check
-.PHONY: native native-configure native-build native-test native-ctest native-clean native-release
+.PHONY: native native-configure native-build native-test native-ctest native-probe native-clean native-release
 .PHONY: py-test py-smoke py-test-ui py-benchmark py-flamegraph seed-history
 
 PY := ./.venv/bin/python
@@ -79,6 +79,9 @@ native-build:
 
 native-test:
 	$(NATIVE_MAKE) test
+
+native-probe:
+	$(NATIVE_MAKE) probe
 
 native-ctest:
 	$(NATIVE_MAKE) ctest

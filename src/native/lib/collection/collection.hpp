@@ -12,6 +12,7 @@
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -25,6 +26,11 @@ using CollectionItem = std::
     variant<std::int64_t, double, BigReal, Complex, BigComplex, std::shared_ptr<const Collection>>;
 
 enum class CollectionKind : std::uint8_t { List, Point };
+
+/// Open/close glyph pair for a collection's kind.
+constexpr std::pair<char, char> brackets(CollectionKind kind) {
+    return kind == CollectionKind::List ? std::pair{'[', ']'} : std::pair{'(', ')'};
+}
 
 struct Collection {
     CollectionKind kind;

@@ -645,7 +645,7 @@ def grade_of(row: Row) -> Grade:
 
 
 # the layers that hold a value, which --ref grades and a test's claims sit beside
-VALUE_LAYERS = (Layer.EVAL, Layer.BINDING, Layer.APPLY)
+VALUE_LAYERS = (Layer.LITERAL, Layer.EVAL, Layer.BINDING, Layer.APPLY)
 
 
 def finish(rows: Sequence[Row], beside: tuple[tuple[str, str], ...], ref: bool) -> list[Row]:

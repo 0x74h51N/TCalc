@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# One case on one native layer, without the binding; docs/probe.md says which command answers which question.
+set -e
+root=$(cd "$(dirname "$0")/.." && pwd)
+# ninja makes this a no-op when nothing changed, and rebuilds when the tool or the core did
+make -s -C "$root" native-probe >/dev/null
+exec "$root/src/native/build/native/native_probe" "$@"

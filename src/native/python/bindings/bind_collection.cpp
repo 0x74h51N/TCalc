@@ -26,11 +26,6 @@ constexpr std::size_t kReprThreshold = 100;
 constexpr std::size_t kHead = 4;
 constexpr std::size_t kTail = 2;
 
-/// Open/close glyph pair for a collection's kind.
-constexpr std::pair<char, char> brackets(tcalc::CollectionKind kind) {
-    return kind == tcalc::CollectionKind::List ? std::pair{'[', ']'} : std::pair{'(', ')'};
-}
-
 void bind_collection(py::module_ &m) {
     using K = tcalc::CollectionKind;
     using CollectionState = py::typing::Tuple<K, std::vector<tcalc::CollectionItem>>;

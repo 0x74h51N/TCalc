@@ -24,6 +24,7 @@ class Layer(StrEnum):
     """Where in TCalc a row's value was read, in the order a case passes through them."""
 
     EDITOR = "editor"
+    LITERAL = "literal"
     TOKENS = "tokens"
     FLAT = "flat"
     RPN = "rpn"
