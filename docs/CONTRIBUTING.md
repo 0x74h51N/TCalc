@@ -13,6 +13,8 @@ Bug reports, feature requests and pull requests are welcome. By taking part you 
 
 Requirements and the build steps are in [dev.md](dev.md). In short: `make install`, then `make native-build`. `make hooks` installs the pre-commit hook, which runs the format check, lint and typecheck before every commit, and the pre-push hook, which runs the tests the pushed files need (by the rules CI uses) and `make cpp-tidy-diff` when they change native files.
 
+To look at a case on one layer at a time (a wrong value, a lost digit, a misplaced cursor), use the probe tools in [probe.md](probe.md).
+
 ## AI-Assisted Contributions
 
 AI coding assistants are tools, not substitutes for engineering knowledge, judgment, or responsibility.

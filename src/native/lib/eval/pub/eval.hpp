@@ -20,7 +20,9 @@
 
 #pragma once
 
+#include <optional>
 #include <span>
+#include <utility>
 #include <vector>
 
 #include "calc/pub/calculator.hpp"
@@ -72,6 +74,12 @@ Value eval_row(
 /// name on its left is bound in the session store to the value of everything on its right.
 /// Any other row is evaluated as it stands.
 Value evaluate(const parser::TokensBranch &branch, const Calculator &c, Calculator::AngleUnit unit);
+
+/// The op a row applies last and the operands the evaluator hands it, each computed as
+/// `evaluate` computes it; none when the row ends in a value rather than an op (a number, a
+/// paren, a sum). The op's own exact rule is not tried: `sin π` gives Sin and the double π.
+std::optional<std::pair<ops::OpId, std::vector<Value>>>
+root_operands(const parser::TokensBranch &branch, const Calculator &c, Calculator::AngleUnit unit);
 
 /// Toggle the iterated-op closed-form matcher (Faulhaber / var-free product). On by default;
 /// a benchmark turns it off to measure the brute-force path on the same expression. The flag is

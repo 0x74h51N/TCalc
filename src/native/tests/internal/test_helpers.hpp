@@ -33,6 +33,8 @@ struct TestContext {
     };
     OutputMode output = OutputMode::Mid;
     std::string current_case{};
+    // --case ID: only the cases whose id starts with ID run
+    std::string case_filter{};
 };
 
 /// Simple test case pairing input data with an expected result.
@@ -179,9 +181,16 @@ struct ScopedCase {
     ScopedCase &operator=(const ScopedCase &) = delete;
 };
 
+inline bool case_selected(const TestContext &ctx) {
+    return ctx.case_filter.empty() || ctx.current_case.starts_with(ctx.case_filter);
+}
+
 template <typename Fn> inline void with_case(TestContext &ctx, std::string name, Fn &&fn) {
     const int failures_before = ctx.failures;
     ScopedCase scoped(ctx, std::move(name));
+    if (!case_selected(ctx)) {
+        return;
+    }
     ctx.cases += 1;
     ctx.case_failed_reported = false;
     std::forward<Fn>(fn)();

@@ -116,4 +116,32 @@ void unit_helpers(TestContext &ctx) {
         EXPECT_EQ(ctx, local.checks, 4);
         EXPECT_EQ(ctx, local.failures, 3);
     });
+
+    // --case: the case itself, a sibling, and no filter
+    struct CaseFilterRow {
+        std::string id;
+        std::string filter;
+        std::string case_id;
+        bool runs;
+    };
+    const std::vector<CaseFilterRow> filter_rows{
+        {.id = "case filter :: the case",
+         .filter = "exp :: ln two",
+         .case_id = "exp :: ln two",
+         .runs = true},
+        {.id = "case filter :: sibling",
+         .filter = "exp :: ln two",
+         .case_id = "exp :: ln ten",
+         .runs = false},
+        {.id = "case filter :: none", .filter = "", .case_id = "anything", .runs = true},
+    };
+    for (const auto &row : filter_rows) {
+        TEST_CASE(ctx, row.id, {
+            TestContext local{};
+            local.case_filter = row.filter;
+            bool ran = false;
+            test_detail::with_case(local, row.case_id, [&] { ran = true; });
+            EXPECT_EQ(ctx, ran, row.runs);
+        });
+    }
 }

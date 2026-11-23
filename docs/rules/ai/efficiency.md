@@ -32,6 +32,7 @@ Two kinds of docs, read at different times. Neither is read again in the same se
 ## While working
 
 - Search before reading, then read the part of the file the search found, not the whole tree.
+- To look at a case, use the probe tools ([probe.md](../../probe.md)) before writing a script. A probe they lack is added to them and documented there; a throwaway script is only for what they cannot reach, and the finding says why.
 - Run the narrowest check that answers the question: one test file or one test, not the whole suite. The whole suite runs in the pre-push hook.
 - Do not paste or re-read large outputs; filter them (`grep`, `tail`, `-q`) to what answers the question.
 - Two failed attempts at the same problem end it ([psychosis](psychosis.md#the-four-failures), perseveration).

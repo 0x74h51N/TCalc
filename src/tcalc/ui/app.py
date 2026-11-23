@@ -38,6 +38,16 @@ from .window import MainWindow
 EVAL_TIME_BUDGET_MS = 500
 
 
+def apply_saved_theme(app: QApplication) -> None:
+    """Style the app in the theme the app state holds, and follow the OS scheme from then on."""
+    hints = app.styleHints()
+    choice = get_app_state().theme
+    hints.setColorScheme(choice.scheme)
+    init_styles(app, choice.variant(hints.colorScheme()))
+    # Qt holds the scheme: the user's choice and OS changes (System Default) both arrive here
+    hints.colorSchemeChanged.connect(lambda scheme: sync_theme(app, scheme))
+
+
 def run_app(argv: Sequence[str] | None = None, *, debug: bool = False) -> int:
     import calc_native
 
@@ -49,13 +59,7 @@ def run_app(argv: Sequence[str] | None = None, *, debug: bool = False) -> int:
     app.setApplicationName("TCalc")
     app.setWindowIcon(get_icon(Icon.ACCESSORIES_CALCULATOR))
 
-    hints = app.styleHints()
-    choice = get_app_state().theme
-    hints.setColorScheme(choice.scheme)
-    init_styles(app, choice.variant(hints.colorScheme()))
-    # Qt holds the scheme: the user's choice and OS changes (System Default) both arrive here
-    hints.colorSchemeChanged.connect(lambda scheme: sync_theme(app, scheme))
-
+    apply_saved_theme(app)
     window = MainWindow()
 
     if debug:

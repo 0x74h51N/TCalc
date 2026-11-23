@@ -1,4 +1,4 @@
-.PHONY: configure build test ctest clean release
+.PHONY: configure build test ctest clean release probe
 .PHONY: cpp-format cpp-format-check cpp-tidy cpp-tidy-diff
 
 ROOT := ../..
@@ -27,6 +27,10 @@ build: configure
 
 test: build
 	$(BUILD_DIR)/native_tests $(TEST_ARGS)
+
+# No configure: it deletes the built module, and the probe needs only the build tree
+probe:
+	cmake --build $(BUILD_DIR) --target native_probe
 
 ctest:
 	$(BUILD_DIR)/native_tests $(TEST_ARGS)

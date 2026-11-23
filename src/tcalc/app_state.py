@@ -59,6 +59,10 @@ class RenderMode(Enum):
 AngleUnit = calc_native.AngleUnit
 
 
+# the unit the app starts in; the probes start in it too
+START_ANGLE_UNIT = AngleUnit.DEG
+
+
 class AppState:
     """Global application state container (singleton) with persistent settings."""
 
@@ -112,7 +116,7 @@ class AppState:
         self.redo_cached_exprs: str = ""
 
         # Angle unit for trig functions (not persisted)
-        self.angle_unit = AngleUnit.DEG
+        self.angle_unit = START_ANGLE_UNIT
 
         # Hyperbolic toggle (not persisted)
         self.hyp = False

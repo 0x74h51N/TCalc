@@ -13,6 +13,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -75,6 +76,22 @@ void bind_eval(py::module_ &m) {
             Calculator::AngleUnit unit) -> tcalc::Value {
             try {
                 return tcalc::eval::evaluate(branch, calc, unit);
+            } catch (const CalculatorError &e) {
+                raise_with_kind(m, e);
+            }
+        },
+        py::arg("branch"),
+        py::arg("calculator"),
+        py::arg("unit"));
+
+    m.def(
+        "root_operands",
+        [m](const tcalc::parser::TokensBranch &branch,
+            const Calculator &calc,
+            Calculator::AngleUnit unit)
+            -> std::optional<std::pair<tcalc::ops::OpId, std::vector<tcalc::Value>>> {
+            try {
+                return tcalc::eval::root_operands(branch, calc, unit);
             } catch (const CalculatorError &e) {
                 raise_with_kind(m, e);
             }

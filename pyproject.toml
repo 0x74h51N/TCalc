@@ -28,6 +28,7 @@ dev = [
   "clang-format>=21.1,<21.2",
   "clang-tidy>=21.1,<21.2",
   "pytest>=9.1,<9.2",
+  "python-flint>=0.9,<0.10",
   "pytest-benchmark>=5.3,<5.4",
   "pytest-qt>=4.5,<4.6",
   "pytest-memray>=1.11,<1.12",
@@ -65,7 +66,7 @@ known-first-party = ["tcalc"]
 
 [tool.mypy]
 mypy_path = "stubs:src"
-files = ["src", "scripts/stubgen"]
+files = ["src", "scripts/stubgen", "scripts/probes"]
 strict = true
 warn_unreachable = true
 
@@ -74,10 +75,12 @@ stubPath = "stubs"
 pythonVersion = "3.14"
 venvPath = "."
 venv = ".venv"
-extraPaths = ["src"]
+extraPaths = ["src", "scripts"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/"]
+# scripts/probes is imported as `probes`, the name mypy maps it to
+pythonpath = ["scripts"]
 filterwarnings = ["ignore::pytest_benchmark.logger.PytestBenchmarkWarning"]
 markers = [
     "benchmark: performance benchmark tests",

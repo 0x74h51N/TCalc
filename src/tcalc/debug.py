@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, TypeIs
 
 import calc_native
-from PySide6.QtWidgets import QLineEdit
+from PySide6.QtWidgets import QApplication, QLineEdit
 
 if TYPE_CHECKING:
     from tcalc.ui.widgets.calc.display.expression.expression import Expression
@@ -84,13 +84,20 @@ class SegInfo:
 
     kind: Literal["edit", "node", "glyph"]
     text: str | None = None  # QLineEdit text (kind=="edit")
+    cursor: int | None = None  # the cursor position, in the field that has the focus
     name: str | None = None  # QLineEdit objectName, stripped (kind=="edit")
     node: NodeInfo[ExpressionNode] | None = None  # nested node  (kind=="node")
     glyph_cls: str | None = None  # e.g. "CurlyBrace" (kind=="glyph")
 
+    def shown_text(self) -> str:
+        """The field's text with | where the cursor is."""
+        text = self.text or ""
+        return text if self.cursor is None else f"{text[: self.cursor]}|{text[self.cursor :]}"
+
     def _fmt(self, index: int, indent: str) -> str:
         if self.kind == "edit":
-            display = repr(self.text) if self.text else '""'
+            shown = self.shown_text()
+            display = repr(shown) if shown else '""'
             return f"{indent}  [{index}] QLineEdit({self.name}) {display}"
         if self.kind == "node":
             return f"{indent}  [{index}] ->"
@@ -203,7 +210,13 @@ class TreeInfo:
 
 def snapshot_tree(widget: Expression) -> TreeInfo:
     """Walk the expression tree and return a structured TreeInfo snapshot."""
-    info = TreeInfo(root=SlotInfo(key="", paren=None), plain_text=widget.get_plain_text())
+    return snapshot_slot(widget._root)
+
+
+def snapshot_slot(root: ExpressionSlot) -> TreeInfo:
+    """The snapshot of any slot: an editor's root, or a read-only render's."""
+    info = TreeInfo(root=SlotInfo(key="", paren=None), plain_text=root.to_plain_text())
+    focus = QApplication.focusWidget()
 
     def _walk_slot(slot: ExpressionSlot) -> SlotInfo:
         si = SlotInfo(key=slot._key, paren=slot._paren)
@@ -211,7 +224,8 @@ def snapshot_tree(widget: Expression) -> TreeInfo:
         for seg in slot._segments:
             if isinstance(seg, QLineEdit):
                 name = seg.objectName().removeprefix("displayExpression_")
-                ei = SegInfo(kind="edit", text=seg.text(), name=name)
+                cursor = seg.cursorPosition() if seg is focus else None
+                ei = SegInfo(kind="edit", text=seg.text(), name=name, cursor=cursor)
                 si.segments.append(ei)
                 info.all_edits.append(ei)
             elif isinstance(seg, ExpressionNode):
@@ -236,7 +250,7 @@ def snapshot_tree(widget: Expression) -> TreeInfo:
                 ni.slots.append(_walk_slot(slot))
         return ni
 
-    info.root = _walk_slot(widget._root)
+    info.root = _walk_slot(root)
     return info
 
 

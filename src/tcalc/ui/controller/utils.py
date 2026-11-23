@@ -6,7 +6,7 @@ import re
 import calc_native
 
 from tcalc.core.ops import Operation
-from tcalc.core.utils import CalcValue
+from tcalc.core.utils import CalcValue, collection_text
 
 
 def _build_hyp_map() -> dict[Operation, Operation]:
@@ -60,16 +60,7 @@ def format_result(value: CalcValue, *, group: bool = False) -> str:
     if isinstance(value, calc_native.Collection):
         # Native owns the glyphs and the cap, so a bulk collection formats at most
         # head+tail items. Items never group: "1,000,000" would not tokenize back.
-        opener, closer, cap = value.preview()
-        if cap is None:
-            parts = [format_result(item) for item in value]
-        else:
-            head, tail = cap
-            n = len(value)
-            parts = [format_result(value[i]) for i in range(head)]
-            parts.append("...")
-            parts += [format_result(value[i]) for i in range(n - tail, n)]
-        return opener + ", ".join(parts) + closer
+        return collection_text(value, format_result)
 
     if isinstance(value, int | calc_native.Rational | calc_native.BigReal | calc_native.BigComplex):
         if group:

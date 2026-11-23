@@ -47,6 +47,15 @@ make native-build NATIVE_BUILD_TYPE=Release
 make native-test
 ```
 
+**Look at one case layer by layer**
+
+```bash
+scripts/probe eval "1/3" --ref
+scripts/native_probe apply root dbl:1e300 int:3
+```
+
+Which command answers which question: [probe.md](probe.md).
+
 **Run app**
 
 ```bash

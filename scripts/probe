@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# One case on one layer of TCalc at a time; docs/probe.md says which command answers which question.
+root=$(cd "$(dirname "$0")/.." && pwd)
+PYTHONPATH="$root/src:$root/scripts" exec "$root/.venv/bin/python" -m probes "$@"

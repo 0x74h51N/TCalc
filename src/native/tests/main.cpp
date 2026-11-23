@@ -1,5 +1,6 @@
 #include <chrono>
 #include <iostream>
+#include <span>
 #include <string>
 
 #include "internal/test_helpers.hpp"
@@ -23,14 +24,21 @@ int main(int argc, char **argv) { // NOLINT(modernize-use-trailing-return-type)
     TestContext ctx;
     const auto all_start = std::chrono::steady_clock::now();
 
+    const std::span<char *> args(argv, static_cast<std::size_t>(argc));
     for (int i = 1; i < argc; i++) {
-        const std::string arg = argv[i]; // NOLINT(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+        const std::string arg = args[static_cast<std::size_t>(i)];
         if (arg == "-q" || arg == "--quiet") {
             ctx.output = TestContext::OutputMode::Quiet;
         } else if (arg == "-v" || arg == "--verbose") {
             ctx.output = TestContext::OutputMode::Verbose;
         } else if (arg == "-m" || arg == "--mid") {
             ctx.output = TestContext::OutputMode::Mid;
+        } else if (arg == "--case") {
+            if (i + 1 == argc) {
+                std::cerr << "--case needs an id, as a failure prints it: its suite first\n";
+                return 2;
+            }
+            ctx.case_filter = args[static_cast<std::size_t>(++i)];
         }
     }
 
@@ -76,5 +84,11 @@ int main(int argc, char **argv) { // NOLINT(modernize-use-trailing-return-type)
         test_detail::summary_line(ctx.case_failures, passed, all_elapsed_ms.count());
     test_detail::print_banner(ctx, std::cout, summary, banner_color);
 
+    // seen: an id without its suite name ran nothing and still read as a pass
+    if (!ctx.case_filter.empty() && ctx.cases == 0) {
+        std::cerr << "no case matches '" << ctx.case_filter
+                  << "'; the id starts with its suite, as a failure prints it\n";
+        return 1;
+    }
     return (ctx.failures == 0) ? 0 : 1;
 }
