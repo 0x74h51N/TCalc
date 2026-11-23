@@ -65,6 +65,7 @@ class MemoryStyleConfig:
 
 @dataclass(frozen=True, slots=True)
 class MemoryConfig:
+    keep_rational: bool
     style: MemoryStyleConfig
 
 
