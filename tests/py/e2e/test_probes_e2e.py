@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from pathlib import Path
 
 import calc_native
 import pytest
@@ -22,7 +23,18 @@ from probes.grade import (
     expected_of_expression,
     grade_of,
 )
-from probes.rows import Layer, Row, exact_text, operand_input, value_text
+from probes.options import Options, read_inputs
+from probes.rows import (
+    Layer,
+    ProbeError,
+    Row,
+    exact_text,
+    format_rows,
+    operand_input,
+    parse_rows,
+    value_text,
+)
+from probes.testcase import collect
 from pytest import param
 
 from tcalc.core.utils import CalcValue
@@ -319,3 +331,101 @@ GRADE_CASES = [
 @pytest.mark.parametrize("case", [param(c, id=c.id) for c in GRADE_CASES])
 def test_grade_of(case: GradeCase) -> None:
     assert grade_of(case.row).error == case.error
+
+
+GOLDEN = "tests/py/e2e/test_eval_e2e.py::test_native_eval_golden[precedence-mul-over-add]"
+ROOTS = "tests/py/e2e/test_eval_e2e.py::test_root_correctly_rounded"
+
+
+def test_collect_one_row() -> None:
+    (row,) = collect(GOLDEN, None)
+    assert row.params["expr"] == "1+2*3"
+    assert row.params["expected_value"] == 7.0
+
+
+def test_collect_keyword_rows_of_dataclass_cases() -> None:
+    rows = collect(ROOTS, "root-cube")
+    assert rows
+    assert all(type(row.params["case"]).__name__ == "RootCase" for row in rows)
+
+
+def test_collect_nothing() -> None:
+    with pytest.raises(ProbeError, match="no parametrized case"):
+        collect("tests/py/e2e/test_eval_e2e.py::nope", None)
+
+
+def test_read_inputs_from_a_test() -> None:
+    options = Options(
+        inputs=[], define=[], defs=None, ref=False, test=GOLDEN, keyword=None, field="expr"
+    )
+    (one,) = read_inputs(options)
+    assert one.text == "1+2*3"
+    assert ("expected_value", "7.0") in one.beside
+
+
+def test_test_without_field_lists_rows(capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["grade", "--test", GOLDEN]) == 0
+    assert "expr=" in capsys.readouterr().out
+
+
+# the checks the removed unit tests made, through the real command and the real binding
+
+
+def test_definitions_reach_the_inputs() -> None:
+    options = Options(
+        inputs=["@A+@AB"],
+        define=["A=1", "AB=2"],
+        defs=None,
+        ref=False,
+        test=None,
+        keyword=None,
+        field=None,
+    )
+    assert [one.text for one in read_inputs(options)] == ["(1)+(2)"]
+
+
+@pytest.mark.parametrize("text", [param("@B", id="undefined"), param("@+1", id="no name")])
+def test_definitions_reject(text: str) -> None:
+    options = Options(
+        inputs=[text], define=[], defs=None, ref=False, test=None, keyword=None, field=None
+    )
+    with pytest.raises(ProbeError):
+        read_inputs(options)
+
+
+def test_rows_read_back() -> None:
+    rows = [
+        Row("1/2", Layer.EVAL, "Rational", "1/2", (("note", "a"),)),
+        Row("2+2", Layer.APPLY, "int", "4"),
+    ]
+    assert parse_rows(format_rows(rows)) == [
+        rows[0],
+        Row("2+2", Layer.APPLY, "int", "4", (("note", ""),)),
+    ]
+
+
+def _table(path: Path, value: str) -> str:
+    path.write_text(format_rows([Row("sqrt(2)", Layer.EVAL, "float", value)]))
+    return str(path)
+
+
+def test_grade_compares_two_runs(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    worse = repr(math.nextafter(math.sqrt(2), 2.0))
+    old, new = _table(tmp_path / "old", worse), _table(tmp_path / "new", repr(math.sqrt(2)))
+    assert main(["grade", old, new]) == 0
+    assert "better 1 worse 0" in capsys.readouterr().out
+
+
+def test_grade_rejects_a_repeated_input(tmp_path: Path) -> None:
+    path = tmp_path / "twice"
+    row = Row("sqrt(2)", Layer.EVAL, "float", "1.0")
+    path.write_text(format_rows([row, row]))
+    assert main(["grade", str(path), str(path)]) == 2
+
+
+def test_field_names_a_missing_path() -> None:
+    options = Options(
+        inputs=[], define=[], defs=None, ref=False, test=GOLDEN, keyword=None, field="nope"
+    )
+    with pytest.raises(ProbeError, match="nope.*expr"):
+        read_inputs(options)

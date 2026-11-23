@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from probes import grade_cmd
 from probes.options import Options, add_arguments, options_from
 from probes.rows import ProbeError
+from probes.testcase import collect, rows_text
 from tcalc.core.ops import Operation
 
 PROG = "scripts/probe"
@@ -80,8 +81,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     if command is None:
         parser.print_help()
         return 0
+    options = options_from(namespace)
     try:
-        return command.run(options_from(namespace))
+        if options.test is not None and options.field is None:
+            # without --field there is no input to run on: the rows are listed to pick one from
+            print(rows_text(collect(options.test, options.keyword)))
+            return 0
+        return command.run(options)
     except ProbeError as error:
         print(f"probe: {error}", file=sys.stderr)
         return EXIT_USAGE
