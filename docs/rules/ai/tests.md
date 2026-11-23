@@ -33,6 +33,7 @@
 ## Operation results, precision and errors
 
 - A test or a finding about the result of an operation, a precision loss or the catching of an error is first an e2e test with the binding in it: the expression through `tokenize`, `evaluate_branch` and `format_result`, as `tests/py/e2e/test_eval_e2e.py` does.
+- The layers are first looked at with the probe tools ([probe.md](../../probe.md)): `scripts/probe eval` and `layers`, then `scripts/native_probe apply`, `promote` and `kernel`, with the table pasted as evidence.
 - To find where the problem comes from, the same case then runs on the other layers on its own: `calc_native.apply` with its `OpId` (the op alone), `format_result` (the text), and the native e2e without the binding (`src/native/tests/`). The first layer that goes wrong is the source.
 - The case is written in the flat op form (`(1)⌄(2)`, `(2)⁻¹`), apart from the LaTeX pipeline (`MathNode`, `structural_split`). A test or a finding names the op, not the LaTeX form.
 - Each op a form reaches is tried on its own. Read the op id from the tokens before assuming two forms share one: `\root{a}{b}` and `⌄` are both `OpId.Root`, `^{}` is `OpId.Pow`, `⁻¹` is `OpId.Recip`.

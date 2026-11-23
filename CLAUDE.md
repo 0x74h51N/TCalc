@@ -14,6 +14,8 @@ Hookify rules under `.claude/hookify.*.local.md` enforce the mechanical parts of
 - `PYTHONPATH=src python -m pytest <file>`: one test file in isolation.
 - `make typecheck` (mypy), `make py-lint` (ruff check and format check).
 - `make py-benchmark`: performance benchmarks.
+- `scripts/probe COMMAND`: one case on one Python or UI layer at a time; [docs/probe.md](docs/probe.md) says which command answers which question.
+- `scripts/native_probe COMMAND`: one case on one native layer, without the binding; same doc.
 - `make cpp-format`, `make py-lint-fix`: format the C++ and fix the Python lint; run both before a commit you make.
 - The pre-commit hook runs format check, py-lint and typecheck. The pre-push hook runs the tests the pushed files need, by the rules CI uses (`scripts/changed_jobs`), and the tidy diff when they change native files.
 
