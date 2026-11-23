@@ -167,7 +167,10 @@ def _column_starts(header_line: str) -> list[int]:
 def _row(line: str, bounds: Sequence[tuple[int, int | None]], header: Sequence[str]) -> Row:
     cells = [line[start:end].strip() for start, end in bounds]
     extra = tuple(zip(header[len(_FIELDS) :], cells[len(_FIELDS) :], strict=True))
-    return Row(cells[0], Layer(cells[1]), cells[2], cells[3], extra)
+    layers = {layer.value: layer for layer in Layer}
+    if cells[1] not in layers:
+        raise ProbeError(f"no layer {cells[1]!r} in {line!r}; is the table still aligned?")
+    return Row(cells[0], layers[cells[1]], cells[2], cells[3], extra)
 
 
 def parse_rows(text: str) -> list[Row]:

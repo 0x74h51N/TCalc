@@ -11,6 +11,7 @@ import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
+from probes import grade_cmd
 from probes.options import Options, add_arguments, options_from
 from probes.rows import ProbeError
 from tcalc.core.ops import Operation
@@ -27,7 +28,14 @@ class Command:
     example: str
 
 
-COMMANDS: tuple[Command, ...] = ()
+COMMANDS: tuple[Command, ...] = (
+    Command(
+        "grade",
+        grade_cmd.run,
+        "grade a probe table against python-flint, or compare two runs of it",
+        "scripts/probe grade old.txt new.txt",
+    ),
+)
 
 
 def _aliases() -> str:

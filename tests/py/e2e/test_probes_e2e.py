@@ -6,12 +6,23 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import calc_native
 import pytest
+from flint import acb, arb, ctx, fmpq
 from probes.__main__ import main
-from probes.rows import exact_text, operand_input, value_text
+from probes.grade import (
+    NOT_FINITE,
+    NOT_GRADED,
+    REF_DIGITS,
+    bigreal_residual,
+    double_of,
+    expected_of_expression,
+    grade_of,
+)
+from probes.rows import Layer, Row, exact_text, operand_input, value_text
 from pytest import param
 
 from tcalc.core.utils import CalcValue
@@ -77,3 +88,234 @@ def test_help(capsys: pytest.CaptureFixture[str]) -> None:
         main(["--help"])
     assert exit_info.value.code == 0
     assert "ASCII aliases" in capsys.readouterr().out
+
+
+@dataclass(frozen=True)
+class ExactCase:
+    text: str
+    expected: fmpq
+    id: str
+
+
+# one row per OP_MEANINGS entry that stays exact, plus the token kinds the walk descends into
+EXACT_CASES = [
+    ExactCase("(1)+(2)", fmpq(3), "add"),
+    ExactCase("1-3", fmpq(-2), "sub"),
+    ExactCase("2·3", fmpq(6), "mul"),
+    ExactCase("(-7)÷(2)", fmpq(-7, 2), "div"),
+    ExactCase("mod(-7,2)", fmpq(-1), "mod truncates"),
+    ExactCase("intdiv(-7,2)", fmpq(-3), "intdiv truncates"),
+    ExactCase("2^{-2}", fmpq(1, 4), "pow"),
+    ExactCase("(8)⌄(3)", fmpq(2), "root"),
+    ExactCase("(-8)⌄(3)", fmpq(-2), "real first odd root"),
+    ExactCase("(-8)^{1/sqrt(9)}", fmpq(-2), "real first through an exact root"),
+    ExactCase("(-8)^{1/log(1000)}", fmpq(-2), "real first through an exact log"),
+    ExactCase("sqrt(4)", fmpq(2), "sqrt"),
+    ExactCase("cbrt(-27)", fmpq(-3), "cbrt"),
+    ExactCase("2²", fmpq(4), "sqr"),
+    ExactCase("2³", fmpq(8), "cube"),
+    ExactCase("(2)⁻¹", fmpq(1, 2), "recip"),
+    ExactCase("-2", fmpq(-2), "negate"),
+    ExactCase("+2", fmpq(2), "unary plus"),
+    ExactCase("50%", fmpq(1, 2), "percent"),
+    ExactCase("log(0.01)", fmpq(-2), "log of a power of ten"),
+    ExactCase("⏨2", fmpq(100), "pow10"),
+    ExactCase("4!", fmpq(24), "fact"),
+    ExactCase("nCr(5,2)", fmpq(10), "choose"),
+    ExactCase("nPr(5,2)", fmpq(20), "permute"),
+    ExactCase("gcd(4,6)", fmpq(2), "gcd"),
+    ExactCase("lcm(4,6)", fmpq(12), "lcm"),
+    ExactCase("floor(-2.5)", fmpq(-3), "floor"),
+    ExactCase("ceil(-2.5)", fmpq(-2), "ceil"),
+    ExactCase("trunc(-2.5)", fmpq(-2), "trunc"),
+    ExactCase("sum(1,2,3)", fmpq(6), "sum"),
+    ExactCase("mean(1,2,4)", fmpq(7, 3), "mean"),
+    ExactCase("mean[1,2,4]", fmpq(7, 3), "mean of a collection"),
+    ExactCase("min(3,1,2)", fmpq(1), "min"),
+    ExactCase("max(3,1,2)", fmpq(3), "max"),
+    ExactCase("median(3,1,2,4)", fmpq(5, 2), "median"),
+    ExactCase("\\frac{1}{4}", fmpq(1, 4), "latex fraction"),
+    ExactCase("0.1+0.2", fmpq(3, 10), "typed decimals are exact"),
+]
+
+
+@pytest.mark.parametrize("case", [param(c, id=c.id) for c in EXACT_CASES])
+def test_expected_of_expression_exact(case: ExactCase) -> None:
+    value = expected_of_expression(case.text)
+    assert isinstance(value, fmpq)
+    assert value == case.expected
+
+
+@dataclass(frozen=True)
+class BallCase:
+    text: str
+    real: str
+    imag: str
+    id: str
+
+
+# one row per OP_MEANINGS entry that leaves the exact arm, against python-flint called directly
+BALL_CASES = [
+    BallCase("exp(2)", "7.389056098930650227230427", "0", "exp"),
+    BallCase("ln(2)", "0.6931471805599453094172321", "0", "ln"),
+    BallCase("log(2)", "0.3010299956639811952137389", "0", "log"),
+    BallCase("sin(2)", "0.9092974268256816953960199", "0", "sin"),
+    BallCase("cos(2)", "-0.4161468365471423869975682", "0", "cos"),
+    BallCase("tan(2)", "-2.185039863261518991643306", "0", "tan"),
+    BallCase("sinh(2)", "3.626860407847018767668214", "0", "sinh"),
+    BallCase("cosh(2)", "3.762195691083631459562213", "0", "cosh"),
+    BallCase("tanh(2)", "0.9640275800758168839464137", "0", "tanh"),
+    BallCase("asin(0.5)", "0.5235987755982988730771072", "0", "asin"),
+    BallCase("acos(0.5)", "1.047197551196597746154214", "0", "acos"),
+    BallCase("atan(2)", "1.107148717794090503017065", "0", "atan"),
+    BallCase("asinh(2)", "1.443635475178810342493277", "0", "asinh"),
+    BallCase("acosh(2)", "1.316957896924816708625046", "0", "acosh"),
+    BallCase("atanh(0.5)", "0.5493061443340548456976226", "0", "atanh"),
+    BallCase("gamma(0.5)", "1.772453850905516027298167", "0", "gamma"),
+    BallCase("(0.5)!", "0.8862269254527580136490837", "0", "fact of a fraction"),
+    BallCase("polar(2)", "-0.4161468365471423869975682", "0.9092974268256816953960199", "polar"),
+    BallCase("(2)⌄(3)", "1.259921049894873164767211", "0", "root"),
+    BallCase("(-2)^{0.5}", "0", "1.414213562373095048801689", "principal even root"),
+    BallCase("mod(-7,π)", "-0.716814692820413523074713", "0", "mod truncates a ball"),
+    BallCase("intdiv(-7,π)", "-2", "0", "intdiv truncates a ball"),
+    BallCase("var(1,2,4)", "2.333333333333333333333333", "0", "var"),
+    BallCase("varp(1,2,4)", "1.555555555555555555555556", "0", "varp"),
+    BallCase("std(1,2,4)", "1.527525231651946668862682", "0", "std"),
+    BallCase("stdp(1,2,4)", "1.247219128924647128527916", "0", "stdp"),
+    BallCase("3+2i", "3", "2", "imaginary literal"),
+    # on the cut above 1 TCalc takes C99's side (cmath), which python-flint does not
+    BallCase("acos(2)", "0", "-1.316957896924816708625046", "acos on the cut above 1"),
+    BallCase(
+        "asin(2)",
+        "1.570796326794896619231322",
+        "1.316957896924816708625046",
+        "asin on the cut above 1",
+    ),
+    BallCase(
+        "atanh(2)",
+        "0.5493061443340548456976226",
+        "1.570796326794896619231322",
+        "atanh on the cut above 1",
+    ),
+    # where python-flint and cmath already agree, the reference stays python-flint's
+    BallCase(
+        "acos(-2)",
+        "3.141592653589793238462643",
+        "-1.316957896924816708625046",
+        "acos on the cut below -1",
+    ),
+    BallCase(
+        "asin(-2)",
+        "-1.570796326794896619231322",
+        "1.316957896924816708625046",
+        "asin on the cut below -1",
+    ),
+    BallCase(
+        "atanh(-2)",
+        "-0.5493061443340548456976226",
+        "1.570796326794896619231322",
+        "atanh on the cut below -1",
+    ),
+    BallCase(
+        "acos(2+i)",
+        "0.5073563032171445630418297",
+        "-1.469351744368185273255844",
+        "acos off the cut",
+    ),
+    BallCase(
+        "asin(2+i)", "1.063440023577752056189492", "1.469351744368185273255844", "asin off the cut"
+    ),
+    BallCase(
+        "atanh(2+i)",
+        "0.4023594781085250936501898",
+        "1.338972522294493561124194",
+        "atanh off the cut",
+    ),
+]
+
+CLOSE = arb("1e-24")
+
+
+@pytest.mark.parametrize("case", [param(c, id=c.id) for c in BALL_CASES])
+def test_expected_of_expression_ball(case: BallCase) -> None:
+    value = expected_of_expression(case.text)
+    assert value is not None
+    # the table's 25 digits are read at more than the default 15
+    with ctx.workdps(REF_DIGITS):
+        assert abs(acb(value) - acb(arb(case.real), arb(case.imag))) < CLOSE
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        param("x+1", id="variable"),
+        param("log_{2}(8)", id="subscript"),
+        param("[1,2]", id="collection"),
+    ],
+)
+def test_expected_of_expression_not_graded(text: str) -> None:
+    assert expected_of_expression(text) is None
+
+
+def test_expected_of_expression_constant() -> None:
+    value = expected_of_expression("2π")
+    assert isinstance(value, acb)
+    assert double_of(value) == 2 * math.pi
+
+
+def test_bigreal_residual_of_exact_value() -> None:
+    third = calc_native.apply(
+        calc_native.Calculator(),
+        calc_native.OpId.Div,
+        [calc_native.BigReal("1"), calc_native.BigReal("3")],
+        calc_native.AngleUnit.RAD,
+    )
+    assert isinstance(third, calc_native.BigReal)
+    _, relative = bigreal_residual(third, fmpq(1, 3))
+    # a BigReal holds about 72 digits: the residual is its own rounding, far under 1e-70
+    assert abs(float(relative)) < 1e-70
+
+
+@dataclass(frozen=True)
+class DoubleCase:
+    ball: acb
+    expected: float | complex | None
+    id: str
+
+
+DOUBLE_CASES = [
+    DoubleCase(acb(fmpq(1, 2)), 0.5, "exact half"),
+    DoubleCase(acb(arb(1, 1e-10)), None, "too wide for one double"),
+    DoubleCase(acb(fmpq(1, 2), fmpq(-1, 4)), 0.5 - 0.25j, "complex"),
+    DoubleCase(acb(0, fmpq(1, 2)), 0.5j, "imaginary"),
+]
+
+
+@pytest.mark.parametrize("case", [param(c, id=c.id) for c in DOUBLE_CASES])
+def test_double_of(case: DoubleCase) -> None:
+    assert double_of(case.ball) == case.expected
+
+
+@dataclass(frozen=True)
+class GradeCase:
+    row: Row
+    error: str
+    id: str
+
+
+# rows TCalc writes that the grader cannot measure: each is graded with a word, never a traceback
+GRADE_CASES = [
+    GradeCase(Row("1÷0", Layer.EVAL, "CalculatorError", "Math error"), NOT_GRADED, "error row"),
+    GradeCase(Row("sin dbl:inf", Layer.APPLY, "float", "nan"), NOT_GRADED, "infinite operand"),
+    GradeCase(Row("1e400", Layer.EVAL, "float", "1.0"), NOT_FINITE, "infinite expected"),
+    GradeCase(
+        Row("(-8)⌄(3)", Layer.EVAL, "float", "-2.0"), "0 ulp", "double against an exact value"
+    ),
+    GradeCase(Row("sqrt(4)", Layer.EVAL, "Rational", "2"), "exact", "exact against an exact value"),
+    GradeCase(Row("log(2)·0+2", Layer.EVAL, "Rational", "2"), "exact", "exact against a ball"),
+]
+
+
+@pytest.mark.parametrize("case", [param(c, id=c.id) for c in GRADE_CASES])
+def test_grade_of(case: GradeCase) -> None:
+    assert grade_of(case.row).error == case.error

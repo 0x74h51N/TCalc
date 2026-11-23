@@ -28,6 +28,7 @@ dev = [
   "clang-format>=21.1,<21.2",
   "clang-tidy>=21.1,<21.2",
   "pytest>=9.1,<9.2",
+  "python-flint>=0.9,<0.10",
   "pytest-benchmark>=5.3,<5.4",
   "pytest-qt>=4.5,<4.6",
   "pytest-memray>=1.11,<1.12",
