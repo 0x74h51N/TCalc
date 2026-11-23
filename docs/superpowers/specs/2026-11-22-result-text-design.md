@@ -49,7 +49,8 @@ It is bound in `bind_eval.cpp` (after the number types) with `py::arg("value"), 
 - `digits` is 20, one named constant in `utils.py`; #128 makes it a setting, up to 50, BigReal's digits. A double keeps 16: it holds no more.
 - Display (`group=True`): an `int`, a `Rational`, a `BigReal` and a `BigComplex` are `calc_native.decimal_text(value, RESULT_DIGITS)`. A double past `1e10` or under `1e-6` is written with 16 significant digits (`.15e`), trailing zeros dropped: `1e+10`, `1.414213562373095e+12`, `1e-07`; an infinite double (`cosh(1000)`) is `inf`, as before. `to_double()` and `_fmt_exact_int` go away.
 - Every display text goes through one new helper, which replaces the grouping lines of `fmt_real` (`utils.py:95-98`): it puts thousands separators into every integer digit run and leaves the exponent alone, so both parts of a complex number are grouped (`1,234+3.3333333333333333333e+199i`, `12,345+12,345.5i`). The exponent keeps the form Python and Boost write, with its sign and two digits at least (`1e+10`, `1e-07`), as the human agent chose.
-- Default (MR, `=`, collection items), text that reads back as the same value: an `int` and a `Rational` with denominator 1 are `str(n)` (`10000000000`); a `Rational` fraction is `f"({value})"` from `bind_rational.cpp:40` (`(1/3)`; the parentheses keep `2^(1/3)` one power). A `BigReal` and a `BigComplex` are `decimal_text` at 20 digits, which does not keep all 50. The controller does not change.
+- Default (`=`, MR, collection items): an `int` and a `Rational` with denominator 1 are `str(n)` (`10000000000`); any other exact value is `decimal_text` at 20 digits without separators (`1/3` is `0.33333333333333333333`).
+- MR with `[memory] keep_rational = true` in `config.toml` (the default; the settings window, #128, will show it) writes a `Rational` fraction as `\frac{p}{q}`, the sign outside (`-\frac{2}{7}`), from `fraction_text` in `tcalc/core/utils.py`, which the result line's fraction view also uses. It reads back as the same `Rational`; `1/3`, MS, MR, `*3-1` is `0`.
 
 ## Cases
 
@@ -91,7 +92,7 @@ Display, the native digits measured with a C++ probe of `to_big(...).str(digits)
 | 1e200i\*1e200i | -1e+400 |
 | sqrt(2)\*1e308\*10 | 1.4142135623730951e+309 |
 
-Default: `10000000000`, `(1/3)`, `(9007199254740993/2)`, `10000000000000001`, `1e+400i`; each reads back to the same value (a Rational with denominator 1 may read back as `int`, the same number).
+Default: `10000000000`, `10000000000000001`, `1e+400i` read back to the same value (a Rational with denominator 1 may read back as `int`, the same number); `1/3` is `0.33333333333333333333`. MR with `keep_rational`: `\frac{1}{3}`, `-\frac{2}{7}`, `\frac{9007199254740993}{2}` read back to the same `Rational`.
 
 ## Out of scope
 
