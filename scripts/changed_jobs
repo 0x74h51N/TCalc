@@ -10,7 +10,7 @@ NATIVE=("src/native/*")
 # Checked with a manual run instead; Markdown (CLAUDE.md included) runs no code
 NO_CHECK=("*.md" "src/tcalc/assets/*" "src/tcalc/themes/*")
 # stubgen writes the stubs mypy reads
-PYTHON=("src/tcalc/*" "scripts/stubgen/*")
+PYTHON=("src/tcalc/*" "scripts/stubgen/*" "scripts/probes/*")
 PYTHON_TESTS=("tests/py/*")
 BENCHMARK=("tests/benchmark/*" scripts/seed_history.py scripts/malloc)
 EXPRESSION_EDITOR=("src/tcalc/ui/widgets/calc/display/expression/*" tests/py/e2e/ui/test_expression.py)

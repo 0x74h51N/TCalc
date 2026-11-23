@@ -65,7 +65,7 @@ known-first-party = ["tcalc"]
 
 [tool.mypy]
 mypy_path = "stubs:src"
-files = ["src", "scripts/stubgen"]
+files = ["src", "scripts/stubgen", "scripts/probes"]
 strict = true
 warn_unreachable = true
 
@@ -74,10 +74,12 @@ stubPath = "stubs"
 pythonVersion = "3.14"
 venvPath = "."
 venv = ".venv"
-extraPaths = ["src"]
+extraPaths = ["src", "scripts"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/"]
+# scripts/probes is imported as `probes`, the name mypy maps it to
+pythonpath = ["scripts"]
 filterwarnings = ["ignore::pytest_benchmark.logger.PytestBenchmarkWarning"]
 markers = [
     "benchmark: performance benchmark tests",
