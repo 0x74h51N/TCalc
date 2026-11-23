@@ -95,7 +95,7 @@ class FormatCase:
             FormatCase(FakeRational(10**16 + 1, 1), False, "10000000000000001"),
             id="whole rational stays exact",
         ),
-        param(FormatCase(FakeRational(1, 4), False, "(1/4)"), id="fraction"),
+        param(FormatCase(FakeRational(1, 4), False, "1/4"), id="fraction is decimal text"),
         param(
             FormatCase(FakeRational(2469135, 2), True, "2,469,135/2"),
             id="fraction display is native text",

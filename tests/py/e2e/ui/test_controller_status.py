@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+
 from tcalc.core.ops import Operation
 
 
@@ -356,3 +358,31 @@ def test_malformed_detail_stays_hidden():
     kind, detail = _eval_error("1++")
     assert kind == "Malformed Expression"
     assert detail is None
+
+
+# (keep_rational, expression stored with MS, text MR inserts)
+@pytest.mark.parametrize(
+    "keep_rational,expr,expected",
+    [
+        pytest.param(True, "1/3", r"\frac{1}{3}", id="fraction-kept"),
+        pytest.param(False, "1/3", "0.33333333333333333333", id="fraction-as-decimal"),
+        pytest.param(True, "10/2", "5", id="whole-rational"),
+        pytest.param(True, "0.5^{0.5}", "0.7071067811865476", id="double"),
+    ],
+)
+def test_memory_recall_text(monkeypatch, keep_rational, expr, expected):
+    import dataclasses
+
+    from tcalc.ui.config import CONFIG
+    from tcalc.ui.widgets.calc.topbar.defins import MemoryKey
+
+    memory = dataclasses.replace(CONFIG.memory, keep_rational=keep_rational)
+    monkeypatch.setattr(
+        "tcalc.ui.controller.controller.CONFIG", dataclasses.replace(CONFIG, memory=memory)
+    )
+    ctrl = _make_stub_ctrl(expr)
+    ctrl._app_state.memory = _collection(expr)
+
+    ctrl._handle_memory(MemoryKey.MR.value)
+
+    ctrl._display.editor.insert_text.assert_called_once_with(expected)  # pyright: ignore[reportAttributeAccessIssue]

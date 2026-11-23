@@ -80,7 +80,7 @@ FORMAT_CASES = [
     ),
     pytest.param(FormatCase(_eval("2+3"), False, "5"), id="exact-int-small"),
     pytest.param(FormatCase(_eval("10^{6}+1"), True, "1,000,001"), id="exact-int-grouped"),
-    pytest.param(FormatCase(_eval("\\frac{1}{4}"), False, "(1/4)"), id="exact-fraction-decimal"),
+    pytest.param(FormatCase(_eval("\\frac{1}{4}"), False, "0.25"), id="exact-fraction-decimal"),
     pytest.param(FormatCase(_eval("10000000000"), False, "10000000000"), id="int-written-in-full"),
     pytest.param(FormatCase(_eval("1/3"), True, "0.33333333333333333333"), id="third"),
     pytest.param(FormatCase(_eval("2/3"), True, "0.66666666666666666667"), id="two-thirds-rounds"),
@@ -181,14 +181,11 @@ def test_default_output_round_trips(value, expected_kind):
     assert toks[0].kind == expected_kind
 
 
-# The default text is written into the expression (MR, =): it evaluates back to the same
+# The default text is written into the expression (=, collection items): it evaluates back to the same
 # value. The native number types have no ==, so the difference is read as text.
 @pytest.mark.parametrize(
     "expr",
     [
-        pytest.param("1/3", id="third"),
-        pytest.param("-2/7", id="negative-fraction"),
-        pytest.param("9007199254740993/2", id="half-past-2^53"),
         pytest.param("10000000000", id="int-zeros"),
         pytest.param("2^{40}", id="whole-rational"),
         pytest.param("10^{16}+1", id="int-past-double"),
@@ -199,3 +196,19 @@ def test_default_output_round_trips(value, expected_kind):
 def test_default_output_reads_back(expr):
     diff = _eval(f"{format_result(_eval(expr))}-({expr})")
     assert str(diff) in ("0", "0+0i")
+
+
+# MR writes a fraction as \frac (keep_rational): it evaluates back to the same Rational.
+@pytest.mark.parametrize(
+    "expr",
+    [
+        pytest.param("1/3", id="third"),
+        pytest.param("-2/7", id="negative-fraction"),
+        pytest.param("9007199254740993/2", id="half-past-2^53"),
+    ],
+)
+def test_fraction_text_reads_back(expr):
+    from tcalc.core.utils import fraction_text
+
+    diff = _eval(f"{fraction_text(_eval(expr))}-({expr})")
+    assert str(diff) == "0"

@@ -15,8 +15,9 @@ from calc_native import Calculator
 from tcalc.app_state import AngleUnit, get_app_state
 from tcalc.core.constants import CONST_NAMES, SUBSCRIPT_CONST_NAMES, strip_subscript
 from tcalc.core.ops import Operation
-from tcalc.core.utils import CalcValue, is_number_token
+from tcalc.core.utils import CalcValue, fraction_text, is_number_token
 from tcalc.errors import CalculatorError, ErrorKind, Msg
+from tcalc.ui.config import CONFIG
 from tcalc.ui.controller.menubar import EditOperations
 from tcalc.ui.props import StatusKind
 from tcalc.ui.widgets import History, MemoryBar
@@ -178,7 +179,15 @@ class CalculatorController:
         def recall() -> None:
             if self._app_state.memory is None:
                 return
-            token = format_result(self._app_state.memory)
+            mem = self._app_state.memory
+            if (
+                CONFIG.memory.keep_rational
+                and isinstance(mem, calc_native.Rational)
+                and mem.denominator != 1
+            ):
+                token = fraction_text(mem)
+            else:
+                token = format_result(mem)
             self._display.editor.insert_text(token)
 
         def store(value: CalcValue) -> None:

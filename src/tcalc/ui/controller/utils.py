@@ -77,8 +77,8 @@ def format_result(value: CalcValue, *, group: bool = False) -> str:
         # Written into the expression, so it must read back as the same value.
         if isinstance(value, int):
             return str(value)
-        if isinstance(value, calc_native.Rational):
-            return str(value.numerator) if value.denominator == 1 else f"({value})"
+        if isinstance(value, calc_native.Rational) and value.denominator == 1:
+            return str(value.numerator)
         return calc_native.decimal_text(value, RESULT_DIGITS)
 
     def fmt_real(x: float) -> str:

@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from tcalc.core.utils import CalcValue
+from tcalc.core.utils import CalcValue, fraction_text
 from tcalc.theme import get_theme
 from tcalc.ui.config import ResultConfig
 from tcalc.ui.props import Prop, StatusKind
@@ -144,7 +144,7 @@ class Result(QWidget):
             # Check if result can be rendered as fraction
             if isinstance(result, calc_native.Rational):
                 if result.denominator != 1:
-                    self._create_fract(result.numerator, result.denominator)
+                    self._create_fract(result)
                     self._frac_btn.show()
             else:
                 self._frac_btn.hide()
@@ -215,12 +215,9 @@ class Result(QWidget):
             max_pt,
         )
 
-    def _create_fract(self, numerator: int, denominator: int) -> None:
+    def _create_fract(self, value: calc_native.Rational) -> None:
         self._clear_slot()
-        frac = f"\\frac{{{numerator}}}{{{denominator}}}"
-        if numerator < 0:
-            frac = f"-\\frac{{{numerator * -1}}}{{{denominator}}}"
-        tok = calc_native.tokenize_string(frac)
+        tok = calc_native.tokenize_string(fraction_text(value))
         _res_seg = self._res_slot.default_input()
         _res_seg.setReadOnly(True)
         _res_seg.setFocusPolicy(Qt.FocusPolicy.NoFocus)

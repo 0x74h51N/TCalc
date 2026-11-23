@@ -62,6 +62,10 @@ btn_margin = 6
 # ---------------------------------------------------------------------------
 # Memory bar
 # ---------------------------------------------------------------------------
+[memory]
+# MR writes a fraction as itself (\frac); off, it writes the decimal result text.
+keep_rational = true
+
 [memory.style]
 divider_spacing = 4
 
