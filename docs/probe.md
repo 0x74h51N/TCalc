@@ -20,7 +20,7 @@ Two commands look at one TCalc case on one layer at a time, so the first layer t
 
 Every table has the columns `input`, `layer`, `type` and `value`, then the extra columns its rows carry. `input` is what the layer read: the expression after the definitions are substituted, or the op and its operands as they are held. `type` is the Python type name (`int`, `float`, `complex`, `Rational`, `BigReal`, `BigComplex`, `Collection`), `str` for a text, or the error's class. A value row has a `unit` column, the angle unit it was computed in (`--unit`, default `DEG`, the app's start unit).
 
-With `--ref` (or through `probe grade`) a value row gets `expected` and `error`: the value python-flint computes for the same input, and the error as ulps for a double, `exact` for an exact value, the residual for a BigReal.
+With `--ref` (or through `probe grade`) a value row gets `expected` and `error`: the value python-flint computes for the same input, and the error as ulps for a double, `exact` for an exact value, the residual for a BigReal. A BigComplex is not graded (`not graded`).
 
 ```
 $ scripts/probe eval "1/3" "sin(30)" --ref
@@ -40,8 +40,8 @@ sin(30)                 written     str       0.5
 ## scripts/probe
 
 - `eval INPUT...`: the case through the whole Python path as the app evaluates it: the editor's text, the value, the result line's text, the written text and whether that text reads back to the same value.
-- `layers INPUT...`: the tokens, the flat text, the RPN, the render tree, the binding, and the last op alone through `calc_native.apply` with its operands in the typed form `native_probe` reads.
-- `editor TEXT... --step STEP...`: the text in the app's editor, then each step (`left`, `right`, `up`, `down`, `bs`, `key:NAME` for a keypad key, `text:TEXT` typed): the widget tree and the cursor `|` after each.
+- `layers INPUT...`: the tokens, the flat text, the RPN, the render tree, the binding, and the last op alone through `calc_native.apply` with its operands in the typed form `native_probe` reads. The op alone skips the op's exact rule, so `sin(π)` with `--unit RAD` is `Rational 0/1` on the binding row and `1.2246467991473532e-16` on the apply row: that split is the exact rule, not a bug.
+- `editor TEXT... --step STEP...`: the text in the app's editor, then each step (`left`, `right`, `up`, `down`, `bs`, `key:NAME` for an `Operation` member name, `key:SQRT`, `text:TEXT` typed): the widget tree and the cursor `|` after each.
 - `render TEXT...`: the text rendered read-only as the result line renders it: the widget tree, and the renderer's swallowed exceptions as `log` rows.
 - `paint TEXT...`: the painter's boxes for a history item in math mode, depth first: `x y w h above below`.
 - `shot TEXT... --png FILE`: the whole window with the text typed in, at `--size WxH` and `--theme NAME`.
@@ -109,7 +109,7 @@ It builds itself on first use (`make native-probe`, after `make native-build` ha
 
 ### Typed operands
 
-An operand is `KIND:VALUE`, in the form `probe layers` prints, so an input row pastes back as arguments: `int:-5`, `dbl:0.1` or `dbl:0x1.999999999999ap-4` (hexadecimal is the double exactly), `rat:1/3`, `big:0.1`, `cx:RE,IM`, `bigcx:RE+IMi`. `--def NAME=KIND:VALUE` names one, used as `@NAME`.
+An operand is `KIND:VALUE`, in the form `probe layers` prints, so an input row pastes back as arguments: `int:-5`, `dbl:0.1` or `dbl:0x1.999999999999ap-4` (hexadecimal is the double exactly), `rat:1/3`, `big:0.1`, `cx:RE,IM`, `bigcx:RE+IMi`. A collection is printed as `list:[...]` but not read back. `--def NAME=KIND:VALUE` names one, used as `@NAME`.
 
 ```
 $ scripts/native_probe apply root dbl:1e300 int:3 | scripts/probe grade -
@@ -135,11 +135,13 @@ What `tokens` and `promote` do not show (the assignment peel, the real-first rew
 
 ## native_tests --case
 
-`src/native/build/native/native_tests --case ID -v` runs only the cases whose id starts with ID. The id is the path a failure line prints, its suite first; an id that matches no case fails with a message.
+`src/native/build/native/native_tests --case ID -v` runs only the cases whose id starts with ID. The id is the path a failure line prints, its suite first; an id that matches no case fails with a message. The other suites still print their banners, with `0 PASSED`.
 
 ```
 $ src/native/build/native/native_tests --case "unit test helpers :: print :: integer" -v
+...
 PASSED unit test helpers :: print :: integer EXPECT_EQ: printed(42) == "42"
+...
 ```
 
 ## Where each command lives and what it calls
@@ -184,7 +186,7 @@ A throwaway script is only for what the frame cannot reach, and the finding that
 
 - Read this file before writing any script to look at a case; the command probably exists.
 - Run the narrowest command first (`eval`, then `layers`), and paste the table with its command into the report: it is the evidence `docs/rules/ai/psychosis.md` asks for.
-- Copy an input from a row, not by hand: a typed operand row pastes back into `native_probe` exactly, a double as its hexadecimal form.
+- Copy an input from a row, not by hand: a typed operand row pastes back into `native_probe` exactly, a double as its hexadecimal form; `list:` does not.
 - Give the unit (`--unit`) whenever an angle is involved; every value row carries it.
 - A test row is read with `--test` and `--field`, not retyped.
 - The window commands never touch the user's settings or history; no command needs the real app running.
