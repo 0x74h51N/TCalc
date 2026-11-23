@@ -23,8 +23,10 @@ from probes.grade import (
     expected_of_expression,
     grade_of,
 )
+from probes.layers import layer_rows
 from probes.options import Options, read_inputs
 from probes.rows import (
+    UNIT_COLUMN,
     Layer,
     ProbeError,
     Row,
@@ -39,6 +41,9 @@ from pytest import param
 
 from tcalc.core.utils import CalcValue
 
+RAD = calc_native.AngleUnit.RAD
+# the grader reads the unit a row was computed in from its own column
+IN_RAD = ((UNIT_COLUMN, RAD.name),)
 BIG = calc_native.BigReal("0.5")
 BIG_CX = calc_native.BigComplex(calc_native.BigReal("0.5"), calc_native.BigReal("2"))
 
@@ -153,7 +158,7 @@ EXACT_CASES = [
 
 @pytest.mark.parametrize("case", [param(c, id=c.id) for c in EXACT_CASES])
 def test_expected_of_expression_exact(case: ExactCase) -> None:
-    value = expected_of_expression(case.text)
+    value = expected_of_expression(case.text, RAD)
     assert isinstance(value, fmpq)
     assert value == case.expected
 
@@ -250,7 +255,7 @@ CLOSE = arb("1e-24")
 
 @pytest.mark.parametrize("case", [param(c, id=c.id) for c in BALL_CASES])
 def test_expected_of_expression_ball(case: BallCase) -> None:
-    value = expected_of_expression(case.text)
+    value = expected_of_expression(case.text, RAD)
     assert value is not None
     # the table's 25 digits are read at more than the default 15
     with ctx.workdps(REF_DIGITS):
@@ -266,11 +271,11 @@ def test_expected_of_expression_ball(case: BallCase) -> None:
     ],
 )
 def test_expected_of_expression_not_graded(text: str) -> None:
-    assert expected_of_expression(text) is None
+    assert expected_of_expression(text, RAD) is None
 
 
 def test_expected_of_expression_constant() -> None:
-    value = expected_of_expression("2π")
+    value = expected_of_expression("2π", RAD)
     assert isinstance(value, acb)
     assert double_of(value) == 2 * math.pi
 
@@ -317,14 +322,24 @@ class GradeCase:
 
 # rows TCalc writes that the grader cannot measure: each is graded with a word, never a traceback
 GRADE_CASES = [
-    GradeCase(Row("1÷0", Layer.EVAL, "CalculatorError", "Math error"), NOT_GRADED, "error row"),
-    GradeCase(Row("sin dbl:inf", Layer.APPLY, "float", "nan"), NOT_GRADED, "infinite operand"),
-    GradeCase(Row("1e400", Layer.EVAL, "float", "1.0"), NOT_FINITE, "infinite expected"),
     GradeCase(
-        Row("(-8)⌄(3)", Layer.EVAL, "float", "-2.0"), "0 ulp", "double against an exact value"
+        Row("1÷0", Layer.EVAL, "CalculatorError", "Math error", IN_RAD), NOT_GRADED, "error row"
     ),
-    GradeCase(Row("sqrt(4)", Layer.EVAL, "Rational", "2"), "exact", "exact against an exact value"),
-    GradeCase(Row("log(2)·0+2", Layer.EVAL, "Rational", "2"), "exact", "exact against a ball"),
+    GradeCase(
+        Row("sin dbl:inf", Layer.APPLY, "float", "nan", IN_RAD), NOT_GRADED, "infinite operand"
+    ),
+    GradeCase(Row("1e400", Layer.EVAL, "float", "1.0", IN_RAD), NOT_FINITE, "infinite expected"),
+    GradeCase(
+        Row("(-8)⌄(3)", Layer.EVAL, "float", "-2.0", IN_RAD),
+        "0 ulp",
+        "double against an exact value",
+    ),
+    GradeCase(
+        Row("sqrt(4)", Layer.EVAL, "Rational", "2", IN_RAD), "exact", "exact against an exact value"
+    ),
+    GradeCase(
+        Row("log(2)·0+2", Layer.EVAL, "Rational", "2", IN_RAD), "exact", "exact against a ball"
+    ),
 ]
 
 
@@ -360,7 +375,7 @@ def test_read_inputs_from_a_test() -> None:
     )
     (one,) = read_inputs(options)
     assert one.text == "1+2*3"
-    assert ("expected_value", "7.0") in one.beside
+    assert ("test.expected_value", "7.0") in one.beside
 
 
 def test_test_without_field_lists_rows(capsys: pytest.CaptureFixture[str]) -> None:
@@ -405,7 +420,7 @@ def test_rows_read_back() -> None:
 
 
 def _table(path: Path, value: str) -> str:
-    path.write_text(format_rows([Row("sqrt(2)", Layer.EVAL, "float", value)]))
+    path.write_text(format_rows([Row("sqrt(2)", Layer.EVAL, "float", value, IN_RAD)]))
     return str(path)
 
 
@@ -418,7 +433,7 @@ def test_grade_compares_two_runs(tmp_path: Path, capsys: pytest.CaptureFixture[s
 
 def test_grade_rejects_a_repeated_input(tmp_path: Path) -> None:
     path = tmp_path / "twice"
-    row = Row("sqrt(2)", Layer.EVAL, "float", "1.0")
+    row = Row("sqrt(2)", Layer.EVAL, "float", "1.0", IN_RAD)
     path.write_text(format_rows([row, row]))
     assert main(["grade", str(path), str(path)]) == 2
 
@@ -429,3 +444,30 @@ def test_field_names_a_missing_path() -> None:
     )
     with pytest.raises(ProbeError, match="nope.*expr"):
         read_inputs(options)
+
+
+@dataclass(frozen=True)
+class OpAloneCase:
+    text: str
+    input: str
+    value: str
+    id: str
+
+
+# the last op alone, read from each token kind that carries one
+OP_ALONE_CASES = [
+    OpAloneCase("(2)⁻¹", "⁻¹ int:2", "1/2", "op"),
+    OpAloneCase("\\root{8}{3}", "⌄ int:8 int:3", "2/1", "latex"),
+    OpAloneCase("sqrt(4)", "√ int:4", "2/1", "call"),
+    OpAloneCase("max(1,2,3)", "max list:[1,2,3]", "3", "variadic call"),
+    OpAloneCase("-sin(π)", "u- rat:0/1", "0/1", "exact inner op"),
+    OpAloneCase("A=2+1", "+ int:2 int:1", "3/1", "assignment"),
+    OpAloneCase("log_{2}8", "log int:8 int:2", "3/1", "log with its base"),
+    OpAloneCase("\\root{2}", "⌄ int:2 rat:2/1", "1.4142135623730951", "empty slot"),
+]
+
+
+@pytest.mark.parametrize("case", [param(c, id=c.id) for c in OP_ALONE_CASES])
+def test_layer_rows_op_alone(case: OpAloneCase) -> None:
+    rows = {row.layer: row for row in layer_rows(case.text, calc_native.AngleUnit.RAD)}
+    assert (rows[Layer.APPLY].input, rows[Layer.APPLY].value) == (case.input, case.value)

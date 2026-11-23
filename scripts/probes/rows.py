@@ -21,8 +21,22 @@ class ProbeError(Exception):
 
 
 class Layer(StrEnum):
+    """Where in TCalc a row's value was read, in the order a case passes through them."""
+
+    EDITOR = "editor"
+    TOKENS = "tokens"
+    FLAT = "flat"
+    RPN = "rpn"
+    NODES = "nodes"
+    SPLIT = "split"
     EVAL = "eval"
+    BINDING = "binding"
     APPLY = "apply"
+    DISPLAY = "display"
+    WRITTEN = "written"
+    ROUND_TRIP = "round trip"
+    # an input the probe itself could not read, so the inputs after it still run
+    PROBE = "probe"
 
 
 class OperandKind(StrEnum):
@@ -34,6 +48,7 @@ class OperandKind(StrEnum):
     BIG = "big"
     CX = "cx"
     BIGCX = "bigcx"
+    LIST = "list"
 
 
 @dataclass(frozen=True)
@@ -47,6 +62,8 @@ class Row:
 
 
 _FIELDS: tuple[str, ...] = tuple(f.name for f in fields(Row) if f.name != "extra")
+TEXT_TYPE = "str"
+UNIT_COLUMN = "unit"
 
 
 def type_name(value: object) -> str:
@@ -54,7 +71,7 @@ def type_name(value: object) -> str:
 
 
 class Arm(Protocol):
-    """One scalar arm of a native value: its operand prefix, its exact text, its shown text."""
+    """One arm of a native value: its operand prefix, its exact text, its shown text."""
 
     @property
     def kind(self) -> OperandKind: ...
@@ -98,6 +115,15 @@ def _held_digits(value: calc_native.BigReal | calc_native.BigComplex) -> str:
     return calc_native.decimal_text(value, 0)
 
 
+def _collection_exact(value: calc_native.Collection) -> str:
+    # no space, so the list stays one operand word
+    return collection_text(value, exact_text, ",")
+
+
+def _collection_shown(value: calc_native.Collection) -> str:
+    return collection_text(value, value_text)
+
+
 # keyed by the exact type: native classes have no subclasses, and a bool is no arm
 _ARMS: dict[type, Arm] = {
     arm.cls: arm
@@ -108,15 +134,13 @@ _ARMS: dict[type, Arm] = {
         _Arm(calc_native.Rational, OperandKind.RAT, _fraction, _fraction),
         _Arm(calc_native.BigReal, OperandKind.BIG, _held_digits, _held_digits),
         _Arm(calc_native.BigComplex, OperandKind.BIGCX, _held_digits, _held_digits),
+        _Arm(calc_native.Collection, OperandKind.LIST, _collection_exact, _collection_shown),
     )
 }
 
 
 def arm(value: CalcValue) -> Arm:
-    found = _ARMS.get(type(value))
-    if found is None:
-        raise ProbeError(f"a {type_name(value)} is not a scalar")
-    return found
+    return _ARMS[type(value)]
 
 
 def exact_text(value: CalcValue) -> str:
@@ -125,9 +149,32 @@ def exact_text(value: CalcValue) -> str:
 
 
 def value_text(value: CalcValue) -> str:
-    if isinstance(value, calc_native.Collection):
-        return collection_text(value, value_text)
     return arm(value).text(value)
+
+
+def angle_unit(name: str) -> calc_native.AngleUnit:
+    units = calc_native.AngleUnit.__members__
+    if name not in units:
+        raise ProbeError(f"no angle unit {name!r}; the units are {', '.join(units)}")
+    return units[name]
+
+
+def value_row(text: str, layer: Layer, value: CalcValue, unit: calc_native.AngleUnit) -> Row:
+    """A value as TCalc gave it, with the angle unit it was computed in."""
+    return Row(text, layer, type_name(value), value_text(value), ((UNIT_COLUMN, unit.name),))
+
+
+def error_row(text: str, layer: Layer, error: Exception, unit: calc_native.AngleUnit) -> Row:
+    """An error in place of a value: its class, and its message as the value."""
+    return Row(text, layer, type_name(error), str(error), ((UNIT_COLUMN, unit.name),))
+
+
+def probe_error_row(text: str, error: ProbeError) -> Row:
+    return Row(text, Layer.PROBE, type_name(error), str(error))
+
+
+def text_row(text: str, layer: Layer, value: str) -> Row:
+    return Row(text, layer, TEXT_TYPE, value)
 
 
 def operand_input(op_symbol: str, operands: Sequence[CalcValue]) -> str:

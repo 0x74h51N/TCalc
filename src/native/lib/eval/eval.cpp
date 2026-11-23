@@ -552,19 +552,24 @@ Value eval_subscript(const Token &tok) {
     return resolve_name(name);
 }
 
-/// A Frac / Pow / Root token: each side is a row of its own. An absent side is
-/// zero, except a Root's degree, where it means the square root. A latex rule, when the op
-/// has one, runs on both rows before either is evaluated: evaluating the base is exactly what
-/// would destroy an identity like e^{ln u}.
-Value eval_latex(const parser::LatexToken &latex, const Calculator &c, Calculator::AngleUnit unit) {
-    if (const exact::LatexRule rule = exact::latex_rule(latex.op_id))
-        if (auto v = rule(latex.left, latex.right, c, unit))
-            return *v;
+/// The two sides of a Frac / Pow / Root token, each a row of its own. An absent side is
+/// zero, except a Root's degree, where it means the square root.
+std::vector<Value>
+latex_operands(const parser::LatexToken &latex, const Calculator &c, Calculator::AngleUnit unit) {
     Value left = latex.left.empty() ? Value{Rational(0)} : eval_row(latex.left, c, unit);
     Value right = Value{Rational(latex.kind == LatexKind::Root ? kSquare : 0)};
     if (!latex.right.empty())
         right = eval_row(latex.right, c, unit);
-    return apply(c, latex.op_id, args_of(std::move(left), std::move(right)), unit);
+    return args_of(std::move(left), std::move(right));
+}
+
+/// A latex rule, when the op has one, runs on both rows before either is evaluated:
+/// evaluating the base is exactly what would destroy an identity like e^{ln u}.
+Value eval_latex(const parser::LatexToken &latex, const Calculator &c, Calculator::AngleUnit unit) {
+    if (const exact::LatexRule rule = exact::latex_rule(latex.op_id))
+        if (auto v = rule(latex.left, latex.right, c, unit))
+            return *v;
+    return apply(c, latex.op_id, latex_operands(latex, c, unit), unit);
 }
 
 /// A value as a collection item. Rational has no item arm, so an exact fraction leaves
@@ -685,22 +690,15 @@ Value call_dataset(
     return make_collection(CollectionKind::List, {collection_item(v)});
 }
 
-/// A call token: a variadic op reduces one dataset, a fixed-arity op takes exactly the
-/// arguments its spec names, and no collection among them. A single-argument trig call tries
-/// its exact form first: radians from the argument's own tokens, before it is evaluated at
-/// all; degrees and grads from the evaluated value, after.
-Value eval_call(const parser::CallToken &call, const Calculator &c, Calculator::AngleUnit unit) {
+/// The values a call hands its op: one dataset for a variadic op, else exactly the arguments
+/// its spec names, and no collection among them.
+std::vector<Value>
+call_operands(const parser::CallToken &call, const Calculator &c, Calculator::AngleUnit unit) {
     const ops::OpSpec &spec = *ops::op_spec(call.op_id);
-
     if (ops::is_variadic(spec))
-        return apply(c, call.op_id, args_of(call_dataset(call.args, c, unit)), unit);
-
+        return args_of(call_dataset(call.args, c, unit));
     if (call.args.size() != spec.call_arity)
         throw_invalid(errmsg::takes_arguments(spec.symbol, spec.call_arity));
-
-    if (const exact::TokenRule rule = exact::token_rule(call.op_id))
-        if (auto v = rule(call.op_id, parser::element_tokens(call.args.front()), c, unit))
-            return *v;
 
     std::vector<Value> args;
     args.reserve(call.args.size());
@@ -711,6 +709,21 @@ Value eval_call(const parser::CallToken &call, const Calculator &c, Calculator::
         args.push_back(std::move(v));
     }
 
+    return args;
+}
+
+/// A call token. A single-argument trig call tries its exact form first: radians from the
+/// argument's own tokens, before it is evaluated at all; degrees and grads from the evaluated
+/// value, after.
+Value eval_call(const parser::CallToken &call, const Calculator &c, Calculator::AngleUnit unit) {
+    // Only a one-argument op carries a token rule (exact.cpp asserts it), so a call of any
+    // other size goes straight to its operands and their arity check.
+    if (call.args.size() == 1)
+        if (const exact::TokenRule rule = exact::token_rule(call.op_id))
+            if (auto v = rule(call.op_id, parser::element_tokens(call.args.front()), c, unit))
+                return *v;
+
+    std::vector<Value> args = call_operands(call, c, unit);
     if (args.size() == 1)
         if (const exact::ValueRule rule = exact::value_rule(call.op_id))
             if (auto v = rule(call.op_id, args[0], c, unit))
@@ -719,10 +732,8 @@ Value eval_call(const parser::CallToken &call, const Calculator &c, Calculator::
     return apply(c, call.op_id, std::move(args), unit);
 }
 
-/// An op token: take its operands off the stack and hand them to apply. A unary op in degrees
-/// or grads tries the exact trig path on its operand's value first; radians are already handled
-/// by eval_rpn's lookahead before this ever runs.
-Value eval_op(OpId id, std::vector<Value> &stack, const Calculator &c, Calculator::AngleUnit unit) {
+/// The operands an op token takes off the stack, once the op may be applied at all.
+std::vector<Value> op_operands(OpId id, std::vector<Value> &stack) {
     if (id == OpId::Assign)
         throw_invalid(std::string(errmsg::kInvalidAssignment));
 
@@ -733,17 +744,23 @@ Value eval_op(OpId id, std::vector<Value> &stack, const Calculator &c, Calculato
     if (!ops::is_variadic(spec) && spec.call_arity != 1)
         throw_invalid(errmsg::needs_call_form(spec.symbol));
 
-    if (spec.arity != ops::Arity::Binary) {
-        Value operand = pop_operand(stack);
-        if (const exact::ValueRule rule = exact::value_rule(id))
-            if (auto v = rule(id, operand, c, unit))
-                return *v;
-        return apply(c, id, args_of(std::move(operand)), unit);
-    }
-
+    if (spec.arity != ops::Arity::Binary)
+        return args_of(pop_operand(stack));
     Value right = pop_operand(stack);
     Value left = pop_operand(stack);
-    return apply(c, id, args_of(std::move(left), std::move(right)), unit);
+    return args_of(std::move(left), std::move(right));
+}
+
+/// An op token: take its operands off the stack and hand them to apply. A unary op in degrees
+/// or grads tries the exact trig path on its operand's value first; radians are already handled
+/// by eval_rpn's lookahead before this ever runs.
+Value eval_op(OpId id, std::vector<Value> &stack, const Calculator &c, Calculator::AngleUnit unit) {
+    std::vector<Value> args = op_operands(id, stack);
+    if (args.size() == 1)
+        if (const exact::ValueRule rule = exact::value_rule(id))
+            if (auto v = rule(id, args[0], c, unit))
+                return *v;
+    return apply(c, id, std::move(args), unit);
 }
 
 /// A token that completes an operand: a following +/- is binary, and an implicit
@@ -926,7 +943,23 @@ bool closed_form_taken() {
     return closed_form_taken_flag();
 }
 
-Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::AngleUnit unit) {
+namespace {
+
+/// A logarithm's operands: its value, then its base when the script names one.
+std::vector<Value> log_operands(
+    std::span<const Token> base,
+    std::span<const Token> value,
+    const Calculator &c,
+    Calculator::AngleUnit unit) {
+    std::vector<Value> args = args_of(eval_row(value, c, unit));
+    if (!base.empty())
+        args.push_back(eval_row(base, c, unit));
+    return args;
+}
+
+/// Walk an RPN list and leave its operand stack, which a whole row reduces to one value.
+std::vector<Value>
+walk_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::AngleUnit unit) {
     std::vector<Value> stack;
     stack.reserve(rpn.size());
 
@@ -991,10 +1024,8 @@ Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::Angl
                         stack.push_back(*v);
                         break;
                     }
-                std::vector<Value> args = args_of(eval_row(rpn.subspan(i, 1), c, unit));
-                if (!base.empty())
-                    args.push_back(eval_row(base, c, unit));
-                stack.push_back(apply(c, OpId::Log, std::move(args), unit));
+                stack.push_back(
+                    apply(c, OpId::Log, log_operands(base, rpn.subspan(i, 1), c, unit), unit));
                 break;
             }
             stack.push_back(eval_latex(latex, c, unit));
@@ -1018,6 +1049,13 @@ Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::Angl
         }
     }
 
+    return stack;
+}
+
+} // namespace
+
+Value eval_rpn(std::span<const Token> rpn, const Calculator &c, Calculator::AngleUnit unit) {
+    std::vector<Value> stack = walk_rpn(rpn, c, unit);
     if (stack.empty())
         throw_malformed(errmsg::kOperandStackEmpty);
     return std::move(stack.front());
@@ -1161,6 +1199,16 @@ bool is_assign(const Token &tok) {
     return tok.kind == TokenKind::Op && std::get<parser::OpToken>(tok.data).op_id == OpId::Assign;
 }
 
+/// An `=` in second position makes the row an assignment.
+bool is_assignment(std::span<const Token> tokens) {
+    return tokens.size() >= 2 && is_assign(tokens[1]);
+}
+
+/// The tokens a row's value comes from: an assignment's right side, else the whole row.
+std::span<const Token> value_tokens(std::span<const Token> tokens) {
+    return is_assignment(tokens) ? tokens.subspan(2) : tokens;
+}
+
 /// The name an assignment binds. Two token kinds may be bound: a letter, and a subscript
 /// over a letter. An operator or a constant is named in the error rather than lumped in
 /// with the rest, because the user has to be told which letter is already taken.
@@ -1200,7 +1248,7 @@ std::string assign_target(const Token &tok) {
 Value evaluate(
     const parser::TokensBranch &branch, const Calculator &c, Calculator::AngleUnit unit) {
     const std::span<const Token> tokens(branch.tokens); // eval_row arms the wall-clock guard
-    if (tokens.size() < 2 || !is_assign(tokens[1]))
+    if (!is_assignment(tokens))
         return eval_row(tokens, c, unit);
 
     const std::string name = assign_target(tokens[0]);
@@ -1211,6 +1259,46 @@ Value evaluate(
     Value value = eval_row(rhs, c, unit);
     session_vars().set(name, value);
     return value;
+}
+
+std::optional<std::pair<OpId, std::vector<Value>>>
+root_operands(const parser::TokensBranch &branch, const Calculator &c, Calculator::AngleUnit unit) {
+    const DeadlineScope deadline;
+    const std::vector<Token> rpn = shunting_yard(value_tokens(branch.tokens));
+    if (rpn.empty())
+        return std::nullopt;
+    // A logarithm carrying its base is its subscript and its value, and a well-formed row
+    // holds nothing else: any other token would be joined to them by an op that is the root.
+    if (rpn.size() == 2)
+        if (const auto scripted = parser::scripted_op(rpn[0]);
+            scripted && scripted->id == OpId::Log)
+            return std::pair{
+                OpId::Log, log_operands(*scripted->script, std::span(rpn).subspan(1), c, unit)};
+    const Token &root = rpn.back();
+    switch (root.kind) {
+    case TokenKind::Op: {
+        const OpId id = std::get<parser::OpToken>(root.data).op_id;
+        std::vector<Value> stack = walk_rpn(std::span(rpn).first(rpn.size() - 1), c, unit);
+        return std::pair{id, op_operands(id, stack)};
+    }
+    case TokenKind::Call: {
+        const auto &call = std::get<parser::CallToken>(root.data);
+        return std::pair{call.op_id, call_operands(call, c, unit)};
+    }
+    case TokenKind::Latex: {
+        const auto &latex = std::get<parser::LatexToken>(root.data);
+        // a subscript, a sum and a product are evaluated whole, with no op of their own
+        if (latex.kind == LatexKind::Subscript || parser::is_iterated(latex.kind))
+            break;
+        return std::pair{latex.op_id, latex_operands(latex, c, unit)};
+    }
+    case TokenKind::Number:
+    case TokenKind::Char:
+    case TokenKind::Const:
+    case TokenKind::Paren:
+        break;
+    }
+    return std::nullopt;
 }
 
 } // namespace tcalc::eval

@@ -7,8 +7,9 @@
 from __future__ import annotations
 
 import math
+import struct
 from collections import Counter
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from fractions import Fraction
@@ -16,7 +17,7 @@ from fractions import Fraction
 import calc_native
 from flint import acb, arb, ctx, fmpq, fmpz
 
-from probes.rows import Layer, OperandKind, ProbeError, Row
+from probes.rows import UNIT_COLUMN, Layer, OperandKind, ProbeError, Row, angle_unit
 from tcalc.core.constants import CONST_BY_ID, I_UNIT_CHARS
 from tcalc.core.ops import OP_BY_ID
 
@@ -28,6 +29,7 @@ NOT_FINITE = "not finite"
 EXACT = "exact"
 DECIMAL_BASE = 10
 PERCENT = 100
+MAGNITUDE_BITS = (1 << 63) - 1  # a double's bits without the sign
 HISTOGRAM_TOP = 9  # the last bucket holds every count from here up
 
 OpId = calc_native.OpId
@@ -42,6 +44,7 @@ type Ref = fmpq | acb
 type Meaning = Callable[[Sequence[Ref]], Ref | None]
 # a collection operand, spread into the args of the op it feeds, as mean[1,2,3] does
 type Item = Ref | tuple[Ref, ...] | None
+type Meanings = Mapping[calc_native.OpId, Meaning]
 
 
 def _ball(value: Ref) -> acb:
@@ -318,6 +321,49 @@ OP_MEANINGS: dict[calc_native.OpId, Meaning] = {
     OpId.StdP: lambda args: _ball(_variance(args, 0)).sqrt(),
 }
 
+# the half turn in each unit TCalc reads angles in; radians need no conversion
+_HALF_TURN = {calc_native.AngleUnit.DEG: 180, calc_native.AngleUnit.GRAD: 200}
+# in half turns, so an exact angle stays exact: cos(90) in degrees is cos_pi(1/2), exactly 0
+_HALF_TURN_MEANINGS: dict[calc_native.OpId, Callable[[acb], acb]] = {
+    OpId.Sin: acb.sin_pi,
+    OpId.Cos: acb.cos_pi,
+    OpId.Tan: acb.tan_pi,
+    OpId.Polar: acb.exp_pi_i,
+}
+_ANGLE_OUT = (OpId.Asin, OpId.Acos, OpId.Atan)
+
+
+def _angle_in(function: Callable[[acb], acb], half_turn: int) -> Meaning:
+    """sin, cos, tan and polar read their operand in the unit, a fraction of a half turn."""
+    return lambda args: function(_ball(args[0] / half_turn))
+
+
+def _angle_out(meaning: Meaning, radians_per_unit: acb) -> Meaning:
+    """asin, acos and atan give an angle: the radians are turned into the unit."""
+
+    def converted(args: Sequence[Ref]) -> Ref | None:
+        result = meaning(args)
+        return _ball(result) / radians_per_unit if result is not None else None
+
+    return converted
+
+
+@at_ref_digits
+def _meanings_in(half_turn: int) -> dict[calc_native.OpId, Meaning]:
+    radians_per_unit = acb(arb.pi()) / half_turn
+    return {
+        **OP_MEANINGS,
+        **{op: _angle_in(function, half_turn) for op, function in _HALF_TURN_MEANINGS.items()},
+        **{op: _angle_out(OP_MEANINGS[op], radians_per_unit) for op in _ANGLE_OUT},
+    }
+
+
+MEANINGS: dict[calc_native.AngleUnit, Meanings] = {
+    calc_native.AngleUnit.RAD: OP_MEANINGS,
+    **{unit: _meanings_in(half_turn) for unit, half_turn in _HALF_TURN.items()},
+}
+
+
 _NAMED_CONSTANTS: dict[calc_native.ConstId, Callable[[], Ref]] = {
     calc_native.ConstId.Pi: lambda: acb(arb.pi()),
     calc_native.ConstId.EulerNumber: lambda: acb(arb.const_e()),
@@ -348,73 +394,77 @@ def _tokens_of(part: calc_native.Token | list[calc_native.Token]) -> list[calc_n
     return part if isinstance(part, list) else [part]
 
 
-def _apply(op: calc_native.OpId, items: Sequence[Item]) -> Ref | None:
-    meaning = OP_MEANINGS.get(op)
+def _apply(meanings: Meanings, op: calc_native.OpId, items: Sequence[Item]) -> Ref | None:
+    meaning = meanings.get(op)
     (first, *rest) = items
     args = first if isinstance(first, tuple) and not rest else items
     known = [arg for arg in args if isinstance(arg, fmpq | acb)]
     return meaning(known) if meaning is not None and len(known) == len(args) else None
 
 
-def _paren(token: calc_native.Token) -> Item:
-    values = [_value_of_tokens(_tokens_of(element)) for element in token.as_paren().elements]
+def _paren(meanings: Meanings, token: calc_native.Token) -> Item:
+    values = [
+        _value_of_tokens(meanings, _tokens_of(element)) for element in token.as_paren().elements
+    ]
     known = [value for value in values if isinstance(value, fmpq | acb)]
     if len(known) < len(values):
         return None
     return known[0] if len(known) == 1 else tuple(known)
 
 
-def _call(token: calc_native.Token) -> Item:
+def _call(meanings: Meanings, token: calc_native.Token) -> Item:
     call = token.as_call()
-    return _apply(call.op_id, [_value_of_tokens(_tokens_of(arg)) for arg in call.args])
+    args = [_value_of_tokens(meanings, _tokens_of(arg)) for arg in call.args]
+    return _apply(meanings, call.op_id, args)
 
 
-def _latex_op(token: calc_native.Token) -> Item:
+def _latex_op(meanings: Meanings, token: calc_native.Token) -> Item:
     latex = token.as_latex()
-    return _apply(latex.op_id, [_value_of_tokens(latex.left), _value_of_tokens(latex.right)])
+    sides = [_value_of_tokens(meanings, latex.left), _value_of_tokens(meanings, latex.right)]
+    return _apply(meanings, latex.op_id, sides)
 
 
 # Subscript, Sum and Prod have no meaning here yet, so a row that holds one is not graded
-_LATEX: dict[calc_native.LatexKind, Callable[[calc_native.Token], Item]] = {
+_LATEX: dict[calc_native.LatexKind, Callable[[Meanings, calc_native.Token], Item]] = {
     calc_native.LatexKind.Frac: _latex_op,
     calc_native.LatexKind.Pow: _latex_op,
     calc_native.LatexKind.Root: _latex_op,
 }
 
 
-def _latex(token: calc_native.Token) -> Item:
+def _latex(meanings: Meanings, token: calc_native.Token) -> Item:
     walk = _LATEX.get(token.as_latex().kind)
-    return walk(token) if walk is not None else None
+    return walk(meanings, token) if walk is not None else None
 
 
-_OPERANDS: dict[calc_native.TokenKind, Callable[[calc_native.Token], Item]] = {
-    TokenKind.Number: lambda token: _number(token.as_number().value),
-    TokenKind.Const: lambda token: _constant(token.as_const().id),
+_OPERANDS: dict[calc_native.TokenKind, Callable[[Meanings, calc_native.Token], Item]] = {
+    TokenKind.Number: lambda _, token: _number(token.as_number().value),
+    TokenKind.Const: lambda _, token: _constant(token.as_const().id),
     TokenKind.Paren: _paren,
     TokenKind.Call: _call,
     TokenKind.Latex: _latex,
 }
 
 
-def _value_of_tokens(tokens: Sequence[calc_native.Token]) -> Item:
-    """TCalc's own RPN walked with OP_MEANINGS; None as soon as a part has no meaning."""
+def _value_of_tokens(meanings: Meanings, tokens: Sequence[calc_native.Token]) -> Item:
+    """TCalc's own RPN walked with the meanings of one angle unit; None as soon as a part has no meaning."""
     stack: list[Item] = []
     for token in calc_native.shunting_yard(list(tokens)):
         if token.kind == TokenKind.Op:
             op = token.as_op().op_id
             args = stack[-_arity(op) :]
             del stack[-_arity(op) :]
-            stack.append(_apply(op, args))
+            stack.append(_apply(meanings, op, args))
         else:
             operand = _OPERANDS.get(token.kind)
-            stack.append(operand(token) if operand is not None else None)
+            stack.append(operand(meanings, token) if operand is not None else None)
     return stack[0] if len(stack) == 1 else None
 
 
 @at_ref_digits
-def expected_of_expression(text: str) -> Ref | None:
+def expected_of_expression(text: str, unit: calc_native.AngleUnit) -> Ref | None:
     """The mathematical value of the text: 0.1 is one tenth."""
-    value = _value_of_tokens(calc_native.tokenize_string(text).tokens)
+    value = _value_of_tokens(MEANINGS[unit], calc_native.tokenize_string(text).tokens)
     # a collection result has no single value to grade
     return value if isinstance(value, fmpq | acb) else None
 
@@ -440,9 +490,11 @@ def _operand(word: str) -> Ref | None:
 
 
 @at_ref_digits
-def expected_of_operands(op: calc_native.OpId, operands: Sequence[str]) -> Ref | None:
+def expected_of_operands(
+    op: calc_native.OpId, operands: Sequence[str], unit: calc_native.AngleUnit
+) -> Ref | None:
     """The exact result on the operands as they are held: dbl:0x1.999999999999ap-4 is that double."""
-    return _apply(op, [_operand(word) for word in operands])
+    return _apply(MEANINGS[unit], op, [_operand(word) for word in operands])
 
 
 def _operand_row(text: str) -> tuple[calc_native.OpId, list[str]] | None:
@@ -472,13 +524,19 @@ def _double_of_part(part: arb) -> float | None:
     return low if low == high else None
 
 
+def _place(value: float) -> int:
+    """The double's place among all doubles, so two places differ by the doubles between them."""
+    bits = int.from_bytes(struct.pack("<d", value), "little", signed=True)
+    return bits if bits >= 0 else -(bits & MAGNITUDE_BITS)
+
+
 def ulps(got: float, want: float) -> int | None:
-    """The distance in units of want's last place; None when an inf or nan leaves no distance."""
+    """How many doubles apart got is from want; None when an inf or nan leaves no distance."""
     if got == want:
         return 0
     if not (math.isfinite(got) and math.isfinite(want)):
         return None
-    return round(abs(got - want) / math.ulp(want))
+    return abs(_place(got) - _place(want))
 
 
 def _reference_text(reference: Ref) -> str:
@@ -561,13 +619,19 @@ _GRADERS: dict[str, Callable[[str, Ref], Grade]] = {
 }
 
 
-def _reference(text: str) -> Ref | None:
+def _reference(text: str, unit: calc_native.AngleUnit) -> Ref | None:
     operand_row = _operand_row(text)
-    return (
-        expected_of_operands(*operand_row)
-        if operand_row is not None
-        else expected_of_expression(text)
-    )
+    if operand_row is None:
+        return expected_of_expression(text, unit)
+    op, operands = operand_row
+    return expected_of_operands(op, operands, unit)
+
+
+def _row_unit(row: Row) -> calc_native.AngleUnit:
+    columns = dict(row.extra)
+    if UNIT_COLUMN not in columns:
+        raise ProbeError(f"the row {row.input!r} has no {UNIT_COLUMN} column to grade it in")
+    return angle_unit(columns[UNIT_COLUMN])
 
 
 @at_ref_digits
@@ -576,8 +640,22 @@ def grade_of(row: Row) -> Grade:
     grader = _GRADERS.get(row.type)
     if grader is None:
         return _UNGRADED
-    reference = _reference(row.input)
+    reference = _reference(row.input, _row_unit(row))
     return grader(row.value, reference) if reference is not None else _UNGRADED
+
+
+# the layers that hold a value, which --ref grades and a test's claims sit beside
+VALUE_LAYERS = (Layer.EVAL, Layer.BINDING, Layer.APPLY)
+
+
+def finish(rows: Sequence[Row], beside: tuple[tuple[str, str], ...], ref: bool) -> list[Row]:
+    """A test row's claims beside each value row, and the grade when --ref asks for it."""
+    return [_finish_row(row, beside, ref) if row.layer in VALUE_LAYERS else row for row in rows]
+
+
+def _finish_row(row: Row, beside: tuple[tuple[str, str], ...], ref: bool) -> Row:
+    claimed = replace(row, extra=(*row.extra, *beside))
+    return grade(claimed) if ref else claimed
 
 
 def grade(row: Row) -> Row:

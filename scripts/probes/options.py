@@ -12,14 +12,18 @@ from __future__ import annotations
 
 import argparse
 import sys
-from dataclasses import dataclass, field, fields
+from dataclasses import dataclass, fields
+from dataclasses import field as declared
 from enum import Enum, auto
 from pathlib import Path
 
+import calc_native
+
 from probes.defs import parse_defs, substitute
-from probes.rows import ProbeError
+from probes.rows import ProbeError, angle_unit
 from probes.testcase import beside, collect
 from probes.testcase import field as row_field
+from tcalc.app_state import START_ANGLE_UNIT
 
 STDIN = "-"
 _ARG = "arg"
@@ -38,6 +42,7 @@ class FlagKind(Enum):
     PATH = auto()
     SWITCH = auto()
     TEXT = auto()
+    ANGLE_UNIT = auto()
 
 
 @dataclass(frozen=True)
@@ -48,27 +53,45 @@ class Flag:
     metavar: str | None = None
 
 
+UNITS = calc_native.AngleUnit.__members__
+# a probe shows what the app shows when it starts
+APP_ANGLE_UNIT = START_ANGLE_UNIT
+
+
+def _angle_unit(text: str) -> calc_native.AngleUnit:
+    try:
+        return angle_unit(text.upper())
+    except ProbeError as error:
+        # argparse prints an ArgumentTypeError as a usage error naming the flag
+        raise argparse.ArgumentTypeError(str(error)) from error
+
+
 def _declare(arg: Positional | Flag) -> dict[str, Positional | Flag]:
     return {_ARG: arg}
 
 
 @dataclass(frozen=True)
 class Options:
-    inputs: list[str] = field(
-        metadata=_declare(Positional(f"the cases; {STDIN} reads one per line from stdin", "INPUT"))
+    inputs: list[str] = declared(
+        metadata=_declare(
+            Positional(
+                f"the cases; {STDIN} reads one per line from stdin; put -- before a case that starts with -",
+                "INPUT",
+            )
+        )
     )
-    define: list[str] = field(
+    define: list[str] = declared(
         metadata=_declare(
             Flag("--def", FlagKind.REPEATED, "name a value, used in an input as @NAME", "NAME=EXPR")
         )
     )
-    defs: Path | None = field(
+    defs: Path | None = declared(
         metadata=_declare(Flag("--defs", FlagKind.PATH, "a file of NAME=EXPR lines", "FILE"))
     )
-    ref: bool = field(
+    ref: bool = declared(
         metadata=_declare(Flag("--ref", FlagKind.SWITCH, "grade each value against python-flint"))
     )
-    test: str | None = field(
+    test: str | None = declared(
         metadata=_declare(
             Flag(
                 "--test",
@@ -78,12 +101,12 @@ class Options:
             )
         )
     )
-    keyword: str | None = field(
+    keyword: str | None = declared(
         metadata=_declare(
             Flag("-k", FlagKind.TEXT, "the rows of --test that pytest's -k selects", "EXPR")
         )
     )
-    field: str | None = field(
+    field: str | None = declared(
         metadata=_declare(
             Flag(
                 "--field",
@@ -93,6 +116,13 @@ class Options:
                 "PATH",
             )
         )
+    )
+
+    unit: calc_native.AngleUnit = declared(
+        default=APP_ANGLE_UNIT,
+        metadata=_declare(
+            Flag("--unit", FlagKind.ANGLE_UNIT, "the angle unit trig ops read", "UNIT")
+        ),
     )
 
 
@@ -115,6 +145,15 @@ def _add_flag(parser: argparse.ArgumentParser, dest: str, flag: Flag) -> None:
             parser.add_argument(flag.flag, dest=dest, action="store_true", help=flag.help)
         case FlagKind.TEXT:
             parser.add_argument(flag.flag, dest=dest, help=flag.help, metavar=flag.metavar)
+        case FlagKind.ANGLE_UNIT:
+            parser.add_argument(
+                flag.flag,
+                dest=dest,
+                type=_angle_unit,
+                default=APP_ANGLE_UNIT,
+                help=f"{flag.help}: {', '.join(UNITS)} (default {APP_ANGLE_UNIT.name})",
+                metavar=flag.metavar,
+            )
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:

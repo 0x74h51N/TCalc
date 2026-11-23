@@ -17,6 +17,7 @@ import pytest
 from probes.rows import ProbeError
 
 PATH_SEPARATOR = "."
+TEST_PREFIX = "test."
 
 
 @dataclass(frozen=True)
@@ -102,7 +103,8 @@ def beside(row: TestRow, path: str) -> tuple[tuple[str, str], ...]:
     name, attributes = _segments(path)
     others = [(other, str(value)) for other, value in row.params.items() if other != name]
     siblings = _dataclass_fields(name, row.params[name], attributes[-1]) if attributes else []
-    return (*siblings, *others)
+    # prefixed, so a test's own expected never shares a column with the grader's
+    return tuple((f"{TEST_PREFIX}{column}", text) for column, text in (*siblings, *others))
 
 
 def rows_text(rows: list[TestRow]) -> str:

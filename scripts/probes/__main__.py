@@ -11,7 +11,7 @@ import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from probes import grade_cmd
+from probes import eval_cmd, grade_cmd, layers
 from probes.options import Options, add_arguments, options_from
 from probes.rows import ProbeError
 from probes.testcase import collect, rows_text
@@ -30,6 +30,18 @@ class Command:
 
 
 COMMANDS: tuple[Command, ...] = (
+    Command(
+        "eval",
+        eval_cmd.run,
+        "a case through the whole Python path: editor text, value, display, written text, round trip",
+        'scripts/probe eval "1/3" "(2) root (3)" --ref',
+    ),
+    Command(
+        "layers",
+        layers.run,
+        "a case on each layer: tokens, RPN, render tree, binding, the last op alone, format",
+        'scripts/probe layers "2π" "\\root{8}{3}" --unit rad --ref',
+    ),
     Command(
         "grade",
         grade_cmd.run,

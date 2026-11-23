@@ -27,7 +27,9 @@ def fraction_text(value: calc_native.Rational) -> str:
 ELIDED = "..."
 
 
-def collection_text(value: calc_native.Collection, item_text: Callable[[CalcValue], str]) -> str:
+def collection_text(
+    value: calc_native.Collection, item_text: Callable[[CalcValue], str], separator: str = ", "
+) -> str:
     """The brackets and the cap native's preview gives, each item written by item_text."""
     opener, closer, cap = value.preview()
     count = len(value)
@@ -38,4 +40,4 @@ def collection_text(value: calc_native.Collection, item_text: Callable[[CalcValu
         parts = [item_text(value[i]) for i in range(head)]
         parts.append(ELIDED)
         parts += [item_text(value[i]) for i in range(count - tail, count)]
-    return opener + ", ".join(parts) + closer
+    return opener + separator.join(parts) + closer
