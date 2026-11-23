@@ -230,6 +230,14 @@ def options_from(namespace: argparse.Namespace) -> Options:
     return Options(**{f.name: getattr(namespace, f.name) for f in fields(Options)})
 
 
+def read_file(path: Path) -> str:
+    """A file the command line names; a path that cannot be read is a probe error, not a traceback."""
+    try:
+        return path.read_text()
+    except OSError as error:
+        raise ProbeError(f"cannot read {path}: {error.strerror}") from error
+
+
 def _stdin_lines() -> list[str]:
     return [line for line in sys.stdin.read().splitlines() if line.strip()]
 
@@ -262,6 +270,6 @@ def read_inputs(options: Options, grouped: bool = True) -> tuple[Input, ...]:
     inputs = (
         _test_inputs(options.test, options) if options.test is not None else _typed_inputs(options)
     )
-    file_lines = options.defs.read_text().splitlines() if options.defs is not None else []
+    file_lines = read_file(options.defs).splitlines() if options.defs is not None else []
     defs = parse_defs([*options.define, *file_lines])
     return tuple(Input(substitute(one.text, defs, grouped), one.beside) for one in inputs)

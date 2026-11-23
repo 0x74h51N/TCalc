@@ -10,14 +10,14 @@ import sys
 from pathlib import Path
 
 from probes.grade import compare, grade
-from probes.options import STDIN, Options
+from probes.options import STDIN, Options, read_file
 from probes.rows import ProbeError, format_rows, parse_rows
 
 MAX_FILES = 2
 
 
 def _table(source: str) -> str:
-    return sys.stdin.read() if source == STDIN else Path(source).read_text()
+    return sys.stdin.read() if source == STDIN else read_file(Path(source))
 
 
 def run(options: Options) -> int:

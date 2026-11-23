@@ -20,7 +20,7 @@ Two commands look at one TCalc case on one layer at a time, so the first layer t
 
 Every table has the columns `input`, `layer`, `type` and `value`, then the extra columns its rows carry. `input` is what the layer read: the expression after the definitions are substituted, or the op and its operands as they are held. `type` is the Python type name (`int`, `float`, `complex`, `Rational`, `BigReal`, `BigComplex`, `Collection`), `str` for a text, or the error's class. A value row has a `unit` column, the angle unit it was computed in (`--unit`, default `DEG`, the app's start unit).
 
-With `--ref` (or through `probe grade`) a value row gets `expected` and `error`: the value python-flint computes for the same input, and the error as ulps for a double, `exact` for an exact value, the residual for a BigReal. A BigComplex is not graded (`not graded`).
+With `--ref` (or through `probe grade`) a value row gets `expected` and `error`: the value python-flint computes for the same input, and the error as ulps for a double, `exact` for an exact value, the residual for a BigReal. A BigComplex is not graded (`not graded`). The grader computes the value of the parse TCalc made, so a wrong parse grades as `exact`: `\sqrt{-4}^{2}` gives `4`, graded `exact`, while the `rpn` row of `layers` shows `{-4}^{2} √`, the power inside the root. A parse is checked on the `rpn` row, not by `--ref`.
 
 ```
 $ scripts/probe eval "1/3" "sin(30)" --ref
