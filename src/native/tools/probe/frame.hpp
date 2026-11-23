@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <map>
 #include <optional>
@@ -51,6 +52,36 @@ template <class T> std::optional<T> whole(std::string_view text, auto... format)
     return value;
 }
 
+/// The text as a Boost multiprecision number, or nullopt when Boost does not read it.
+template <class T> std::optional<T> read_number(std::string_view text) {
+    try {
+        return T(std::string(text));
+    } catch (const std::runtime_error &) {
+        // Boost rejects text that is not a number this way
+        return std::nullopt;
+    } catch (const std::invalid_argument &) {
+        // and an empty one, or a cut exponent (big:, big:1.5e), through std::stol
+        return std::nullopt;
+    }
+}
+
+inline std::string join(std::span<const std::string> parts, std::string_view separator) {
+    std::string text;
+    for (const auto &part : parts) {
+        text += (text.empty() ? "" : std::string(separator)) + part;
+    }
+    return text;
+}
+
+/// A table's names, comma separated, for an error that lists what it takes.
+template <class Table, class Name> std::string names_of(const Table &table, Name name) {
+    std::vector<std::string> parts;
+    for (const auto &row : table) {
+        parts.emplace_back(std::invoke(name, row));
+    }
+    return join(parts, ", ");
+}
+
 namespace detail {
 
 inline constexpr std::string_view kHexPrefix = "0x";
@@ -84,15 +115,7 @@ inline std::optional<double> read_double(std::string_view text) {
 }
 
 inline std::optional<BigReal> read_big(std::string_view text) {
-    try {
-        return BigReal(std::string(text));
-    } catch (const std::runtime_error &) {
-        // Boost rejects text that is not a number this way
-        return std::nullopt;
-    } catch (const std::invalid_argument &) {
-        // and an empty one, or a cut exponent (big:, big:1.5e), through std::stol
-        return std::nullopt;
-    }
+    return read_number<BigReal>(text);
 }
 
 inline std::optional<Value> int_operand(std::string_view text) {
@@ -183,11 +206,11 @@ inline constexpr std::array kOperandKinds{
 };
 
 inline std::string prefixes() {
-    std::string text;
+    std::vector<std::string> parts;
     for (const auto &kind : kOperandKinds) {
-        text += (text.empty() ? "" : ", ") + std::string(kind.prefix) + kKindSeparator;
+        parts.push_back(std::string(kind.prefix) + kKindSeparator);
     }
-    return text;
+    return join(parts, ", ");
 }
 
 inline std::string shortest_in(double d, std::chars_format format) {
@@ -276,22 +299,30 @@ struct ArmNames {
     std::string_view prefix;
 };
 
-inline ArmNames arm_names(const Value &v) {
-    return std::visit(
-        Overloads{
-            [](std::int64_t) { return ArmNames{"int", "int"}; },
-            [](double) { return ArmNames{"float", "dbl"}; },
-            [](const Complex &) { return ArmNames{"complex", "cx"}; },
-            [](const BigReal &) { return ArmNames{"BigReal", "big"}; },
-            [](const BigComplex &) { return ArmNames{"BigComplex", "bigcx"}; },
-            [](const Rational &) { return ArmNames{"Rational", "rat"}; },
-            [](const Collection &) { return ArmNames{"Collection", "list"}; },
-        },
-        v);
+inline ArmNames arm_names(Arm arm) {
+    switch (arm) {
+    case Arm::Int64:
+        return {"int", "int"};
+    case Arm::Double:
+        return {"float", "dbl"};
+    case Arm::Cx:
+        return {"complex", "cx"};
+    case Arm::Big:
+        return {"BigReal", "big"};
+    case Arm::BigCx:
+        return {"BigComplex", "bigcx"};
+    case Arm::Rat:
+        return {"Rational", "rat"};
+    case Arm::Coll:
+        return {"Collection", "list"};
+    case Arm::Count:
+        break;
+    }
+    throw ProbeError("Arm::Count names no arm");
 }
 
 inline std::string type_name(const Value &v) {
-    return std::string(arm_names(v).type);
+    return std::string(arm_names(arm_of(v)).type);
 }
 
 inline std::string collection_text(
@@ -339,7 +370,7 @@ inline std::string value_text(const Value &v) {
 
 /// The operand form scripts/probes/rows.py's operand_input writes: pasteable as arguments.
 inline std::string operand_text(const Value &v) {
-    return std::string(arm_names(v).prefix) + detail::kKindSeparator + exact_text(v);
+    return std::string(arm_names(arm_of(v)).prefix) + detail::kKindSeparator + exact_text(v);
 }
 
 struct Row {
@@ -347,6 +378,9 @@ struct Row {
     // by column name, in the order they print after the four fixed ones
     std::vector<std::pair<std::string, std::string>> extra;
 };
+
+/// The row of NAME in the Boost table on TYPE ARG... (boost_table.cpp).
+Row boost_row(std::span<const std::string> words);
 
 /// Characters, not bytes, as Python counts them: ⌄ is one column and three UTF-8 bytes.
 inline std::size_t columns(std::string_view text) {

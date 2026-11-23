@@ -20,6 +20,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <type_traits>
+#include <variant>
 #include <vector>
 
 #include "calc/pub/calculator.hpp"
@@ -37,8 +39,9 @@ using tcalc::Value;
 using tcalc::probe::ProbeError;
 using tcalc::probe::Row;
 using Unit = Calculator::AngleUnit;
+using tcalc::Arm;
 
-enum class Flag : std::uint8_t { Def, Defs, Time, Unit, NoClosedForms };
+enum class Flag : std::uint8_t { Def, Defs, Time, Unit, NoClosedForms, Arms };
 using FlagSet = std::uint8_t;
 
 constexpr FlagSet flag_bit(Flag f) {
@@ -59,6 +62,7 @@ constexpr std::array kFlags{
     FlagSpec{Flag::Time, "--time", "N", "the median nanoseconds of N runs, in an ns column"},
     FlagSpec{Flag::Unit, "--unit", "UNIT", "the angle unit (default DEG, the app's start unit)"},
     FlagSpec{Flag::NoClosedForms, "--no-closed-forms", "", "sums and products by brute force"},
+    FlagSpec{Flag::Arms, "--arms", "", "the op on each of its arms, the operands lifted to it"},
 };
 
 struct UnitName {
@@ -91,6 +95,7 @@ struct Options {
     std::optional<int> runs;
     Unit unit = Unit::DEG;
     bool closed_forms = true;
+    bool arms = false;
 };
 
 std::string_view unit_name(Unit unit) {
@@ -153,14 +158,19 @@ std::vector<Row> run_literal(const Options &options) {
     return rows;
 }
 
-/// The operands an op takes: a call's own count, two for a binary op, one otherwise.
+/// The operands an op takes: a call's own count, two for a binary op or one with a
+/// stand-in second operand (log's base), one otherwise.
 std::size_t operand_count(const tcalc::ops::OpSpec &spec) {
+    // log is a call of one argument, and its kernel still takes the base
+    if (tcalc::ops::second_default_of(spec.id) != 0) {
+        return tcalc::ops::kBinaryOperands;
+    }
     if (tcalc::ops::is_call_function(spec)) {
         return spec.call_arity;
     }
     switch (spec.arity) {
     case tcalc::ops::Arity::Binary:
-        return 2;
+        return tcalc::ops::kBinaryOperands;
     case tcalc::ops::Arity::Unary:
     case tcalc::ops::Arity::Postfix:
         return 1;
@@ -168,50 +178,318 @@ std::size_t operand_count(const tcalc::ops::OpSpec &spec) {
     throw ProbeError("an Arity with no operand count");
 }
 
+/// Where the operands go: apply fills a stand-in second operand (log's base) itself, a
+/// kernel or a promotion step alone does not.
+enum class Target : std::uint8_t { Apply, Alone };
+
 /// apply drops an extra operand and reads past a missing one, so the count is checked here.
-void check_count(const tcalc::ops::OpSpec &spec, std::size_t given) {
+void check_count(const tcalc::ops::OpSpec &spec, std::size_t given, Target target) {
     if (tcalc::ops::is_variadic(spec)) {
+        // seen: kernel mean with no operand reads past the end
+        if (given == 0) {
+            throw ProbeError(std::string(spec.symbol) + " takes one operand or more, got none");
+        }
         return;
     }
     const std::size_t takes = operand_count(spec);
-    // apply fills the second operand of an op that names a stand-in (log's base)
-    const bool defaulted = tcalc::ops::second_default_of(spec.id) != 0 && given + 1 == takes;
-    if (given != takes && !defaulted) {
-        throw ProbeError(
-            std::string(spec.symbol) + " takes " + std::to_string(takes) + " operands, got " +
-            std::to_string(given));
+    const bool stand_in = tcalc::ops::second_default_of(spec.id) != 0;
+    if (given == takes || (target == Target::Apply && stand_in && given + 1 == takes)) {
+        return;
     }
+    const std::string why = stand_in ? " (apply fills the second; alone it is needed)" : "";
+    throw ProbeError(
+        std::string(spec.symbol) + " takes " + std::to_string(takes) + " operands, got " +
+        std::to_string(given) + why);
 }
 
-Row apply_row(std::span<const std::string> words, const Options &options) {
+/// An op and its typed operands, with the input text they print as.
+struct OpCase {
+    const tcalc::ops::OpSpec *spec;
+    std::vector<Value> args;
+    std::string input;
+};
+
+OpCase op_case(std::span<const std::string> words, const Options &options, Target target) {
     if (words.empty()) {
-        throw ProbeError("apply needs an op and its operands");
+        throw ProbeError("an op and its operands are needed");
     }
     const auto *spec = tcalc::ops::find_op(words[0]);
     if (spec == nullptr) {
         throw ProbeError(
             "no op '" + words[0] + "'; name it by its symbol or an alias, such as root or sin");
     }
-    check_count(*spec, words.size() - 1);
-    std::vector<Value> args;
-    std::string input(spec->symbol);
-    for (const auto &word : words.subspan(1)) {
-        args.push_back(tcalc::probe::parse_operand(tcalc::probe::substitute(word, options.defs)));
-        input += " " + tcalc::probe::operand_text(args.back());
+    // apply raises its own error on an op with no kernel (==); alone there is nothing to run
+    if (target == Target::Alone && tcalc::ops::kernel_of(spec->id) == nullptr) {
+        throw ProbeError(std::string(spec->symbol) + " has no kernel");
     }
+    check_count(*spec, words.size() - 1, target);
+    OpCase c{spec, {}, std::string(spec->symbol)};
+    for (const auto &word : words.subspan(1)) {
+        c.args.push_back(tcalc::probe::parse_operand(tcalc::probe::substitute(word, options.defs)));
+        c.input += " " + tcalc::probe::operand_text(c.args.back());
+    }
+    return c;
+}
+
+/// The rows of each case: the arguments as one, then each line of stdin as one. A case
+/// the probe cannot read is a probe row, so the cases after it still run.
+std::vector<Row> per_case(
+    const Options &options,
+    Target target,
+    std::vector<Row> (*rows_of)(const OpCase &, const Options &)) {
+    std::vector<Row> rows;
+    const auto add = [&](std::span<const std::string> case_words) {
+        try {
+            const auto more = rows_of(op_case(case_words, options, target), options);
+            rows.insert(rows.end(), more.begin(), more.end());
+        } catch (const ProbeError &error) {
+            rows.push_back(
+                {tcalc::probe::join(case_words, " "), "probe", "ProbeError", error.what(), {}});
+        }
+    };
+    if (!options.inputs.empty()) {
+        add(options.inputs);
+    }
+    for (const auto &line : options.lines) {
+        add(words(line));
+    }
+    return rows;
+}
+
+std::vector<Row> apply_rows(const OpCase &c, const Options &options) {
     const Calculator calc;
-    return value_row(input, "apply", options, [&] {
-        return tcalc::eval::apply(calc, spec->id, args, options.unit);
-    });
+    return {value_row(c.input, "apply", options, [&] {
+        return tcalc::eval::apply(calc, c.spec->id, c.args, options.unit);
+    })};
 }
 
 std::vector<Row> run_apply(const Options &options) {
+    return per_case(options, Target::Apply, apply_rows);
+}
+
+/// One promotion step: the operands' types and values after it.
+Row step_row(const OpCase &c, std::string_view layer, const std::vector<Value> &args) {
+    std::vector<std::string> types;
+    std::vector<std::string> values;
+    for (const auto &arg : args) {
+        types.push_back(tcalc::probe::type_name(arg));
+        values.push_back(tcalc::probe::value_text(arg));
+    }
+    return {
+        c.input,
+        std::string(layer),
+        tcalc::probe::join(types, " "),
+        tcalc::probe::join(values, " "),
+        {}};
+}
+
+/// apply's steps before the kernel, in its order (eval.cpp): promote_big, coerce,
+/// promote_complex, and coerce again when that changed an arm.
+std::vector<Row> promote_rows(const OpCase &c, const Options & /*options*/) {
+    const auto id = c.spec->id;
+    std::vector<Value> args = c.args;
+    std::vector<Row> rows{step_row(c, "in", args)};
+    tcalc::eval::promote_big(id, args);
+    rows.push_back(step_row(c, "promote_big", args));
+    const auto coerced = [&] {
+        try {
+            args = tcalc::eval::coerce(id, std::move(args));
+            rows.push_back(step_row(c, "coerce", args));
+            return true;
+        } catch (const CalculatorError &error) {
+            rows.push_back({c.input, "coerce", "CalculatorError", error.what(), {}});
+            return false;
+        }
+    };
+    if (!coerced()) {
+        return rows;
+    }
+    const bool fired = tcalc::eval::promote_complex(id, args);
+    rows.push_back(step_row(c, "promote_complex", args));
+    if (fired) {
+        coerced();
+    }
+    return rows;
+}
+
+std::vector<Row> run_promote(const Options &options) {
+    return per_case(options, Target::Alone, promote_rows);
+}
+
+struct ArmLift {
+    Arm arm;
+    std::optional<Value> (*lift)(const Value &);
+};
+
+/// The value as an F of value.hpp makes it, or nullopt when F has no overload for its arm.
+template <class F> std::optional<Value> lift_with(const Value &v, F f) {
+    return std::visit(
+        [&](const auto &x) -> std::optional<Value> {
+            if constexpr (std::is_invocable_v<F, decltype(x)>) {
+                return Value{f(x)};
+            } else {
+                return std::nullopt;
+            }
+        },
+        v);
+}
+
+template <class T> std::optional<Value> held(const Value &v) {
+    const auto *x = std::get_if<T>(&v);
+    return x != nullptr ? std::optional<Value>{*x} : std::nullopt;
+}
+
+// value.hpp's own lifts, one per arm; an int64 and a collection are only ever themselves
+const std::array kLifts{
+    ArmLift{Arm::Int64, held<std::int64_t>},
+    ArmLift{
+        Arm::Double,
+        [](const Value &v) {
+            return lift_with(v, [](const auto &x) -> decltype(tcalc::to_double(x)) {
+                return tcalc::to_double(x);
+            });
+        }},
+    ArmLift{
+        Arm::Cx,
+        [](const Value &v) {
+            return lift_with(v, [](const auto &x) -> decltype(tcalc::to_complex(x)) {
+                return tcalc::to_complex(x);
+            });
+        }},
+    ArmLift{
+        Arm::Big,
+        [](const Value &v) {
+            return lift_with(
+                v, [](const auto &x) -> decltype(tcalc::to_big(x)) { return tcalc::to_big(x); });
+        }},
+    ArmLift{
+        Arm::BigCx,
+        [](const Value &v) {
+            return lift_with(v, [](const auto &x) -> decltype(tcalc::to_big_complex(x)) {
+                return tcalc::to_big_complex(x);
+            });
+        }},
+    ArmLift{
+        Arm::Rat,
+        [](const Value &v) {
+            const auto r = tcalc::to_rational(v);
+            return r ? std::optional<Value>{*r} : std::nullopt;
+        }},
+    ArmLift{Arm::Coll, held<tcalc::Collection>},
+};
+
+std::string arm_list(tcalc::ArmMask mask) {
+    std::vector<std::string> names;
+    for (const auto &lift : kLifts) {
+        if (tcalc::has_arm(mask, lift.arm)) {
+            names.emplace_back(tcalc::probe::arm_names(lift.arm).type);
+        }
+    }
+    return tcalc::probe::join(names, ", ");
+}
+
+Row kernel_row(
+    const OpCase &c, const std::vector<Value> &args, std::string input, const Options &options) {
+    const Calculator calc;
+    const auto kernel = tcalc::ops::kernel_of(c.spec->id);
+    return value_row(std::move(input), "kernel", options, [&] {
+        return kernel(c.spec->id, calc, args, options.unit);
+    });
+}
+
+/// The op on each of its arms, the operands lifted to it as value.hpp lifts them.
+std::vector<Row> arm_rows(const OpCase &c, const Options &options) {
+    std::vector<Row> rows;
+    for (const auto &lift : kLifts) {
+        if (!tcalc::has_arm(tcalc::ops::arms_of(c.spec->id), lift.arm)) {
+            continue;
+        }
+        std::vector<Value> args;
+        std::string input(c.spec->symbol);
+        for (const auto &arg : c.args) {
+            const auto lifted = lift.lift(arg);
+            if (!lifted) {
+                rows.push_back(
+                    // a type no grader knows, so grade leaves the row alone
+                    {c.input,
+                     "kernel",
+                     "none",
+                     std::string(tcalc::probe::arm_names(lift.arm).type) +
+                         ": value.hpp has no lift from " + tcalc::probe::type_name(arg),
+                     {}});
+                break;
+            }
+            args.push_back(*lifted);
+            input += " " + tcalc::probe::operand_text(*lifted);
+        }
+        if (args.size() == c.args.size()) {
+            rows.push_back(kernel_row(c, args, input, options));
+        }
+    }
+    return rows;
+}
+
+/// The kernel alone, on operands already of one arm the op has: no promotion, no lattice.
+std::vector<Row> kernel_rows(const OpCase &c, const Options &options) {
+    if (options.arms) {
+        return arm_rows(c, options);
+    }
+    const auto mask = tcalc::ops::arms_of(c.spec->id);
+    std::vector<std::string> types;
+    bool one_arm = true;
+    for (const auto &arg : c.args) {
+        types.push_back(tcalc::probe::type_name(arg));
+        one_arm = one_arm && tcalc::arm_of(arg) == tcalc::arm_of(c.args.front()) &&
+                  tcalc::has_arm(mask, tcalc::arm_of(arg));
+    }
+    if (!one_arm) {
+        throw ProbeError(
+            std::string(c.spec->symbol) + " has no kernel arm for " +
+            tcalc::probe::join(types, " ") + "; its arms are " + arm_list(mask) +
+            " (--arms lifts to each)");
+    }
+    return {kernel_row(c, c.args, c.input, options)};
+}
+
+std::vector<Row> run_kernel(const Options &options) {
+    return per_case(options, Target::Alone, kernel_rows);
+}
+
+/// The token texts of one stage, two spaces apart as `probe layers` writes them.
+Row tokens_row(
+    const std::string &text, std::string_view stage, std::span<const tcalc::parser::Token> tokens) {
+    std::vector<std::string> parts;
+    for (const auto &token : tokens) {
+        parts.push_back(tcalc::parser::token_text(token));
+    }
+    return {text, std::string(stage), "str", tcalc::probe::join(parts, "  "), {}};
+}
+
+std::vector<Row> run_tokens(const Options &options) {
+    std::vector<Row> rows;
+    for (const auto &text : texts(options)) {
+        const auto branch = tcalc::parser::tokenize(text);
+        rows.push_back(tokens_row(text, "tokenize", branch.tokens));
+        std::string_view stage = "normalize";
+        try {
+            rows.push_back(tokens_row(text, stage, tcalc::eval::normalize(branch.tokens)));
+            stage = "shunting_yard";
+            // shunting_yard normalizes on its own, as evaluate calls it
+            rows.push_back(tokens_row(text, stage, tcalc::eval::shunting_yard(branch.tokens)));
+        } catch (const CalculatorError &error) {
+            rows.push_back({text, std::string(stage), "CalculatorError", error.what(), {}});
+        }
+    }
+    return rows;
+}
+
+std::vector<Row> run_boost(const Options &options) {
     std::vector<Row> rows;
     if (!options.inputs.empty()) {
-        rows.push_back(apply_row(options.inputs, options));
+        rows.push_back(tcalc::probe::boost_row(options.inputs));
     }
     for (const auto &line : options.lines) {
-        rows.push_back(apply_row(words(line), options));
+        rows.push_back(tcalc::probe::boost_row(words(line)));
     }
     return rows;
 }
@@ -261,16 +539,39 @@ constexpr std::array kCommands{
         "native_probe eval '\\sum_{n=1}^{10}n' --no-closed-forms",
         kValued | flag_bit(Flag::NoClosedForms),
         run_eval},
+    Command{
+        "tokens",
+        "an expression's tokens after tokenize, normalize and shunting_yard: EXPR...",
+        "native_probe tokens '2sin 30'",
+        0,
+        run_tokens},
+    Command{
+        "promote",
+        "apply's promotion steps, the operands after each (a root or power's real-first rewrite "
+        "runs before them and is not shown): OP KIND:VALUE...",
+        "native_probe promote sqrt dbl:-4",
+        kTyped,
+        run_promote},
+    Command{
+        "kernel",
+        "the kernel alone on operands of one arm it has: OP KIND:VALUE...",
+        "native_probe kernel root dbl:1e300 dbl:3 --arms",
+        kTyped | kValued | flag_bit(Flag::Arms),
+        run_kernel},
+    Command{
+        "boost",
+        "a Boost function with TCalc bypassed, a row of boost_table.cpp: NAME TYPE ARG...",
+        "native_probe boost NAME dec50 2",
+        0,
+        run_boost},
 };
 
 const Command &find_command(std::string_view name) {
     const auto *command = std::ranges::find(kCommands, name, &Command::name);
     if (command == kCommands.end()) {
-        std::string names;
-        for (const auto &c : kCommands) {
-            names += (names.empty() ? "" : ", ") + std::string(c.name);
-        }
-        throw ProbeError("no command '" + std::string(name) + "'; the commands are " + names);
+        throw ProbeError(
+            "no command '" + std::string(name) + "'; the commands are " +
+            tcalc::probe::names_of(kCommands, &Command::name));
     }
     return *command;
 }
@@ -357,11 +658,9 @@ Unit read_unit(std::string_view text) {
         upper, upper.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
     const auto *unit = std::ranges::find(kUnits, upper, &UnitName::name);
     if (unit == kUnits.end()) {
-        std::string names;
-        for (const auto &u : kUnits) {
-            names += (names.empty() ? "" : ", ") + std::string(u.name);
-        }
-        throw ProbeError("no angle unit '" + std::string(text) + "'; the units are " + names);
+        throw ProbeError(
+            "no angle unit '" + std::string(text) + "'; the units are " +
+            tcalc::probe::names_of(kUnits, &UnitName::name));
     }
     return unit->unit;
 }
@@ -382,6 +681,9 @@ void set_flag(Flag flag, const std::string &value, Options &options) {
         return;
     case Flag::NoClosedForms:
         options.closed_forms = false;
+        return;
+    case Flag::Arms:
+        options.arms = true;
         return;
     }
 }

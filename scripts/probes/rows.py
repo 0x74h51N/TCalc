@@ -37,6 +37,16 @@ class Layer(StrEnum):
     WRITTEN = "written"
     ROUND_TRIP = "round trip"
     TREE = "tree"
+    # native_probe's own layers
+    TOKENIZE = "tokenize"
+    NORMALIZE = "normalize"
+    SHUNTING_YARD = "shunting_yard"
+    IN = "in"
+    PROMOTE_BIG = "promote_big"
+    COERCE = "coerce"
+    PROMOTE_COMPLEX = "promote_complex"
+    KERNEL = "kernel"
+    BOOST = "boost"
     LOG = "log"
     PAINT = "paint"
     # an input the probe itself could not read, so the inputs after it still run

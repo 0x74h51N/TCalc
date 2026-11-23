@@ -645,7 +645,7 @@ def grade_of(row: Row) -> Grade:
 
 
 # the layers that hold a value, which --ref grades and a test's claims sit beside
-VALUE_LAYERS = (Layer.LITERAL, Layer.EVAL, Layer.BINDING, Layer.APPLY)
+VALUE_LAYERS = (Layer.LITERAL, Layer.EVAL, Layer.BINDING, Layer.APPLY, Layer.KERNEL)
 
 
 def finish(rows: Sequence[Row], beside: tuple[tuple[str, str], ...], ref: bool) -> list[Row]:
@@ -659,6 +659,9 @@ def _finish_row(row: Row, beside: tuple[tuple[str, str], ...], ref: bool) -> Row
 
 
 def grade(row: Row) -> Row:
+    """A value row with its expected value and error; any other row as it is."""
+    if row.layer not in VALUE_LAYERS:
+        return row
     result = grade_of(row)
     return replace(row, extra=(*row.extra, ("expected", result.expected), ("error", result.error)))
 
@@ -670,6 +673,8 @@ def _histogram(grades: Sequence[Grade]) -> str:
 
 
 def _by_key(rows: Sequence[Row]) -> dict[tuple[str, Layer], Grade]:
+    # a step row holds operands and a missing-lift row a note, neither a result to compare
+    rows = [row for row in rows if row.layer in VALUE_LAYERS and row.type in _GRADERS]
     keys = Counter((row.input, row.layer) for row in rows)
     repeated = [key for key, count in keys.items() if count > 1]
     if repeated:

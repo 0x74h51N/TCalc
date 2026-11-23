@@ -74,7 +74,7 @@ target_link_libraries(native_tests PRIVATE calc_core)
 target_compile_options(native_tests PRIVATE ${TCALC_WARNINGS})
 
 # A dev tool: built on demand by scripts/native_probe (make native-probe), never by default
-add_executable(native_probe EXCLUDE_FROM_ALL tools/probe/main.cpp)
+add_executable(native_probe EXCLUDE_FROM_ALL tools/probe/main.cpp tools/probe/boost_table.cpp)
 target_include_directories(native_probe PRIVATE
   "${CMAKE_CURRENT_LIST_DIR}/lib"
   "${CMAKE_CURRENT_LIST_DIR}/tools/probe"
