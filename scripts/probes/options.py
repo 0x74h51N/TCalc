@@ -127,12 +127,27 @@ class Options:
             )
         )
     )
+    theme: str | None = declared(
+        metadata=_declare(
+            Flag(
+                "--theme",
+                FlagKind.TEXT,
+                "editor, render, paint, shot: the theme, by name (default: the app's)",
+                "NAME",
+            )
+        )
+    )
+    size: str | None = declared(
+        metadata=_declare(
+            Flag("--size", FlagKind.TEXT, "shot: the window size (default: the app's)", "WxH")
+        )
+    )
     png: Path | None = declared(
         metadata=_declare(
             Flag(
                 "--png",
                 FlagKind.PATH,
-                "editor, render: save a picture of the last input's widget",
+                "editor, render, paint, shot: save a picture of the last input's widget or window",
                 "FILE",
             )
         )

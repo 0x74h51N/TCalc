@@ -11,7 +11,7 @@ import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from probes import editor, eval_cmd, grade_cmd, layers, render
+from probes import editor, eval_cmd, grade_cmd, layers, paint, render, shot
 from probes.options import Options, add_arguments, options_from
 from probes.rows import ProbeError
 from probes.testcase import collect, rows_text
@@ -53,6 +53,18 @@ COMMANDS: tuple[Command, ...] = (
         render.run,
         "a text rendered read-only as the result line renders it: the widget tree and the renderer's log",
         'scripts/probe render "\\root{8}{3}"',
+    ),
+    Command(
+        "paint",
+        paint.run,
+        "the painter's boxes for a text, as a history item paints it: class, x y w h above below",
+        'scripts/probe paint "\\frac{1}{2}" --png p.png',
+    ),
+    Command(
+        "shot",
+        shot.run,
+        "the whole window with a text typed in: what the editor and the result line show, and a PNG",
+        'scripts/probe shot "1/3" --size 800x600 --theme light --png w.png',
     ),
     Command(
         "grade",

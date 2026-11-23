@@ -57,3 +57,21 @@ def test_render_tree(capsys: pytest.CaptureFixture[str]) -> None:
     rows = _table(capsys, ["render", "\\root{8}{3}"])
     assert rows[-1].layer == Layer.TREE
     assert rows[-1].value == "'' Root<'8' ; '3'> ''"
+
+
+@pytest.mark.usefixtures("isolated_app")
+def test_paint_boxes(capsys: pytest.CaptureFixture[str]) -> None:
+    rows = _table(capsys, ["paint", "\\frac{1}{2}"])
+    assert [row.type.strip() for row in rows[:2]] == ["Row", "FractionPaint"]
+    assert rows[0].value.startswith("0 ")
+
+
+@pytest.mark.usefixtures("isolated_app")
+def test_shot_window(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    picture = tmp_path / "w.png"
+    rows = _table(capsys, ["shot", "1/3", "--size", "800x600", "--png", str(picture)])
+    assert [(row.layer, row.value) for row in rows] == [
+        (Layer.EDITOR, "1 ÷ 3"),
+        (Layer.DISPLAY, "0.33333333333333333333"),
+    ]
+    assert QImage(str(picture)).size().toTuple() == (800, 600)

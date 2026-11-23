@@ -93,7 +93,7 @@ def editor_rows(window: MainWindow, text: str, steps: Sequence[tuple[str, Step]]
 def run(options: Options) -> int:
     texts = [one.text for one in read_inputs(options, grouped=False)]
     steps = [(step, _step(step)) for step in options.steps]
-    with app_window() as window:
+    with app_window(options.theme) as window:
         rows = [row for text in texts for row in editor_rows(window, text, steps)]
         if options.png is not None:
             # the display, so the editor is drawn on its background

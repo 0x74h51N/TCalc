@@ -37,6 +37,7 @@ class Layer(StrEnum):
     ROUND_TRIP = "round trip"
     TREE = "tree"
     LOG = "log"
+    PAINT = "paint"
     # an input the probe itself could not read, so the inputs after it still run
     PROBE = "probe"
 
@@ -194,7 +195,9 @@ def _header(rows: Sequence[Row]) -> list[str]:
 def _cells(row: Row, header: Sequence[str]) -> list[str]:
     extra = dict(row.extra)
     fixed = [row.input, str(row.layer), row.type, row.value]
-    return fixed + [extra.get(name, "") for name in header[len(_FIELDS) :]]
+    cells = fixed + [extra.get(name, "") for name in header[len(_FIELDS) :]]
+    # a wrapped label's text holds a newline, which would split the row in two
+    return [cell.replace("\n", "\\n") for cell in cells]
 
 
 def format_rows(rows: Sequence[Row]) -> str:

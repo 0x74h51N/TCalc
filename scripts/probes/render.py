@@ -68,7 +68,7 @@ def render_slot(text: str) -> tuple[ExpressionSlot, list[Row]]:
 
 
 def run(options: Options) -> int:
-    with styled_app():
+    with styled_app(options.theme):
         rendered = [render_slot(one.text) for one in read_inputs(options, grouped=False)]
         if options.png is not None and rendered:
             save_png(rendered[-1][0], options.png)

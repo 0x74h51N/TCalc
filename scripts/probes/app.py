@@ -18,7 +18,9 @@ from PySide6.QtWidgets import QApplication, QWidget
 
 import tcalc.app_state
 from probes.rows import ProbeError
+from tcalc.theme import ThemeError
 from tcalc.ui.app import apply_saved_theme
+from tcalc.ui.styles import apply_theme
 from tcalc.ui.window import MainWindow
 
 APP_NAME = "TCalc"
@@ -48,19 +50,24 @@ def isolate_app(folder: Path) -> None:
 
 
 @contextmanager
-def styled_app() -> Iterator[QApplication]:
-    """The app styled as it starts, on settings and history of a temp folder."""
+def styled_app(theme: str | None = None) -> Iterator[QApplication]:
+    """The app styled as it starts, or in the named theme, on settings and history of a temp folder."""
     app = offscreen_app()
     with tempfile.TemporaryDirectory() as folder:
         isolate_app(Path(folder))
         apply_saved_theme(app)
+        if theme is not None:
+            try:
+                apply_theme(app, theme)
+            except ThemeError as error:
+                raise ProbeError(f"no theme {theme!r}: {error}") from error
         yield app
 
 
 @contextmanager
-def app_window() -> Iterator[MainWindow]:
+def app_window(theme: str | None = None) -> Iterator[MainWindow]:
     """The app's window as the app starts it."""
-    with styled_app():
+    with styled_app(theme):
         window = MainWindow()
         window.show()
         window.activateWindow()
