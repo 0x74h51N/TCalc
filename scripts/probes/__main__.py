@@ -45,9 +45,8 @@ COMMANDS: tuple[Command, ...] = (
     Command(
         "editor",
         editor.run,
-        "a text in the app's editor, then key steps (left right up down bs key:NAME text:TEXT): "
-        "the widget tree and the cursor after each",
-        'scripts/probe editor "\\frac{1}{2}" left left bs --png e.png',
+        "a text in the app's editor, then --step keys: the widget tree and the cursor after each",
+        'scripts/probe editor "\\frac{1}{2}" --step left --step text:7 --png e.png',
     ),
     Command(
         "render",

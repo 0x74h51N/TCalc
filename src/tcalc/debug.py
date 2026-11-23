@@ -96,7 +96,8 @@ class SegInfo:
 
     def _fmt(self, index: int, indent: str) -> str:
         if self.kind == "edit":
-            display = repr(self.shown_text()) if self.shown_text() else '""'
+            shown = self.shown_text()
+            display = repr(shown) if shown else '""'
             return f"{indent}  [{index}] QLineEdit({self.name}) {display}"
         if self.kind == "node":
             return f"{indent}  [{index}] ->"

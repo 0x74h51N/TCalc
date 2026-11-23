@@ -27,7 +27,9 @@ def _segment(seg: SegInfo) -> str:
             assert seg.node is not None
             return _node(seg.node)
         case "glyph":
-            return f"{seg.glyph_cls}"
+            # a glyph segment always carries its class name
+            assert seg.glyph_cls is not None
+            return seg.glyph_cls
 
 
 def _slot(slot: SlotInfo) -> str:

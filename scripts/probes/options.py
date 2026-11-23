@@ -117,9 +117,24 @@ class Options:
             )
         )
     )
+    steps: list[str] = declared(
+        metadata=_declare(
+            Flag(
+                "--step",
+                FlagKind.REPEATED,
+                "editor: a key after the text, in order: left right up down bs key:NAME text:TEXT",
+                "STEP",
+            )
+        )
+    )
     png: Path | None = declared(
         metadata=_declare(
-            Flag("--png", FlagKind.PATH, "editor, render: save a picture of the widget", "FILE")
+            Flag(
+                "--png",
+                FlagKind.PATH,
+                "editor, render: save a picture of the last input's widget",
+                "FILE",
+            )
         )
     )
 
@@ -205,11 +220,11 @@ def _test_inputs(test: str, options: Options) -> list[Input]:
     ]
 
 
-def read_inputs(options: Options) -> tuple[Input, ...]:
+def read_inputs(options: Options, grouped: bool = True) -> tuple[Input, ...]:
     """The inputs from the arguments, stdin or a test's rows, with every @NAME replaced."""
     inputs = (
         _test_inputs(options.test, options) if options.test is not None else _typed_inputs(options)
     )
     file_lines = options.defs.read_text().splitlines() if options.defs is not None else []
     defs = parse_defs([*options.define, *file_lines])
-    return tuple(Input(substitute(one.text, defs), one.beside) for one in inputs)
+    return tuple(Input(substitute(one.text, defs, grouped), one.beside) for one in inputs)

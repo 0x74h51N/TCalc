@@ -44,17 +44,19 @@ def parse_defs(lines: Iterable[str]) -> dict[str, str]:
     return dict(_definition(line) for line in lines if _is_entry(line))
 
 
-def _expand(after_marker: str, defs: Mapping[str, str]) -> str:
-    """The text that follows one marker, with the name it starts with replaced by (EXPR)."""
+def _expand(after_marker: str, defs: Mapping[str, str], grouped: bool) -> str:
+    """The text that follows one marker, with the name it starts with replaced by its EXPR."""
     name = "".join(takewhile(_is_name_char, after_marker))
     if not _is_name(name):
         raise ProbeError(f"{MARKER} names nothing before {after_marker!r}")
     if name not in defs:
         raise ProbeError(f"undefined {MARKER}{name}")
-    return f"({defs[name]})" + after_marker[len(name) :]
+    value = f"({defs[name]})" if grouped else defs[name]
+    return value + after_marker[len(name) :]
 
 
-def substitute(text: str, defs: Mapping[str, str]) -> str:
-    """Each @NAME becomes (EXPR), so the value keeps its place next to a digit or an operator."""
+def substitute(text: str, defs: Mapping[str, str], grouped: bool) -> str:
+    """Each @NAME becomes its EXPR; grouped as (EXPR), it keeps its place next to a digit or an
+    operator, while a command that shows the form typed (editor, render) takes it as written."""
     head, *after_markers = text.split(MARKER)
-    return "".join([head, *(_expand(piece, defs) for piece in after_markers)])
+    return "".join([head, *(_expand(piece, defs, grouped) for piece in after_markers)])

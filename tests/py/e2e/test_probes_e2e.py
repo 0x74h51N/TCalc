@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import argparse
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,7 +25,7 @@ from probes.grade import (
     grade_of,
 )
 from probes.layers import layer_rows
-from probes.options import Options, read_inputs
+from probes.options import Options, add_arguments, options_from, read_inputs
 from probes.rows import (
     UNIT_COLUMN,
     Layer,
@@ -369,10 +370,15 @@ def test_collect_nothing() -> None:
         collect("tests/py/e2e/test_eval_e2e.py::nope", None)
 
 
+def _options(*argv: str) -> Options:
+    """Options as the command line gives them."""
+    parser = argparse.ArgumentParser()
+    add_arguments(parser)
+    return options_from(parser.parse_args(argv))
+
+
 def test_read_inputs_from_a_test() -> None:
-    options = Options(
-        inputs=[], define=[], defs=None, ref=False, test=GOLDEN, keyword=None, field="expr"
-    )
+    options = _options("--test", GOLDEN, "--field", "expr")
     (one,) = read_inputs(options)
     assert one.text == "1+2*3"
     assert ("test.expected_value", "7.0") in one.beside
@@ -387,23 +393,13 @@ def test_test_without_field_lists_rows(capsys: pytest.CaptureFixture[str]) -> No
 
 
 def test_definitions_reach_the_inputs() -> None:
-    options = Options(
-        inputs=["@A+@AB"],
-        define=["A=1", "AB=2"],
-        defs=None,
-        ref=False,
-        test=None,
-        keyword=None,
-        field=None,
-    )
+    options = _options("@A+@AB", "--def", "A=1", "--def", "AB=2")
     assert [one.text for one in read_inputs(options)] == ["(1)+(2)"]
 
 
 @pytest.mark.parametrize("text", [param("@B", id="undefined"), param("@+1", id="no name")])
 def test_definitions_reject(text: str) -> None:
-    options = Options(
-        inputs=[text], define=[], defs=None, ref=False, test=None, keyword=None, field=None
-    )
+    options = _options("--", text)
     with pytest.raises(ProbeError):
         read_inputs(options)
 
@@ -439,9 +435,7 @@ def test_grade_rejects_a_repeated_input(tmp_path: Path) -> None:
 
 
 def test_field_names_a_missing_path() -> None:
-    options = Options(
-        inputs=[], define=[], defs=None, ref=False, test=GOLDEN, keyword=None, field="nope"
-    )
+    options = _options("--test", GOLDEN, "--field", "nope")
     with pytest.raises(ProbeError, match="nope.*expr"):
         read_inputs(options)
 

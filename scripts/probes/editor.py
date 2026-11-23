@@ -53,39 +53,48 @@ def _typed(_window: MainWindow, text: str) -> None:
 NAMED_STEPS: dict[str, Callable[[MainWindow, str], None]] = {"key": _keypad_key, "text": _typed}
 
 
-def _step(window: MainWindow, step: str) -> None:
+type Step = Callable[[MainWindow], None]
+
+
+def _key(key: Qt.Key) -> Step:
+    return lambda _window: QTest.keyClick(_focused(), key)
+
+
+def _named(act: Callable[[MainWindow, str], None], argument: str) -> Step:
+    return lambda window: act(window, argument)
+
+
+def _step(step: str) -> Step:
+    """The step's action, read before the window opens, so a wrong one fails at once."""
     key = KEY_STEPS.get(step)
     if key is not None:
-        QTest.keyClick(_focused(), key)
-        return
+        return _key(key)
     name, separator, argument = step.partition(STEP_SEPARATOR)
     act = NAMED_STEPS.get(name) if separator else None
     if act is None:
         steps = [*KEY_STEPS, *(f"{named}{STEP_SEPARATOR}..." for named in NAMED_STEPS)]
         raise ProbeError(f"no step {step!r}; the steps are {', '.join(steps)}")
-    act(window, argument)
+    return _named(act, argument)
 
 
-def editor_rows(window: MainWindow, text: str, steps: Sequence[str]) -> list[Row]:
+def editor_rows(window: MainWindow, text: str, steps: Sequence[tuple[str, Step]]) -> list[Row]:
     """The tree after the text is set, then after each step; the input column names the step."""
     editor = window.calc_widget.display.editor
     editor.set_plain_text(text)
     settle()
     rows = [tree_row(text, Layer.EDITOR, editor._root)]
-    for step in steps:
-        _step(window, step)
+    for step, action in steps:
+        action(window)
         settle()
         rows.append(tree_row(step, Layer.EDITOR, editor._root))
     return rows
 
 
 def run(options: Options) -> int:
-    texts = [one.text for one in read_inputs(options)]
-    if not texts:
-        raise ProbeError("editor needs a TEXT, then the steps")
-    text, *steps = texts
+    texts = [one.text for one in read_inputs(options, grouped=False)]
+    steps = [(step, _step(step)) for step in options.steps]
     with app_window() as window:
-        rows = editor_rows(window, text, steps)
+        rows = [row for text in texts for row in editor_rows(window, text, steps)]
         if options.png is not None:
             # the display, so the editor is drawn on its background
             save_png(window.calc_widget.display, options.png)

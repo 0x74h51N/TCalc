@@ -42,7 +42,10 @@ def _table(capsys: pytest.CaptureFixture[str], argv: list[str]) -> list[Row]:
 @pytest.mark.usefixtures("isolated_app")
 def test_editor_steps(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
     picture = tmp_path / "e.png"
-    rows = _table(capsys, ["editor", "\\frac{1}{2}", "left", "text:7", "--png", str(picture)])
+    rows = _table(
+        capsys,
+        ["editor", "\\frac{1}{2}", "--step", "left", "--step", "text:7", "--png", str(picture)],
+    )
     assert [row.input for row in rows] == ["\\frac{1}{2}", "left", "text:7"]
     assert all(row.value.count("|") == 1 for row in rows)
     assert dict(rows[-1].extra)[PLAIN_COLUMN] == "\\frac{1}{72}"
