@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
+from probes.app import isolate_app
 from PySide6.QtWidgets import QApplication
 
 if TYPE_CHECKING:
@@ -25,6 +26,15 @@ def qapp():
     if app is None:
         app = QApplication(sys.argv)
     yield app
+
+
+@pytest.fixture
+def isolated_app(monkeypatch, tmp_path):
+    """Settings, history and app state under tmp_path, put back in the process at teardown."""
+    # recorded first, so teardown restores what isolate_app changes
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    monkeypatch.setattr("tcalc.app_state._app_state", None)
+    isolate_app(tmp_path)
 
 
 @pytest.fixture

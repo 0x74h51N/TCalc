@@ -117,6 +117,11 @@ class Options:
             )
         )
     )
+    png: Path | None = declared(
+        metadata=_declare(
+            Flag("--png", FlagKind.PATH, "editor, render: save a picture of the widget", "FILE")
+        )
+    )
 
     unit: calc_native.AngleUnit = declared(
         default=APP_ANGLE_UNIT,

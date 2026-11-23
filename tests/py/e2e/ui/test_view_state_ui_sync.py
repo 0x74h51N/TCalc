@@ -43,26 +43,8 @@ SPECS = [param(s, id=s.id) for s in DOCK_TOGGLES]
 
 
 @pytest.fixture
-def window(qapp, monkeypatch, tmp_path):
-    """A fresh MainWindow with isolated settings and stubbed history I/O."""
-    from PySide6.QtCore import QSettings
-
-    ini = str(tmp_path / "t.ini")
-
-    def factory(*a, **k):
-        return QSettings(ini, QSettings.Format.IniFormat)
-
-    # Isolate real app config: avoid clobbering the user's saved layout/geometry
-    # on close and keep a deterministic (empty) start state.
-    monkeypatch.setattr("tcalc.app_state.QSettings", factory)
-    monkeypatch.setattr("tcalc.ui.window.QSettings", factory)
-    monkeypatch.setattr("tcalc.ui.layout_presets.QSettings", factory)
-    # Don't read/write the real history.dat.
-    monkeypatch.setattr("tcalc.ui.widgets.history.history.load_history", lambda: [])
-    monkeypatch.setattr("tcalc.ui.widgets.history.history.save_history", lambda _i: None)
-    # Rebuild the singleton so it binds to the isolated settings, not a stale one.
-    monkeypatch.setattr(app_state_mod, "_app_state", None)
-
+def window(qapp, isolated_app):
+    """A fresh MainWindow on settings and history of its own."""
     from tcalc.ui.window import MainWindow
 
     win = MainWindow()

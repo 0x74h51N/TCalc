@@ -20,7 +20,6 @@ from PySide6.QtGui import QAction, QColor, QFont, QStyleHints
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QDockWidget, QLabel, QRadioButton, QTabBar, QWidget
 
-import tcalc.app_state as app_state_mod
 from tcalc.app_state import DockKind, get_app_state
 from tcalc.core.ops import Operation
 from tcalc.core.parser import tokenize
@@ -47,23 +46,11 @@ LIGHT_SCREEN = QColor("#FEFEFE")  # the test light's screen
 
 
 @pytest.fixture
-def state(qapp, monkeypatch, tmp_path):
+def state(qapp, isolated_app):
     """Isolated settings and app state; the app is back on dark afterwards."""
-    ini = str(tmp_path / "t.ini")
-
-    def factory(*a, **k):
-        return QSettings(ini, QSettings.Format.IniFormat)
-
-    monkeypatch.setattr("tcalc.app_state.QSettings", factory)
-    monkeypatch.setattr("tcalc.ui.window.QSettings", factory)
-    monkeypatch.setattr("tcalc.ui.layout_presets.QSettings", factory)
-    monkeypatch.setattr("tcalc.ui.widgets.keypad.custom_pad.QSettings", factory)
-    monkeypatch.setattr("tcalc.ui.widgets.history.history.load_history", lambda: [])
-    monkeypatch.setattr("tcalc.ui.widgets.history.history.save_history", lambda _i: None)
-    monkeypatch.setattr(app_state_mod, "_app_state", None)
     old_palette, old_font, old_sheet = qapp.palette(), qapp.font(), qapp.styleSheet()
     load_theme("dark")
-    yield factory
+    yield lambda: QSettings("TCalc", "TCalc")
     load_theme("dark")
     qapp.setPalette(old_palette)
     qapp.setFont(old_font)

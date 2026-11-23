@@ -11,7 +11,7 @@ import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
-from probes import eval_cmd, grade_cmd, layers
+from probes import editor, eval_cmd, grade_cmd, layers, render
 from probes.options import Options, add_arguments, options_from
 from probes.rows import ProbeError
 from probes.testcase import collect, rows_text
@@ -41,6 +41,19 @@ COMMANDS: tuple[Command, ...] = (
         layers.run,
         "a case on each layer: tokens, RPN, render tree, binding, the last op alone, format",
         'scripts/probe layers "2π" "\\root{8}{3}" --unit rad --ref',
+    ),
+    Command(
+        "editor",
+        editor.run,
+        "a text in the app's editor, then key steps (left right up down bs key:NAME text:TEXT): "
+        "the widget tree and the cursor after each",
+        'scripts/probe editor "\\frac{1}{2}" left left bs --png e.png',
+    ),
+    Command(
+        "render",
+        render.run,
+        "a text rendered read-only as the result line renders it: the widget tree and the renderer's log",
+        'scripts/probe render "\\root{8}{3}"',
     ),
     Command(
         "grade",

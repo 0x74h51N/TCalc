@@ -35,6 +35,8 @@ class Layer(StrEnum):
     DISPLAY = "display"
     WRITTEN = "written"
     ROUND_TRIP = "round trip"
+    TREE = "tree"
+    LOG = "log"
     # an input the probe itself could not read, so the inputs after it still run
     PROBE = "probe"
 
@@ -64,6 +66,7 @@ class Row:
 _FIELDS: tuple[str, ...] = tuple(f.name for f in fields(Row) if f.name != "extra")
 TEXT_TYPE = "str"
 UNIT_COLUMN = "unit"
+PLAIN_COLUMN = "plain"
 
 
 def type_name(value: object) -> str:
