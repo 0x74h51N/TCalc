@@ -154,6 +154,13 @@ def test_variadic_call_args(expr: str, expected: float) -> None:
         param("sin([2,3])", "not defined for a list or point", id="scalar-fn-collection"),
         param("gcd(21, 3/9)", "only defined for integers", id="gcd-non-integer"),
         param("lcm(4, 2.5)", "only defined for integers", id="lcm-non-integer"),
+        param(
+            "gcd(10^{60}+1/2,3)", "only defined for integers", id="gcd-bigreal-fraction-past-snap"
+        ),
+        param(
+            "gcd(3^{40}/3^{39},6)", "only defined for integers", id="gcd-bigreal-just-under-integer"
+        ),
+        param("gcd(10^{19}+1/2,3)", "only defined for integers", id="gcd-bigreal-half-past-int64"),
     ],
 )
 def test_call_arg_errors(expr: str, expected_msg_substr: str) -> None:
