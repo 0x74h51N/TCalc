@@ -103,7 +103,7 @@ It builds itself on first use (`make native-probe`, after `make native-build` ha
 - `tokens EXPR...`: the tokens after `tokenize`, `normalize` and `shunting_yard`.
 - `promote OP OPERAND...`: the operands after each of apply's promotion steps.
 - `kernel OP OPERAND... [--arms]`: the kernel alone, on operands of one arm the op has; `--arms` lifts them to each arm with `value.hpp`'s own lifts.
-- `boost NAME TYPE ARG...`: a row of `kBoostRows` on `double`, `ldbl`, `dec50` or `bin`.
+- `boost NAME TYPE ARG...`: a row of `kBoostRows` on `double`, `ldbl`, `dec50` or `bin`; an unknown NAME lists the rows. `--time` times the whole row, its arguments read from text included.
 
 `--time N` adds the median nanoseconds of N runs as an `ns` column. A case it cannot read prints a `probe` row, and the cases after it still run.
 

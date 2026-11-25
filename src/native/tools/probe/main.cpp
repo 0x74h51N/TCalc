@@ -102,6 +102,14 @@ std::string_view unit_name(Unit unit) {
     return std::ranges::find(kUnits, unit, &UnitName::unit)->name;
 }
 
+/// --time: the median of fn's runs as the ns column.
+template <class Fn> void add_time(Row &row, const Options &options, Fn &&fn) {
+    if (options.runs) {
+        const auto ns = std::llround(tcalc::probe::median_ns(fn, *options.runs));
+        row.extra.emplace_back(kTimeColumn, std::to_string(ns));
+    }
+}
+
 /// The value fn gives, or the error it throws, with the unit; --time adds its median.
 template <class Fn>
 Row value_row(std::string input, std::string_view layer, const Options &options, Fn &&fn) {
@@ -115,10 +123,7 @@ Row value_row(std::string input, std::string_view layer, const Options &options,
         const Value value = fn();
         row.type = tcalc::probe::type_name(value);
         row.value = tcalc::probe::value_text(value);
-        if (options.runs) {
-            const auto ns = std::llround(tcalc::probe::median_ns(fn, *options.runs));
-            row.extra.emplace_back(kTimeColumn, std::to_string(ns));
-        }
+        add_time(row, options, fn);
     } catch (const CalculatorError &error) {
         row.type = "CalculatorError";
         row.value = error.what();
@@ -483,13 +488,21 @@ std::vector<Row> run_tokens(const Options &options) {
     return rows;
 }
 
+/// A Boost row; --time adds the median of the whole row, its arguments read from text included.
+Row timed_boost_row(std::span<const std::string> words, const Options &options) {
+    const auto fn = [&] { return tcalc::probe::boost_row(words); };
+    Row row = fn();
+    add_time(row, options, fn);
+    return row;
+}
+
 std::vector<Row> run_boost(const Options &options) {
     std::vector<Row> rows;
     if (!options.inputs.empty()) {
-        rows.push_back(tcalc::probe::boost_row(options.inputs));
+        rows.push_back(timed_boost_row(options.inputs, options));
     }
     for (const auto &line : options.lines) {
-        rows.push_back(tcalc::probe::boost_row(words(line)));
+        rows.push_back(timed_boost_row(words(line), options));
     }
     return rows;
 }
@@ -561,8 +574,8 @@ constexpr std::array kCommands{
     Command{
         "boost",
         "a Boost function with TCalc bypassed, a row of boost_table.cpp: NAME TYPE ARG...",
-        "native_probe boost NAME dec50 2",
-        0,
+        "native_probe boost int_gcd dec50 1e19 10 --time 1000",
+        flag_bit(Flag::Time),
         run_boost},
 };
 
