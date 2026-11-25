@@ -59,7 +59,7 @@ std::int64_t Calculator::gamma(const Rational &a) const {
 BigReal Calculator::fact(const BigReal &a) const {
     calc_detail::require(a >= 0);
     // Boost's BigReal table is exact to 50 digits and far cheaper than its tgamma.
-    if (calc_detail::whole(a) && a <= boost::math::max_factorial<BigReal>::value)
+    if (calc_detail::snapped_whole(a) && a <= boost::math::max_factorial<BigReal>::value)
         return boost::math::factorial<BigReal>(a.convert_to<unsigned>());
 
     using boost::math::tgamma;
@@ -76,7 +76,7 @@ BigReal Calculator::gamma(const BigReal &a) const {
             calc_detail::math_error();
         }
     }
-    if (calc_detail::whole(a) && a <= boost::math::max_factorial<BigReal>::value + 1)
+    if (calc_detail::snapped_whole(a) && a <= boost::math::max_factorial<BigReal>::value + 1)
         return boost::math::factorial<BigReal>(a.convert_to<unsigned>() - 1);
 
     using boost::math::tgamma;

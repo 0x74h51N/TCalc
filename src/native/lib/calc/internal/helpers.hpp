@@ -91,15 +91,24 @@ inline bool whole(double y) {
     return std::floor(y) == y;
 }
 
-/// Whether y is an integer at the precision BigReal advertises, not off its guard digits.
+/// Whether y is an integer, read exactly, guard digits included.
 inline bool whole(const BigReal &y) {
     using boost::multiprecision::floor;
-    const BigReal n = snap_integer(y);
-    return floor(n) == n;
+    return floor(y) == y;
 }
 
 inline bool whole(const Rational &y) {
     return y.denominator() == 1;
+}
+
+/// Whether y is an integer at the precision BigReal advertises, not off its guard digits.
+inline bool snapped_whole(const BigReal &y) {
+    return whole(snap_integer(y));
+}
+
+/// A double has no guard digits; this arm serves the rules written for both types.
+inline bool snapped_whole(double y) {
+    return whole(y);
 }
 
 /// Whether a degree is an odd integer, the one degree a negative radicand has a real root at.
@@ -109,7 +118,7 @@ inline bool odd_integer(double y) {
 
 inline bool odd_integer(const BigReal &y) {
     using boost::multiprecision::fmod;
-    return whole(y) && fmod(snap_integer(y), BigReal(kParityModulus)) != 0;
+    return snapped_whole(y) && fmod(snap_integer(y), BigReal(kParityModulus)) != 0;
 }
 
 inline bool odd_integer(std::int64_t n) {

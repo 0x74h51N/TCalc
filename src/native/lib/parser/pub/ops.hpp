@@ -1102,7 +1102,9 @@ inline constexpr std::array kOpRows = {
                     with_trait(binary(OpId::Pow, TCALC_CALL(pow)), Trait::RootExponent),
                     // an exact exponent with an odd denominator never reaches here; an inexact one
                     // has no denominator to read, so a negative base takes the principal power
-                    [](const auto &x, const auto &y) { return x < 0.0 && !calc_detail::whole(y); }),
+                    [](const auto &x, const auto &y) {
+                        return x < 0.0 && !calc_detail::snapped_whole(y);
+                    }),
                 [](double x, double y) { return detail::power_needs_big(x, y); }),
             [](std::span<const Value> args) {
                 return detail::power_retry_arm(std::get<Rational>(args[1]));
@@ -1117,7 +1119,8 @@ inline constexpr std::array kOpRows = {
                 [](const auto &x, const auto &y) {
                     // a negative radicand is real at an odd integer degree, and at a degree whose
                     // reciprocal is an integer, which is that power: (-8) root 1/3 is -512
-                    return x < 0.0 && !calc_detail::odd_integer(y) && !calc_detail::whole(1.0 / y);
+                    return x < 0.0 && !calc_detail::odd_integer(y) &&
+                           !calc_detail::snapped_whole(1.0 / y);
                 }),
             // the degree is an inverse exponent: root(x, y) is x^(1/y)
             [](double x, double y) { return y != 0.0 && detail::power_needs_big(x, 1.0 / y); }),
