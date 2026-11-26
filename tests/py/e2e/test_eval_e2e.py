@@ -596,9 +596,17 @@ def _eval(expr: str) -> object:
         param("gcd(10^60+1,10^60)", "int", "1", id="gcd-sixty-digits"),
         param("gcd(2^265,3)", "int", "1", id="gcd-power-token-coprime"),
         param("gcd(2^265,12)", "int", "4", id="gcd-power-token-beside-int"),
-        param("gcd(3^400,3)", "int", "3", id="gcd-power-token-past-512-bits"),
+        param("gcd(3^400,3)", "int", "3", id="gcd-power-token-past-bigreal-digits"),
         param("gcd(0^{4294967296},5)", "int", "5", id="gcd-power-token-zero-base"),
         param("gcd(2^265,1e19)", "int", "524288", id="gcd-power-token-beside-double"),
+        param("gcd(-2^{265},3)", "int", "1", id="gcd-power-token-negated"),
+        param("gcd((-2)^{265},3)", "int", "1", id="gcd-power-token-negative-base"),
+        param("gcd((2^{265}),12)", "int", "4", id="gcd-power-token-in-parens"),
+        param("gcd(-5!,6)", "int", "6", id="gcd-factorial-token-negated"),
+        param("gcd(2^{},3)", "int", "1", id="gcd-power-empty-exponent"),
+        param("gcd(e^{ln(3^{50})},3)", "int", "3", id="gcd-power-log-identity-first"),
+        param("gcd(2^{265},6/3)", "int", "2", id="gcd-power-token-beside-whole-fraction"),
+        param("lcm(0,0)", "int", "0", id="lcm-zeros"),
         param("gcd(1e18*1.2345678901234567,100)", "int", "4", id="gcd-double-product-past-2-53"),
         param("lcm(0,10^19)", "int", "0", id="lcm-zero-beside-bigreal"),
         param("gcd(-9223372036854775807-1,2)", "int", "2", id="gcd-int64-min-with-two"),
@@ -888,7 +896,7 @@ def test_bigreal_exact_results(expr: str, expected: str) -> None:
 
 
 # gcd and lcm of a power or a factorial read from its tokens (#247): the exact result has
-# more digits than BigReal holds, so it is compared within double's precision (#275).
+# more digits than BigReal holds, so it is compared within BigReal's 73 digits (#275).
 @pytest.mark.parametrize(
     ("expr", "exact"),
     [
@@ -915,14 +923,17 @@ def test_bigreal_exact_results(expr: str, expected: str) -> None:
         param(
             "lcm(10^{70}+1,10^{70}+3,10^{70}+7,10^{70}+1)",
             "1000000000000000000000000000000000000000000000000000000000000000000001100000000000000000000000000000000000000000000000000000000000000000000310000000000000000000000000000000000000000000000000000000000000000000021",
-            id="lcm-past-512-bits-folded-again",
+            id="lcm-past-bigreal-digits-folded-again",
         ),
+        param("lcm(2^{6000},3^{5000})", str(2**6000 * 3**5000), id="lcm-under-bit-bound"),
     ],
 )
 def test_bigreal_close_results(expr: str, exact: str) -> None:
     out = _eval(expr)
     assert isinstance(out, calc_native.BigReal), f"expected BigReal, got {type(out).__name__}"
-    assert abs(Decimal(str(out)) - Decimal(exact)) <= Decimal(exact) * Decimal("1e-15")
+    # Every digit the value holds, not the 16 str() shows.
+    got = Decimal(calc_native.decimal_text(out, 100))
+    assert abs(got - Decimal(exact)) <= Decimal(exact) * Decimal("1e-72")
 
 
 @dataclass(frozen=True)

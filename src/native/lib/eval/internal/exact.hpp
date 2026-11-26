@@ -41,13 +41,9 @@ using LatexRule = std::optional<Value> (*)(
     const Calculator &,
     Calculator::AngleUnit);
 
-/// Answers from a call's argument rows and the operands they evaluated to.
+/// Answers from a call's argument rows, evaluating each at most once.
 using CallRule = std::optional<Value> (*)(
-    ops::OpId,
-    std::span<const parser::ParenElement>,
-    std::span<const Value>,
-    const Calculator &,
-    Calculator::AngleUnit);
+    ops::OpId, std::span<const parser::ParenElement>, const Calculator &, Calculator::AngleUnit);
 
 /// nullptr when the op has no rule for that phase.
 TokenRule token_rule(ops::OpId id);

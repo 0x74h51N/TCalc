@@ -9,6 +9,7 @@
 #include "calc/pub/error_messages.hpp"
 #include "value.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -26,8 +27,8 @@ namespace {
 namespace mp = boost::multiprecision;
 using BigInt = mp::cpp_int;
 
-/// BigReal always holds 73 digits; from 72 a whole BigReal may be a rounded one, and gcd of a
-/// rounded integer is a wrong number, not a rounded one (2^{265} loses its last 8 digits).
+/// BigReal holds 73 digits, so from 10^72 a whole BigReal may be a rounded one, and gcd of a
+/// rounded integer is a wrong number, not a rounded one (2^{265} loses its last 7 digits).
 constexpr int kExactBigDigits = 72;
 
 /// x finite and whole. The digits come from the text: BigReal arithmetic scaling by 10^k
@@ -44,10 +45,6 @@ BigInt whole_of(const BigReal &x) {
     return BigInt(text) * mp::pow(BigInt(kDecimalBase), static_cast<unsigned>(ten));
 }
 
-BigInt whole_operand(std::int64_t v, const char *) {
-    return calc_detail::magnitude(v);
-}
-
 /// The magnitude arm 1 folds of a double: a near-integer below 2^53 rounded, as int_like takes
 /// it (denorm_min is 0).
 std::optional<std::uint64_t> small_magnitude(double d) {
@@ -56,24 +53,19 @@ std::optional<std::uint64_t> small_magnitude(double d) {
     return std::nullopt;
 }
 
-/// A double past 2^53 is read as its shortest text (to_big), the value it shows.
-BigInt whole_operand(double d, const char *name) {
-    if (const auto m = small_magnitude(d))
-        return *m;
-    if (!calc_detail::int_like(d))
-        throw CalculatorError(tcalc::errmsg::integers_only(name).c_str());
-    return whole_of(tcalc::to_big(d));
-}
-
-/// Past 10^72 (an infinity too) the integer is a rounded one: its gcd is the multiprecision
-/// mode's (#275).
-BigInt whole_operand(const BigReal &b, const char *name) {
-    static const BigReal kRoundedFrom = mp::pow(BigReal(kDecimalBase), kExactBigDigits);
-    if (BigReal(abs(b)) >= kRoundedFrom)
-        throw CalculatorError(std::string(tcalc::errmsg::kNeedsMultiprecision));
-    if (!calc_detail::whole(b))
-        throw CalculatorError(tcalc::errmsg::integers_only(name).c_str());
-    return whole_of(b);
+/// An item's whole magnitude; the arms a kernel item shares with a Value read in calc_detail.
+BigInt int_operand(const CollectionItem &it, const char *name) {
+    return std::visit(
+        [name](const auto &x) -> BigInt {
+            using T = std::decay_t<decltype(x)>;
+            if constexpr (
+                std::is_same_v<T, std::int64_t> || std::is_same_v<T, double> ||
+                std::is_same_v<T, BigReal>)
+                return calc_detail::whole_operand(x, name);
+            else
+                throw CalculatorError(tcalc::errmsg::integers_only(name).c_str());
+        },
+        it);
 }
 
 /// The magnitude arm 1 folds: an Int64, or a small whole double.
@@ -98,6 +90,23 @@ std::optional<std::uint64_t> small_lcm(std::uint64_t a, std::uint64_t b) {
     if (product > std::numeric_limits<std::uint64_t>::max())
         return std::nullopt;
     return static_cast<std::uint64_t>(product);
+}
+
+/// n rounded to a BigReal from its leading digits: the whole text of a 16384-bit integer takes
+/// 0.8 ms, its leading digits 0.02 ms. A last digit of 1 stands for a nonzero rest, so the
+/// rounding is the whole text's.
+BigReal rounded_big(const BigInt &n) {
+    // More digits than BigReal reads, guard digits included.
+    constexpr std::int64_t kLeadingDigits = 100;
+    namespace k = boost::math::constants;
+    const double bits = static_cast<double>(mp::msb(n));
+    const auto digits =
+        static_cast<std::int64_t>(bits * k::ln_two<double>() * k::log10_e<double>()) + 1;
+    const auto ten = std::max<std::int64_t>(digits - kLeadingDigits, 0);
+    BigInt lead;
+    BigInt rest;
+    mp::divide_qr(n, mp::pow(BigInt(kDecimalBase), static_cast<unsigned>(ten)), lead, rest);
+    return BigReal(lead.str() + (rest == 0 ? "0" : "1") + "e" + std::to_string(ten - 1));
 }
 
 using SmallStep = std::optional<std::uint64_t> (*)(std::uint64_t, std::uint64_t);
@@ -125,9 +134,9 @@ fold_integers(const Collection &a, const char *name, SmallStep small, calc_detai
         if (i == items.size() && acc <= std::numeric_limits<std::int64_t>::max())
             return CollectionItem{static_cast<std::int64_t>(acc)};
     }
-    BigInt f = first ? BigInt(acc) : calc_detail::int_operand(items[0], name);
+    BigInt f = first ? BigInt(acc) : int_operand(items[0], name);
     for (; i < items.size(); ++i)
-        f = big(f, calc_detail::int_operand(items[i], name));
+        f = big(f, int_operand(items[i], name));
     return calc_detail::item_of(f);
 }
 
@@ -139,18 +148,28 @@ std::uint64_t magnitude(std::int64_t v) {
     return v < 0 ? 0 - static_cast<std::uint64_t>(v) : static_cast<std::uint64_t>(v);
 }
 
-BigInt int_operand(const CollectionItem &it, const char *name) {
-    return std::visit(
-        [name](const auto &x) -> BigInt {
-            using T = std::decay_t<decltype(x)>;
-            if constexpr (
-                std::is_same_v<T, std::int64_t> || std::is_same_v<T, double> ||
-                std::is_same_v<T, BigReal>)
-                return whole_operand(x, name);
-            else
-                throw CalculatorError(tcalc::errmsg::integers_only(name).c_str());
-        },
-        it);
+BigInt whole_operand(std::int64_t v, const char *) {
+    return magnitude(v);
+}
+
+/// A double past 2^53 is read as its shortest text (to_big), the value it shows.
+BigInt whole_operand(double d, const char *name) {
+    if (const auto m = small_magnitude(d))
+        return *m;
+    if (!int_like(d))
+        throw CalculatorError(tcalc::errmsg::integers_only(name).c_str());
+    return whole_of(tcalc::to_big(d));
+}
+
+/// Past 10^72 (an infinity too) the integer may be a rounded one: its gcd is the multiprecision
+/// mode's (#275).
+BigInt whole_operand(const BigReal &b, const char *name) {
+    static const BigReal kRoundedFrom = mp::pow(BigReal(kDecimalBase), kExactBigDigits);
+    if (BigReal(abs(b)) >= kRoundedFrom)
+        throw CalculatorError(std::string(tcalc::errmsg::kNeedsMultiprecision));
+    if (!whole(b))
+        throw CalculatorError(tcalc::errmsg::integers_only(name).c_str());
+    return whole_of(b);
 }
 
 BigInt gcd_of(const BigInt &a, const BigInt &b) {
@@ -158,13 +177,17 @@ BigInt gcd_of(const BigInt &a, const BigInt &b) {
 }
 
 BigInt lcm_of(const BigInt &a, const BigInt &b) {
-    return mp::lcm(a, b);
+    static const BigInt kLimit = BigInt(1) << (kMaxIntBits + 1);
+    BigInt l = mp::lcm(a, b);
+    if (l >= kLimit)
+        throw CalculatorError(std::string(tcalc::errmsg::kNeedsMultiprecision));
+    return l;
 }
 
 CollectionItem item_of(const BigInt &n) {
     if (n <= std::numeric_limits<std::int64_t>::max())
         return CollectionItem{static_cast<std::int64_t>(n)};
-    return CollectionItem{BigReal(n.str())};
+    return CollectionItem{rounded_big(n)};
 }
 
 } // namespace calc_detail

@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <limits>
 #include <numeric>
@@ -476,14 +477,23 @@ inline std::optional<Rational> narrow(const WideRational &w) {
 using BigStep = boost::multiprecision::cpp_int (*)(
     const boost::multiprecision::cpp_int &, const boost::multiprecision::cpp_int &);
 
+/// The largest integer gcd and lcm build, in bits (about 4900 digits); past it they need
+/// multiprecision mode. The bound is its cost: such an integer takes under 0.2 ms to build and
+/// under 1 ms to turn into a BigReal, while at 65536 bits the conversion takes 13 ms.
+inline constexpr std::size_t kMaxIntBits = 16384;
+
 /// |v| as uint64, where INT64_MIN has its magnitude too.
 std::uint64_t magnitude(std::int64_t v);
-/// An item's whole magnitude: an Int64, a whole double, or a whole BigReal below the 72 digits
-/// it always holds exactly. A BigReal past them throws kNeedsMultiprecision, anything else
-/// integers_only(name).
-boost::multiprecision::cpp_int int_operand(const CollectionItem &it, const char *name);
+/// A whole magnitude: an Int64, a whole double, or a whole BigReal below 10^72, from where a
+/// BigReal's 73 digits may be a rounded integer. A BigReal past it throws kNeedsMultiprecision,
+/// a value that is not whole integers_only(name).
+boost::multiprecision::cpp_int whole_operand(std::int64_t v, const char *name);
+boost::multiprecision::cpp_int whole_operand(double d, const char *name);
+boost::multiprecision::cpp_int whole_operand(const BigReal &b, const char *name);
+/// Named functions, not mp::gcd itself: a function template does not convert to a BigStep.
 boost::multiprecision::cpp_int
 gcd_of(const boost::multiprecision::cpp_int &a, const boost::multiprecision::cpp_int &b);
+/// Throws kNeedsMultiprecision past kMaxIntBits.
 boost::multiprecision::cpp_int
 lcm_of(const boost::multiprecision::cpp_int &a, const boost::multiprecision::cpp_int &b);
 /// An Int64 when it fits, else its text rounded to a BigReal.

@@ -189,6 +189,13 @@ def test_variadic_call_args(expr: str, expected: float) -> None:
             id="gcd-power-token-whose-gcd-is-small",
         ),
         param("gcd(2^{3},)", "empty element", id="gcd-power-token-beside-empty"),
+        param("gcd(2^{-100},2)", "only defined for integers", id="gcd-power-negative-exponent"),
+        param("gcd((-3)!,2)", "Math error", id="gcd-factorial-negative"),
+        param(
+            "gcd(2^{265},1/2)", "only defined for integers", id="gcd-power-token-beside-fraction"
+        ),
+        param("gcd(2^{265},i)", "only defined for integers", id="gcd-power-token-beside-complex"),
+        param("lcm(2^{16384},3)", "needs multiprecision mode", id="lcm-past-bit-bound"),
         param("gcd(2^{3},1/2,[1,2])", "List of List not allowed", id="gcd-power-token-list-first"),
         param(
             "lcm(2^{9223372036854775807},3)",

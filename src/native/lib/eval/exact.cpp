@@ -11,11 +11,15 @@
 #include <cstddef>
 #include <cmath>
 #include <cstdint>
+#include <string>
+#include <type_traits>
+#include <variant>
 #include <vector>
 
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include "calc/internal/helpers.hpp"
+#include "calc/pub/error_messages.hpp"
 #include "eval/internal/closed_forms.hpp"
 #include "eval/pub/eval.hpp"
 #include "parser/internal/helpers.hpp"
@@ -231,20 +235,40 @@ std::optional<Value> log_of_power(
     return eval_row(lx.right, c, unit);
 }
 
-/// A power or a factorial: the arguments gcd and lcm read from their tokens, since past 72
-/// digits their value reaches the kernel rounded (#247).
-bool power_or_factorial(std::span<const Token> row) {
-    row = unwrap_paren(row);
-    if (row.size() == 1 && row[0].kind == TokenKind::Latex)
-        return std::get<parser::LatexToken>(row[0].data).kind == LatexKind::Pow;
-    return row.size() == 2 && row[1].kind == TokenKind::Op &&
-           std::get<parser::OpToken>(row[1].data).op_id == OpId::Fact;
+/// The forms gcd and lcm read from their tokens, since past 72 digits their value reaches the
+/// kernel rounded (#247).
+enum class IntForm : std::uint8_t { Power, Factorial };
+
+/// A power or a factorial argument without its parens and a leading minus, which the value
+/// keeps and the magnitude drops.
+struct IntRow {
+    IntForm form;
+    std::span<const Token> row;
+    bool negated;
+};
+
+bool is_op(const Token &t, OpId id) {
+    return t.kind == TokenKind::Op && std::get<parser::OpToken>(t.data).op_id == id;
 }
 
-/// An integer operand row's value: an Int64, or a Rational with denominator 1.
-std::optional<std::int64_t>
-int_of(std::span<const Token> row, const Calculator &c, Calculator::AngleUnit unit) {
-    const Value v = eval_row(row, c, unit);
+/// A power with an empty side is not one: its side defaults to 0 (2^{} is 1).
+std::optional<IntRow> int_row(std::span<const Token> row) {
+    row = unwrap_paren(row);
+    const bool negated = !row.empty() && is_op(row[0], OpId::Negate);
+    if (negated)
+        row = unwrap_paren(row.subspan(1));
+    if (row.size() == 1 && row[0].kind == TokenKind::Latex) {
+        const auto &lx = std::get<parser::LatexToken>(row[0].data);
+        if (lx.kind == LatexKind::Pow && !lx.left.empty() && !lx.right.empty())
+            return IntRow{IntForm::Power, row, negated};
+    }
+    if (row.size() == 2 && is_op(row[1], OpId::Fact))
+        return IntRow{IntForm::Factorial, row, negated};
+    return std::nullopt;
+}
+
+/// An Int64, or a Rational with denominator 1.
+std::optional<std::int64_t> int_value(const Value &v) {
     if (const auto *i = std::get_if<std::int64_t>(&v))
         return *i;
     if (const auto *r = std::get_if<Rational>(&v); r && r->denominator() == 1)
@@ -252,68 +276,135 @@ int_of(std::span<const Token> row, const Calculator &c, Calculator::AngleUnit un
     return std::nullopt;
 }
 
-/// Past this many bits (about 4900 digits) a power or a factorial argument is not built: the
-/// bound is its cost. Building one takes under 0.2 ms, its result as text under 1 ms; at 65536
-/// bits the text takes 13 ms.
-constexpr double kMaxArgBits = 16384;
+/// m^e, when both are integers and it is within kMaxIntBits.
+std::optional<BigInt> exact_power(const Value &base, const Value &exponent) {
+    const auto b = int_value(base);
+    const auto e = int_value(exponent);
+    if (!b || !e || *e < 0)
+        return std::nullopt;
+    const std::uint64_t m = calc_detail::magnitude(*b);
+    // log2 bounds no base under 2, and the exponent cast below would wrap: 0^{4294967296}
+    // would become 0^{0}. Their value is exact.
+    if (m < 2 || static_cast<double>(*e) * std::log2(static_cast<double>(m)) >
+                     static_cast<double>(calc_detail::kMaxIntBits))
+        return std::nullopt;
+    return BigInt(boost::multiprecision::pow(BigInt(m), static_cast<unsigned>(*e)));
+}
 
-/// A power or a factorial argument as the exact integer its tokens name. Empty when its base,
-/// exponent or n is no integer or past kMaxArgBits, or the base is 0 or 1: its evaluated item
-/// is read then.
-std::optional<BigInt>
-int_from_tokens(std::span<const Token> row, const Calculator &c, Calculator::AngleUnit unit) {
-    row = unwrap_paren(row);
-    if (row.size() == 1) {
-        const auto &lx = std::get<parser::LatexToken>(row[0].data);
-        const auto base = int_of(lx.left, c, unit);
-        const auto e = int_of(lx.right, c, unit);
-        if (!base || !e || *e < 0)
-            return std::nullopt;
-        const std::uint64_t m = calc_detail::magnitude(*base);
-        // log2 bounds no base under 2, and the exponent cast below would wrap: 0^{4294967296}
-        // would become 0^{0}. Their item is exact.
-        if (m < 2 || static_cast<double>(*e) * std::log2(static_cast<double>(m)) > kMaxArgBits)
-            return std::nullopt;
-        return BigInt(boost::multiprecision::pow(BigInt(m), static_cast<unsigned>(*e)));
-    }
-    // A negative n never gets here: its value is already an error.
-    const auto n = int_of(row.first(1), c, unit);
-    if (!n)
+/// n!, when n is a whole number and n! is within kMaxIntBits. A negative n is the kernel's error.
+std::optional<BigInt> exact_factorial(const Value &x) {
+    const auto n = int_value(x);
+    if (!n || *n < 0)
         return std::nullopt;
     BigInt product = 1;
     for (std::int64_t i = 2; i <= *n; ++i) {
         product *= i;
-        if (static_cast<double>(boost::multiprecision::msb(product)) > kMaxArgBits)
+        if (boost::multiprecision::msb(product) > calc_detail::kMaxIntBits)
             return std::nullopt;
     }
     return product;
 }
 
-/// gcd or lcm with each power or factorial argument that evaluated to a BigReal read from its
-/// tokens, and every other one from the item it evaluated to. Declines when no argument is a power
-/// or a factorial.
-std::optional<Value> fold_call(
+/// A gcd or lcm argument: the exact integer its tokens name, or the value it evaluated to.
+using Arg = std::variant<BigInt, Value>;
+
+/// Each operand row is evaluated once: the exact integer is built from the base and exponent,
+/// or n, and the value from them otherwise, in the order eval_latex and eval_op take.
+Arg read_int_row(const IntRow &r, const Calculator &c, Calculator::AngleUnit unit) {
+    Arg arg;
+    switch (r.form) {
+    case IntForm::Power: {
+        const auto &lx = std::get<parser::LatexToken>(r.row[0].data);
+        if (auto v = pow_of_log(lx.left, lx.right, c, unit)) {
+            arg = std::move(*v);
+            break;
+        }
+        Value base = eval_row(lx.left, c, unit);
+        Value exponent = eval_row(lx.right, c, unit);
+        if (auto n = exact_power(base, exponent))
+            arg = std::move(*n);
+        else
+            arg =
+                apply(c, OpId::Pow, std::vector<Value>{std::move(base), std::move(exponent)}, unit);
+        break;
+    }
+    case IntForm::Factorial: {
+        Value x = eval_row(r.row.first(1), c, unit);
+        if (auto n = exact_factorial(x))
+            arg = std::move(*n);
+        else
+            arg = apply(c, OpId::Fact, std::vector<Value>{std::move(x)}, unit);
+        break;
+    }
+    }
+    if (auto *v = std::get_if<Value>(&arg); v != nullptr && r.negated)
+        return apply(c, OpId::Negate, std::vector<Value>{std::move(*v)}, unit);
+    return arg;
+}
+
+/// An evaluated argument's magnitude: the arms a kernel item has read as the kernel reads them.
+BigInt int_arg(const Value &v, const char *name) {
+    return std::visit(
+        [name](const auto &x) -> BigInt {
+            using T = std::decay_t<decltype(x)>;
+            if constexpr (
+                std::is_same_v<T, std::int64_t> || std::is_same_v<T, double> ||
+                std::is_same_v<T, BigReal>)
+                return calc_detail::whole_operand(x, name);
+            else if constexpr (std::is_same_v<T, Rational>) {
+                if (x.denominator() == 1)
+                    return calc_detail::whole_operand(x.numerator(), name);
+            }
+            throw CalculatorError(errmsg::integers_only(name).c_str());
+        },
+        v);
+}
+
+/// gcd or lcm with each power or factorial argument read from its tokens. Declines, before
+/// evaluating anything, when no argument is one or one is empty: the kernel path then runs as
+/// usual and reports the empty one where it reaches it.
+template <calc_detail::BigStep Step>
+std::optional<Value> fold_rule(
+    OpId id,
     std::span<const parser::ParenElement> args,
-    std::span<const Value> operands,
-    const char *name,
-    calc_detail::BigStep step,
     const Calculator &c,
     Calculator::AngleUnit unit) {
-    if (std::ranges::none_of(args, [](const parser::ParenElement &arg) {
-            return power_or_factorial(parser::element_tokens(arg));
+    if (std::ranges::any_of(args, [](const parser::ParenElement &arg) {
+            return parser::element_tokens(arg).empty();
         }))
         return std::nullopt;
-    // A variadic call's operands are its one dataset, an item per argument.
-    const auto &items = std::get<Collection>(operands.front()).items();
-    BigInt acc;
+    std::size_t first = 0;
+    std::optional<IntRow> shape;
+    while (first < args.size() && !(shape = int_row(parser::element_tokens(args[first]))))
+        ++first;
+    if (!shape)
+        return std::nullopt;
+
+    // Every argument is evaluated before any is folded, as the dataset is before the kernel.
+    std::vector<Arg> read;
+    read.reserve(args.size());
     for (std::size_t i = 0; i < args.size(); ++i) {
         const auto row = parser::element_tokens(args[i]);
-        // Only a BigReal item may be rounded; an Int64 one spares the base its second evaluation.
-        const auto exact = std::holds_alternative<BigReal>(items[i]) && power_or_factorial(row)
-                               ? int_from_tokens(row, c, unit)
-                               : std::nullopt;
-        const BigInt n = exact ? *exact : calc_detail::int_operand(items[i], name);
-        acc = i == 0 ? n : step(acc, n);
+        if (i > first)
+            shape = int_row(row);
+        if (i >= first && shape) {
+            read.push_back(read_int_row(*shape, c, unit));
+            continue;
+        }
+        Value v = eval_row(row, c, unit);
+        // A collection beside other arguments is the dataset's error, which the kernel path
+        // reports; only the arguments up to it run twice, on the way to that error.
+        if (std::holds_alternative<Collection>(v))
+            return std::nullopt;
+        read.emplace_back(std::move(v));
+    }
+
+    const std::string name(ops::op_spec(id)->symbol);
+    BigInt acc;
+    for (std::size_t i = 0; i < read.size(); ++i) {
+        const auto *exact = std::get_if<BigInt>(&read[i]);
+        BigInt n = exact != nullptr ? *exact : int_arg(std::get<Value>(read[i]), name.c_str());
+        acc = i == 0 ? std::move(n) : Step(acc, n);
     }
     return to_value(calc_detail::item_of(acc));
 }
@@ -333,30 +424,8 @@ constexpr std::array kExactRows{
     ExactRow{OpId::Exp, exp_of_log, nullptr, nullptr},
     ExactRow{OpId::Pow, nullptr, nullptr, pow_of_log},
     ExactRow{OpId::Log, nullptr, nullptr, log_of_power},
-    ExactRow{
-        OpId::Gcd,
-        nullptr,
-        nullptr,
-        nullptr,
-        [](OpId,
-           std::span<const parser::ParenElement> args,
-           std::span<const Value> operands,
-           const Calculator &c,
-           Calculator::AngleUnit unit) {
-            return fold_call(args, operands, "gcd", calc_detail::gcd_of, c, unit);
-        }},
-    ExactRow{
-        OpId::Lcm,
-        nullptr,
-        nullptr,
-        nullptr,
-        [](OpId,
-           std::span<const parser::ParenElement> args,
-           std::span<const Value> operands,
-           const Calculator &c,
-           Calculator::AngleUnit unit) {
-            return fold_call(args, operands, "lcm", calc_detail::lcm_of, c, unit);
-        }},
+    ExactRow{OpId::Gcd, nullptr, nullptr, nullptr, fold_rule<calc_detail::gcd_of>},
+    ExactRow{OpId::Lcm, nullptr, nullptr, nullptr, fold_rule<calc_detail::lcm_of>},
 };
 
 // index_by_id rejects an out-of-range or duplicated id at compile time, so the table cannot
