@@ -13,12 +13,14 @@
 #include <numeric>
 #include <optional>
 #include <utility>
+#include <variant>
 
 #include <boost/math/constants/constants.hpp>
 #include <boost/math/policies/policy.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
 #include "calc/pub/calculator.hpp"
+#include "calc/pub/error_messages.hpp"
 
 namespace calc_detail {
 
@@ -477,9 +479,9 @@ inline std::optional<Rational> narrow(const WideRational &w) {
 using BigStep = boost::multiprecision::cpp_int (*)(
     const boost::multiprecision::cpp_int &, const boost::multiprecision::cpp_int &);
 
-/// The largest integer gcd and lcm build, in bits (about 4900 digits); past it they need
-/// multiprecision mode. The bound is its cost: such an integer takes under 0.2 ms to build and
-/// under 1 ms to turn into a BigReal, while at 65536 bits the conversion takes 13 ms.
+/// The largest msb of an integer gcd and lcm build (about 4900 digits); past it they need
+/// multiprecision mode. The bound is the cost of a fold: an lcm of 40 arguments up to it takes
+/// 1 ms, most of it Boost's division in each gcd step.
 inline constexpr std::size_t kMaxIntBits = 16384;
 
 /// |v| as uint64, where INT64_MIN has its magnitude too.
@@ -490,12 +492,39 @@ std::uint64_t magnitude(std::int64_t v);
 boost::multiprecision::cpp_int whole_operand(std::int64_t v, const char *name);
 boost::multiprecision::cpp_int whole_operand(double d, const char *name);
 boost::multiprecision::cpp_int whole_operand(const BigReal &b, const char *name);
+boost::multiprecision::cpp_int whole_operand(const Rational &r, const char *name);
+
+/// The whole magnitude of a kernel item or an evaluated value: whole_operand on the arms that
+/// have one, integers_only on the rest (a complex number, a collection).
+template <class Variant>
+boost::multiprecision::cpp_int int_operand(const Variant &v, const char *name) {
+    return std::visit(
+        [name](const auto &x) -> boost::multiprecision::cpp_int {
+            if constexpr (requires { whole_operand(x, name); })
+                return whole_operand(x, name);
+            else
+                throw CalculatorError(tcalc::errmsg::integers_only(name).c_str());
+        },
+        v);
+}
 /// Named functions, not mp::gcd itself: a function template does not convert to a BigStep.
 boost::multiprecision::cpp_int
 gcd_of(const boost::multiprecision::cpp_int &a, const boost::multiprecision::cpp_int &b);
 /// Throws kNeedsMultiprecision past kMaxIntBits.
 boost::multiprecision::cpp_int
 lcm_of(const boost::multiprecision::cpp_int &a, const boost::multiprecision::cpp_int &b);
+
+/// The fold so far (empty before any other argument) with m^e, an integer past kMaxIntBits
+/// that is never built.
+using PowerStep = boost::multiprecision::cpp_int (*)(
+    const std::optional<boost::multiprecision::cpp_int> &, std::uint64_t, std::uint64_t);
+/// Read modulo the fold: powm never builds m^e. Alone or beside 0 the gcd is m^e itself, which
+/// needs multiprecision mode.
+boost::multiprecision::cpp_int gcd_power(
+    const std::optional<boost::multiprecision::cpp_int> &acc, std::uint64_t m, std::uint64_t e);
+/// A multiple of m^e, so past kMaxIntBits too, unless the fold is 0.
+boost::multiprecision::cpp_int lcm_power(
+    const std::optional<boost::multiprecision::cpp_int> &acc, std::uint64_t m, std::uint64_t e);
 /// An Int64 when it fits, else its text rounded to a BigReal.
 CollectionItem item_of(const boost::multiprecision::cpp_int &n);
 

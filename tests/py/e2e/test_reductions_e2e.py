@@ -170,23 +170,24 @@ def test_variadic_call_args(expr: str, expected: float) -> None:
             "needs multiprecision mode",
             id="gcd-power-token-past-bit-bound",
         ),
-        param(
-            "gcd(4611686018427387904^{4611686018427387904},2)",
-            "needs multiprecision mode",
-            id="gcd-power-token-huge-base-and-exponent",
-        ),
-        param(
-            "gcd(7^{6148914691236517206},7)",
-            "needs multiprecision mode",
-            id="gcd-power-token-huge-exponent",
-        ),
         param("gcd(1000000!,3)", "needs multiprecision mode", id="gcd-factorial-token-huge"),
         param("gcd(2000!,3)", "needs multiprecision mode", id="gcd-factorial-token-past-bit-bound"),
         param("gcd(2^{3},[6,10])", "List of List not allowed", id="gcd-power-token-beside-list"),
         param(
-            "gcd(2^{9223372036854775807},2)",
+            "gcd(2^{9223372036854775807},0)",
             "needs multiprecision mode",
-            id="gcd-power-token-whose-gcd-is-small",
+            id="gcd-power-past-bit-bound-beside-zero",
+        ),
+        param(
+            "gcd(2^{9223372036854775807},4^{9223372036854775807})",
+            "needs multiprecision mode",
+            id="gcd-powers-past-bit-bound-alone",
+        ),
+        param("gcd(2.5^{1000},2)", "only defined for integers", id="gcd-power-fraction-base"),
+        param("gcd(10^{400.5},2)", "only defined for integers", id="gcd-power-irrational-root"),
+        param("gcd(200.5!,2)", "only defined for integers", id="gcd-factorial-fraction"),
+        param(
+            "gcd(2.5^{1000},[1,2])", "List of List not allowed", id="gcd-fraction-power-then-list"
         ),
         param("gcd(2^{3},)", "empty element", id="gcd-power-token-beside-empty"),
         param("gcd(2^{-100},2)", "only defined for integers", id="gcd-power-negative-exponent"),

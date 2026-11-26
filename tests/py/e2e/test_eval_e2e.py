@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import os
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Context, Decimal
 
 import pytest
 
@@ -607,6 +607,17 @@ def _eval(expr: str) -> object:
         param("gcd(e^{ln(3^{50})},3)", "int", "3", id="gcd-power-log-identity-first"),
         param("gcd(2^{265},6/3)", "int", "2", id="gcd-power-token-beside-whole-fraction"),
         param("lcm(0,0)", "int", "0", id="lcm-zeros"),
+        param("gcd(2^{9223372036854775807},2)", "int", "2", id="gcd-power-past-bit-bound-modulo"),
+        param("gcd(2^{9223372036854775807},12)", "int", "4", id="gcd-power-past-bit-bound-twelve"),
+        param(
+            "gcd(4611686018427387904^{4611686018427387904},2)",
+            "int",
+            "2",
+            id="gcd-power-past-bit-bound-huge-base",
+        ),
+        param("gcd(7^{6148914691236517206},7)", "int", "7", id="gcd-power-past-bit-bound-seven"),
+        param("lcm(0,2^{9223372036854775807})", "int", "0", id="lcm-zero-beside-power-past-bound"),
+        param("gcd(4^{600.5},6)", "int", "2", id="gcd-power-whole-root-exponent"),
         param("gcd(1e18*1.2345678901234567,100)", "int", "4", id="gcd-double-product-past-2-53"),
         param("lcm(0,10^19)", "int", "0", id="lcm-zero-beside-bigreal"),
         param("gcd(-9223372036854775807-1,2)", "int", "2", id="gcd-int64-min-with-two"),
@@ -926,6 +937,9 @@ def test_bigreal_exact_results(expr: str, expected: str) -> None:
             id="lcm-past-bigreal-digits-folded-again",
         ),
         param("lcm(2^{6000},3^{5000})", str(2**6000 * 3**5000), id="lcm-under-bit-bound"),
+        param(
+            "lcm(19^{3857},1)", str(Context(prec=100).power(19, 3857)), id="lcm-power-at-bit-bound"
+        ),
     ],
 )
 def test_bigreal_close_results(expr: str, exact: str) -> None:
