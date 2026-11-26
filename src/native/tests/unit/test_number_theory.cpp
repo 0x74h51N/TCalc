@@ -83,10 +83,6 @@ void unit_number_theory(TestContext &ctx) {
     // (#275).
     const auto lo = std::numeric_limits<std::int64_t>::min();
     const auto hi = std::numeric_limits<std::int64_t>::max();
-    const BigReal a79(
-        "10000000000000000000000000000000000000000000000000000000000000000000000000000001");
-    const BigReal b79(
-        "10000000000000000000000000000000000000000000000000000000000000000000000000000003");
     const std::vector<NtCase> nt_cases = {
         {.id = "gcd :: a double past 2^63",
          .fn = &Calculator::gcd,
@@ -104,27 +100,22 @@ void unit_number_theory(TestContext &ctx) {
          .fn = &Calculator::lcm,
          .input = {BigReal("1e19"), BigReal("3")},
          .expected = BigReal("3e19")},
-        {.id = "gcd :: an 80-digit mantissa",
-         .fn = &Calculator::gcd,
-         .input = {a79, BigReal("3")},
-         .expected = std::int64_t{1}},
-        {.id = "gcd :: 10^400000",
-         .fn = &Calculator::gcd,
-         .input = {BigReal("1e400000"), BigReal("1e399999")},
-         .expected = BigReal("1e399999")},
-        {.id = "lcm :: a step past int512",
+        {.id = "lcm :: a step past int512 from three operands",
          .fn = &Calculator::lcm,
-         .input = {a79, b79},
+         .input = {BigReal("1e70") + 1, BigReal("1e70") + 3, BigReal("1e70") + 7},
          .expected = BigReal(
-             "1000000000000000000000000000000000000000000000000000000000000000000000000000000400000"
-             "00000000000000000000000000000000000000000000000000000000000000000000000003"),
+             "1000000000000000000000000000000000000000000000000000000000000000000001100000000000000"
+             "0000000000000000000000000000000000000000000000000000003100000000000000000000000000000"
+             "00000000000000000000000000000000000000021"),
          .tol = "1e-15"},
         {.id = "lcm :: a step past int512 folded again",
          .fn = &Calculator::lcm,
-         .input = {a79, b79, BigReal("7")},
+         .input =
+             {BigReal("1e70") + 1, BigReal("1e70") + 3, BigReal("1e70") + 7, BigReal("1e70") + 1},
          .expected = BigReal(
-             "7000000000000000000000000000000000000000000000000000000000000000000000000000002800000"
-             "00000000000000000000000000000000000000000000000000000000000000000000000021"),
+             "1000000000000000000000000000000000000000000000000000000000000000000001100000000000000"
+             "0000000000000000000000000000000000000000000000000000003100000000000000000000000000000"
+             "00000000000000000000000000000000000000021"),
          .tol = "1e-15"},
         {.id = "gcd :: a single BigReal",
          .fn = &Calculator::gcd,
@@ -219,11 +210,28 @@ void unit_number_theory(TestContext &ctx) {
             }
         });
     }
-    // convert_to<int512_t> throws boost::math::rounding_error on an infinity, not a
-    // CalculatorError; the smoke list [dbl inf, big 1e400] reaches it.
+    // floor calls an infinity whole; its text "inf" would reach std::stoll and throw no
+    // CalculatorError. The smoke list [dbl inf, big 1e400] reaches it.
     TEST_CASE(ctx, "gcd :: a BigReal infinity rejected", {
         EXPECT_THROWS(
             ctx, c.gcd(list({BigReal(std::numeric_limits<double>::infinity()), BigReal("1e400")})));
+    });
+    // int_like(inf) is false, so a double infinity never reaches to_big.
+    TEST_CASE(ctx, "gcd :: a double infinity rejected", {
+        EXPECT_THROWS(ctx, c.gcd(list({std::numeric_limits<double>::infinity(), 3.0})));
+    });
+    // From 72 digits a BigReal may have been rounded, and a rounded integer cannot be told
+    // from an exact one: 2^{265} reaches gcd with its last 8 digits lost.
+    TEST_CASE(ctx, "gcd/lcm :: a BigReal past 72 digits rejected", {
+        const BigReal a79 = BigReal("1e79") + 1;
+        EXPECT_THROWS(ctx, c.gcd(list({a79, BigReal("3")})));
+        EXPECT_THROWS(ctx, c.gcd(list({BigReal("1e400000"), BigReal("1e399999")})));
+        EXPECT_THROWS(ctx, c.lcm(list({a79, BigReal("1e79") + 3})));
+        EXPECT_THROWS(ctx, c.gcd(list({BigReal("1e72"), BigReal("3")})));
+    });
+    TEST_CASE(ctx, "gcd :: a BigReal just under 72 digits accepted", {
+        EXPECT_EQ(
+            ctx, std::get<std::int64_t>(c.gcd(list({BigReal("1e72") - 1, BigReal("3")}))), 3LL);
     });
     // Past 50 digits the snap would make it whole; the exact whole does not.
     TEST_CASE(ctx, "gcd :: a BigReal fraction past 50 digits rejected", {

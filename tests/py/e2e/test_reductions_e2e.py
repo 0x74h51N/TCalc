@@ -161,6 +161,40 @@ def test_variadic_call_args(expr: str, expected: float) -> None:
             "gcd(3^{40}/3^{39},6)", "only defined for integers", id="gcd-bigreal-just-under-integer"
         ),
         param("gcd(10^{19}+1/2,3)", "only defined for integers", id="gcd-bigreal-half-past-int64"),
+        param(
+            "gcd(2^{265}+1,3)", "needs multiprecision mode", id="gcd-rounded-bigreal-past-72-digits"
+        ),
+        param("gcd(10^{80}+1,3)", "needs multiprecision mode", id="gcd-bigreal-past-72-digits"),
+        param(
+            "gcd(10^{400000},10^{399999})",
+            "needs multiprecision mode",
+            id="gcd-power-token-past-bit-bound",
+        ),
+        param(
+            "gcd(4611686018427387904^{4611686018427387904},2)",
+            "needs multiprecision mode",
+            id="gcd-power-token-huge-base-and-exponent",
+        ),
+        param(
+            "gcd(7^{6148914691236517206},7)",
+            "needs multiprecision mode",
+            id="gcd-power-token-huge-exponent",
+        ),
+        param("gcd(1000000!,3)", "needs multiprecision mode", id="gcd-factorial-token-huge"),
+        param("gcd(2000!,3)", "needs multiprecision mode", id="gcd-factorial-token-past-bit-bound"),
+        param("gcd(2^{3},[6,10])", "List of List not allowed", id="gcd-power-token-beside-list"),
+        param(
+            "gcd(2^{9223372036854775807},2)",
+            "needs multiprecision mode",
+            id="gcd-power-token-whose-gcd-is-small",
+        ),
+        param("gcd(2^{3},)", "empty element", id="gcd-power-token-beside-empty"),
+        param("gcd(2^{3},1/2,[1,2])", "List of List not allowed", id="gcd-power-token-list-first"),
+        param(
+            "lcm(2^{9223372036854775807},3)",
+            "needs multiprecision mode",
+            id="lcm-power-token-infinite",
+        ),
     ],
 )
 def test_call_arg_errors(expr: str, expected_msg_substr: str) -> None:

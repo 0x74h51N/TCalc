@@ -714,7 +714,8 @@ call_operands(const parser::CallToken &call, const Calculator &c, Calculator::An
 
 /// A call token. A single-argument trig call tries its exact form first: radians from the
 /// argument's own tokens, before it is evaluated at all; degrees and grads from the evaluated
-/// value, after.
+/// value, after. gcd and lcm read a power or a factorial argument from its tokens once every
+/// argument is evaluated.
 Value eval_call(const parser::CallToken &call, const Calculator &c, Calculator::AngleUnit unit) {
     // Only a one-argument op carries a token rule (exact.cpp asserts it), so a call of any
     // other size goes straight to its operands and their arity check.
@@ -724,6 +725,9 @@ Value eval_call(const parser::CallToken &call, const Calculator &c, Calculator::
                 return *v;
 
     std::vector<Value> args = call_operands(call, c, unit);
+    if (const exact::CallRule rule = exact::call_rule(call.op_id))
+        if (auto v = rule(call.op_id, call.args, args, c, unit))
+            return *v;
     if (args.size() == 1)
         if (const exact::ValueRule rule = exact::value_rule(call.op_id))
             if (auto v = rule(call.op_id, args[0], c, unit))

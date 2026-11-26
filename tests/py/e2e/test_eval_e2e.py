@@ -594,7 +594,11 @@ def _eval(expr: str) -> object:
         param("gcd(1e23,10)", "int", "10", id="gcd-double-shortest-decimal"),
         param("gcd(10^400,3)", "int", "1", id="gcd-past-double-range"),
         param("gcd(10^60+1,10^60)", "int", "1", id="gcd-sixty-digits"),
-        param("gcd(10^80+1,3)", "int", "1", id="gcd-past-bigreal-digits"),
+        param("gcd(2^265,3)", "int", "1", id="gcd-power-token-coprime"),
+        param("gcd(2^265,12)", "int", "4", id="gcd-power-token-beside-int"),
+        param("gcd(3^400,3)", "int", "3", id="gcd-power-token-past-512-bits"),
+        param("gcd(0^{4294967296},5)", "int", "5", id="gcd-power-token-zero-base"),
+        param("gcd(2^265,1e19)", "int", "524288", id="gcd-power-token-beside-double"),
         param("gcd(1e18*1.2345678901234567,100)", "int", "4", id="gcd-double-product-past-2-53"),
         param("lcm(0,10^19)", "int", "0", id="lcm-zero-beside-bigreal"),
         param("gcd(-9223372036854775807-1,2)", "int", "2", id="gcd-int64-min-with-two"),
@@ -841,7 +845,11 @@ def test_collection_eval_errors(expr: str, expected_msg_substr: str | None) -> N
         param("lcm(10^19+2,4)-20000000000000000004", "0", id="lcm-bigreal-past-int64-diff"),
         param("gcd(0,10^19)-10^19", "0", id="gcd-zero-beside-bigreal-diff"),
         param("gcd(1e300,1e299)-10^299", "0", id="gcd-double-1e300-diff"),
-        param("gcd(10^400000,10^399999)-10^399999", "0", id="gcd-ten-to-400000-diff"),
+        param(
+            "gcd(3^200,3^100)-515377520732011331036461129765621272702107522001",
+            "0",
+            id="gcd-power-tokens-three-diff",
+        ),
         param(
             "lcm(10^30+1,10^30+3)-1000000000000000000000000000004000000000000000000000000000003",
             "0",
@@ -877,6 +885,44 @@ def test_bigreal_exact_results(expr: str, expected: str) -> None:
     out = _eval(expr)
     assert isinstance(out, calc_native.BigReal), f"expected BigReal, got {type(out).__name__}"
     assert Decimal(str(out)) == Decimal(expected)
+
+
+# gcd and lcm of a power or a factorial read from its tokens (#247): the exact result has
+# more digits than BigReal holds, so it is compared within double's precision (#275).
+@pytest.mark.parametrize(
+    ("expr", "exact"),
+    [
+        param(
+            "gcd(2^265,2^264)",
+            "29642774844752946028434172162224104410437116074403984394101141506025761187823616",
+            id="gcd-powers-of-two-tokens",
+        ),
+        param(
+            "lcm(2^265,2^264)",
+            "59285549689505892056868344324448208820874232148807968788202283012051522375647232",
+            id="lcm-powers-of-two-tokens",
+        ),
+        param(
+            "gcd(100!,99!)",
+            "933262154439441526816992388562667004907159682643816214685929638952175999932299156089414639761565182862536979208272237582511852109168640000000000000000000000",
+            id="gcd-factorial-tokens",
+        ),
+        param(
+            "lcm(3^{254},7^{169},7)",
+            "1024159177813073362318462236080592522262786941671235998571732643159082322419459089904507138875521164173194657665271264582127112308660979456252659982938874867185161261184700970290673083082099739750398524532005045377071964203345412287220848425984418442514065269509583",
+            id="lcm-power-tokens-folded-again",
+        ),
+        param(
+            "lcm(10^{70}+1,10^{70}+3,10^{70}+7,10^{70}+1)",
+            "1000000000000000000000000000000000000000000000000000000000000000000001100000000000000000000000000000000000000000000000000000000000000000000310000000000000000000000000000000000000000000000000000000000000000000021",
+            id="lcm-past-512-bits-folded-again",
+        ),
+    ],
+)
+def test_bigreal_close_results(expr: str, exact: str) -> None:
+    out = _eval(expr)
+    assert isinstance(out, calc_native.BigReal), f"expected BigReal, got {type(out).__name__}"
+    assert abs(Decimal(str(out)) - Decimal(exact)) <= Decimal(exact) * Decimal("1e-15")
 
 
 @dataclass(frozen=True)

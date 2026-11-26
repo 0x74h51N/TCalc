@@ -472,4 +472,21 @@ inline std::optional<Rational> narrow(const WideRational &w) {
     return Rational(static_cast<std::int64_t>(num), static_cast<std::int64_t>(den));
 }
 
+/// gcd and lcm past int64 (number_theory.cpp, #247) fold whole magnitudes in cpp_int.
+using BigStep = boost::multiprecision::cpp_int (*)(
+    const boost::multiprecision::cpp_int &, const boost::multiprecision::cpp_int &);
+
+/// |v| as uint64, where INT64_MIN has its magnitude too.
+std::uint64_t magnitude(std::int64_t v);
+/// An item's whole magnitude: an Int64, a whole double, or a whole BigReal below the 72 digits
+/// it always holds exactly. A BigReal past them throws kNeedsMultiprecision, anything else
+/// integers_only(name).
+boost::multiprecision::cpp_int int_operand(const CollectionItem &it, const char *name);
+boost::multiprecision::cpp_int
+gcd_of(const boost::multiprecision::cpp_int &a, const boost::multiprecision::cpp_int &b);
+boost::multiprecision::cpp_int
+lcm_of(const boost::multiprecision::cpp_int &a, const boost::multiprecision::cpp_int &b);
+/// An Int64 when it fits, else its text rounded to a BigReal.
+CollectionItem item_of(const boost::multiprecision::cpp_int &n);
+
 } // namespace calc_detail

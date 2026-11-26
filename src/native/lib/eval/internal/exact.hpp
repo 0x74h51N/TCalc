@@ -41,9 +41,18 @@ using LatexRule = std::optional<Value> (*)(
     const Calculator &,
     Calculator::AngleUnit);
 
+/// Answers from a call's argument rows and the operands they evaluated to.
+using CallRule = std::optional<Value> (*)(
+    ops::OpId,
+    std::span<const parser::ParenElement>,
+    std::span<const Value>,
+    const Calculator &,
+    Calculator::AngleUnit);
+
 /// nullptr when the op has no rule for that phase.
 TokenRule token_rule(ops::OpId id);
 ValueRule value_rule(ops::OpId id);
 LatexRule latex_rule(ops::OpId id);
+CallRule call_rule(ops::OpId id);
 
 } // namespace tcalc::eval::exact
