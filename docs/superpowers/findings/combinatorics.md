@@ -92,3 +92,39 @@ Kept: an int64 kernel up to 20! from the double table; past it the row retries i
 | (1/2)! | 1.2 | 3.4 |
 
 The 3 µs from 21! up is the throw and the retry. From 101! to 170! the BigReal `tgamma` costs what master already paid from 171! up.
+
+## 2026-11-26, fix/gcd-lcm-past-int64: an integer that sits just under itself in BigReal's guard digits (#288)
+
+`cpp_dec_float` divides through a Newton-Raphson reciprocal (the note on `trunc_div` in `calc/internal/helpers.hpp`), so an exact division of BigReals can land just under its integer quotient. `3^{40}` and `3^{39}` are past int64, so `3^{40}/3^{39}` runs in BigReal and is `2.999999999999999999999999999999999999999999999999999999999999999999998944`: 3 at the 50 digits BigReal advertises, below it in the guard digits (relative error 3.5e-70). `3^{40}*3^{-39}`, `(1/3)^{40}*3^{41}`, `\frac{3^{40}}{3^{39}}` and `6^{30}/2^{30}/3^{29}` reach the same value. `10^{60}/10^{59}` and `2^{70}/2^{69}` divide exactly.
+
+Every op that reads an integer from it, origin/master 4f1ad15 and this branch alike (`scripts/native_probe eval`):
+
+| Input | Expected | TCalc |
+|---|---|---|
+| (3^{40}/3^{39})! | 6 | 2 |
+| gamma(3^{40}/3^{39}) | 2 | 1 |
+| (7^{30}/7^{29})! | 5040 | 720 |
+| gamma(7^{30}/7^{29}) | 720 | 120 |
+| (11^{20}/11^{19})! | 39916800 | 3628800 |
+| (13^{20}/13^{19})! | 6227020800 | 479001600 |
+| (2\*3^{40}/3^{39})! | 720 | 120 |
+| (3^{40}/3^{39})^{2}! | 362880 | 40320 |
+| mod(3^{40}/3^{39},3) | 0 | 2.99999999999999999999999999999999999999999999999999 |
+| mod(7^{30}/7^{29},7) | 0 | 6.99999999999999999999999999999999999999999999999999 |
+| intdiv(3^{40}/3^{39},1) | 3 | 2 |
+| intdiv(11^{20}/11^{19},1) | 11 | 10 |
+| nCr(3^{40}/3^{39},2) | 3 | choose is only defined for integers |
+| nPr(3^{40}/3^{39},2) | 6 | permute is only defined for integers |
+| gcd(3^{40}/3^{39},6) | 3 | gcd is only defined for integers |
+| floor(3^{40}/3^{39}) | 3 | 3 |
+| (-8)⌄(3^{40}/3^{39}) | -2 | -2 |
+| (3^{40}/3^{39}+1/2)! | 11.631728396567448929144224109426265262108918305803 (50 digits, python-flint) | 11.631728396567448929144224109426265262108918305803154897697823558167276 |
+
+Where each goes wrong:
+
+- `Calculator::fact` and `Calculator::gamma` on BigReal (`combinatorics.cpp`) test `snapped_whole(a)`, which sees 3, then index Boost's table with `a.convert_to<unsigned>()`, which truncates the unsnapped value to 2. `scripts/native_probe kernel fact big:2.999999999999999999999999999999999999999999999999999999999999999999998944` is `2`: the kernel is the first wrong layer. The table index came with 93e1159 (#261, 2026-11-18). Before it both ran Boost `tgamma`, which gives `5.999999999999999999999999999999999999999999999999999543` and `2.000000000000000000000000000000000000000000000000000380`, right at 50 digits (C++ probe against Boost, -O2). So the factorial and gamma rows are a regression of #261's fix (PR #265): cb86888, its parent, built and run through `evaluate_branch` and `format_result`, gives `6`, `2`, `5040`, `720`, `39916800`; `mod`, `intdiv`, `nCr`, `nPr` and gcd are the same there as on master.
+- `mod` and `intdiv` run `trunc_div` (f6b340a), which catches a quotient that lands under its integer when the operands are exact, not an operand that is already under it: `trunc(2.999.../3)` is 0 and the remainder `2.999...` is under 3.
+- `nCr`, `nPr` and gcd refuse it: they read the integer exactly, guard digits included.
+- `floor`, `trunc`, `ceil` and the root degree snap first (`snap_integer`, c92ceb4, 2026-08-21) and are right.
+
+Not the multiprecision mode's (#275): the value is right to 50 digits, inside the default's line, and `6` against `2` is a wrong integer, not a lost digit. The residue shows on its own: `3^{40}/3^{39}-3` is `-1.056e-69`. No issue mentions guard digits, `snap_integer`, `trunc_div` or this operand (searched 2026-11-26).
