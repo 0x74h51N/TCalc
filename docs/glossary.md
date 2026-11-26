@@ -400,6 +400,8 @@ $\color{#3b82f6}\textbf{Snap}$: Short for snap_integer, and its verb, e.g. snapp
 
 $`\color{#3b82f6}\textbf{snap\_integer}`$: Reads a BigReal as the integer it equals at 50 digits, ignoring its guard digits, and leaves it unchanged otherwise. Used where an integer is asked for (trunc, floor, ceil, a root's degree), not on every operation. Never snaps to zero.
 
+$`\color{#3b82f6}\textbf{snapped\_whole}`$: Whether a BigReal is an integer at its 50 digits, its guard digits ignored.
+
 $\color{#3b82f6}\textbf{Splice}$: Inserting segments into a slot at an index and merging the fields that meet at the merge points (\_splice). A paren glyph among them is not inserted; its symbol is written into the field before it. It returns the field at the left merge point, or at the right one when only that one merges.
 
 $\color{#3b82f6}\textbf{Split}$: Cutting a row of tokens into the parts the math nodes are built from. The structural split carves out a LatexSplit or a ParenSplit with the prefix and the suffix around it; the operand split fills an empty side of a LaTeX expression from its neighbour. It runs in the math nodes only, not in eval.
@@ -458,6 +460,6 @@ $\color{#3b82f6}\textbf{Variadic call}$: A reduction, gcd or lcm called with sev
 
 $\color{#3b82f6}\textbf{VarStore}$: The native store of the session's variables: an assignment writes a value into it, and a later row reads it by name. There is one store for now.
 
-$\color{#3b82f6}\textbf{Whole}$: 1. The exact integer test (whole in calc/internal/helpers.hpp): floor(y) == y for a double, the same after snapping to 50 digits for a BigReal, a denominator of 1 for a Rational. A rule that must not round reads it, such as the power's domain rule: a negative base under an exponent that is not whole leaves the real domain. int_like is the loose one. 2. Whole review: one fresh reviewer reads every commit of a branch, and its uncommitted diff, against the spec and the plan before the branch is finished.
+$\color{#3b82f6}\textbf{Whole}$: 1. The exact integer test (whole in helpers.hpp): floor(y) == y for a double or a BigReal, guard digits included, a denominator of 1 for a Rational. A rule that must not round reads it, such as the power's domain rule: a negative base under an exponent that is not whole leaves the real domain. int_like is the loose one. 2. Whole review: one fresh reviewer reads every commit of a branch, and its uncommitted diff, against the spec and the plan before the branch is finished.
 
 $\color{#3b82f6}\textbf{Write-back}$: Writing a dissolved Math Widget's left slot as text into the parent field at the cursor (\_write_back_at_cursor), the dissolve path when the left slot holds no Math Widget. The cursor ends after the written text.
