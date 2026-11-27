@@ -312,7 +312,7 @@ Arg power_arg(Value base, Value exponent, const Calculator &c, Calculator::Angle
         const auto root = calc_detail::exact_int_root(*b, r->denominator());
         if (!root)
             return NotInteger{};
-        b = *root;
+        b = root;
         e = r->numerator();
     }
     if (b && e && *e >= 0) {
@@ -423,7 +423,7 @@ std::optional<Value> fold_rule(
             arg);
     for (const HugePower *p : huge)
         acc = Power(acc, p->base, p->exponent);
-    return to_value(calc_detail::item_of(*acc));
+    return to_value(calc_detail::item_of(acc.value()));
 }
 
 struct ExactRow {
@@ -431,16 +431,16 @@ struct ExactRow {
     TokenRule from_tokens;
     ValueRule from_value;
     LatexRule from_latex;
-    CallRule from_call = nullptr;
+    CallRule from_call;
 };
 
 constexpr std::array kExactRows{
-    ExactRow{OpId::Sin, trig_from_tokens, trig_from_value, nullptr},
-    ExactRow{OpId::Cos, trig_from_tokens, trig_from_value, nullptr},
-    ExactRow{OpId::Tan, trig_from_tokens, trig_from_value, nullptr},
-    ExactRow{OpId::Exp, exp_of_log, nullptr, nullptr},
-    ExactRow{OpId::Pow, nullptr, nullptr, pow_of_log},
-    ExactRow{OpId::Log, nullptr, nullptr, log_of_power},
+    ExactRow{OpId::Sin, trig_from_tokens, trig_from_value, nullptr, nullptr},
+    ExactRow{OpId::Cos, trig_from_tokens, trig_from_value, nullptr, nullptr},
+    ExactRow{OpId::Tan, trig_from_tokens, trig_from_value, nullptr, nullptr},
+    ExactRow{OpId::Exp, exp_of_log, nullptr, nullptr, nullptr},
+    ExactRow{OpId::Pow, nullptr, nullptr, pow_of_log, nullptr},
+    ExactRow{OpId::Log, nullptr, nullptr, log_of_power, nullptr},
     ExactRow{
         OpId::Gcd,
         nullptr,
