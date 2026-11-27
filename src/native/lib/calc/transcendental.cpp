@@ -206,7 +206,7 @@ BigReal Calculator::root(const BigReal &x, const BigReal &y) const {
     calc_detail::require(!(x == 0 && y < 0));
 
     if (x < 0) {
-        if (const BigReal m = BigReal(1) / y; calc_detail::whole(m))
+        if (const BigReal m = BigReal(1) / y; calc_detail::snapped_whole(m))
             return this->pow(x, m);
         calc_detail::require(calc_detail::odd_integer(y));
         if (const auto n = calc_detail::as_int(calc_detail::snap_integer(y)))

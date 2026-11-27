@@ -154,6 +154,80 @@ def test_variadic_call_args(expr: str, expected: float) -> None:
         param("sin([2,3])", "not defined for a list or point", id="scalar-fn-collection"),
         param("gcd(21, 3/9)", "only defined for integers", id="gcd-non-integer"),
         param("lcm(4, 2.5)", "only defined for integers", id="lcm-non-integer"),
+        param(
+            "gcd(10^{60}+1/2,3)", "only defined for integers", id="gcd-bigreal-fraction-past-snap"
+        ),
+        param(
+            "gcd(3^{40}/3^{39},6)", "only defined for integers", id="gcd-bigreal-just-under-integer"
+        ),
+        param("gcd(10^{19}+1/2,3)", "only defined for integers", id="gcd-bigreal-half-past-int64"),
+        param(
+            "gcd(2^{265}+1,3)", "needs multiprecision mode", id="gcd-rounded-bigreal-past-72-digits"
+        ),
+        param("gcd(10^{80}+1,3)", "needs multiprecision mode", id="gcd-bigreal-past-72-digits"),
+        param(
+            "gcd(10^{400000},10^{399999})",
+            "needs multiprecision mode",
+            id="gcd-power-token-past-bit-bound",
+        ),
+        param("gcd(1000000!,3)", "needs multiprecision mode", id="gcd-factorial-token-huge"),
+        param("gcd(2000!,3)", "needs multiprecision mode", id="gcd-factorial-token-past-bit-bound"),
+        param("gcd(2^{3},[6,10])", "List of List not allowed", id="gcd-power-token-beside-list"),
+        param(
+            "gcd(2^{9223372036854775807},0)",
+            "needs multiprecision mode",
+            id="gcd-power-past-bit-bound-beside-zero",
+        ),
+        param(
+            "gcd(2^{9223372036854775807},4^{9223372036854775807})",
+            "needs multiprecision mode",
+            id="gcd-powers-past-bit-bound-alone",
+        ),
+        param("gcd(2.5^{1000},2)", "only defined for integers", id="gcd-power-fraction-base"),
+        param("gcd(10^{400.5},2)", "only defined for integers", id="gcd-power-irrational-root"),
+        param("gcd(200.5!,2)", "only defined for integers", id="gcd-factorial-fraction"),
+        param(
+            "gcd(2.5^{1000},[1,2])", "List of List not allowed", id="gcd-fraction-power-then-list"
+        ),
+        param("gcd(2^{3},)", "empty element", id="gcd-power-token-beside-empty"),
+        param("gcd(2^{-100},2)", "only defined for integers", id="gcd-power-negative-exponent"),
+        param("gcd((-3)!,2)", "Math error", id="gcd-factorial-negative"),
+        param(
+            "gcd(2^{265},1/2)", "only defined for integers", id="gcd-power-token-beside-fraction"
+        ),
+        param("gcd(2^{265},i)", "only defined for integers", id="gcd-power-token-beside-complex"),
+        param("lcm(2^{16384},3)", "needs multiprecision mode", id="lcm-past-bit-bound"),
+        param(
+            "gcd(2^{9223372036854775807})",
+            "needs multiprecision mode",
+            id="gcd-power-past-bit-bound-alone",
+        ),
+        param(
+            "lcm(2^{9223372036854775807})",
+            "needs multiprecision mode",
+            id="lcm-power-past-bit-bound-alone",
+        ),
+        param(
+            "lcm(2^{9223372036854775807},1)",
+            "needs multiprecision mode",
+            id="lcm-power-past-bit-bound-beside-one",
+        ),
+        param(
+            "gcd(0,0,2^{9223372036854775807})",
+            "needs multiprecision mode",
+            id="gcd-power-past-bit-bound-beside-zeros",
+        ),
+        param(
+            "lcm(2^{16000},3^{10000},1.5)",
+            "only defined for integers",
+            id="lcm-fraction-after-step-past-bound",
+        ),
+        param("gcd(2^{3},1/2,[1,2])", "List of List not allowed", id="gcd-power-token-list-first"),
+        param(
+            "lcm(2^{9223372036854775807},3)",
+            "needs multiprecision mode",
+            id="lcm-power-token-infinite",
+        ),
     ],
 )
 def test_call_arg_errors(expr: str, expected_msg_substr: str) -> None:

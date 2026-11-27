@@ -8,6 +8,7 @@
 // from TCalc's own. A finding that needs one adds its row to kBoostRows.
 
 #include <array>
+#include <concepts>
 #include <optional>
 #include <cstdint>
 #include <iomanip>
@@ -21,6 +22,7 @@
 
 #include <boost/multiprecision/cpp_bin_float.hpp>
 #include <boost/multiprecision/cpp_dec_float.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 
 #include "frame.hpp"
 
@@ -74,7 +76,7 @@ template <class T, auto Fn> std::string call(std::span<const std::string> args) 
         }
     }
     throw ProbeError(
-        "this row takes another count of arguments than " + std::to_string(args.size()));
+        "this row has no form for " + std::to_string(args.size()) + " argument(s) on this type");
 }
 
 template <auto Fn> std::string run(BoostType type, std::span<const std::string> args) {
@@ -91,6 +93,15 @@ template <auto Fn> std::string run(BoostType type, std::span<const std::string> 
     throw ProbeError("a BoostType with no call");
 }
 
+template <class T> boost::multiprecision::cpp_int as_int(const T &x) {
+    return boost::multiprecision::cpp_int(x);
+}
+
+// only a cpp_dec_float has a decimal exponent; on another type the row has no form
+constexpr auto kDecOrder = []<class T>(const T &x)
+    requires std::same_as<T, boost::multiprecision::cpp_dec_float_50>
+{ return x.backend().order(); };
+
 struct BoostRow {
     std::string_view name;
     std::string (*run)(BoostType, std::span<const std::string>);
@@ -98,7 +109,25 @@ struct BoostRow {
 
 // A row, std:: named so ADL still finds Boost's overload:
 // BoostRow{"fmod", run<[](const auto &x, const auto &y) { using std::fmod; return fmod(x, y); }>}
-constexpr std::array<BoostRow, 0> kBoostRows{};
+// int_gcd and int_lcm read their operands as cpp_int, the cost of an exact integer gcd (#247).
+// dec_order and dec_shift split a cpp_dec_float into a decimal mantissa and exponent (#247).
+// whole is floor(x) == x as 1 or 0, and int512 the value through int512_t and back (#247).
+constexpr std::array kBoostRows{
+    BoostRow{
+        "int_gcd", run<[](const auto &x, const auto &y) { return gcd(as_int(x), as_int(y)); }>},
+    BoostRow{
+        "int_lcm", run<[](const auto &x, const auto &y) { return lcm(as_int(x), as_int(y)); }>},
+    BoostRow{"dec_order", run<kDecOrder>},
+    BoostRow{"dec_shift", run<[]<class T>(const T &x, const T &k) {
+                 using std::pow;
+                 return T(x * pow(T(kDecimalBase), -k));
+             }>},
+    BoostRow{"whole", run<[](const auto &x) {
+                 using std::floor;
+                 return floor(x) == x;
+             }>},
+    BoostRow{"int512", run<[](const auto &x) { return boost::multiprecision::int512_t(x); }>},
+};
 
 } // namespace
 

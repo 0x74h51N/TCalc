@@ -30,7 +30,8 @@ inline std::string unsupported_operand(std::string_view fn) {
     return "unsupported operand type for " + std::string(fn);
 }
 
-/// A power whose operands lose digits as doubles would be more than 1 ulp off in double.
+/// A power whose operands lose digits as doubles would be more than 1 ulp off in double; a gcd
+/// or lcm operand is an integer past the digits BigReal holds.
 inline constexpr std::string_view kNeedsMultiprecision = "needs multiprecision mode";
 
 /// An op asked for an operand the stack cannot give.
