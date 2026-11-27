@@ -126,6 +126,10 @@ fold_integers(const Collection &a, const char *name, SmallStep small, calc_detai
 
 namespace calc_detail {
 
+namespace {
+const BigInt kIntLimit = BigInt(1) << (kMaxIntBits + 1);
+} // namespace
+
 std::uint64_t magnitude(std::int64_t v) {
     return v < 0 ? 0 - static_cast<std::uint64_t>(v) : static_cast<std::uint64_t>(v);
 }
@@ -165,11 +169,12 @@ BigInt gcd_of(const BigInt &a, const BigInt &b) {
 }
 
 BigInt lcm_of(const BigInt &a, const BigInt &b) {
-    static const BigInt kLimit = BigInt(1) << (kMaxIntBits + 1);
-    BigInt l = mp::lcm(a, b);
-    if (l >= kLimit)
-        throw CalculatorError(std::string(tcalc::errmsg::kNeedsMultiprecision));
-    return l;
+    // A fold past the bound grows no further: item_of refuses it, unless a 0 comes later.
+    if (b == 0)
+        return 0;
+    if (a >= kIntLimit)
+        return a;
+    return mp::lcm(a, b);
 }
 
 BigInt gcd_power(const std::optional<BigInt> &acc, std::uint64_t m, std::uint64_t e) {
@@ -185,6 +190,8 @@ BigInt lcm_power(const std::optional<BigInt> &acc, std::uint64_t, std::uint64_t)
 }
 
 CollectionItem item_of(const BigInt &n) {
+    if (n >= kIntLimit)
+        throw CalculatorError(std::string(tcalc::errmsg::kNeedsMultiprecision));
     if (n <= std::numeric_limits<std::int64_t>::max())
         return CollectionItem{static_cast<std::int64_t>(n)};
     return CollectionItem{rounded_big(n)};

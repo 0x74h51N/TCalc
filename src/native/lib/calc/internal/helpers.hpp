@@ -510,7 +510,7 @@ boost::multiprecision::cpp_int int_operand(const Variant &v, const char *name) {
 /// Named functions, not mp::gcd itself: a function template does not convert to a BigStep.
 boost::multiprecision::cpp_int
 gcd_of(const boost::multiprecision::cpp_int &a, const boost::multiprecision::cpp_int &b);
-/// Throws kNeedsMultiprecision past kMaxIntBits.
+/// Past kMaxIntBits it stops growing and item_of refuses it; a 0 still makes it 0.
 boost::multiprecision::cpp_int
 lcm_of(const boost::multiprecision::cpp_int &a, const boost::multiprecision::cpp_int &b);
 
@@ -525,7 +525,8 @@ boost::multiprecision::cpp_int gcd_power(
 /// A multiple of m^e, so past kMaxIntBits too, unless the fold is 0.
 boost::multiprecision::cpp_int lcm_power(
     const std::optional<boost::multiprecision::cpp_int> &acc, std::uint64_t m, std::uint64_t e);
-/// An Int64 when it fits, else its text rounded to a BigReal.
+/// An Int64 when it fits, else its text rounded to a BigReal; past kMaxIntBits it throws
+/// kNeedsMultiprecision.
 CollectionItem item_of(const boost::multiprecision::cpp_int &n);
 
 } // namespace calc_detail

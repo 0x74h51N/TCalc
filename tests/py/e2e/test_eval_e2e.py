@@ -620,6 +620,7 @@ def _eval(expr: str) -> object:
         param("gcd(4^{600.5},6)", "int", "2", id="gcd-power-whole-root-exponent"),
         param("gcd(1e18*1.2345678901234567,100)", "int", "4", id="gcd-double-product-past-2-53"),
         param("lcm(0,10^19)", "int", "0", id="lcm-zero-beside-bigreal"),
+        param("lcm(2^{16000},3^{10000},0)", "int", "0", id="lcm-zero-after-step-past-bound"),
         param("gcd(-9223372036854775807-1,2)", "int", "2", id="gcd-int64-min-with-two"),
         param("gcd(-5)", "int", "5", id="gcd-single-negative"),
         param("lcm(-5)", "int", "5", id="lcm-single-negative"),
