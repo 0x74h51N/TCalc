@@ -198,6 +198,26 @@ def test_variadic_call_args(expr: str, expected: float) -> None:
         param("gcd(2^{265},i)", "only defined for integers", id="gcd-power-token-beside-complex"),
         param("lcm(2^{16384},3)", "needs multiprecision mode", id="lcm-past-bit-bound"),
         param(
+            "gcd(2^{9223372036854775807})",
+            "needs multiprecision mode",
+            id="gcd-power-past-bit-bound-alone",
+        ),
+        param(
+            "lcm(2^{9223372036854775807})",
+            "needs multiprecision mode",
+            id="lcm-power-past-bit-bound-alone",
+        ),
+        param(
+            "lcm(2^{9223372036854775807},1)",
+            "needs multiprecision mode",
+            id="lcm-power-past-bit-bound-beside-one",
+        ),
+        param(
+            "gcd(0,0,2^{9223372036854775807})",
+            "needs multiprecision mode",
+            id="gcd-power-past-bit-bound-beside-zeros",
+        ),
+        param(
             "lcm(2^{16000},3^{10000},1.5)",
             "only defined for integers",
             id="lcm-fraction-after-step-past-bound",

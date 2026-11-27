@@ -177,14 +177,14 @@ BigInt lcm_of(const BigInt &a, const BigInt &b) {
     return mp::lcm(a, b);
 }
 
-BigInt gcd_power(const std::optional<BigInt> &acc, std::uint64_t m, std::uint64_t e) {
-    if (!acc || *acc == 0)
+BigInt gcd_power(const BigInt &acc, std::uint64_t m, std::uint64_t e) {
+    if (acc == 0)
         throw CalculatorError(std::string(tcalc::errmsg::kNeedsMultiprecision));
-    return mp::gcd(BigInt(mp::powm(BigInt(m), e, *acc)), *acc);
+    return mp::gcd(BigInt(mp::powm(BigInt(m), e, acc)), acc);
 }
 
-BigInt lcm_power(const std::optional<BigInt> &acc, std::uint64_t, std::uint64_t) {
-    if (acc && *acc == 0)
+BigInt lcm_power(const BigInt &acc, std::uint64_t, std::uint64_t) {
+    if (acc == 0)
         return 0;
     throw CalculatorError(std::string(tcalc::errmsg::kNeedsMultiprecision));
 }

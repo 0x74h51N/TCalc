@@ -364,7 +364,8 @@ Arg read_int_row(const IntRow &r, const Calculator &c, Calculator::AngleUnit uni
 /// gcd or lcm with each power or factorial argument read from its tokens. Declines, before
 /// evaluating anything, when no argument is one or one is empty: the kernel path then runs as
 /// usual and reports the empty one where it reaches it.
-template <calc_detail::BigStep Step, calc_detail::PowerStep Power>
+/// Identity is the step's identity element, the fold before any argument: 0 for gcd, 1 for lcm.
+template <calc_detail::BigStep Step, calc_detail::PowerStep Power, int Identity>
 std::optional<Value> fold_rule(
     OpId id,
     std::span<const parser::ParenElement> args,
@@ -401,8 +402,8 @@ std::optional<Value> fold_rule(
     }
 
     const std::string name(ops::op_spec(id)->symbol);
-    std::optional<BigInt> acc;
-    const auto fold = [&acc](BigInt n) { acc = acc ? Step(*acc, n) : std::move(n); };
+    BigInt acc = Identity;
+    const auto fold = [&acc](const BigInt &n) { acc = Step(acc, n); };
     // A power past kMaxIntBits joins last, read against everything else.
     std::vector<const HugePower *> huge;
     for (const Arg &arg : read)
@@ -423,7 +424,7 @@ std::optional<Value> fold_rule(
             arg);
     for (const HugePower *p : huge)
         acc = Power(acc, p->base, p->exponent);
-    return to_value(calc_detail::item_of(acc.value()));
+    return to_value(calc_detail::item_of(acc));
 }
 
 struct ExactRow {
@@ -446,13 +447,13 @@ constexpr std::array kExactRows{
         nullptr,
         nullptr,
         nullptr,
-        fold_rule<calc_detail::gcd_of, calc_detail::gcd_power>},
+        fold_rule<calc_detail::gcd_of, calc_detail::gcd_power, 0>},
     ExactRow{
         OpId::Lcm,
         nullptr,
         nullptr,
         nullptr,
-        fold_rule<calc_detail::lcm_of, calc_detail::lcm_power>},
+        fold_rule<calc_detail::lcm_of, calc_detail::lcm_power, 1>},
 };
 
 // index_by_id rejects an out-of-range or duplicated id at compile time, so the table cannot

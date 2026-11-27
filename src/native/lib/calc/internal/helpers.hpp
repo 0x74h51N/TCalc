@@ -514,17 +514,17 @@ gcd_of(const boost::multiprecision::cpp_int &a, const boost::multiprecision::cpp
 boost::multiprecision::cpp_int
 lcm_of(const boost::multiprecision::cpp_int &a, const boost::multiprecision::cpp_int &b);
 
-/// The fold so far (empty before any other argument) with m^e, an integer past kMaxIntBits
-/// that is never built.
+/// The fold so far (the step's identity before any other argument) with m^e, an integer past
+/// kMaxIntBits that is never built.
 using PowerStep = boost::multiprecision::cpp_int (*)(
-    const std::optional<boost::multiprecision::cpp_int> &, std::uint64_t, std::uint64_t);
+    const boost::multiprecision::cpp_int &, std::uint64_t, std::uint64_t);
 /// Read modulo the fold: powm never builds m^e. Alone or beside 0 the gcd is m^e itself, which
 /// needs multiprecision mode.
-boost::multiprecision::cpp_int gcd_power(
-    const std::optional<boost::multiprecision::cpp_int> &acc, std::uint64_t m, std::uint64_t e);
+boost::multiprecision::cpp_int
+gcd_power(const boost::multiprecision::cpp_int &acc, std::uint64_t m, std::uint64_t e);
 /// A multiple of m^e, so past kMaxIntBits too, unless the fold is 0.
-boost::multiprecision::cpp_int lcm_power(
-    const std::optional<boost::multiprecision::cpp_int> &acc, std::uint64_t m, std::uint64_t e);
+boost::multiprecision::cpp_int
+lcm_power(const boost::multiprecision::cpp_int &acc, std::uint64_t m, std::uint64_t e);
 /// An Int64 when it fits, else its text rounded to a BigReal; past kMaxIntBits it throws
 /// kNeedsMultiprecision.
 CollectionItem item_of(const boost::multiprecision::cpp_int &n);
